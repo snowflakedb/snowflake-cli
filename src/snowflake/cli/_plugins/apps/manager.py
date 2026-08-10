@@ -18,11 +18,14 @@ import glob
 import json
 import logging
 import re
+import socket
+import ssl
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from contextvars import copy_context
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -37,6 +40,9 @@ from typing import (
     Tuple,
     TypeVar,
 )
+from urllib.parse import urlparse
+
+from requests.utils import DEFAULT_CA_BUNDLE_PATH
 
 DEFAULT_PERSONAL_SCHEMA = "PUBLIC"
 # Shared workspace name used by ``snow app setup`` for the code-storage backend.
@@ -96,6 +102,68 @@ PRIVILEGE_CHECK_OBJECT_NAME = "SNOWFLAKE_CLI_PRIVILEGE_CHECK"
 # to the legacy ``SHOW PARAMETERS`` flow (see ``fetch_app_service_defaults``).
 APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
 
+# ``COMPUTE_RESOURCE`` value selecting the CNG (serverless) app-service backend.
+# CNG apps serve ingress from per-account URLs (Northstar URLs) that require a
+# per-account TLS certificate to be provisioned for the account.
+SERVERLESS_COMPUTE_RESOURCE = "SERVERLESS"
+
+# System function that triggers per-account URL certificate issuance for the
+# account. Issuance is asynchronous and can take up to ~3 hours, so the CLI
+# never blocks on it — it only advises the user to run it (or runs it on their
+# behalf with ``--provision-certs``) as a pre-check before creating a CNG app.
+PER_ACCOUNT_CERT_ISSUE_FUNCTION = "SYSTEM$ISSUE_PER_ACCOUNT_APP_SERVICE_CERTIFICATE"
+
+# Domain that per-account app URLs (Northstar URLs) are served from. Note this
+# is ``snowflake.app`` — distinct from the SQL/account host's
+# ``snowflakecomputing.com`` — and per-account certs are wildcards under it
+# (``*.<org>-<account>.<infra>.snowflake.app``).
+PER_ACCOUNT_APP_DOMAIN = "snowflake.app"
+
+# Synthetic single-label subdomain used to probe the account's per-account URL
+# certificate before any app exists. A per-account cert is a wildcard for
+# ``*.<org>-<account>.<infra>.snowflake.app``, so any single label exercises it —
+# no real app needs to exist, which lets the probe run as a genuine pre-check.
+# The label is intentionally obviously-synthetic.
+CERT_PROBE_LABEL = "snowflake-cli-cert-check"
+
+# Keep the TLS probe short so the deploy pre-check never hangs on a slow or
+# unreachable ingress. A timeout is treated as UNKNOWN (non-blocking).
+CERT_PROBE_TIMEOUT_SECONDS = 5
+
+# OpenSSL certificate-verification codes (``SSLCertVerificationError.verify_code``)
+# that prove the account is *not* serving a per-account wildcard certificate:
+#   62 = hostname mismatch — a cert is served but does not cover the per-account
+#        host (only the shallower deployment wildcard is present).
+#   10 = certificate expired.
+# Every other verification failure is a trust-chain problem (self-signed=18,
+# self-signed-in-chain=19, unable-to-get-local-issuer=20, unable-to-verify-leaf=21,
+# ...): a TLS-intercepting proxy or a custom corporate CA. Those say nothing
+# about which certificate the account serves, so they are treated as UNKNOWN
+# (inconclusive) rather than blocking the deploy.
+_CERT_ABSENT_VERIFY_CODES = frozenset({10, 62})
+
+
+class PerAccountCertStatus(Enum):
+    """Outcome of the client-side per-account URL certificate TLS probe.
+
+    There is no server-side function that authoritatively reports whether a
+    per-account certificate has been issued *and is being served* (the account
+    parameter only records intent), so the CLI probes the ingress directly and
+    classifies the result into three states.
+    """
+
+    # A certificate valid for the per-account host is served (chain + hostname
+    # verification passed) — the per-account wildcard is provisioned.
+    PROVISIONED = "provisioned"
+    # A certificate is served but is not valid for the per-account host
+    # (hostname mismatch — only the deployment wildcard is present — or an
+    # expired/untrusted cert). The browser would show a TLS warning.
+    NOT_PROVISIONED = "not_provisioned"
+    # Could not determine: DNS failure (e.g. a PrivateLink host that only
+    # resolves inside the customer VPC), connection timeout/refusal, or a proxy
+    # in the path. Callers must not block on this.
+    UNKNOWN = "unknown"
+
 
 if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
@@ -105,6 +173,10 @@ from snowflake.cli._plugins.apps.events import (
     DEFAULT_EVENT_TABLE_INLINE_LIMIT,
     EVENT_TABLE_FUNCTION,
     EVENT_TABLE_MAX_ROWS_PARAMETER,
+)
+from snowflake.cli._plugins.connection.util import (
+    get_account_identifier,
+    guess_regioned_host_from_allowlist,
 )
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
@@ -1723,6 +1795,212 @@ class SnowflakeAppManager(SqlExecutionMixin):
             cursor = self.execute_query(query)
             row = cursor.fetchone()
             return row[0] if row else ""
+
+    def _org_account_slug(self) -> Optional[str]:
+        """Return ``<organization>-<account>`` as a DNS label, or ``None``.
+
+        This is the leading label of a per-account app URL (e.g.
+        ``sfengineering-gbloom``). It is resolved from the session (not the
+        connection host, which carries only the account locator) via the shared
+        :func:`get_account_identifier` helper, reused for the round-trip and its
+        ``_``→``-`` normalization rather than for error surfacing: the helper
+        raises on a NULL org/account, but the ``except`` below swallows that to
+        ``None`` so this fail-open advisory skips the check instead of erroring.
+
+        The label is lower-cased and underscores (legal in account names) are
+        mapped to hyphens, because per-account URLs render ``MY_ACCT`` as
+        ``my-acct`` and ``_`` is not a valid DNS-label character.
+        """
+        try:
+            identifier = get_account_identifier(get_cli_context().connection)
+        except Exception:
+            log.debug(
+                "Could not resolve organization/account name for cert probe.",
+                exc_info=True,
+            )
+            return None
+        slug = f"{identifier.organization_name}-{identifier.account_name}"
+        return slug.lower().replace("_", "-")
+
+    def _account_infra(self) -> Optional[str]:
+        """Return the ``<infra>`` segment of the per-account app host, or ``None``.
+
+        CNG apps are reached at ``<app>.<org>-<account>.<infra>.snowflake.app``
+        (e.g. ``qa6.us-west-2.aws`` for ``…qa6.us-west-2.aws.snowflake.app``).
+        The ``<infra>`` matches the region/deployment segment of the account's
+        *regioned* SQL host, so it is taken from the connection host by dropping
+        the leading account label and the trailing ``snowflakecomputing.com``.
+
+        Modern regionless account aliases (``myorg-myacct.snowflakecomputing.com``)
+        and legacy ``us-west-2`` accounts (whose connection host the connector
+        leaves region-less) carry no region, so this falls back to
+        :func:`guess_regioned_host_from_allowlist` (``SYSTEM$ALLOWLIST``) to
+        recover a regioned host — the same recovery the rest of the CLI uses.
+        """
+        try:
+            conn = get_cli_context().connection
+        except Exception:
+            log.debug(
+                "Could not resolve active connection for cert probe.", exc_info=True
+            )
+            return None
+
+        infra = self._infra_from_sql_host(getattr(conn, "host", None))
+        if infra:
+            return infra
+        # Region-less connection host: recover a regioned host via the allowlist.
+        return self._infra_from_sql_host(guess_regioned_host_from_allowlist(conn))
+
+    @staticmethod
+    def _infra_from_sql_host(host: Optional[str]) -> Optional[str]:
+        """Return the ``<infra>`` labels of a *regioned* SQL host, or ``None``.
+
+        A regioned host is ``<account>.<infra…>.snowflakecomputing.com`` (four or
+        more labels); the infra is everything between the account label and the
+        ``snowflakecomputing.com`` registrable domain. A trailing ``privatelink``
+        label is preserved, matching the per-account cert's PrivateLink SAN.
+        Region-less hosts (``<org>-<account>.snowflakecomputing.com``) have no
+        infra and return ``None`` so the caller can fall back to the allowlist.
+        """
+        if not host:
+            return None
+        labels = host.split(".")
+        if len(labels) < 4 or labels[-2:] != ["snowflakecomputing", "com"]:
+            return None
+        infra = ".".join(labels[1:-2])
+        return infra or None
+
+    def _per_account_app_hostname(self) -> Optional[str]:
+        """Build the per-account app URL base host, or ``None`` if it can't be derived.
+
+        Returns ``<org>-<account>.<infra>.snowflake.app`` — a different domain
+        (``snowflake.app``) and leading label (``<org>-<account>``) than the SQL
+        connection host — from :meth:`_account_infra` and :meth:`_org_account_slug`.
+        """
+        infra = self._account_infra()
+        if not infra:
+            return None
+        slug = self._org_account_slug()
+        if not slug:
+            return None
+        return f"{slug}.{infra}.{PER_ACCOUNT_APP_DOMAIN}"
+
+    @staticmethod
+    def _url_hostname(url: str) -> Optional[str]:
+        """Return the hostname component of *url* (adding a scheme if missing)."""
+        if "://" not in url:
+            url = f"https://{url}"
+        return urlparse(url).hostname
+
+    def _probe_cert_for_host(self, probe_host: str) -> PerAccountCertStatus:
+        """TLS-probe *probe_host* and classify the served certificate.
+
+        Opens a TLS connection with full chain and hostname verification against
+        the ``certifi`` trust store (the same bundle the Snowflake connector
+        uses, so a host the connector trusts is trusted here too); the bundle
+        path comes from ``requests`` (already a dependency, and it points at
+        certifi) to avoid a new direct dependency on ``certifi``. A per-account
+        certificate is a wildcard for ``*.<org>-<account>.<infra>.snowflake.app``,
+        while the fallback deployment certificate covers a shallower wildcard
+        that cannot match a per-account app host — so a clean handshake means the
+        per-account cert is provisioned and served.
+
+        A verification failure is classified by ``verify_code``: only a hostname
+        mismatch or an expired cert (:data:`_CERT_ABSENT_VERIFY_CODES`) proves
+        the per-account wildcard is absent (``NOT_PROVISIONED``). A trust-chain
+        failure — a TLS-intercepting proxy or a custom corporate CA — says
+        nothing about which cert the account serves and is inconclusive
+        (``UNKNOWN``), so it never blocks the deploy. Network/DNS failures
+        (PrivateLink hosts that only resolve inside the customer VPC, timeouts,
+        proxy-only egress) are likewise ``UNKNOWN``.
+        """
+        # Passing ``cafile`` makes CPython skip ``load_default_certs()``, so this
+        # verifies against certifi *only* (no system trust store) — matching the
+        # connector. This is deliberate: an internal CA present in the system
+        # store but not certifi yields a trust-chain failure → UNKNOWN →
+        # fail-open, which is the safe direction here. Do not re-add the default
+        # certs, or a private-CA (e.g. PrivateLink) handshake would verify and
+        # reintroduce the hostname-vs-trust ambiguity this classification removes.
+        context = ssl.create_default_context(cafile=DEFAULT_CA_BUNDLE_PATH)
+        try:
+            with socket.create_connection(
+                (probe_host, 443), timeout=CERT_PROBE_TIMEOUT_SECONDS
+            ) as sock:
+                with context.wrap_socket(sock, server_hostname=probe_host):
+                    return PerAccountCertStatus.PROVISIONED
+        except ssl.SSLCertVerificationError as exc:
+            if exc.verify_code in _CERT_ABSENT_VERIFY_CODES:
+                log.debug(
+                    "Per-account cert probe: %s does not serve a per-account "
+                    "certificate (verify_code=%s): %s",
+                    probe_host,
+                    exc.verify_code,
+                    exc,
+                )
+                return PerAccountCertStatus.NOT_PROVISIONED
+            log.debug(
+                "Per-account cert probe for %s failed trust validation "
+                "(inconclusive, verify_code=%s): %s",
+                probe_host,
+                exc.verify_code,
+                exc,
+            )
+            return PerAccountCertStatus.UNKNOWN
+        except OSError as exc:
+            # OSError covers socket errors, timeouts, DNS failures, and
+            # non-verification ssl.SSLError — all inconclusive.
+            log.debug("Per-account cert probe could not reach %s: %s", probe_host, exc)
+            return PerAccountCertStatus.UNKNOWN
+
+    def per_account_cert_probe_host(self) -> Optional[str]:
+        """Return the synthetic host to probe for a *pre-create* cert check.
+
+        Before ``CREATE APPLICATION SERVICE`` no app exists, so callers probe a
+        synthetic single label under the account's app host
+        (``<CERT_PROBE_LABEL>.<org>-<account>.<infra>.snowflake.app``); because
+        the per-account cert is a wildcard, any single label exercises it.
+        Returns ``None`` when the app host cannot be derived — the caller must
+        treat that as "no evidence" and skip the check rather than warn.
+        """
+        base = self._per_account_app_hostname()
+        if not base:
+            log.debug("Could not derive per-account app hostname; cannot probe cert.")
+            return None
+        return f"{CERT_PROBE_LABEL}.{base}"
+
+    def per_account_cert_status_for_host(self, host: str) -> PerAccountCertStatus:
+        """Probe the per-account URL certificate served for *host*.
+
+        Returns :data:`PerAccountCertStatus.UNKNOWN` for a host that is not a
+        per-account (``snowflake.app``) host — e.g. an SPCS app on
+        ``snowflakecomputing.app`` — since such a probe says nothing about the
+        per-account certificate and must not be attributed to it.
+        """
+        if not host or not host.endswith(f".{PER_ACCOUNT_APP_DOMAIN}"):
+            log.debug(
+                "Host %r is not a per-account URL host; skipping cert probe.", host
+            )
+            return PerAccountCertStatus.UNKNOWN
+        return self._probe_cert_for_host(host)
+
+    def per_account_cert_status_for_url(self, url: str) -> PerAccountCertStatus:
+        """Probe the per-account URL certificate for an existing app *url*.
+
+        Used by ``snow app open`` once the app exists: the resolved
+        ``DESCRIBE APPLICATION SERVICE`` URL is already a real per-account app
+        host, so this probes it directly — the exact certificate the browser
+        would see — rather than deriving/synthesizing a host.
+        """
+        return self.per_account_cert_status_for_host(self._url_hostname(url) or "")
+
+    def issue_per_account_url_cert(self) -> None:
+        """Trigger per-account URL certificate issuance for the account.
+
+        Calls :data:`PER_ACCOUNT_CERT_ISSUE_FUNCTION`. Issuance is asynchronous
+        and can take up to ~3 hours, so callers must not block on completion —
+        this only kicks off provisioning.
+        """
+        self.execute_query(f"SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}()")
 
     def create_app_service(
         self,

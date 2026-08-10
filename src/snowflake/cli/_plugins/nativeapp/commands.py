@@ -620,6 +620,15 @@ def app_deploy(
         hidden=True,
         help="Deprecated alias for --promote-only.",
     ),
+    provision_certs: bool = typer.Option(
+        False,
+        "--provision-certs",
+        help="(Snowflake App Runtime only) When deploying a CNG (serverless) app whose "
+        "account has no per-account URL certificate yet, trigger certificate "
+        "provisioning automatically instead of only printing the system-function "
+        "command. Provisioning is asynchronous (up to ~3 hours); the deploy still "
+        "stops so it can be re-run once provisioning completes.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -654,6 +663,7 @@ def app_deploy(
             build_only,
             promote_only or deploy_only,
             interactive=interactive,
+            provision_certs=provision_certs,
         )
 
     _reject_snowflake_app_options(
@@ -662,6 +672,7 @@ def app_deploy(
             "--upload-only": True if upload_only else None,
             "--build-only": True if build_only else None,
             "--promote-only": True if (promote_only or deploy_only) else None,
+            "--provision-certs": True if provision_certs else None,
         },
     )
 
