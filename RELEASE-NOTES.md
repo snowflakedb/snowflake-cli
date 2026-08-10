@@ -24,6 +24,10 @@
 ## Fixes and improvements
 * `snow app events` for Snowflake App Runtime projects can now return more events by requesting a higher `--last` value.
 * `snow app deploy` with workspace-backed storage now builds from `versions/live/` (the current working state) instead of the last committed version. In the Workspaces editor, files auto-save to the live version continuously — reading `versions/last` during the build phase caused stale content to be deployed when running from a live workspace session.
+* DCM projects: the `snow dcm preview`, `snow dcm refresh`, and `snow dcm test`
+  commands are not yet generally available. They are now hidden from `--help`
+  unless the `enable_dcm_preview_features` CLI feature flag is enabled, so they no
+  longer appear in `snow dcm --help` without an explicit opt-in.
 
 
 # v3.24.1
