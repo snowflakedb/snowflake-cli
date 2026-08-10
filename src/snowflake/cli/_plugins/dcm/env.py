@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 import os
-from typing import Dict, Optional, Set
+from typing import Collection, Dict, Optional, Set
 
 from dotenv import dotenv_values
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME
@@ -21,6 +22,8 @@ from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
+
+log = logging.getLogger(__name__)
 
 
 def _warn_about_missing(missing: Set[str], source_description: str) -> None:
@@ -31,6 +34,12 @@ def _warn_about_missing(missing: Set[str], source_description: str) -> None:
     )
 
 
+def _log_resolved(names: Collection[str], source_description: str) -> None:
+    # Names only, never values -- some of these may be secrets.
+    if names:
+        log.info("Resolved env vars from %s: %s", source_description, sorted(names))
+
+
 def collect_env_vars(declared_names: Set[str]) -> Dict[str, str]:
     """Collect values for declared env var names from the process environment.
 
@@ -38,6 +47,7 @@ def collect_env_vars(declared_names: Set[str]) -> Dict[str, str]:
     a warning and are omitted — GS handles the absence.
     """
     result = {name: os.environ[name] for name in declared_names if name in os.environ}
+    _log_resolved(result.keys(), "the shell environment")
     missing = declared_names - result.keys()
     if missing:
         _warn_about_missing(missing, "the shell environment")
@@ -73,11 +83,14 @@ def resolve_declared_env_vars(
         return collect_env_vars(declared_names)
 
     file_values = parse_env_file(env_file)
+    from_shell = {name for name in declared_names if name in os.environ}
     result = {
         name: os.environ[name] if name in os.environ else file_values[name]
         for name in declared_names
         if name in os.environ or name in file_values
     }
+    _log_resolved(from_shell, "the shell environment")
+    _log_resolved(result.keys() - from_shell, f"env file '{env_file.path}'")
     missing = declared_names - result.keys()
     if missing:
         _warn_about_missing(

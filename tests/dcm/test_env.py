@@ -198,8 +198,7 @@ def test_parse_env_file_unquoted_value_containing_hash_is_truncated(tmp_path):
     """An unquoted value with a whitespace-preceded '#' is silently cut at
     the '#' -- the same inline-comment stripping as the test above, just
     pinned for a value where truncation is unwanted (e.g. a secret that
-    happens to contain '#'). Quoting preserves the full value; this is why
-    the --env-file help text tells users to quote such values."""
+    happens to contain '#'). Quoting preserves the full value."""
     env_file = tmp_path / ".env"
     env_file.write_text("AWS_SECRET_KEY=abc #123def\n")
 
