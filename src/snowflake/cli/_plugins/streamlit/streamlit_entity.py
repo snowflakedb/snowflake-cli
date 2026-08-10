@@ -30,6 +30,24 @@ from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
+# Snowflake errno / SQLSTATE for "live version already exists" (same codes as
+# SnowflakeAppManager.ensure_workspace_live_version).
+_LIVE_VERSION_EXISTS_ERRNO = 99106
+
+
+def _is_live_version_already_exists_error(exc: ProgrammingError) -> bool:
+    """Return True when ADD LIVE VERSION failed because a live version exists.
+
+    Matches errno/SQLSTATE first, with a message-text fallback for older
+    connectors that omit errno.
+    """
+    error_text = str(exc)
+    if getattr(exc, "errno", None) == _LIVE_VERSION_EXISTS_ERRNO or (
+        "099106" in error_text and "42710" in error_text
+    ):
+        return True
+    return "There is already a live version" in error_text
+
 
 class _TagRef(NamedTuple):
     name: str
@@ -523,6 +541,35 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
 
+    def _ensure_live_version_location_uri(self) -> str:
+        """Return the live-version stage URI, creating a live version if needed.
+
+        Called after a versioned CREATE / CREATE OR REPLACE so the object is
+        already on the embedded-stage (non-ROOT_LOCATION) path. Legacy
+        ROOT_LOCATION apps are converted via CREATE OR REPLACE first — we do
+        not issue ADD LIVE VERSION against a ROOT_LOCATION object.
+        """
+        try:
+            self._execute_query(self.get_add_live_version_sql())
+        except ProgrammingError as e:
+            if _is_live_version_already_exists_error(e):
+                log.info("Live version already exists, continuing")
+            else:
+                raise
+
+        row = self.describe().fetchone()
+        stage_root = row.get("live_version_location_uri") if row else None
+        if not stage_root:
+            raise CliError(
+                "Snowflake did not report a versioned stage location for Streamlit "
+                f"{self.model.fqn}, so the app files could not be uploaded "
+                "(DESCRIBE STREAMLIT returned an empty live_version_location_uri). "
+                "Please re-run with --legacy to deploy using the legacy ROOT_LOCATION "
+                "layout, or check with your account administrator that versioned "
+                "Streamlit apps are enabled for this account."
+            )
+        return stage_root
+
     def _deploy_versioned(
         self,
         bundle_map: BundleMap,
@@ -531,14 +578,26 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         object_exists: bool = False,
     ):
         if object_exists:
-            current = self.describe().fetchone()
-            alter_sql = self.get_alter_sql(current=current)
-            if alter_sql:
-                self._execute_query(alter_sql)
-            self._sync_tags()
-            # Live version already exists — upload new files directly to the
-            # existing stage without issuing ADD LIVE VERSION FROM LAST.
-            stage_root = current["live_version_location_uri"]
+            current = self.describe().fetchone() or {}
+            stage_root = current.get("live_version_location_uri")
+            if not stage_root:
+                # Legacy ROOT_LOCATION app: recreate as versioned rather than
+                # ALTER + ADD LIVE VERSION on an object that still has
+                # ROOT_LOCATION (unverified / leaves a hybrid state).
+                self._execute_query(
+                    self.get_deploy_sql(
+                        replace=True,
+                        legacy=False,
+                    )
+                )
+                stage_root = self._ensure_live_version_location_uri()
+            else:
+                # Already versioned — update properties in place and upload to
+                # the existing live URI (do not re-issue ADD LIVE VERSION).
+                alter_sql = self.get_alter_sql(current=current)
+                if alter_sql:
+                    self._execute_query(alter_sql)
+                self._sync_tags()
         else:
             self._execute_query(
                 self.get_deploy_sql(
@@ -547,14 +606,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                     legacy=False,
                 )
             )
-            try:
-                self._execute_query(self.get_add_live_version_sql())
-            except ProgrammingError as e:
-                if "There is already a live version" in str(e):
-                    log.info("Live version already exists, continuing")
-                else:
-                    raise
-            stage_root = self.describe().fetchone()["live_version_location_uri"]
+            stage_root = self._ensure_live_version_location_uri()
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
         sync_deploy_root_with_stage(

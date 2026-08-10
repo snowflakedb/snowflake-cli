@@ -3,7 +3,11 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.object.common import Tag
-from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity, _TagRef
+from snowflake.cli._plugins.streamlit.streamlit_entity import (
+    StreamlitEntity,
+    _is_live_version_already_exists_error,
+    _TagRef,
+)
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
     StreamlitEntityModel,
@@ -13,6 +17,7 @@ from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.connector.errors import ProgrammingError
 
 from tests.conftest import MockCursor
 from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
@@ -745,6 +750,217 @@ class TestStreamlitEntity(StreamlitTestClass):
             "Deployment style is changing from versioned to legacy" in str(call)
             for call in workspace_context.console.warning.call_args_list
         )
+
+    def _setup_versioned_replace_mocks(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        workspace_context,
+        *,
+        existing_is_legacy: bool,
+        live_uri: str | None = None,
+        describe_side_effect=None,
+        describe_return=None,
+    ):
+        """Shared wiring for versioned --replace deploy tests.
+
+        Returns ``(entity, mock_stage_manager, live_uri)``.
+        """
+        live_uri = live_uri or (
+            f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        )
+        mock_object_exists.return_value = True
+        mock_is_legacy.return_value = existing_is_legacy
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+        if describe_side_effect is not None:
+            self.mock_describe.side_effect = describe_side_effect
+        elif describe_return is not None:
+            self.mock_describe.return_value = describe_return
+
+        mock_stage_manager = mock_stage_manager_cls.return_value
+        mock_stage_manager.stage_path_parts_from_str.return_value = mock.Mock()
+
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            query_warehouse="test_warehouse",
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+        return entity, mock_stage_manager, live_uri
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_replace_legacy_recreates_as_versioned(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """Replacing a legacy ROOT_LOCATION app recreates it as versioned.
+
+        CREATE OR REPLACE (no ROOT_LOCATION) then ADD LIVE VERSION, rather than
+        ALTER + ADD LIVE VERSION on an object that still has ROOT_LOCATION.
+        """
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        legacy_describe = mock.Mock()
+        legacy_describe.fetchone.return_value = {
+            "live_version_location_uri": None,
+            "query_warehouse": "test_warehouse",
+        }
+        versioned_describe = mock.Mock()
+        versioned_describe.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+        }
+        # call 1: pre-conversion DESCRIBE (legacy, no URI);
+        # call 2: post-ADD-LIVE DESCRIBE inside _ensure_live_version_location_uri
+        entity, mock_stage_manager, live_uri = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=True,
+            live_uri=live_uri,
+            describe_side_effect=[legacy_describe, versioned_describe],
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        create_or_replace_calls = [
+            c
+            for c in self.mock_execute.call_args_list
+            if "CREATE OR REPLACE STREAMLIT" in str(c)
+        ]
+        assert len(create_or_replace_calls) == 1
+        assert "ROOT_LOCATION" not in str(create_or_replace_calls[0])
+        alter_calls = [
+            c for c in self.mock_execute.call_args_list if "ALTER STREAMLIT" in str(c)
+        ]
+        # Only ADD LIVE VERSION ALTER — no property ALTER on the legacy object
+        assert all("ADD LIVE VERSION" in str(c) for c in alter_calls)
+        add_live_calls = [
+            c for c in self.mock_execute.call_args_list if "ADD LIVE VERSION" in str(c)
+        ]
+        assert len(add_live_calls) == 1
+        mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
+        mock_sync.assert_called_once()
+        assert mock_sync.call_args.kwargs["force_overwrite"] is True
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_replace_existing_versioned_skips_add_live_version(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """Existing versioned apps already have a live version; do not re-add."""
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+        }
+        entity, mock_stage_manager, live_uri = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        add_live_calls = [
+            c for c in self.mock_execute.call_args_list if "ADD LIVE VERSION" in str(c)
+        ]
+        assert add_live_calls == []
+        mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
+
+    def test_is_live_version_already_exists_error_matches_errno(self):
+        errno_exc = ProgrammingError(errno=99106, msg="duplicate")
+        assert _is_live_version_already_exists_error(errno_exc) is True
+
+        sqlstate_exc = ProgrammingError(msg="099106 ... 42710")
+        assert _is_live_version_already_exists_error(sqlstate_exc) is True
+
+        message_exc = ProgrammingError(msg="There is already a live version")
+        assert _is_live_version_already_exists_error(message_exc) is True
+
+        other = ProgrammingError(errno=1234, msg="something else")
+        assert _is_live_version_already_exists_error(other) is False
+
+    def test_ensure_live_version_raises_when_describe_returns_no_row(
+        self, workspace_context
+    ):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+        empty = mock.Mock()
+        empty.fetchone.return_value = None
+        self.mock_describe.return_value = empty
+
+        with pytest.raises(CliError) as e:
+            entity._ensure_live_version_location_uri()  # noqa: SLF001
+
+        message = str(e.value)
+        assert "did not report a versioned stage location" in message
+        # Keep the error actionable: name a workaround and the field to check.
+        assert "--legacy" in message
+        assert "live_version_location_uri" in message
 
     @pytest.mark.parametrize(
         "field,payload",
