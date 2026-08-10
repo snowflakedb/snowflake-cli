@@ -200,6 +200,22 @@
   |                                                    build phase has already   |
   |                                                    completed). Skips the     |
   |                                                    upload and build phases.  |
+  | --provision-certs                                  (Snowflake App Runtime    |
+  |                                                    only) When deploying a    |
+  |                                                    CNG (serverless) app      |
+  |                                                    whose account has no      |
+  |                                                    per-account URL           |
+  |                                                    certificate yet, trigger  |
+  |                                                    certificate provisioning  |
+  |                                                    automatically instead of  |
+  |                                                    only printing the         |
+  |                                                    system-function command.  |
+  |                                                    Provisioning is           |
+  |                                                    asynchronous (up to ~3    |
+  |                                                    hours); the deploy still  |
+  |                                                    stops so it can be re-run |
+  |                                                    once provisioning         |
+  |                                                    completes.                |
   | --package-entity-id                          TEXT  (Native App only) The ID  |
   |                                                    of the package entity on  |
   |                                                    which to operate when the |
