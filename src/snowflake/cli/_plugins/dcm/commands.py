@@ -153,12 +153,9 @@ env_file_option = typer.Option(
     None,
     "--env-file",
     "-e",
-    help="Path to a .env file (KEY=VALUE per line) to source declared "
-    "environment variables/secrets from, layered under the shell "
-    "environment. The shell always wins on a name declared in both; the "
-    "file only fills in names the shell doesn't already provide. Quote a "
-    "value containing '#' or leading/trailing whitespace, or it's silently "
-    "truncated at the '#' or trimmed.",
+    help="Path to a KEY=VALUE file to load as environment variables. "
+    "Shell variables take precedence — file values are only used for "
+    "names not already set in the shell.",
     show_default=False,
     click_type=LocalFileType(),
     hidden=not FeatureFlag.ENABLE_DCM_PROJECT_ENV_VARS.is_enabled(),
