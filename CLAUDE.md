@@ -21,6 +21,13 @@ truth for contributing to this repository — which guides to read, the mandator
 code conventions, and the contribution process. Everything in AGENTS.md applies
 to Claude Code.
 
+## Upgrading a dependency
+
+Upgrading a Python dependency is covered by the **`upgrade-package`** skill
+(`.claude/skills/upgrade-package/`). It activates automatically when you say
+"upgrade", "bump", or "update dependency". You can also invoke it explicitly
+with `/upgrade-package`.
+
 ## Adding a command or plugin
 
 Adding a command, command group, subcommand, or plugin to the CLI is covered by
