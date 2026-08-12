@@ -57,9 +57,11 @@ jobs:
   # Non-blocking informational job: run UD tests on trusted PRs
   ud-integration:
     name: UD Integration (ubuntu-latest, py3.12)
+    needs: [changes]
     runs-on: ubuntu-latest
     continue-on-error: true
     if: |
+      needs.changes.outputs.code == 'true' &&
       github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
