@@ -29,6 +29,7 @@
   unless the `enable_dcm_preview_features` CLI feature flag is enabled, so they no
   longer appear in `snow dcm --help` without an explicit opt-in.
 * `snow streamlit deploy --replace`: fixed a crash when replacing a legacy `ROOT_LOCATION` Streamlit app with a versioned deployment.
+* Upgraded `GitPython` from 3.1.57 to 3.1.58.
 
 
 # v3.24.1
