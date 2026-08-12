@@ -206,7 +206,9 @@ class RemoteBuildManager(SqlExecutionMixin):
         rest = RestApi(self._conn)
         # job_name is a path segment (not a query param), so it needs URL path quoting rather
         # than urlencode — e.g. quoted identifiers may contain spaces or other reserved chars.
-        url = f"{_REMOTE_BUILD_JOBS_URL}/{quote(job_name, safe='')}"
+        # safe='$' preserves the literal '$' in FQN job names like USER$ADMIN.PUBLIC.JOB_XYZ,
+        # which the server accepts as-is; percent-encoding it (%24) causes a 404.
+        url = f"{_REMOTE_BUILD_JOBS_URL}/{quote(job_name, safe='$')}"
         try:
             response = rest.send_rest_request(url=url, method="get")
         except Exception as err:
