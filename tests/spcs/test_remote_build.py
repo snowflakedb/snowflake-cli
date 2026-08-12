@@ -350,6 +350,24 @@ class TestRemoteBuildManagerGetRemoteBuilder:
         assert "MY%20DB" in url
         assert "?" not in url
 
+    @patch(_REST_API_SEND)
+    def test_get_remote_builder_preserves_dollar_sign_in_fqn(self, mock_send):
+        """'$' in FQN job names (USER$ADMIN.PUBLIC.JOB_XYZ) must NOT be percent-encoded.
+
+        The server matches the literal '$' in the path segment; encoding it as %24
+        results in a 404.
+        """
+        mock_send.return_value = dict(_SAMPLE_JOB)
+        manager = self._make_manager()
+
+        manager.get_remote_builder("USER$ADMIN.PUBLIC.JOB_ABC")
+
+        url = mock_send.call_args[1]["url"]
+        assert url.endswith(
+            "/remote-build/jobs/USER$ADMIN.PUBLIC.JOB_ABC"
+        ), "URL must end with the literal job name, '$' and dots intact"
+        assert "%24" not in url, "'$' must not be percent-encoded"
+
 
 class TestRemoteBuildManagerListRemoteBuilds:
     """Tests for list_remote_build_jobs → GET /api/v2/remote-build/jobs."""
