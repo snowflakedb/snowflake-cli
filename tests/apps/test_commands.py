@@ -25,10 +25,10 @@ from snowflake.cli._plugins.apps.commands import (
     _CodeStorage,
     _ensure_cng_url_cert_ready,
     _ensure_utf8_output,
+    _entity_code_storage,
     _is_cng_compute_resource,
     _log_service_logs,
     _make_build_log_streamer,
-    _resolve_code_storage,
     _utf8_output,
     _warn_if_cng_url_cert_missing,
 )
@@ -6784,7 +6784,7 @@ class TestResolveCodeStorage:
     def test_explicit_workspace_is_honored(self):
         ws = Mock(database="WS_DB", schema_="WS_SCHEMA")
         ws.name = "MY_WS"
-        storage = _resolve_code_storage(
+        storage = _entity_code_storage(
             self._entity(code_workspace=ws),
             database="TEST_DB",
             schema="TEST_SCHEMA",
@@ -6801,7 +6801,7 @@ class TestResolveCodeStorage:
     def test_explicit_stage_on_regular_db_is_honored(self):
         stage = Mock(database=None, schema_=None, encryption_type="SNOWFLAKE_SSE")
         stage.name = "MY_STAGE"
-        storage = _resolve_code_storage(
+        storage = _entity_code_storage(
             self._entity(code_stage=stage),
             database="TEST_DB",
             schema="TEST_SCHEMA",
@@ -6817,7 +6817,7 @@ class TestResolveCodeStorage:
         stage = Mock(database=None, schema_=None, encryption_type="SNOWFLAKE_SSE")
         stage.name = "MY_APP_CODE"
         with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
-            storage = _resolve_code_storage(
+            storage = _entity_code_storage(
                 self._entity(code_stage=stage),
                 database="USER$SNOTEBAERT",
                 schema="PUBLIC",
@@ -6832,8 +6832,33 @@ class TestResolveCodeStorage:
         )
         mock_console.warning.assert_called_once()
 
+    def test_explicit_stage_in_standard_db_on_personal_destination_no_warning(self):
+        """A ``code_stage`` with its own standard-database FQN is honored without
+        a warning even when the service is deployed to a personal database: the
+        stage lives independently of the service, so it is only a problem when
+        the stage itself resolves into a personal database."""
+        stage = Mock(
+            database="STD_DB", schema_="PUBLIC", encryption_type="SNOWFLAKE_SSE"
+        )
+        stage.name = "MY_APP_CODE"
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_console:
+            storage = _entity_code_storage(
+                self._entity(code_stage=stage),
+                database="USER$SNOTEBAERT",
+                schema="PUBLIC",
+                app_name="MY_APP",
+            )
+        assert storage == _CodeStorage(
+            type="stage",
+            name="MY_APP_CODE",
+            database_override="STD_DB",
+            schema_override="PUBLIC",
+            encryption_type="SNOWFLAKE_SSE",
+        )
+        mock_console.warning.assert_not_called()
+
     def test_no_code_storage_on_regular_db_defaults_to_stage(self):
-        storage = _resolve_code_storage(
+        storage = _entity_code_storage(
             self._entity(),
             database="TEST_DB",
             schema="TEST_SCHEMA",
@@ -6843,7 +6868,7 @@ class TestResolveCodeStorage:
         assert storage.name == "MY_APP_CODE"
 
     def test_no_code_storage_on_personal_db_defaults_to_workspace(self):
-        storage = _resolve_code_storage(
+        storage = _entity_code_storage(
             self._entity(),
             database="USER$SNOTEBAERT",
             schema="PUBLIC",

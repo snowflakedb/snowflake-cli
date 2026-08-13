@@ -166,9 +166,11 @@ class PerAccountCertStatus(Enum):
 
 
 if TYPE_CHECKING:
+    from snowflake.cli._plugins.apps.app_yml import AppYmlTarget
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
         SnowflakeAppEntityModel,
     )
+import yaml
 from snowflake.cli._plugins.apps.events import (
     DEFAULT_EVENT_TABLE_INLINE_LIMIT,
     EVENT_TABLE_FUNCTION,
@@ -265,6 +267,25 @@ def app_fqn(
         database=to_identifier(str(database)) if database else None,
         schema=to_identifier(str(schema)) if schema else None,
         name=to_identifier(str(name)),
+    )
+
+
+def _qualify_object_name(
+    value: str, database: Optional[str], schema: Optional[str]
+) -> str:
+    """Qualify a schema-scoped object name with a default database/schema.
+
+    Accepts a bare name or a ``DB.SCHEMA.NAME`` identifier: the identifier's own
+    database/schema (when present) win, and any missing component falls back to
+    *database* / *schema*. Returns the value unchanged when it cannot be fully
+    qualified (no defaults supplied), matching how the CLI resolves its other
+    ``app.yml`` identifiers.
+    """
+    parsed = FQN.from_string(value)
+    return (
+        parsed.set_database(parsed.database or database)
+        .set_schema(parsed.schema or schema)
+        .identifier
     )
 
 
@@ -2056,6 +2077,129 @@ class SnowflakeAppManager(SqlExecutionMixin):
         if version:
             query += f"\nTO VERSION {version}"
         self.execute_query(query)
+
+    @staticmethod
+    def build_service_specification(
+        target: "AppYmlTarget",
+        *,
+        database: Optional[str] = None,
+        schema: Optional[str] = None,
+        include_prefix_url: bool = False,
+    ) -> str:
+        """Render an inline application-service ``SPECIFICATION`` from a target.
+
+        The ``targets`` block in ``app.yml`` describes per-environment service
+        configuration (see :mod:`snowflake.cli._plugins.apps.app_yml`); this
+        maps the fields that belong to the service manifest to the YAML passed
+        inline on ``CREATE OR ALTER APPLICATION SERVICE ... SPECIFICATION =
+        $$...$$``. Field names match the manifest one-to-one
+        (``query_warehouse``, ``external_access_integrations``, ``secrets`` as a
+        list of ``{name, secret}``, ``environment_variables`` as a list of
+        ``{name, value}``, etc.).
+
+        Each ``secrets`` entry references a schema-scoped Snowflake secret; a
+        bare name is qualified with the deployment ``database`` / ``schema``
+        (the service's scope) so it resolves the same way the CLI's own
+        identifiers do, while a fully-qualified ``DB.SCHEMA.NAME`` is left as
+        written. When ``database`` / ``schema`` are omitted the value passes
+        through unchanged.
+
+        ``prefix_url`` is a CNG-only (serverless) field, so it is emitted only
+        when *include_prefix_url* is set — the caller gates it on the CNG compute
+        resource behind the feature flag — and dropped otherwise.
+
+        Deployment-location fields (``name`` / ``database`` / ``schema`` /
+        ``account``) locate and name the service and are not part of the
+        specification. Only fields the target actually sets are emitted;
+        ``CREATE OR ALTER`` is declarative, so any field omitted here is
+        cleared/reset on the service.
+        """
+        spec: Dict[str, Any] = {}
+        if target.query_warehouse:
+            spec["query_warehouse"] = target.query_warehouse
+        if include_prefix_url and target.prefix_url:
+            spec["prefix_url"] = target.prefix_url
+        if target.label:
+            spec["label"] = target.label
+        if target.description:
+            spec["description"] = target.description
+        if target.icon:
+            spec["icon"] = target.icon
+        if target.execute_as_role:
+            spec["execute_as_role"] = target.execute_as_role
+        if target.auto_resume is not None:
+            spec["auto_resume"] = target.auto_resume
+        if target.auto_suspend_secs is not None:
+            spec["auto_suspend_secs"] = target.auto_suspend_secs
+        if target.min_instances is not None:
+            spec["min_instances"] = target.min_instances
+        if target.max_instances is not None:
+            spec["max_instances"] = target.max_instances
+        if target.external_access_integrations:
+            spec["external_access_integrations"] = list(
+                target.external_access_integrations
+            )
+        if target.secrets:
+            spec["secrets"] = [
+                {
+                    "name": s.name,
+                    "secret": _qualify_object_name(s.secret, database, schema),
+                }
+                for s in target.secrets
+            ]
+        if target.environment_variables:
+            spec["environment_variables"] = [
+                {"name": e.name, "value": e.value} for e in target.environment_variables
+            ]
+        return yaml.safe_dump(spec, sort_keys=False, default_flow_style=False)
+
+    def create_or_alter_app_service(
+        self,
+        service_fqn: FQN,
+        artifact_repo_fqn: str,
+        package_name: str,
+        specification: str,
+        version: str = "LATEST",
+        compute_resource: Optional[str] = None,
+    ) -> None:
+        """Create or declaratively update an application service from a package.
+
+        Emits ``CREATE OR ALTER APPLICATION SERVICE`` with the target's
+        configuration supplied inline via ``SPECIFICATION = $$...$$``. Unlike
+        the ``CREATE`` + ``ALTER ... UPGRADE`` pair used by the ``snowflake.yml``
+        flow, ``CREATE OR ALTER`` converges the service to the full desired
+        state in a single statement, so it handles both first deploy and
+        redeploy.
+
+        ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
+        the write-once ``COMPUTE_RESOURCE`` DDL clause — it is not owned by the
+        ``SPECIFICATION`` and so is emitted alongside it. It is immutable after
+        the first deploy, and callers gate it behind the
+        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
+        clause is omitted and the server defaults the backend.
+
+        The specification is dollar-quoted (``$$...$$``) and embeds
+        user-supplied app.yml values verbatim (``label`` / ``description`` /
+        ``environment_variables`` values, ...); any of those can contain a
+        literal ``$$`` that would terminate the quote early, so it is rejected
+        up front. ``package_name`` is routed through :func:`to_identifier`
+        (a no-op for plain identifiers, quoting anything else) so an unusual
+        name cannot break out of the ``PACKAGE`` clause; ``service_fqn`` /
+        ``artifact_repo_fqn`` are already built via :func:`app_fqn`, which
+        quotes each component the same way.
+        """
+        if "$$" in specification:
+            raise CliError("Application service specification must not contain '$$'.")
+        parts = [
+            f"CREATE OR ALTER APPLICATION SERVICE {service_fqn.identifier}",
+            f"FROM ARTIFACT REPOSITORY {artifact_repo_fqn} "
+            f"PACKAGE {to_identifier(package_name)}",
+            f"VERSION {version}",
+        ]
+        if compute_resource:
+            parts.append(f"COMPUTE_RESOURCE = {compute_resource}")
+        parts.append(f"SPECIFICATION = $$\n{specification}$$")
+        self.execute_query("\n".join(parts))
 
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive
