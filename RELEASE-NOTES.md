@@ -21,6 +21,7 @@
 ## New additions
 * `snow connection add` now supports `--client-store-temporary-credential`, which writes `client_store_temporary_credential = true` to the new connection in `config.toml`.
 * `snow sql --local-only` default can now be set via the `SNOWFLAKE_CLI_SQL_LOCAL_ONLY` environment variable. Accepted values: `1/true/yes/on` (enable) and `0/false/no/off` (disable). When unset, the default remains `false`.
+* The `snow app` commands now support an `app.yml` (version 2 or higher) for Snowflake App Runtime projects; when present it drives the flow instead of `snowflake.yml` (the Native App flow is unchanged). Its `targets` block declares named per-environment deployments, and a new `--target` flag on `deploy`, `open`, `events`, `teardown`, and `validate` selects which one to use. `snow app deploy` runs an upload → build → deploy pipeline that can be limited to a single phase with `--upload-only`, `--build-only`, or `--promote-only`.
 
 ## Fixes and improvements
 * `snow app events` for Snowflake App Runtime projects can now return more events by requesting a higher `--last` value.
