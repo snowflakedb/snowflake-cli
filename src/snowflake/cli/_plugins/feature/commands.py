@@ -249,9 +249,52 @@ def _to_message(text: str) -> CommandResult:
     return MessageResult(text)
 
 
+# Column order for the ``plan`` / ``apply`` ops table.  ``type`` leads
+# (BatchFeatureView / StreamingFeatureView / Entity / FeatureGroup / ...)
+# so the ops table matches the ``type``-first layout of ``snow feature
+# list``; ``status`` only appears on apply rows.
+_OPS_DISPLAY_COLUMNS = [
+    "type",
+    "name",
+    "operation",
+    "reason",
+    "destructive",
+    "status",
+]
+
+
+def _project_ops_columns(rows: list[dict]) -> list[dict]:
+    """Order op rows as ``type | name | operation | ...`` with stable order.
+
+    Known columns come first in ``_OPS_DISPLAY_COLUMNS`` order (only those
+    present in a row); any extra keys (e.g. ``error``) follow in their
+    original order so no op detail is dropped.  Guards against older
+    decl builds whose op dicts omit ``type``.
+    """
+    out: list[dict] = []
+    for row in rows:
+        ordered: dict = {col: row[col] for col in _OPS_DISPLAY_COLUMNS if col in row}
+        for key, value in row.items():
+            if key not in ordered:
+                ordered[key] = value
+        out.append(ordered)
+    return out
+
+
+def _actionable_ops(ops: Optional[list]) -> list:
+    """Drop ``NO_CHANGE`` ops for display purposes only.
+
+    ``NO_CHANGE`` rows are noise in the CLI table/header — operators care
+    about what actually changes.  This filter is cosmetic: the plan JSON
+    written by ``write_plan`` and the plan consumed by ``apply`` still
+    carry every ``NO_CHANGE`` op untouched.
+    """
+    return [o for o in (ops or []) if o.get("operation") != "NO_CHANGE"]
+
+
 def _ops_result(result: dict) -> CommandResult:
     """Render plan/apply results: ops as a table, or a summary message."""
-    ops = result.get("ops", [])
+    ops = _project_ops_columns(_actionable_ops(result.get("ops", [])))
     warnings = result.get("warnings", [])
     if ops:
         return _to_collection(ops, all_columns=True)
@@ -328,7 +371,7 @@ def _print_status_header(result: dict) -> None:
     status = result.get("status", "")
     if not status:
         return
-    ops = result.get("ops", []) or []
+    ops = _actionable_ops(result.get("ops", []))
     total = len(ops)
     executed_value = result.get("executed")
     if executed_value is None:
@@ -337,6 +380,18 @@ def _print_status_header(result: dict) -> None:
         f"Status: {status}  Operations: {total} (executed: {executed_value})\n"
     )
     sys.stderr.flush()
+
+
+def _resolve_export_python(python_form: bool, yaml_form: bool) -> bool:
+    """Resolve the export form from the ``--python`` / ``--yaml`` flags.
+
+    Python is the default form, so a bare invocation (neither flag) or
+    an explicit ``--python`` both export ``.py`` files; ``--yaml``
+    opts into YAML.  Passing both flags is contradictory and rejected.
+    """
+    if python_form and yaml_form:
+        raise ClickException("Pass only one of --python / --yaml.")
+    return not yaml_form
 
 
 # ---------------------------------------------------------------------------
@@ -360,7 +415,12 @@ def init(
     python_form: bool = typer.Option(
         False,
         "--python",
-        help="Export deployed objects as .py files (Pydantic constructors) instead of YAML.",
+        help="Export deployed objects as .py files (Pydantic constructors).  This is the default form; pass --yaml to export YAML instead.",
+    ),
+    yaml_form: bool = typer.Option(
+        False,
+        "--yaml",
+        help="Export deployed objects as YAML files instead of the default .py Pydantic constructors.",
     ),
     **options,
 ) -> CommandResult:
@@ -373,8 +433,8 @@ def init(
     scaffolds ``sources/{entities,datasources,feature_views}/`` plus
     ``out/plan/.gitkeep``, runs the Snowflake-side ``FeatureStore``
     bootstrap (CREATE_IF_NOT_EXIST), and pulls every deployed object
-    into ``sources/`` as YAML (or ``.py`` files when ``--python`` is
-    passed).
+    into ``sources/`` as ``.py`` files (Pydantic constructors) by
+    default, or as YAML when ``--yaml`` is passed.
 
     Re-running ``init`` is fully idempotent: the existing manifest is
     preserved, the FS bootstrap re-runs, and the export refreshes the
@@ -384,6 +444,7 @@ def init(
     error (the manifest is the source of truth — edit it directly to
     move a target).
     """
+    export_python = _resolve_export_python(python_form, yaml_form)
     db_override: Optional[str] = options.get("database")
     sch_override: Optional[str] = options.get("schema")
     del options
@@ -392,7 +453,7 @@ def init(
         target_name=target,
         database=db_override,
         schema=sch_override,
-        python=python_form,
+        python=export_python,
     )
     _print_warnings(result)
     return _to_object(result)
@@ -422,7 +483,12 @@ def sync(
     python_form: bool = typer.Option(
         False,
         "--python",
-        help="Export deployed objects as .py files (Pydantic constructors) instead of YAML.",
+        help="Export deployed objects as .py files (Pydantic constructors).  This is the default form; pass --yaml to export YAML instead.",
+    ),
+    yaml_form: bool = typer.Option(
+        False,
+        "--yaml",
+        help="Export deployed objects as YAML files instead of the default .py Pydantic constructors.",
     ),
     **options,
 ) -> CommandResult:
@@ -433,16 +499,18 @@ def sync(
     not re-bootstrap the Snowflake runtime.
 
     Use ``--name`` to sync a single named object; omit it to sync
-    everything.  Use ``--python`` to emit ``.py`` Pydantic
-    constructors instead of YAML.  Use ``snow feature plan`` after
-    syncing to verify the round-trip produces all NO_CHANGE ops.
+    everything.  Objects are emitted as ``.py`` Pydantic constructors
+    by default; pass ``--yaml`` to emit YAML instead.  Use ``snow
+    feature plan`` after syncing to verify the round-trip produces all
+    NO_CHANGE ops.
     """
+    export_python = _resolve_export_python(python_form, yaml_form)
     del options
     result = FeatureManager().sync(
         from_dir=from_location,
         target_name=target,
         name_filter=name,
-        python=python_form,
+        python=export_python,
     )
     _print_warnings(result)
     return _to_object(result)

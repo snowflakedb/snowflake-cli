@@ -276,7 +276,7 @@ class FeatureManager(SqlExecutionMixin):
         target_name: Optional[str] = None,
         database: Optional[str] = None,
         schema: Optional[str] = None,
-        python: bool = False,
+        python: bool = True,
     ) -> dict[str, Any]:
         """Idempotent project bootstrap that pulls deployed artifacts.
 
@@ -296,8 +296,9 @@ class FeatureManager(SqlExecutionMixin):
            against the resolved target's db/schema to seed the
            Snowflake-side runtime.
         5. Run the export pipeline against the target's db/schema and
-           write YAMLs into ``<project_root>/sources/{entities,
-           datasources,feature_views}/`` (the manifest project tree).
+           write ``.py`` files (or YAML when ``python=False``) into
+           ``<project_root>/sources/{entities,datasources,
+           feature_views}/`` (the manifest project tree).
 
         Re-running ``init`` is a noop on step 2 only — every other
         step re-runs idempotently so the on-disk view stays in sync
@@ -321,9 +322,9 @@ class FeatureManager(SqlExecutionMixin):
             schema: Optional schema override.  Symmetric to *database*
                 — baked into a fresh manifest, mismatch-rejected on a
                 re-init.
-            python: When ``True``, export deployed objects as ``.py``
-                files (Pydantic constructor calls) instead of YAML.
-                Default ``False`` (YAML mode).
+            python: When ``True`` (the default), export deployed
+                objects as ``.py`` files (Pydantic constructor calls).
+                Set ``False`` to export YAML instead.
 
         Returns:
             ``{status, project_root, manifest_path, target,
@@ -469,7 +470,7 @@ class FeatureManager(SqlExecutionMixin):
         project_root: Path,
         database: str,
         schema: str,
-        python: bool = False,
+        python: bool = True,
         name_filter: Optional[str] = None,
     ) -> dict[str, Any]:
         """Run the deployed-state export pipeline into ``<project_root>/sources/``.
@@ -512,14 +513,15 @@ class FeatureManager(SqlExecutionMixin):
         exporter, the loader, and the planner agree on every hash").
 
         Args:
-            project_root: Project-root directory.  YAMLs are written
-                under ``<project_root>/sources/{entities,datasources,
-                feature_views,feature_groups}/``.
+            project_root: Project-root directory.  Spec files are
+                written under ``<project_root>/sources/{entities,
+                datasources,feature_views,feature_groups}/``.
             database: Snowflake database to export from.
             schema: Snowflake schema to export from.
-            python: When ``True``, delegate to
+            python: When ``True`` (the default), delegate to
                 :func:`decl_api.export_specs_as_python` and emit
-                ``.py`` files instead of YAML.  Default ``False``.
+                ``.py`` files.  Set ``False`` to emit YAML via
+                :func:`decl_api.export_specs`.
 
         Returns:
             The envelope returned by :func:`decl_api.export_specs` or
@@ -616,8 +618,8 @@ class FeatureManager(SqlExecutionMixin):
             name_filter: Optional exact-match, case-insensitive filter.
                 When set, only the object whose name equals
                 *name_filter* (across all kinds) is written.
-            python: When ``True``, emit ``.py`` Pydantic constructors
-                instead of YAML.
+            python: When ``True`` (the CLI default), emit ``.py``
+                Pydantic constructors.  Set ``False`` to emit YAML.
 
         Returns:
             Dict with ``status='synced'``, ``files``, ``directory``,
@@ -1079,18 +1081,16 @@ class FeatureManager(SqlExecutionMixin):
         return {
             **self._target_info(target),
             "status": "ready",
+            # ``format_op_display_row`` stamps the object ``type``
+            # (BatchFeatureView / StreamingFeatureView / Entity /
+            # FeatureGroup / ...) as the first key so the rendered plan
+            # table leads with type then name, matching ``snow feature
+            # list``.  It preserves the spec's original-case ``name`` so
+            # the plan UI, the on-disk JSON written by ``write_plan``, and
+            # the apply-time per-op rendering share one canonical
+            # identifier.
             "ops": [
-                {
-                    "operation": op.kind.value,
-                    # Preserve the spec's original-case name so the
-                    # rendered plan UI, the on-disk JSON written by
-                    # ``write_plan``, and the apply-time per-op
-                    # rendering all share one canonical identifier.
-                    "name": op.name,
-                    "reason": op.reason,
-                    "destructive": op.destructive,
-                }
-                for op in getattr(plan, "ops", [])
+                decl_api.format_op_display_row(op) for op in getattr(plan, "ops", [])
             ],
             "executed": 0,
             "warnings": [str(w) for w in warnings]

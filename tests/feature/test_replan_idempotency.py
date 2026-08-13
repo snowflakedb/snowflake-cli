@@ -530,14 +530,14 @@ class TestReplanIdenticalSpec:
         strip, the live re-plan against any deployed FV would tip into
         the BUG_BASH §9 cascade because the Snowflake-stamped fields
         bump the ``content_hash`` away from
-        ``_compute_local_spec_hash(local)``.
+        ``compute_local_spec_hash(local)``.
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         # Inject extra Snowflake-stamped keys the local compiler does
         # not produce.  The strip-before-hash contract must absorb these
         # so the SPECIFICATION-backed AppliedObject's content_hash
-        # collides with _compute_local_spec_hash(local).
+        # collides with compute_local_spec_hash(local).
         divergent = _golden_specification()
         divergent.setdefault("metadata", {})
         divergent["metadata"]["oft_id"] = "9999999999999999"

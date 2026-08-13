@@ -185,7 +185,9 @@ def test_print_status_header_emits_status_and_counts(capsys):
     )
     captured = capsys.readouterr()
     assert "Status: applied" in captured.err
-    assert "Operations: 2" in captured.err
+    # NO_CHANGE is omitted from the operator-facing count, so only the
+    # single CREATE_FV op is tallied.
+    assert "Operations: 1" in captured.err
     assert "executed: 1" in captured.err
     assert captured.out == ""
 
@@ -361,6 +363,116 @@ def test_ops_result_message_body_no_longer_includes_status_line():
     rendered = cmd_result.message
     assert "Status:" not in rendered, rendered
     assert "Operations: 0" in rendered, rendered
+
+
+def test_ops_result_omits_no_change():
+    """``NO_CHANGE`` ops are cosmetic noise and must not appear in the
+    rendered CLI table — only actionable ops are shown."""
+    from snowflake.cli._plugins.feature.commands import _ops_result
+
+    cmd_result = _ops_result(
+        {
+            "status": "ready",
+            "ops": [
+                {"operation": "CREATE_FV", "name": "A"},
+                {"operation": "NO_CHANGE", "name": "B"},
+                {"operation": "UPDATE_FV", "name": "C"},
+            ],
+        }
+    )
+    rows = list(cmd_result.result)
+    operations = [r["operation"] for r in rows]
+    assert operations == ["CREATE_FV", "UPDATE_FV"]
+    assert "NO_CHANGE" not in operations
+
+
+def test_ops_result_all_no_change_is_empty_message():
+    """When every op is ``NO_CHANGE`` the table collapses to the
+    ``Operations: 0`` summary message rather than a table of skips."""
+    from snowflake.cli._plugins.feature.commands import _ops_result
+
+    cmd_result = _ops_result(
+        {
+            "status": "ready",
+            "ops": [
+                {"operation": "NO_CHANGE", "name": "A"},
+                {"operation": "NO_CHANGE", "name": "B"},
+            ],
+        }
+    )
+    assert "Operations: 0" in cmd_result.message
+
+
+def test_ops_result_orders_type_before_name():
+    """The plan/apply ops table must lead with ``type`` then ``name``,
+    matching ``snow feature list``.  Column order follows the first row's
+    dict key order, so the projection must place ``type`` first."""
+    from snowflake.cli._plugins.feature.commands import _ops_result
+
+    cmd_result = _ops_result(
+        {
+            "status": "ready",
+            "ops": [
+                {
+                    "type": "BatchFeatureView",
+                    "name": "MY_BFV",
+                    "operation": "CREATE_FV",
+                    "reason": "new",
+                    "destructive": False,
+                },
+                {
+                    "type": "Entity",
+                    "name": "USER_ID",
+                    "operation": "CREATE_ENTITY",
+                    "reason": "new",
+                    "destructive": False,
+                },
+            ],
+        }
+    )
+    rows = list(cmd_result.result)
+    assert list(rows[0].keys())[:2] == ["type", "name"]
+    assert rows[0]["type"] == "BatchFeatureView"
+    assert rows[1]["type"] == "Entity"
+
+
+def test_project_ops_columns_orders_and_preserves_error():
+    """Known columns are ordered ``type``-first; extra keys such as
+    ``error`` are preserved after the known columns."""
+    from snowflake.cli._plugins.feature.commands import _project_ops_columns
+
+    rows = _project_ops_columns(
+        [
+            {
+                "status": "error",
+                "operation": "CREATE_FV",
+                "error": "boom",
+                "name": "X",
+                "type": "StreamingFeatureView",
+                "reason": "new",
+                "destructive": False,
+            }
+        ]
+    )
+    assert list(rows[0].keys()) == [
+        "type",
+        "name",
+        "operation",
+        "reason",
+        "destructive",
+        "status",
+        "error",
+    ]
+
+
+def test_project_ops_columns_tolerates_missing_type():
+    """An older decl build may omit ``type``; the projection must not
+    inject empty columns and simply orders the keys that exist."""
+    from snowflake.cli._plugins.feature.commands import _project_ops_columns
+
+    rows = _project_ops_columns([{"operation": "CREATE_FV", "name": "X"}])
+    assert "type" not in rows[0]
+    assert list(rows[0].keys()) == ["name", "operation"]
 
 
 # ---------------------------------------------------------------------------
@@ -1312,6 +1424,8 @@ def test_init_help_lists_new_flags_and_drops_old_ones(mock_manager, runner):
     assert "--target" in text
     assert "--database" in text
     assert "--schema" in text
+    assert "--python" in text
+    assert "--yaml" in text
 
     # Removed flags.
     assert "--no-scaffold" not in text
@@ -1331,6 +1445,42 @@ def test_init_calls_manager_with_cwd_project_root(mock_manager, runner):
     assert "project_root" in kwargs
     assert isinstance(kwargs["project_root"], Path)
     assert kwargs["project_root"] == Path.cwd()
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_default_python_is_true(mock_manager, runner):
+    """``snow feature init`` defaults to the Python export form (``python=True``)."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(["feature", "init"])
+    assert result.exit_code == 0, result.output
+    assert mock_manager.return_value.init.call_args.kwargs["python"] is True
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_python_flag(mock_manager, runner):
+    """``--python`` (explicit alias for the default) threads ``python=True``."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(["feature", "init", "--python"])
+    assert result.exit_code == 0, result.output
+    assert mock_manager.return_value.init.call_args.kwargs["python"] is True
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_yaml_flag(mock_manager, runner):
+    """``--yaml`` threads ``python=False`` to the manager."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(["feature", "init", "--yaml"])
+    assert result.exit_code == 0, result.output
+    assert mock_manager.return_value.init.call_args.kwargs["python"] is False
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_init_python_and_yaml_conflict(mock_manager, runner):
+    """Passing both ``--python`` and ``--yaml`` is a usage error."""
+    mock_manager.return_value.init.return_value = _INIT_RESULT_STUB
+    result = runner.invoke(["feature", "init", "--python", "--yaml"])
+    assert result.exit_code != 0
+    mock_manager.return_value.init.assert_not_called()
 
 
 @mock.patch(FEATURE_MANAGER)
@@ -1494,7 +1644,7 @@ _SYNC_RESULT_STUB = {
 def test_sync_default_flags(mock_manager, runner):
     """``snow feature sync`` with no extra flags calls ``FeatureManager().sync()``
     with ``from_dir=Path.cwd()``, ``target_name=None``, ``name_filter=None``,
-    and ``python=False``.
+    and ``python=True`` (Python is the default export form).
     """
     mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
     result = runner.invoke(["feature", "sync"])
@@ -1504,7 +1654,7 @@ def test_sync_default_flags(mock_manager, runner):
     assert isinstance(kwargs["from_dir"], Path)
     assert kwargs["target_name"] is None
     assert kwargs["name_filter"] is None
-    assert kwargs["python"] is False
+    assert kwargs["python"] is True
 
 
 @mock.patch(FEATURE_MANAGER)
@@ -1519,12 +1669,31 @@ def test_sync_name_flag(mock_manager, runner):
 
 @mock.patch(FEATURE_MANAGER)
 def test_sync_python_flag(mock_manager, runner):
-    """``--python`` threads ``python=True`` to the manager."""
+    """``--python`` (explicit alias for the default) threads ``python=True``."""
     mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
     result = runner.invoke(["feature", "sync", "--python"])
     assert result.exit_code == 0, result.output
     kwargs = mock_manager.return_value.sync.call_args.kwargs
     assert kwargs["python"] is True
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_sync_yaml_flag(mock_manager, runner):
+    """``--yaml`` threads ``python=False`` to the manager."""
+    mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
+    result = runner.invoke(["feature", "sync", "--yaml"])
+    assert result.exit_code == 0, result.output
+    kwargs = mock_manager.return_value.sync.call_args.kwargs
+    assert kwargs["python"] is False
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_sync_python_and_yaml_conflict(mock_manager, runner):
+    """Passing both ``--python`` and ``--yaml`` is a usage error."""
+    mock_manager.return_value.sync.return_value = _SYNC_RESULT_STUB
+    result = runner.invoke(["feature", "sync", "--python", "--yaml"])
+    assert result.exit_code != 0
+    mock_manager.return_value.sync.assert_not_called()
 
 
 @mock.patch(FEATURE_MANAGER)
@@ -1549,11 +1718,12 @@ def test_sync_target_flag(mock_manager, runner):
 
 @mock.patch(FEATURE_MANAGER)
 def test_sync_help_text(mock_manager, runner):
-    """``--name``, ``--python``, ``--target``, and ``--from`` all appear in help."""
+    """``--name``, ``--python``, ``--yaml``, ``--target``, and ``--from`` appear in help."""
     result = runner.invoke(["feature", "sync", "--help"])
     assert result.exit_code == 0, result.output
     text = result.output
     assert "--name" in text
     assert "--python" in text
+    assert "--yaml" in text
     assert "--target" in text
     assert "--from" in text

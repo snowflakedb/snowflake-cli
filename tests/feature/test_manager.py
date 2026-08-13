@@ -603,6 +603,7 @@ class TestFeatureManagerInit:
                 project_root=tmp_path,
                 database="OVERRIDE_DB",
                 schema="OVERRIDE_SCHEMA",
+                python=False,
             )
 
         # FeatureStore is built against the override db/schema.
@@ -678,8 +679,10 @@ class TestFeatureManagerInit:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
             FeatureManager().init(project_root=tmp_path)
 
-        mock_decl.export_specs.assert_called_once()
-        call = mock_decl.export_specs.call_args
+        # Python is the default export form, so a bare init() routes to
+        # export_specs_as_python.
+        mock_decl.export_specs_as_python.assert_called_once()
+        call = mock_decl.export_specs_as_python.call_args
         # The output dir handed to decl_api.export_specs is the project
         # root (NOT a per-DB subdir): the exporter then writes into
         # <project_root>/sources/{...}/ when layout="sources".
@@ -772,7 +775,7 @@ class TestFeatureManagerInit:
         fs_patch, cm_patch = self._patch_feature_store()
         with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(project_root=tmp_path)
+            FeatureManager().init(project_root=tmp_path, python=False)
 
         mock_decl.export_specs.assert_called_once()
         assert mock_decl.export_specs.call_args.kwargs.get("layout") == "sources"
@@ -854,6 +857,7 @@ class TestFeatureManagerInit:
                 project_root=tmp_path,
                 database="TEST_DB",
                 schema="TEST_SCHEMA",
+                python=False,
             )
 
         # FS bootstrap + export run against the manifest target.
@@ -894,7 +898,9 @@ class TestFeatureManagerInit:
         fs_patch, cm_patch = self._patch_feature_store()
         with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(project_root=tmp_path, target_name="STAGING")
+            FeatureManager().init(
+                project_root=tmp_path, target_name="STAGING", python=False
+            )
 
         export_call = mock_decl.export_specs.call_args
         assert export_call.args[3] == "STAGING_DB"
@@ -988,7 +994,7 @@ class TestInitPythonFlag:
     def test_python_false_calls_export_specs_not_python_variant(
         self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
-        """Default (python=False) must call export_specs, not export_specs_as_python."""
+        """Explicit python=False must call export_specs, not export_specs_as_python."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         fs_patch, cm_patch = self._patch_feature_store()
@@ -998,6 +1004,20 @@ class TestInitPythonFlag:
 
         mock_decl.export_specs.assert_called_once()
         mock_decl.export_specs_as_python.assert_not_called()
+
+    def test_default_calls_export_specs_as_python(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Default (no python= kwarg) must call export_specs_as_python."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.export_specs_as_python.assert_called_once()
+        mock_decl.export_specs.assert_not_called()
 
     def test_python_true_uses_sources_layout(
         self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
@@ -1065,6 +1085,47 @@ class TestFeatureManagerPlan:
         assert result["status"] == "ready"
         assert result["errors"] == []
         assert len(result["ops"]) == 1
+
+    def test_plan_ops_lead_with_object_type_before_name(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The plan UI ops carry the object ``type`` (BatchFeatureView /
+        Entity / ...) as the first key before ``name`` so the rendered
+        table matches ``snow feature list``.  Uses the real
+        ``format_op_display_row`` facade to pin the wiring."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.api import format_op_display_row
+        from snowflake.ml.feature_store.decl.enums import OpKind
+        from snowflake.ml.feature_store.decl.types import PlanOp
+
+        _write_manifest(tmp_path)
+        ops = [
+            PlanOp(
+                kind=OpKind.CREATE_FV,
+                name="MY_BFV",
+                payload={"kind": "BatchFeatureView", "name": "MY_BFV"},
+            ),
+            PlanOp(
+                kind=OpKind.CREATE_ENTITY,
+                name="USER_ID",
+                payload={"kind": "Entity", "name": "USER_ID"},
+            ),
+        ]
+        mock_decl.generate_plan.return_value = mock.MagicMock(
+            name="plan", ops=ops, warnings=[]
+        )
+        mock_decl.format_op_display_row.side_effect = format_op_display_row
+
+        result = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            dev_mode=False,
+            allow_recreate=False,
+        )
+
+        assert [op["type"] for op in result["ops"]] == ["BatchFeatureView", "Entity"]
+        assert all(list(op.keys())[:2] == ["type", "name"] for op in result["ops"])
 
     def test_plan_returns_validation_failed_when_validate_specs_returns_errors(
         self, mock_execute_query, mock_decl, tmp_path
@@ -1769,7 +1830,7 @@ class TestFeatureManagerInitDtTextRecovery:
         fs_patch, cm_patch = self._patch_feature_store()
         with fs_patch, cm_patch as mock_cm:
             mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
-            FeatureManager().init(project_root=tmp_path)
+            FeatureManager().init(project_root=tmp_path, python=False)
 
         mock_decl.export_specs.assert_called_once()
         kwargs = mock_decl.export_specs.call_args.kwargs
