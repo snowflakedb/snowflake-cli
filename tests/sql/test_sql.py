@@ -14,6 +14,7 @@
 import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from textwrap import dedent
 from unittest import mock
 
 import pytest
@@ -791,6 +792,76 @@ def test_command_local_only_default_false(mock_manager, mock_cursor, runner):
     assert result.exit_code == 0, result.output
     _, kwargs = mock_manager().execute.call_args
     assert kwargs["local_only"] is False
+
+
+@pytest.mark.parametrize(
+    "env_val,expected",
+    [
+        ("1", True),
+        ("true", True),
+        ("True", True),
+        ("0", False),
+        ("false", False),
+        ("False", False),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_local_only_env_var(mock_manager, mock_cursor, runner, env_val, expected):
+    """SNOWFLAKE_CLI_SQL_LOCAL_ONLY env var controls the default for --local-only."""
+    mock_manager().execute.return_value = (0, mock_cursor([], []))
+    result = runner.invoke(
+        ["sql", "-q", "select 1"],
+        env={"SNOWFLAKE_CLI_SQL_LOCAL_ONLY": env_val},
+    )
+    assert result.exit_code == 0, result.output
+    _, kwargs = mock_manager().execute.call_args
+    assert kwargs["local_only"] is expected
+
+
+def test_local_only_env_var_invalid_value(runner):
+    """An unrecognised SNOWFLAKE_CLI_SQL_LOCAL_ONLY value must cause a non-zero exit."""
+    result = runner.invoke(
+        ["sql", "-q", "select 1"],
+        env={"SNOWFLAKE_CLI_SQL_LOCAL_ONLY": "maybe"},
+    )
+    assert result.exit_code != 0
+    assert "Expected boolean value for cli.sql_local_only" in result.output
+
+
+@pytest.mark.parametrize(
+    "config_value,expected",
+    [
+        ("true", True),
+        ("1", True),
+        ("false", False),
+        ("0", False),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_local_only_config_value(
+    mock_manager, mock_cursor, runner, config_file, config_value, expected
+):
+    """cli.sql_local_only in the config file controls the default for --local-only."""
+    mock_manager().execute.return_value = (0, mock_cursor([], []))
+    config = dedent(
+        f"""\
+        [connections.default]
+        database = "db_for_test"
+        schema = "test_public"
+        role = "test_role"
+        warehouse = "xs"
+        password = "dummy_password"
+
+        [cli]
+        sql_local_only = "{config_value}"
+        """
+    )
+    with config_file(config) as cfg:
+        result = runner.invoke_with_config_file(cfg, ["sql", "-q", "select 1"])
+
+    assert result.exit_code == 0, result.output
+    _, kwargs = mock_manager().execute.call_args
+    assert kwargs["local_only"] is expected
 
 
 @pytest.mark.parametrize(
