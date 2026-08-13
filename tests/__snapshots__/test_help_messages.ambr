@@ -23430,7 +23430,11 @@
   |                                                             content should   |
   |                                                             be reviewed      |
   |                                                             locally before   |
-  |                                                             execution.       |
+  |                                                             execution. [env  |
+  |                                                             var:             |
+  |                                                             SNOWFLAKE_CLI_S… |
+  |                                                             | config:        |
+  |                                                             cli.sql_local_o… |
   | --no-prompt-exit…                                           Do not prompt    |
   |                                                             before exiting   |
   |                                                             the REPL.        |

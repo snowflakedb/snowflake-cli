@@ -57,6 +57,12 @@ class _EnabledTemplating(str, Enum):
     NONE = "NONE"
 
 
+def _local_only_callback(value: Optional[bool]) -> bool:
+    if value is None:
+        return get_config_bool_value("cli", key="sql_local_only", default=False)
+    return value
+
+
 def _parse_template_syntax_config(
     enabled_syntaxes: List[_EnabledTemplating],
 ) -> SQLTemplateSyntaxConfig:
@@ -124,15 +130,17 @@ def execute_sql(
         case_sensitive=False,
     ),
     local_only: bool = typer.Option(
-        False,
+        None,
         "--local-only",
+        callback=_local_only_callback,
         help=(
             "Restrict !source and !load to local files. When set, "
             "!source/!load directives that reference http:// or https:// URLs "
             "are rejected instead of being fetched. Use this flag in "
             "environments where SQL inputs should not trigger outbound "
             "network requests, or when running SQL files whose content "
-            "should be reviewed locally before execution."
+            "should be reviewed locally before execution. "
+            "[env var: SNOWFLAKE_CLI_SQL_LOCAL_ONLY | config: cli.sql_local_only]"
         ),
         is_flag=True,
     ),
