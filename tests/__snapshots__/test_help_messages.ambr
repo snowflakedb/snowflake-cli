@@ -216,6 +216,14 @@
   |                                                    stops so it can be re-run |
   |                                                    once provisioning         |
   |                                                    completes.                |
+  | --target                                     TEXT  (Snowflake App Runtime    |
+  |                                                    only) Name of the target  |
+  |                                                    (environment) to deploy,  |
+  |                                                    as declared in the        |
+  |                                                    'targets' block of        |
+  |                                                    app.yml (version 2 or     |
+  |                                                    higher). Defaults to      |
+  |                                                    'targets.default'.        |
   | --package-entity-id                          TEXT  (Native App only) The ID  |
   |                                                    of the package entity on  |
   |                                                    which to operate when the |
@@ -673,6 +681,15 @@
   |                                                      instead of              |
   |                                                      human-readable          |
   |                                                      conversions.            |
+  | --target                     TEXT                    (Snowflake App Runtime  |
+  |                                                      only) Name of the       |
+  |                                                      target (environment) to |
+  |                                                      query events for, as    |
+  |                                                      declared in the         |
+  |                                                      'targets' block of      |
+  |                                                      app.yml (version 2 or   |
+  |                                                      higher). Defaults to    |
+  |                                                      'targets.default'.      |
   | --package-entity-id          TEXT                    (Native App only) The   |
   |                                                      ID of the package       |
   |                                                      entity on which to      |
@@ -869,6 +886,11 @@
   | --watch                            (Snowflake App Runtime only) Do not fail  |
   |                                    if the app service does not exist yet;    |
   |                                    poll until its endpoint is ready.         |
+  | --target                     TEXT  (Snowflake App Runtime only) Name of the  |
+  |                                    target (environment) to open, as declared |
+  |                                    in the 'targets' block of app.yml         |
+  |                                    (version 2 or higher). Defaults to        |
+  |                                    'targets.default'.                        |
   | --package-entity-id          TEXT  (Native App only) The ID of the package   |
   |                                    entity on which to operate when the       |
   |                                    definition_version is 2 or higher.        |
@@ -3653,6 +3675,14 @@
   |                                                    in an interactive shell   |
   |                                                    environment, and False    |
   |                                                    otherwise.                |
+  | --target                                     TEXT  (Snowflake App Runtime    |
+  |                                                    only) Name of the target  |
+  |                                                    (environment) to tear     |
+  |                                                    down, as declared in the  |
+  |                                                    'targets' block of        |
+  |                                                    app.yml (version 2 or     |
+  |                                                    higher). Defaults to      |
+  |                                                    'targets.default'.        |
   | --package-entity-id                          TEXT  (Native App only) The ID  |
   |                                                    of the package entity on  |
   |                                                    which to operate when the |
@@ -3835,6 +3865,11 @@
    snowflake.yml) are accessible.                                                 
                                                                                   
   +- Options --------------------------------------------------------------------+
+  | --target                     TEXT  (Snowflake App Runtime only) Name of the  |
+  |                                    target (environment) to validate, as      |
+  |                                    declared in the 'targets' block of        |
+  |                                    app.yml (version 2 or higher). Defaults   |
+  |                                    to 'targets.default'.                     |
   | --package-entity-id          TEXT  (Native App only) The ID of the package   |
   |                                    entity on which to operate when the       |
   |                                    definition_version is 2 or higher.        |
