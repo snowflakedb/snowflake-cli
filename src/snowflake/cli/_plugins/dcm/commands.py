@@ -602,27 +602,23 @@ def plan(
         project_id = context.project_identifier
         env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-        progress = MultiStepProgress([UPLOAD, RENDER, COMPILE, PLAN])
+        server_steps = [RENDER, COMPILE, PLAN]
+        progress = MultiStepProgress([UPLOAD, *server_steps])
         with progress_session(progress):
             manager = DCMProjectManager()
             effective_stage = _upload_step(
                 progress, manager, project_id, from_location, assets=context.assets
             )
-            # The backend doesn't report progress for `plan` yet, so RENDER/COMPILE
-            # are simulated as instantly-completing steps. Once it does (soon),
-            # replace these with real ServerPoll-driven tracking, as in `deploy`.
-            progress.run_step(RENDER.key, lambda step: None)
-            progress.run_step(COMPILE.key, lambda step: None)
-            result = progress.run_step(
-                PLAN.key,
-                lambda step: manager.plan(
-                    project_identifier=project_id,
-                    configuration=context.configuration,
-                    from_stage=effective_stage,
-                    variables=variables,
-                    save_output=save_output,
-                    delta=delta,
-                    env_vars=env_vars,
+            result = manager.plan(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                save_output=save_output,
+                delta=delta,
+                env_vars=env_vars,
+                progress_poll=lambda sfqid: _run_server_poll(
+                    manager, progress, server_steps, sfqid
                 ),
             )
 

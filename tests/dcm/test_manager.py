@@ -702,6 +702,87 @@ def test_plan_project_with_output_path__exception_handling(
     )
 
 
+def test_plan_project_tracks_server_progress_when_polling(mock_conn_cursor):
+    """With a poller, PLAN is submitted async and the poller's cursor returned."""
+    mgr = DCMProjectManager()
+    poll_result = mock.MagicMock(name="polled_cursor")
+    polled_sfqids = []
+
+    def poll(sfqid):
+        polled_sfqids.append(sfqid)
+        return poll_result
+
+    result = mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_stage",
+        configuration="some_configuration",
+        delta=True,
+        progress_poll=poll,
+    )
+
+    assert result is poll_result
+    assert polled_sfqids == [TEST_SFQID]
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN DELTA USING CONFIGURATION"
+        " some_configuration FROM @my_stage",
+        None,
+        _force_qmark_paramstyle=True,
+    )
+
+
+def test_plan_project_polling_passes_env_vars_as_params(mock_conn_cursor):
+    mgr = DCMProjectManager()
+    env_vars = {"DB_HOST": "prod.analytics.internal"}
+
+    mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_stage",
+        env_vars=env_vars,
+        progress_poll=lambda sfqid: mock.MagicMock(),
+    )
+
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN ENVIRONMENT (?)"
+        " FROM @my_stage",
+        [json.dumps(env_vars)],
+        _force_qmark_paramstyle=True,
+    )
+
+
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+def test_plan_project_polling_with_save_output_downloads_artifacts(
+    mock_create,
+    mock_get_recursive,
+    mock_conn_cursor,
+    project_directory,
+    mock_from_resource,
+):
+    """OUTPUT_PATH is still requested and the artifacts are downloaded only after
+    polling has finished."""
+    mgr = DCMProjectManager()
+
+    def poll(sfqid):
+        mock_get_recursive.assert_not_called()
+        return mock.MagicMock()
+
+    mgr.plan(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_stage",
+        save_output=True,
+        progress_poll=poll,
+    )
+
+    query = mock_conn_cursor.execute_async.call_args.args[0]
+    assert "OUTPUT_PATH" in query
+    temp_stage_fqn = mock_from_resource()
+    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
+    mock_get_recursive.assert_called_once_with(
+        stage_path=f"@{str(temp_stage_fqn)}/outputs",
+        dest_path=Path("out"),
+    )
+
+
 @mock.patch(execute_queries)
 @pytest.mark.parametrize(
     "configuration,variables,limit,expected_suffix",

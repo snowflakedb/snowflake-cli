@@ -1330,6 +1330,7 @@ class TestDCMPlan:
             save_output=False,
             delta=False,
             env_vars={},
+            progress_poll=mock.ANY,
         )
 
     def test_plan_wires_up_expected_progress_steps(
@@ -1393,6 +1394,7 @@ class TestDCMPlan:
             save_output=False,
             delta=True,
             env_vars={},
+            progress_poll=mock.ANY,
         )
 
     def test_plan_project_with_save_output(
@@ -1427,6 +1429,7 @@ class TestDCMPlan:
             save_output=True,
             delta=False,
             env_vars={},
+            progress_poll=mock.ANY,
         )
 
     def test_plan_project_with_from_stage_fails(
@@ -1773,6 +1776,7 @@ class TestDCMPlan:
             save_output=False,
             delta=False,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+            progress_poll=mock.ANY,
         )
 
     def test_plan_omits_declared_env_var_missing_from_shell(
@@ -1806,6 +1810,7 @@ class TestDCMPlan:
             save_output=False,
             delta=False,
             env_vars={},
+            progress_poll=mock.ANY,
         )
         mock_console.warning.assert_called_once()
 
@@ -1842,6 +1847,7 @@ class TestDCMPlan:
             save_output=False,
             delta=False,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+            progress_poll=mock.ANY,
         )
 
 

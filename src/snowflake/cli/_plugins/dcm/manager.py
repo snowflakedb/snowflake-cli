@@ -17,7 +17,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
-from typing import List, Set
+from typing import Callable, List, Set
 
 from snowflake.cli._plugins.dcm.models import (
     DEFAULT_WAREHOUSE_SIZE,
@@ -239,14 +239,16 @@ class DCMProjectManager(SqlExecutionMixin):
         save_output: bool = False,
         delta: bool = False,
         env_vars: dict[str, str] | None = None,
+        progress_poll: Callable[[str], SnowflakeCursor] | None = None,
     ) -> SnowflakeCursor:
         log.info(
-            "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s, delta=%s).",
+            "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s, delta=%s, tracks_progress=%s).",
             project_identifier,
             bool(configuration),
             len(variables or []),
             save_output,
             delta,
+            progress_poll is not None,
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
         if delta:
@@ -262,10 +264,29 @@ class DCMProjectManager(SqlExecutionMixin):
                 command_name="plan",
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
-                result = self._execute_with_optional_env_vars(query, env_vars)
+                result = self._run_plan_query(query, env_vars, progress_poll)
         else:
-            result = self._execute_with_optional_env_vars(query, env_vars)
+            result = self._run_plan_query(query, env_vars, progress_poll)
         return result
+
+    def _run_plan_query(
+        self,
+        query: str,
+        env_vars: dict[str, str] | None,
+        progress_poll: Callable[[str], SnowflakeCursor] | None,
+    ) -> SnowflakeCursor:
+        """Runs PLAN, tracking the server's phases when a poller is supplied.
+
+        Without a poller the query runs synchronously. With one, PLAN is
+        submitted asynchronously and the poller reflects the phases the server
+        reports - the same path ``deploy`` uses - then returns a cursor over the
+        finished query's results.
+        """
+        if progress_poll is None:
+            return self._execute_with_optional_env_vars(query, env_vars)
+        cursor = self._execute_with_optional_env_vars_async(query, env_vars)
+        log.info("DCM plan submitted asynchronously (sfqid=%s).", cursor.sfqid)
+        return progress_poll(cursor.sfqid)
 
     def create(self, project_identifier: FQN) -> None:
         log.info(
