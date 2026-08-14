@@ -111,7 +111,7 @@ FILES_UPLOADED_COUNTER = "snowflake_app.upload.files_uploaded"
 # targets). Shared by every command that accepts ``--target``.
 _TARGET_REQUIRES_APP_YML = (
     "--target is only supported for Snowflake App Runtime projects that "
-    "define deployment targets in app.yml (version 2 or higher)."
+    "define deployment targets in app.yml (version 2)."
 )
 
 
@@ -120,8 +120,8 @@ def _load_app_yml_for_command(target: Optional[str]) -> Optional[AppYmlDefinitio
 
     Centralises the ``app.yml``-vs-``snowflake.yml`` routing shared by every
     ``snow app`` command that accepts ``--target``: when no ``app.yml`` (version
-    2 or higher) drives the project, ``--target`` has no meaning and is rejected
-    up front so the ``snowflake.yml`` fallback never has to consider it.
+    2) drives the project, ``--target`` has no meaning and is rejected up front
+    so the ``snowflake.yml`` fallback never has to consider it.
     """
     app_def = load_app_yml(get_cli_context().project_root)
     if app_def is None and target is not None:
