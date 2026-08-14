@@ -530,13 +530,38 @@ class TestLoadAppYml:
         assert model.package_name == "MY_APP"
         assert model.default_target == "dev"
 
-    def test_higher_version_is_loaded(self, tmp_path):
+    def test_higher_integer_version_raises(self, tmp_path):
+        # ``version: 3`` is a newer schema this CLI does not understand; it must
+        # fail loudly rather than be parsed against the v2 model.
         (tmp_path / APP_YML_FILENAME).write_text(
             _APP_YML.replace("version: 2", "version: 3")
         )
-        model = load_app_yml(tmp_path)
-        assert model is not None
-        assert model.version == 3
+        with pytest.raises(CliError, match="Unsupported app.yml version"):
+            load_app_yml(tmp_path)
+
+    def test_fractional_version_above_2_raises(self, tmp_path):
+        # ``version: 2.1`` is above the supported version and must fail rather
+        # than silently fall back to snowflake.yml.
+        (tmp_path / APP_YML_FILENAME).write_text(
+            _APP_YML.replace("version: 2", "version: 2.1")
+        )
+        with pytest.raises(CliError, match="Unsupported app.yml version"):
+            load_app_yml(tmp_path)
+
+    def test_string_higher_version_raises(self, tmp_path):
+        # A string form of a higher version is rejected the same way.
+        (tmp_path / APP_YML_FILENAME).write_text(
+            _APP_YML.replace("version: 2", 'version: "3"')
+        )
+        with pytest.raises(CliError, match="Unsupported app.yml version"):
+            load_app_yml(tmp_path)
+
+    def test_string_fractional_version_above_2_raises(self, tmp_path):
+        (tmp_path / APP_YML_FILENAME).write_text(
+            _APP_YML.replace("version: 2", 'version: "2.1"')
+        )
+        with pytest.raises(CliError, match="Unsupported app.yml version"):
+            load_app_yml(tmp_path)
 
     def test_float_version_is_loaded(self, tmp_path):
         # ``version: 2.0`` is a YAML float, not an int, but names version 2.
@@ -556,9 +581,24 @@ class TestLoadAppYml:
         assert model is not None
         assert model.version == 2
 
+    def test_string_float_version_is_loaded(self, tmp_path):
+        # ``version: "2.0"`` is a string naming version 2.
+        (tmp_path / APP_YML_FILENAME).write_text(
+            _APP_YML.replace("version: 2", 'version: "2.0"')
+        )
+        model = load_app_yml(tmp_path)
+        assert model is not None
+        assert model.version == 2
+
     def test_float_version_1_returns_none(self, tmp_path):
-        # A whole-number float below the minimum is still treated as legacy.
+        # A whole-number float below the supported version is still legacy.
         (tmp_path / APP_YML_FILENAME).write_text("version: 1.0\nname: MY_APP\n")
+        assert load_app_yml(tmp_path) is None
+
+    def test_fractional_version_below_2_returns_none(self, tmp_path):
+        # A fractional version below 2 is a legacy build manifest, not an error:
+        # it falls back to snowflake.yml like any other sub-2 version.
+        (tmp_path / APP_YML_FILENAME).write_text("version: 1.5\nname: MY_APP\n")
         assert load_app_yml(tmp_path) is None
 
     def test_non_numeric_version_returns_none(self, tmp_path):
@@ -1597,7 +1637,7 @@ class TestAppYmlRoutingEndToEnd:
     """``snow app deploy`` routing when app.yml drives the SAR flow.
 
     Exercises the real ``with_app_flow_routing`` decorator so that an
-    ``app.yml`` (version >= 2) project routes to the Snowflake App Runtime flow
+    ``app.yml`` (version 2) project routes to the Snowflake App Runtime flow
     without requiring a ``snowflake.yml``.
     """
 

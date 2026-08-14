@@ -73,7 +73,7 @@ def _detection_project_root() -> Path:
 
 
 def project_uses_app_yml() -> bool:
-    """Return ``True`` when the project is driven by an ``app.yml`` (version >= 2).
+    """Return ``True`` when the project is driven by an ``app.yml`` (version 2).
 
     Such a project is a Snowflake App Runtime project regardless of whether a
     ``snowflake.yml`` is also present — ``app.yml`` takes precedence and
@@ -454,7 +454,7 @@ def with_app_flow_routing(
         def wrapper(*args, **kwargs):
             cli_context = get_cli_context()
 
-            # An ``app.yml`` (version >= 2) makes this a Snowflake App Runtime
+            # An ``app.yml`` (version 2) makes this a Snowflake App Runtime
             # project and takes precedence over ``snowflake.yml``: route to the
             # SNOWFLAKE_APP flow without requiring (or reading) ``snowflake.yml``.
             # When both files exist, ``snowflake.yml`` is ignored for the SAR
