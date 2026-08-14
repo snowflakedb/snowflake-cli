@@ -38,6 +38,7 @@ RENDERED_FOLDER = "rendered"
 # AnalyzeReporter must write and look for that name rather than the command's.
 RAW_ANALYZE_COMMAND_NAME = "compile"
 
+
 def result_file_name(command_name: str) -> str:
     return f"{command_name}_result.json"
 
@@ -74,6 +75,7 @@ def announce_output_artifacts() -> None:
 def save_command_response(
     command_name: str,
     raw_data: Dict[str, Any] | str,
+    announce: bool = True,
 ) -> None:
     """Save raw JSON response to out/<command>_result.json.
 
