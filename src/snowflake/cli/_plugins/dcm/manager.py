@@ -199,6 +199,8 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         output_path: str | None = None,
         env_vars: dict[str, str] | None = None,
+        command_name: str = RAW_ANALYZE_COMMAND_NAME,
+        output_folder_name: str | None = None,
     ):
         log.info(
             "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, has_output_path=%s).",

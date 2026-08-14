@@ -16,6 +16,7 @@ from io import StringIO
 from typing import Any, List, Optional, Tuple
 from unittest import mock
 
+import typer
 from rich.console import Console, RenderableType
 from rich.style import Style
 from snowflake.cli._plugins.dcm.reporters.base import Reporter
@@ -108,6 +109,8 @@ def capture_reporter_output(reporter: Reporter[Any], cursor: FakeCursor) -> str:
             reporter.process(cursor)
         except CliError as e:
             error_message = e.message
+        except typer.Exit:
+            pass
 
     result = output.getvalue()
     if error_message:

@@ -2534,7 +2534,7 @@ class TestDCMAnalyze:
     def test_analyze_basic_no_errors(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         project_directory,
@@ -2566,7 +2566,7 @@ class TestDCMAnalyze:
     def test_analyze_with_errors_exits_with_formatted_output(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         project_directory,
@@ -2641,7 +2641,7 @@ class TestDCMAnalyze:
     def test_analyze_with_variables(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         project_directory,
@@ -2671,7 +2671,7 @@ class TestDCMAnalyze:
     def test_analyze_with_target(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         project_directory,
@@ -2715,7 +2715,7 @@ class TestDCMAnalyze:
     def test_analyze_with_save_output(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         project_directory,
@@ -2745,7 +2745,7 @@ class TestDCMAnalyze:
     def test_analyze_with_save_output_saves_response(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -2790,7 +2790,7 @@ class TestDCMAnalyze:
     def test_analyze_with_json_formats_returns_response(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -2873,7 +2873,7 @@ class TestDCMDependencies:
     def test_dependencies_writes_markdown_and_links_to_it(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         mock_cursor,
@@ -2917,7 +2917,7 @@ class TestDCMDependencies:
     def test_dependencies_with_variables(
         self,
         mock_dcm_manager,
-        mock_deploy_tracker,
+        mock_multistep_progress,
         mock_manifest_load,
         runner,
         mock_cursor,

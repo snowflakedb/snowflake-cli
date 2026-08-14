@@ -26,13 +26,13 @@ from snowflake.cli._plugins.dcm.exceptions import (
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import (
-    DCMAsset,
     DEFAULT_DEFINITION_FILE_NAME,
     DEFAULT_TARGET_NAME,
     DEFAULT_WAREHOUSE_NAME,
     DEFINITIONS_FOLDER,
     MANIFEST_FILE_NAME,
     SOURCES_FOLDER,
+    DCMAsset,
     DCMManifest,
     DCMTarget,
     TargetContext,
@@ -753,6 +753,8 @@ def compile_project(
                     from_stage=effective_stage,
                     variables=variables,
                     save_output=save_output,
+                    command_name="compile",
+                    output_folder_name="rendered_definitions",
                 ),
             )
 
@@ -799,6 +801,8 @@ def dependencies(
                     from_stage=effective_stage,
                     variables=variables,
                     save_output=save_output,
+                    command_name="dependencies",
+                    output_folder_name="rendered_definitions",
                 ),
             )
 

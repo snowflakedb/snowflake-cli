@@ -27,6 +27,9 @@ INSERTED_STYLE = Style(color="green", italic=True)
 # Test
 PASS_STYLE = Style(color="green")
 FAIL_STYLE = Style(color="red")
+WARNING_STYLE = Style(color="yellow")
+INFO_STYLE = Style(color=_COLOR_BLUE)
+FILE_PATH_STYLE = Style(color=_COLOR_BLUE, bold=True)
 
 # Plan
 NEUTRAL_STYLE = Style()
