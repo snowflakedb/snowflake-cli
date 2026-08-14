@@ -244,7 +244,7 @@ class _AppYmlServiceConfig(UpdatableModel):
         "MANAGED_COMPUTE_POOL)",
         default=None,
     )
-    prefix_url: Optional[str] = Field(
+    url_prefix: Optional[str] = Field(
         title="URL prefix for the application service", default=None
     )
     external_access_integrations: Optional[List[str]] = Field(
