@@ -109,7 +109,7 @@ def _detect_app_family(cwd: str) -> Optional[AppFlow]:
     showing every command.
     """
     try:
-        # An app.yml (version >= 2) marks a Snowflake App Runtime project and
+        # An app.yml (version 2) marks a Snowflake App Runtime project and
         # takes precedence over snowflake.yml, so detect it first (it may be the
         # only manifest present).
         if load_app_yml(Path(cwd)) is not None:

@@ -15,11 +15,12 @@
 """``app.yml`` (Snowflake App Runtime ``targets``) parsing.
 
 ``app.yml`` is the manifest uploaded to the artifact repository and consumed by
-the builder service. Starting at ``version: 2`` it also carries a ``targets``
-block describing one or more deployment *targets* (environments). When an
-``app.yml`` with ``version: 2`` (or higher) is present in the project root, the
-``snow app`` commands read the deployment configuration from it **instead of**
-``snowflake.yml``.
+the builder service. At ``version: 2`` it also carries a ``targets`` block
+describing one or more deployment *targets* (environments). When an ``app.yml``
+with ``version: 2`` is present in the project root, the ``snow app`` commands
+read the deployment configuration from it **instead of** ``snowflake.yml``.
+This version of the CLI supports ``version: 2`` exactly; a higher version (for
+example ``2.1`` or ``3``) is rejected rather than parsed against the v2 schema.
 
 This module models the parts the CLI needs to resolve and deploy a target
 (Milestone 1) plus the builder ``install`` / ``build`` / ``run`` / ``dev``
@@ -47,9 +48,12 @@ from snowflake.cli.api.secure_path import SecurePath
 
 APP_YML_FILENAME = "app.yml"
 
-# Below this, ``app.yml`` is the legacy build-only manifest (no ``targets``) and
-# is ignored by the CLI, which falls back to ``snowflake.yml``.
-MIN_APP_YML_VERSION = 2
+# The one ``app.yml`` schema version this CLI owns. Below it (``version: 1`` or
+# version-less), ``app.yml`` is the legacy build-only manifest (no ``targets``)
+# and is ignored by the CLI, which falls back to ``snowflake.yml``. Above it
+# (for example ``2.1`` or ``3``), the manifest is a newer schema this CLI does
+# not understand and is rejected rather than parsed against the v2 model.
+SUPPORTED_APP_YML_VERSION = 2
 
 
 class AppYmlSecret(UpdatableModel):
@@ -382,13 +386,16 @@ def load_app_yml(project_root: Path) -> Optional[AppYmlDefinition]:
     """Load ``app.yml`` from *project_root* if it should drive the CLI.
 
     Returns the parsed :class:`AppYmlDefinition` only when the file exists and
-    declares ``version >= 2`` (:data:`MIN_APP_YML_VERSION`). Returns ``None``
-    when the file is absent or is a legacy ``version: 1`` build-only manifest,
-    signalling the caller to fall back to ``snowflake.yml``.
+    declares ``version`` exactly ``2`` (:data:`SUPPORTED_APP_YML_VERSION`), in
+    any of its equivalent YAML forms (``2``, ``2.0``, ``"2"``). Returns ``None``
+    when the file is absent or is a legacy ``version: 1`` (or version-less)
+    build-only manifest, signalling the caller to fall back to ``snowflake.yml``.
 
-    Raises :class:`CliError` when the file exists but cannot be parsed or is
-    structurally invalid, so a malformed manifest fails loudly instead of
-    silently falling back.
+    Raises :class:`CliError` when the file exists but cannot be parsed, is
+    structurally invalid, or declares a version *above* 2 (for example ``2.1``
+    or ``3``): such a manifest targets a newer schema this CLI does not
+    understand, so it fails loudly instead of being silently ignored or parsed
+    against the v2 model.
     """
     app_yml_path = SecurePath(Path(project_root) / APP_YML_FILENAME)
     if not app_yml_path.is_file():
@@ -411,41 +418,50 @@ def load_app_yml(project_root: Path) -> Optional[AppYmlDefinition]:
     if not isinstance(raw, dict):
         raise CliError(f"{APP_YML_FILENAME} must be a mapping at the top level.")
 
-    version = _coerce_app_yml_version(raw.get("version"))
-    if version is None or version < MIN_APP_YML_VERSION:
-        # Legacy (v1) or version-less build manifest: not owned by the CLI.
+    version = _parse_app_yml_version(raw.get("version"))
+    if version is None or version < SUPPORTED_APP_YML_VERSION:
+        # Absent, non-numeric, or a legacy (v1) build-only manifest: not owned
+        # by the CLI — fall back to ``snowflake.yml``.
         return None
+    if version != SUPPORTED_APP_YML_VERSION:
+        # A newer schema (for example ``2.1`` or ``3``) this CLI does not
+        # understand. Fail loudly rather than parse it against the v2 model.
+        raise CliError(
+            f"Unsupported {APP_YML_FILENAME} version {raw.get('version')!r}: "
+            f"this version of Snowflake CLI supports {APP_YML_FILENAME} "
+            f"version {SUPPORTED_APP_YML_VERSION} only."
+        )
 
-    # Normalize ``version`` to the coerced int so the model does not have to
+    # Normalize ``version`` to the supported int so the model does not have to
     # re-interpret a float/string form.
-    raw = {**raw, "version": version}
+    raw = {**raw, "version": SUPPORTED_APP_YML_VERSION}
     try:
         return AppYmlDefinition(**raw)
     except Exception as exc:
         raise CliError(f"Invalid {APP_YML_FILENAME}: {exc}") from exc
 
 
-def _coerce_app_yml_version(value: object) -> Optional[int]:
-    """Interpret the ``version`` field leniently.
+def _parse_app_yml_version(value: object) -> Optional[float]:
+    """Interpret the ``version`` field leniently as a number.
 
-    YAML may type ``version`` as an int (``2``), a float (``2.0``), or a string
-    (``"2"``); any whole-number form is treated as that integer so a manifest is
-    not ignored (silently falling back to ``snowflake.yml``) over a formatting
-    nuance. Returns ``None`` for a missing, non-numeric, or fractional value.
+    YAML may type ``version`` as an int (``2``), a float (``2.0`` / ``2.1``), or
+    a string (``"2"`` / ``"2.1"``). Return the numeric value so the caller can
+    distinguish an exact ``2`` from a lower legacy version (fall back) or a
+    higher unsupported one (error). Returns ``None`` for a missing or
+    non-numeric value, which the caller treats as a fall-back to
+    ``snowflake.yml`` — not an error — so an unrelated manifest never blocks the
+    legacy flow.
     """
     # ``bool`` is an ``int`` subclass but is never a valid version.
     if isinstance(value, bool):
         return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value) if value.is_integer() else None
+    if isinstance(value, (int, float)):
+        return float(value)
     if isinstance(value, str):
         try:
-            parsed = float(value.strip())
+            return float(value.strip())
         except ValueError:
             return None
-        return int(parsed) if parsed.is_integer() else None
     return None
 
 
