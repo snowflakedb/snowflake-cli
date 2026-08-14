@@ -17,10 +17,9 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
-from typing import Callable, List, Set
+from typing import List, Set
 
 from snowflake.cli._plugins.dcm.models import (
-    DEFAULT_WAREHOUSE_SIZE,
     MANIFEST_FILE_NAME,
     SOURCES_FOLDER,
     DCMAsset,
@@ -39,12 +38,11 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
-from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.cursor import DictCursor, SnowflakeCursor
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -203,8 +201,6 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         save_output: bool = False,
         env_vars: dict[str, str] | None = None,
-        command_name: str = RAW_ANALYZE_COMMAND_NAME,
-        output_folder_name: str | None = None,
     ):
         log.info(
             "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
@@ -222,7 +218,7 @@ class DCMProjectManager(SqlExecutionMixin):
         if save_output:
             with collect_output(
                 project_identifier,
-                command_name=command_name,
+                command_name=RAW_ANALYZE_COMMAND_NAME,
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
                 result = self._execute_with_optional_env_vars(query, env_vars)
@@ -239,16 +235,14 @@ class DCMProjectManager(SqlExecutionMixin):
         save_output: bool = False,
         delta: bool = False,
         env_vars: dict[str, str] | None = None,
-        progress_poll: Callable[[str], SnowflakeCursor] | None = None,
     ) -> SnowflakeCursor:
         log.info(
-            "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s, delta=%s, tracks_progress=%s).",
+            "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s, delta=%s).",
             project_identifier,
             bool(configuration),
             len(variables or []),
             save_output,
             delta,
-            progress_poll is not None,
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
         if delta:
@@ -264,29 +258,10 @@ class DCMProjectManager(SqlExecutionMixin):
                 command_name="plan",
             ) as output_stage:
                 query += f" OUTPUT_PATH {output_stage}"
-                result = self._run_plan_query(query, env_vars, progress_poll)
+                result = self._execute_with_optional_env_vars(query, env_vars)
         else:
-            result = self._run_plan_query(query, env_vars, progress_poll)
+            result = self._execute_with_optional_env_vars(query, env_vars)
         return result
-
-    def _run_plan_query(
-        self,
-        query: str,
-        env_vars: dict[str, str] | None,
-        progress_poll: Callable[[str], SnowflakeCursor] | None,
-    ) -> SnowflakeCursor:
-        """Runs PLAN, tracking the server's phases when a poller is supplied.
-
-        Without a poller the query runs synchronously. With one, PLAN is
-        submitted asynchronously and the poller reflects the phases the server
-        reports - the same path ``deploy`` uses - then returns a cursor over the
-        finished query's results.
-        """
-        if progress_poll is None:
-            return self._execute_with_optional_env_vars(query, env_vars)
-        cursor = self._execute_with_optional_env_vars_async(query, env_vars)
-        log.info("DCM plan submitted asynchronously (sfqid=%s).", cursor.sfqid)
-        return progress_poll(cursor.sfqid)
 
     def create(self, project_identifier: FQN) -> None:
         log.info(
@@ -295,61 +270,6 @@ class DCMProjectManager(SqlExecutionMixin):
         )
         query = f"CREATE DCM PROJECT {project_identifier.sql_identifier}"
         self.execute_query(query)
-
-    def database_exists(self, database: str) -> bool:
-        cursor = self.execute_query(
-            f"SHOW DATABASES LIKE {to_string_literal(database)}",
-            cursor_class=DictCursor,
-        )
-        return cursor.fetchone() is not None
-
-    def schema_exists(self, database: str, schema: str) -> bool:
-        cursor = self.execute_query(
-            f"SHOW SCHEMAS LIKE {to_string_literal(schema)}"
-            f" IN DATABASE IDENTIFIER({to_string_literal(database)})",
-            cursor_class=DictCursor,
-        )
-        return cursor.fetchone() is not None
-
-    def create_database(self, database: str) -> None:
-        log.info(
-            "Running DCM create-database manager operation (database=%s).",
-            database,
-        )
-        self.execute_query(
-            f"CREATE DATABASE IF NOT EXISTS IDENTIFIER({to_string_literal(database)})"
-        )
-
-    def create_schema(self, database: str, schema: str) -> None:
-        log.info(
-            "Running DCM create-schema manager operation (database=%s, schema=%s).",
-            database,
-            schema,
-        )
-        self.execute_query(
-            "CREATE SCHEMA IF NOT EXISTS "
-            f"IDENTIFIER({to_string_literal(f'{database}.{schema}')})"
-        )
-
-    def warehouse_exists(self, warehouse: str) -> bool:
-        cursor = self.execute_query(
-            f"SHOW WAREHOUSES LIKE {to_string_literal(warehouse)}",
-            cursor_class=DictCursor,
-        )
-        return cursor.fetchone() is not None
-
-    def create_warehouse(
-        self, warehouse: str, size: str = DEFAULT_WAREHOUSE_SIZE
-    ) -> None:
-        log.info(
-            "Running DCM create-warehouse manager operation (warehouse=%s, size=%s).",
-            warehouse,
-            size,
-        )
-        self.execute_query(
-            f"CREATE WAREHOUSE IF NOT EXISTS IDENTIFIER({to_string_literal(warehouse)})"
-            f" WAREHOUSE_SIZE = {to_string_literal(size)}"
-        )
 
     def list_deployments(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(

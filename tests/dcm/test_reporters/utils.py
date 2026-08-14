@@ -15,7 +15,6 @@ import json
 from io import StringIO
 from unittest import mock
 
-import typer
 from snowflake.cli.api.exceptions import CliError
 
 CLI_CONSOLE_PATH = (
@@ -58,8 +57,6 @@ def capture_reporter_output(reporter, cursor, cli_console_path=""):
             reporter.process(cursor)
         except CliError as e:
             error_message = e.message
-        except typer.Exit:
-            pass
 
     result = output.getvalue()
     if error_message:
