@@ -2084,7 +2084,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         *,
         database: Optional[str] = None,
         schema: Optional[str] = None,
-        include_prefix_url: bool = False,
+        include_url_prefix: bool = False,
     ) -> str:
         """Render an inline application-service ``SPECIFICATION`` from a target.
 
@@ -2104,8 +2104,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
         written. When ``database`` / ``schema`` are omitted the value passes
         through unchanged.
 
-        ``prefix_url`` is a CNG-only (serverless) field, so it is emitted only
-        when *include_prefix_url* is set — the caller gates it on the CNG compute
+        ``url_prefix`` is a CNG-only (serverless) field, so it is emitted only
+        when *include_url_prefix* is set — the caller gates it on the CNG compute
         resource behind the feature flag — and dropped otherwise.
 
         Deployment-location fields (``name`` / ``database`` / ``schema`` /
@@ -2117,8 +2117,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
         spec: Dict[str, Any] = {}
         if target.query_warehouse:
             spec["query_warehouse"] = target.query_warehouse
-        if include_prefix_url and target.prefix_url:
-            spec["prefix_url"] = target.prefix_url
+        if include_url_prefix and target.url_prefix:
+            spec["url_prefix"] = target.url_prefix
         if target.label:
             spec["label"] = target.label
         if target.description:
