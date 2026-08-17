@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 import pytest
 from snowflake.cli._plugins.apps.commands import (
     FILES_UPLOADED_COUNTER,
+    _app_yml_code_storage,
     _CodeStorage,
     _ensure_cng_url_cert_ready,
     _ensure_utf8_output,
@@ -34,6 +35,7 @@ from snowflake.cli._plugins.apps.commands import (
 )
 from snowflake.cli._plugins.apps.events import parse_lifecycle_records
 from snowflake.cli._plugins.apps.generate import (
+    _generate_app_yml,
     _generate_snowflake_yml,
     _yaml_str,
 )
@@ -1178,6 +1180,104 @@ class TestGenerateSnowflakeYml:
         assert ws.database == '"lower_db"'
         assert ws.schema_ == "PUBLIC"
         assert ws.name == "SNOWFLAKE_APPS"
+
+
+# ── _generate_app_yml tests ───────────────────────────────────────────
+
+
+class TestGenerateAppYml:
+    _BASE_RESOLVED = {
+        "database": "TEST_DB",
+        "schema": "SNOW_APPS",
+        "warehouse": "TEST_WH",
+        "build_eai": "MY_EAI",
+    }
+
+    def _parse(self, raw_yml):
+        import yaml
+        from snowflake.cli._plugins.apps.app_yml import AppYmlDefinition
+
+        return AppYmlDefinition(**yaml.safe_load(raw_yml))
+
+    def test_generates_v2_manifest_with_required_values(self):
+        result = _generate_app_yml("my_app", self._BASE_RESOLVED, use_workspace=True)
+        assert "version: 2" in result
+        assert "name: MY_APP" in result
+        assert "database: TEST_DB" in result
+        assert "schema: SNOW_APPS" in result
+        assert "query_warehouse: TEST_WH" in result
+        assert "build_eai: MY_EAI" in result
+        # No snowflake.yml scaffolding leaks into the flat app.yml manifest.
+        assert "definition_version" not in result
+        assert "entities:" not in result
+        assert "type: snowflake-app" not in result
+
+    def test_omits_code_storage(self):
+        # Code storage is not baked into the manifest; the backend is chosen at
+        # deploy time. The generated app.yml carries neither key, regardless of
+        # the (now unused) use_workspace hint.
+        for use_workspace in (True, False):
+            result = _generate_app_yml(
+                "my_app", self._BASE_RESOLVED, use_workspace=use_workspace
+            )
+            assert "code_workspace" not in result
+            assert "code_stage" not in result
+
+    def test_build_eai_omitted_when_missing(self):
+        resolved = {**self._BASE_RESOLVED, "build_eai": None}
+        result = _generate_app_yml("my_app", resolved, use_workspace=False)
+        assert "build_eai" not in result
+        assert "None" not in result
+
+    def test_no_null_values_in_output(self):
+        result = _generate_app_yml("my_app", self._BASE_RESOLVED, use_workspace=True)
+        assert "null" not in result
+
+    def test_omits_builder_phases(self):
+        # The generated manifest is minimal: install/build/run are omitted and
+        # default to Node conventions at deploy time.
+        result = _generate_app_yml("my_app", self._BASE_RESOLVED, use_workspace=True)
+        assert "install:" not in result
+        assert "build:" not in result
+        assert "run:" not in result
+
+    def test_generated_manifest_parses_as_v2_definition_workspace(self):
+        model = self._parse(
+            _generate_app_yml("my_app", self._BASE_RESOLVED, use_workspace=True)
+        )
+        assert model.version == 2
+        assert model.name == "MY_APP"
+        assert model.database == "TEST_DB"
+        assert model.schema_ == "SNOW_APPS"
+        assert model.query_warehouse == "TEST_WH"
+        assert model.build_eai == "MY_EAI"
+        # Code storage is resolved at deploy time, not baked into the manifest.
+        assert model.code_workspace is None
+        assert model.code_stage is None
+        assert not model.targets
+        assert "node_modules" in model.ignore
+        # install/build/run are omitted and fall back to the model defaults.
+        assert model.run.command == ["npm", "start"]
+
+    def test_generated_manifest_omits_code_storage_regardless_of_hint(self):
+        model = self._parse(
+            _generate_app_yml("my_app", self._BASE_RESOLVED, use_workspace=False)
+        )
+        assert model.code_stage is None
+        assert model.code_workspace is None
+
+    def test_quoted_identifiers_survive_parse(self):
+        resolved = {
+            "database": '"lower_db"',
+            "schema": '"lower_schema"',
+            "warehouse": '"lower_wh"',
+            "build_eai": '"lower_eai"',
+        }
+        model = self._parse(_generate_app_yml("my_app", resolved, use_workspace=True))
+        assert model.database == '"lower_db"'
+        assert model.schema_ == '"lower_schema"'
+        assert model.query_warehouse == '"lower_wh"'
+        assert model.build_eai == '"lower_eai"'
 
 
 # ── _yaml_str unit tests ──────────────────────────────────────────────
@@ -4084,6 +4184,154 @@ class TestSetupCommand:
         )
 
     @patch(
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_app_yml_flag_creates_app_yml(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """With ``ENABLE_SAR_APP_YML_V2`` on, setup writes app.yml (not
+        snowflake.yml) using the app.yml generator, sharing the same resolution
+        and code-storage decision."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+            "build_eai": "PARAM_EAI",
+        }
+        mock_mgr.role_can_create_workspace.return_value = True
+
+        with change_directory(tmp_path):
+            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
+                result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert (
+                "Initialized Snowflake App Runtime project in app.yml" in result.output
+            )
+            assert (tmp_path / "app.yml").exists()
+            assert not (tmp_path / "snowflake.yml").exists()
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "PARAM_DB"
+        assert resolved["warehouse"] == "PARAM_WH"
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+
+    @patch("snowflake.cli._plugins.apps.commands._generate_snowflake_yml")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_app_yml_flag_does_not_use_snowflake_yml_generator(
+        self, mock_mgr_cls, mock_app_gen, mock_snow_gen, runner, tmp_path
+    ):
+        """The snowflake.yml generator is never invoked in app.yml mode."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.role_can_create_workspace.return_value = True
+
+        with change_directory(tmp_path):
+            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
+                result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        mock_app_gen.assert_called_once()
+        mock_snow_gen.assert_not_called()
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_app_yml_flag_skips_existing_app_yml(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """An existing app.yml is left untouched (no overwrite)."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.role_can_create_workspace.return_value = True
+
+        with change_directory(tmp_path):
+            (tmp_path / "app.yml").write_text("version: 2\nname: EXISTING\n")
+            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
+                result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "app.yml already exists" in result.output
+            assert (tmp_path / "app.yml").read_text() == (
+                "version: 2\nname: EXISTING\n"
+            )
+        mock_gen.assert_not_called()
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_app_yml_dry_run_writes_nothing(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """A dry run in app.yml mode resolves config but writes no file."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.role_can_create_workspace.return_value = True
+
+        with change_directory(tmp_path):
+            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
+                result = runner.invoke(
+                    ["app", "setup", "--app-name", "my_app", "--dry-run"]
+                )
+            assert result.exit_code == 0, result.output
+            assert not (tmp_path / "app.yml").exists()
+            assert not (tmp_path / "snowflake.yml").exists()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_app_yml_end_to_end_produces_valid_v2_manifest(
+        self, mock_mgr_cls, runner, tmp_path
+    ):
+        """Without mocking the generator, app.yml mode writes a manifest that
+        loads back as a v2 ``AppYmlDefinition``."""
+        import yaml
+        from snowflake.cli._plugins.apps.app_yml import AppYmlDefinition
+
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+            "build_eai": "PARAM_EAI",
+        }
+        mock_mgr.role_can_create_workspace.return_value = True
+
+        with change_directory(tmp_path):
+            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
+                result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            written = (tmp_path / "app.yml").read_text()
+
+        model = AppYmlDefinition(**yaml.safe_load(written))
+        assert model.version == 2
+        assert model.name == "MY_APP"
+        assert model.database == "PARAM_DB"
+        assert model.query_warehouse == "PARAM_WH"
+        # Code storage is omitted from the manifest and resolved at deploy time.
+        assert model.code_workspace is None
+        assert model.code_stage is None
+
+    @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
     )
@@ -6876,6 +7124,87 @@ class TestResolveCodeStorage:
         )
         assert storage.type == "workspace"
         assert storage.name == "SNOWFLAKE_APPS"
+
+
+class TestAppYmlCodeStorageProbe:
+    """``app.yml`` no longer bakes the code-storage backend into the manifest.
+
+    When neither ``code_stage`` nor ``code_workspace`` is configured, the
+    resolver probes the role's CREATE WORKSPACE privilege (via the
+    ``can_create_workspace`` callback ``app.yml`` passes) so a regular database
+    prefers the shared workspace when the role can create one — mirroring
+    ``snow app setup`` — and falls back to a stage otherwise.
+    """
+
+    def test_regular_db_probes_and_uses_workspace_when_capable(self):
+        probe = Mock(return_value=True)
+        storage = _app_yml_code_storage(
+            code_stage=None,
+            code_workspace=None,
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            app_name="MY_APP",
+            can_create_workspace=probe,
+        )
+        probe.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
+        assert storage.type == "workspace"
+        assert storage.name == "SNOWFLAKE_APPS"
+
+    def test_regular_db_probes_and_falls_back_to_stage_when_incapable(self):
+        probe = Mock(return_value=False)
+        storage = _app_yml_code_storage(
+            code_stage=None,
+            code_workspace=None,
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            app_name="MY_APP",
+            can_create_workspace=probe,
+        )
+        probe.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
+        assert storage.type == "stage"
+        assert storage.name == "MY_APP_CODE"
+
+    def test_personal_db_uses_workspace_without_probing(self):
+        probe = Mock(return_value=False)
+        storage = _app_yml_code_storage(
+            code_stage=None,
+            code_workspace=None,
+            database="USER$SNOTEBAERT",
+            schema="PUBLIC",
+            app_name="MY_APP",
+            can_create_workspace=probe,
+        )
+        # Personal databases only support workspaces, so the probe is skipped.
+        probe.assert_not_called()
+        assert storage.type == "workspace"
+        assert storage.name == "SNOWFLAKE_APPS"
+
+    def test_explicit_stage_skips_probe(self):
+        probe = Mock(return_value=True)
+        storage = _app_yml_code_storage(
+            code_stage="SNOWFLAKE_APPS.PUBLIC.MY_STAGE",
+            code_workspace=None,
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            app_name="MY_APP",
+            can_create_workspace=probe,
+        )
+        probe.assert_not_called()
+        assert storage.type == "stage"
+        assert storage.name == "MY_STAGE"
+
+    def test_no_probe_defaults_to_stage(self):
+        # Callers that do not supply a probe (e.g. the snowflake.yml flow) keep
+        # the stage default for a regular database.
+        storage = _app_yml_code_storage(
+            code_stage=None,
+            code_workspace=None,
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            app_name="MY_APP",
+        )
+        assert storage.type == "stage"
+        assert storage.name == "MY_APP_CODE"
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────

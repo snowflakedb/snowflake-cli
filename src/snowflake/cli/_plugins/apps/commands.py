@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, NamedTuple, Optional
 import typer
 from click import ClickException
 from snowflake.cli._plugins.apps.app_yml import (
+    APP_YML_FILENAME,
     AppYmlDefinition,
     AppYmlTarget,
     load_app_yml,
@@ -49,7 +50,10 @@ from snowflake.cli._plugins.apps.events import (
     parse_metric_records,
     resolve_time_window,
 )
-from snowflake.cli._plugins.apps.generate import _generate_snowflake_yml
+from snowflake.cli._plugins.apps.generate import (
+    _generate_app_yml,
+    _generate_snowflake_yml,
+)
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFAULT_WORKSPACE_NAME,
@@ -221,6 +225,7 @@ def _resolve_code_storage(
     database: Optional[str],
     schema: Optional[str],
     app_name: str,
+    can_create_workspace: Optional[Callable[[str, str], bool]] = None,
 ) -> _CodeStorage:
     """Decide whether app code is uploaded to a workspace or a stage.
 
@@ -243,7 +248,13 @@ def _resolve_code_storage(
        when the service is deployed to a personal database, since the two are
        located independently.
     3. Neither configured → workspace when the destination is a personal
-       database, otherwise a stage named ``<app>_CODE``.
+       database. For a regular database, when *can_create_workspace* is provided
+       it is probed and the shared ``SNOWFLAKE_APPS`` workspace is used when the
+       role can create one (matching ``snow app setup``); otherwise a stage
+       named ``<app>_CODE`` is used. ``app.yml`` (which no longer bakes the
+       backend into the manifest) passes this probe so the choice follows the
+       role's privileges at deploy time; callers that omit it keep the stage
+       default.
     """
     destination_is_personal = is_personal_database(database)
 
@@ -280,7 +291,18 @@ def _resolve_code_storage(
 
     # Neither code_workspace nor code_stage configured: pick the backend that
     # the destination supports.
-    if destination_is_personal:
+    #
+    # A personal database always uses the shared workspace (stages are
+    # unsupported there). For a regular database, probe the role's
+    # CREATE WORKSPACE privilege when a probe is supplied — preferring the
+    # shared workspace when the role can create one (mirroring ``snow app
+    # setup``) and falling back to a ``<app>_CODE`` stage otherwise. Without a
+    # probe the stage is the default.
+    use_workspace = destination_is_personal
+    if not use_workspace and can_create_workspace is not None and database and schema:
+        use_workspace = can_create_workspace(database, schema)
+
+    if use_workspace:
         return _CodeStorage(
             type="workspace",
             name=DEFAULT_WORKSPACE_NAME,
@@ -346,11 +368,15 @@ def _app_yml_code_storage(
     database: Optional[str],
     schema: Optional[str],
     app_name: str,
+    can_create_workspace: Optional[Callable[[str, str], bool]] = None,
 ) -> _CodeStorage:
     """Resolve the code-storage backend for an ``app.yml`` project.
 
     ``code_stage`` / ``code_workspace`` are overridable per target, so they are
-    taken from the resolved (merged) target.
+    taken from the resolved (merged) target. When neither is set, the backend is
+    chosen at deploy time; *can_create_workspace* lets the resolver probe the
+    role's CREATE WORKSPACE privilege for a regular database (see
+    :func:`_resolve_code_storage`).
     """
     return _resolve_code_storage(
         code_workspace=_app_yml_storage_ref(code_workspace),
@@ -358,6 +384,7 @@ def _app_yml_code_storage(
         database=database,
         schema=schema,
         app_name=app_name,
+        can_create_workspace=can_create_workspace,
     )
 
 
@@ -768,13 +795,21 @@ def snowflake_app_setup(
     compute_pool: Optional[str],
     build_eai: Optional[str],
 ) -> CommandResult:
-    """Initialize a ``snowflake.yml`` for a Snowflake App Runtime project.
+    """Initialize a Snowflake App Runtime project manifest.
 
-    See the ``snow app setup`` command in
+    Writes a ``snowflake.yml`` by default, or an ``app.yml`` (the v2 manifest
+    the ``snow app`` commands read instead of ``snowflake.yml``) when the
+    ``ENABLE_SAR_APP_YML_V2`` feature flag is on. Both manifests are generated
+    from the same resolved configuration and code-storage decision. See the
+    ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
     """
     ctx = get_cli_context()
     metrics = ctx.metrics
+
+    app_yml = FeatureFlag.ENABLE_SAR_APP_YML_V2.is_enabled()
+    manifest_filename = APP_YML_FILENAME if app_yml else DEFINITION_FILENAME
+    generate_manifest = _generate_app_yml if app_yml else _generate_snowflake_yml
 
     def _run() -> CommandResult:
         with metrics.span("snowflake_app.setup"):
@@ -807,10 +842,10 @@ def snowflake_app_setup(
             # way keeps the round-trip consistent regardless of the host code page, even
             # when the generated content (e.g. a non-Latin app title) is non-ASCII.
             encoding = get_file_io_encoding() or "utf-8"
-            project_file = Path.cwd() / DEFINITION_FILENAME
+            project_file = Path.cwd() / manifest_filename
             if not dry_run and project_file.exists():
                 return MessageResult(
-                    f"{DEFINITION_FILENAME} already exists. Skipping initialization."
+                    f"{manifest_filename} already exists. Skipping initialization."
                 )
 
             connection_name = (
@@ -954,7 +989,7 @@ def snowflake_app_setup(
             if not dry_run:
                 with metrics.span("snowflake_app.setup.write_manifest"):
                     project_file.write_text(
-                        _generate_snowflake_yml(
+                        generate_manifest(
                             resolved_app_name,
                             resolved_values,
                             use_workspace=use_workspace,
@@ -976,7 +1011,7 @@ def snowflake_app_setup(
                 cli_console.step("Dry run — resolved configuration:")
             else:
                 cli_console.step(
-                    f"Initialized Snowflake App Runtime project in {DEFINITION_FILENAME}."
+                    f"Initialized Snowflake App Runtime project in {manifest_filename}."
                 )
             for key, (value, source) in resolved.items():
                 # Skip optional fields that could not be resolved (e.g. ``build_eai``
@@ -1654,13 +1689,17 @@ def _resolve_app_yml_target(
     _warn_on_target_account_mismatch(resolved_target_name, tgt.account)
 
     # Backend chosen the same way as the snowflake.yml flow (see
-    # _resolve_code_storage); code storage comes from the merged target.
+    # _resolve_code_storage); code storage comes from the merged target. With
+    # neither backend configured, probe the role's CREATE WORKSPACE privilege so
+    # a regular database prefers the shared workspace when the role can create
+    # one (matching ``snow app setup``), falling back to a stage otherwise.
     storage = _app_yml_code_storage(
         code_stage=tgt.code_stage,
         code_workspace=tgt.code_workspace,
         database=database,
         schema=schema,
         app_name=service_name,
+        can_create_workspace=manager.role_can_create_workspace,
     )
     storage_fqn = _storage_fqn(storage, database=database, schema=schema)
 
