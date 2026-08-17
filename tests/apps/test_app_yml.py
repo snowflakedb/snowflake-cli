@@ -111,6 +111,26 @@ _APP_YML_PERSONAL_DB = dedent(
 )
 
 
+# A regular-database project with no code-storage configured. The backend is
+# chosen at deploy time by probing the role's CREATE WORKSPACE privilege: a
+# capable role gets the shared workspace, an incapable role falls back to a
+# ``<name>_CODE`` stage.
+_APP_YML_REGULAR_DB_NO_CODE_STORAGE = dedent(
+    """\
+    version: 2
+    name: REG_APP
+    database: SNOWFLAKE_APPS
+    schema: PUBLIC
+    query_warehouse: WH
+    package_name: REG_APP
+    artifact_repo: SNOWFLAKE_APPS.PUBLIC.REG_REPO
+    build_eai: NODEJS_EAI
+    ignore:
+      - node_modules
+    """
+)
+
+
 def _definition(**overrides) -> AppYmlDefinition:
     """Build an :class:`AppYmlDefinition` with the location fields populated.
 
@@ -1305,6 +1325,9 @@ class TestDeployFromAppYml:
         )
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
+        # No code storage configured: pin the probe to the stage fallback so the
+        # <name>_CODE default is what gets exercised here.
+        mgr.role_can_create_workspace.return_value = False
         mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
         mock_poll.side_effect = [
             "DONE",
@@ -1441,6 +1464,76 @@ class TestDeployFromAppYml:
         assert "source_uri" not in build_kwargs
         # The stage the upload created is dropped after the build consumes it.
         mgr.drop_stage_if_exists.assert_called_once_with(stage_fqn)
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_deploy_regular_db_no_code_storage_probes_workspace_when_capable(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        """A regular-database target with no code storage configured probes the
+        role's CREATE WORKSPACE privilege and uploads through the shared
+        workspace when the role can create one."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML_REGULAR_DB_NO_CODE_STORAGE)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.role_can_create_workspace.return_value = True
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "reg.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        snowflake_app_deploy(None, False, False, False, interactive=False, target=None)
+
+        mgr.role_can_create_workspace.assert_called_once_with(
+            "SNOWFLAKE_APPS", "PUBLIC"
+        )
+        workspace_fqn = FQN(
+            database="SNOWFLAKE_APPS", schema="PUBLIC", name="SNOWFLAKE_APPS"
+        )
+        mgr.create_workspace.assert_called_once_with(workspace_fqn)
+        mgr.upload_to_workspace.assert_called_once()
+        mgr.upload_to_stage.assert_not_called()
+        build_kwargs = mgr.build_app_artifact_repo.call_args.kwargs
+        assert "source_uri" in build_kwargs
+        assert "stage_fqn" not in build_kwargs
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_deploy_regular_db_no_code_storage_falls_back_to_stage(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        """A regular-database target with no code storage configured falls back
+        to a ``<name>_CODE`` stage when the role cannot create a workspace."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML_REGULAR_DB_NO_CODE_STORAGE)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.role_can_create_workspace.return_value = False
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "reg.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        snowflake_app_deploy(None, False, False, False, interactive=False, target=None)
+
+        mgr.role_can_create_workspace.assert_called_once_with(
+            "SNOWFLAKE_APPS", "PUBLIC"
+        )
+        stage_fqn = FQN(database="SNOWFLAKE_APPS", schema="PUBLIC", name="REG_APP_CODE")
+        mgr.upload_to_stage.assert_called_once()
+        mgr.upload_to_workspace.assert_not_called()
+        build_kwargs = mgr.build_app_artifact_repo.call_args.kwargs
+        assert build_kwargs.get("stage_fqn") == stage_fqn
+        assert "source_uri" not in build_kwargs
 
     _CNG_APP_YML = dedent(
         """\
