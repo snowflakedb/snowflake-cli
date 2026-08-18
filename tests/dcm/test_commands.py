@@ -8,6 +8,7 @@ from snowflake.cli._plugins.dcm.commands import (
     _check_account_identifier,
     _check_project_owner,
 )
+from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
 from snowflake.cli._plugins.dcm.models import DCMAsset, DCMManifest, DCMTarget
 from snowflake.cli._plugins.dcm.multistep_progress import MultiStepProgress
 from snowflake.cli.api.exceptions import CliError
@@ -51,6 +52,12 @@ def _plan_cursor(mock_cursor, row: str = json.dumps({"version": 2, "changeset": 
     return mock_cursor(rows=[(row,)], columns=("result",))
 
 
+def _created_output_path(mock_output_stage):
+    """The OUTPUT_PATH the command should have passed: the stage output_stage
+    created, plus the subdirectory it downloads artifacts from."""
+    return f"@{mock_output_stage.create.call_args.args[0]}/outputs"
+
+
 def _assert_format_result(payload, expected_data, format_name: str):
     if format_name == "json":
         assert payload == [{"result": json.dumps(expected_data)}]
@@ -84,6 +91,20 @@ def mock_object_manager():
 def mock_server_poll():
     with mock.patch("snowflake.cli._plugins.dcm.commands.ServerPoll") as _fixture:
         yield _fixture
+
+
+@pytest.fixture(autouse=True)
+def mock_output_stage():
+    """The StageManager backing the --save-output output stage.
+
+    output_stage creates and drains that stage from the command, so unlike the DCM
+    manager it is not covered by mock_dcm_manager. Autouse because without it a
+    --save-output test issues real stage queries.
+    """
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.utils.StageManager"
+    ) as stage_manager_cls:
+        yield stage_manager_cls.return_value
 
 
 @pytest.fixture
@@ -370,10 +391,8 @@ class TestDCMDeploy:
             env_vars={},
         )
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_deploy_project_with_sync(
         self,
-        _mock_create,
         mock_dcm_manager,
         runner,
         project_directory,
@@ -1300,8 +1319,10 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -1317,13 +1338,13 @@ class TestDCMPlan:
             )
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().plan.assert_called_once_with(
+        mock_dcm_manager().plan_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
             variables=["key=value"],
-            save_output=False,
             delta=False,
+            output_path=None,
             env_vars={},
         )
 
@@ -1335,10 +1356,13 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         mock_multistep_progress,
     ):
         # given
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        expected_labels = ["RENDER", "COMPILE", "PLAN"]
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -1349,12 +1373,11 @@ class TestDCMPlan:
         # then
         assert result.exit_code == 0, result.output
         steps = mock_multistep_progress.call_args.args[0]
-        assert [step.label for step in steps] == [
-            "UPLOAD",
-            "RENDER",
-            "COMPILE",
-            "PLAN",
-        ]
+        assert [step.label for step in steps] == ["UPLOAD", *expected_labels]
+        assert f"Step 1/{len(expected_labels) + 1} - UPLOAD" in result.output
+        _conn, _progress, server_steps, sfqid = mock_server_poll.call_args.args
+        assert [step.label for step in server_steps] == expected_labels
+        assert sfqid == TEST_SFQID
 
     def test_plan_project_with_delta(
         self,
@@ -1364,8 +1387,10 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -1380,13 +1405,13 @@ class TestDCMPlan:
             )
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().plan.assert_called_once_with(
+        mock_dcm_manager().plan_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
             delta=True,
+            output_path=None,
             env_vars={},
         )
 
@@ -1398,8 +1423,11 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
+        mock_output_stage,
     ):
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -1414,15 +1442,78 @@ class TestDCMPlan:
             )
         assert result.exit_code == 0, result.output
 
-        mock_dcm_manager().plan.assert_called_once_with(
+        mock_dcm_manager().plan_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=True,
             delta=False,
+            output_path=_created_output_path(mock_output_stage),
             env_vars={},
         )
+
+    def test_plan_drains_the_output_stage_only_after_the_query_finishes(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        mock_output_stage,
+    ):
+        """The backend writes to OUTPUT_PATH while the async query runs, so the
+        stage may only be drained - which is what closing output_stage does - once
+        the poll has seen the query finish."""
+        calls: list[str] = []
+
+        def record_poll():
+            calls.append("poll")
+            return _plan_cursor(mock_cursor)
+
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.side_effect = record_poll
+        mock_output_stage.get_recursive.side_effect = lambda **kwargs: calls.append(
+            "drain"
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+        assert result.exit_code == 0, result.output
+        assert calls == ["poll", "drain"]
+
+    def test_plan_leaves_the_output_stage_alone_when_it_stops_tracking_the_query(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_connect,
+        mock_server_poll,
+        mock_output_stage,
+    ):
+        """Giving up on a query whose status Snowflake never reported leaves it
+        running, so there is nothing to collect: draining the stage would snapshot a
+        run in flight and announce it as the artifacts of a finished one."""
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.side_effect = QueryStatusUnavailableCliError(
+            f"Snowflake reported no status for query {TEST_SFQID}, so its progress "
+            "cannot be tracked. The operation may still be running."
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "plan", "fooBar", "--save-output"])
+
+        assert result.exit_code != 0
+        assert "may still be running" in result.output
+        mock_output_stage.get_recursive.assert_not_called()
+        assert "Artifacts saved to" not in result.output
 
     def test_plan_project_with_from_stage_fails(
         self, mock_dcm_manager, runner, project_directory
@@ -1431,18 +1522,18 @@ class TestDCMPlan:
         assert result.exit_code == 1, result.output
         assert "Stage paths are not supported" in result.output
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_plan_project_with_sync(
         self,
-        _mock_create,
         mock_dcm_manager,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -1451,7 +1542,7 @@ class TestDCMPlan:
             result = runner.invoke(["dcm", "plan", "my_project"])
             assert result.exit_code == 0, result.output
 
-            call_args = mock_dcm_manager().plan.call_args
+            call_args = mock_dcm_manager().plan_async.call_args
             assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
             assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
@@ -1463,9 +1554,11 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = (
             "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
@@ -1489,7 +1582,7 @@ class TestDCMPlan:
             assets=[],
         )
 
-        call_args = mock_dcm_manager().plan.call_args
+        call_args = mock_dcm_manager().plan_async.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
     def test_plan_with_save_output_saves_response(
@@ -1499,10 +1592,12 @@ class TestDCMPlan:
         runner,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().plan.return_value = _plan_cursor(
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -1520,11 +1615,13 @@ class TestDCMPlan:
         mock_manifest_load,
         runner,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
         """A result file left by an earlier run is cleared at command entry, so a
         run that writes nothing back cannot leave last run's output behind."""
-        mock_dcm_manager().plan.side_effect = CliError("plan blew up")
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.side_effect = CliError("plan blew up")
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -1547,10 +1644,12 @@ class TestDCMPlan:
         runner,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
         """A run that writes nothing back must not delete an earlier run's output."""
-        mock_dcm_manager().plan.return_value = _plan_cursor(
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(
             mock_cursor, json.dumps({"version": 2, "changeset": []})
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -1576,10 +1675,12 @@ class TestDCMPlan:
         runner,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().plan.return_value = _plan_cursor(
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -1598,11 +1699,13 @@ class TestDCMPlan:
         runner,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
         """The reporter writes the result file before it fails to parse the
         response, so the user must still be told where it landed."""
-        mock_dcm_manager().plan.return_value = _plan_cursor(
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(
             mock_cursor, json.dumps({"not": "a plan response"})
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -1622,10 +1725,12 @@ class TestDCMPlan:
         runner,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().plan.return_value = _plan_cursor(
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(
             mock_cursor, json.dumps(plan_response)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -1643,18 +1748,21 @@ class TestDCMPlan:
         mock_manifest_load,
         runner,
         mock_connect,
+        mock_server_poll,
+        mock_output_stage,
         tmp_path,
     ):
-        """collect_output downloads best-effort when the command fails, so the
+        """output_stage downloads best-effort when the command fails, so the
         user must still be told where those artifacts landed."""
 
-        def plan_failing_after_download(*args, **kwargs):
+        def download_diagnostics(*args, **kwargs):
             out_dir = Path.cwd() / "out"
             out_dir.mkdir(exist_ok=True)
             (out_dir / "plan_result.json").write_text('{"errors": ["compile failed"]}')
-            raise CliError("plan blew up")
 
-        mock_dcm_manager().plan.side_effect = plan_failing_after_download
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.side_effect = CliError("plan blew up")
+        mock_output_stage.get_recursive.side_effect = download_diagnostics
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -1671,9 +1779,11 @@ class TestDCMPlan:
         mock_manifest_load,
         runner,
         mock_connect,
+        mock_server_poll,
         tmp_path,
     ):
-        mock_dcm_manager().plan.side_effect = CliError("plan blew up")
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.side_effect = CliError("plan blew up")
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -1690,6 +1800,8 @@ class TestDCMPlan:
         runner,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
+        mock_output_stage,
         tmp_path,
     ):
         downloaded_result = {
@@ -1699,13 +1811,16 @@ class TestDCMPlan:
         }
         plan_response = {"version": 2, "changeset": []}
 
-        def plan_downloading_result_file(*args, **kwargs):
+        def download_result_file(*args, **kwargs):
             out_dir = Path.cwd() / "out"
             out_dir.mkdir(exist_ok=True)
             (out_dir / "plan_result.json").write_text(json.dumps(downloaded_result))
-            return _plan_cursor(mock_cursor, json.dumps(plan_response))
 
-        mock_dcm_manager().plan.side_effect = plan_downloading_result_file
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(
+            mock_cursor, json.dumps(plan_response)
+        )
+        mock_output_stage.get_recursive.side_effect = download_result_file
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
 
@@ -1723,11 +1838,13 @@ class TestDCMPlan:
         runner,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         project_directory,
         format_name,
     ):
         plan_response = {"version": 2, "changeset": []}
-        mock_dcm_manager().plan.return_value = _mock_cursor_for_format(
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _mock_cursor_for_format(
             mock_cursor, plan_response, format_name
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
@@ -1748,11 +1865,13 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         monkeypatch,
     ):
         monkeypatch.setenv("DB_HOST", "prod.analytics.internal")
         monkeypatch.setenv("AWS_SECRET_KEY", "shhh")
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -1760,13 +1879,13 @@ class TestDCMPlan:
             result = runner.invoke(["dcm", "plan", "fooBar"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().plan.assert_called_once_with(
+        mock_dcm_manager().plan_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
             delta=False,
+            output_path=None,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
         )
 
@@ -1778,11 +1897,13 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         monkeypatch,
     ):
         monkeypatch.delenv("DB_HOST", raising=False)
         monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -1793,13 +1914,13 @@ class TestDCMPlan:
                 result = runner.invoke(["dcm", "plan", "fooBar"])
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().plan.assert_called_once_with(
+        mock_dcm_manager().plan_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
             delta=False,
+            output_path=None,
             env_vars={},
         )
         mock_console.warning.assert_called_once()
@@ -1812,11 +1933,13 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_server_poll,
         monkeypatch,
     ):
         monkeypatch.delenv("DB_HOST", raising=False)
         monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
-        mock_dcm_manager().plan.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_with_env_vars()
 
@@ -1829,13 +1952,13 @@ class TestDCMPlan:
             )
 
         assert result.exit_code == 0, result.output
-        mock_dcm_manager().plan.assert_called_once_with(
+        mock_dcm_manager().plan_async.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
             delta=False,
+            output_path=None,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
         )
 
@@ -1865,7 +1988,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
+            output_path=None,
             env_vars={},
         )
 
@@ -1922,7 +2045,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
+            output_path=None,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
         )
 
@@ -1956,7 +2079,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
+            output_path=None,
             env_vars={},
         )
         mock_console.warning.assert_called_once()
@@ -1999,7 +2122,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
+            output_path=None,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
         )
 
@@ -2056,7 +2179,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=["key=value"],
-            save_output=False,
+            output_path=None,
             env_vars={},
         )
 
@@ -2093,7 +2216,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
+            output_path=None,
             env_vars={},
         )
 
@@ -2130,7 +2253,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
+            output_path=None,
             env_vars={},
         )
 
@@ -2176,7 +2299,7 @@ class TestDCMRawAnalyze:
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
+            output_path=None,
             env_vars={},
         )
 
@@ -2219,10 +2342,8 @@ class TestDCMRawAnalyze:
         call_args = mock_dcm_manager().raw_analyze.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     def test_raw_analyze_with_sync(
         self,
-        _mock_create,
         mock_dcm_manager,
         runner,
         project_directory,
@@ -2253,6 +2374,7 @@ class TestDCMRawAnalyze:
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_output_stage,
     ):
         mock_dcm_manager().raw_analyze.return_value = mock_cursor(
             rows=[(_analyze_response(),)], columns=("result",)
@@ -2276,7 +2398,7 @@ class TestDCMRawAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=True,
+            output_path=_created_output_path(mock_output_stage),
             env_vars={},
         )
 

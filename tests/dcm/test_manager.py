@@ -14,7 +14,7 @@
 
 import json
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import PureWindowsPath
 from unittest import mock
 
 import pytest
@@ -45,7 +45,6 @@ execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_
 execute_query_with_params = (
     "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query_with_params"
 )
-TEST_STAGE = FQN.from_stage("@test_stage")
 TEST_PROJECT = FQN.from_string("my_project")
 TEST_SFQID = "af72f4cc-107c-4f1b-b8a9-7a9811203bc5"
 
@@ -144,79 +143,18 @@ def test_analyze_project_with_configuration_and_variables(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-def test_analyze_project_default_no_download(mock_execute_query):
-    mgr = DCMProjectManager()
-
-    mgr.raw_analyze(
-        project_identifier=TEST_PROJECT,
-        from_stage="@test_stage",
-        configuration="some_configuration",
-    )
-
-    mock_execute_query.assert_called_once()
-    query = mock_execute_query.call_args.kwargs["query"]
-    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE" in query
-    assert "OUTPUT_PATH" not in query
-
-
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-@mock.patch(execute_queries)
-def test_analyze_project_with_save_output(
-    mock_execute_query,
-    mock_create,
-    mock_get_recursive,
-    mock_from_resource,
-    project_directory,
-):
+def test_analyze_project_with_output_path(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.raw_analyze(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         configuration="some_configuration",
-        save_output=True,
+        output_path="@output_stage/outputs",
     )
 
-    mock_execute_query.assert_called_once()
-    query = mock_execute_query.call_args.kwargs["query"]
-    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE" in query
-    assert "OUTPUT_PATH" in query
-    temp_stage_fqn = mock_from_resource()
-    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
-    mock_get_recursive.assert_called_once_with(
-        stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out"),
-    )
-
-
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-@mock.patch(execute_queries)
-def test_analyze_project_with_output_path__exception_handling(
-    mock_execute_query,
-    mock_create,
-    mock_get_recursive,
-    project_directory,
-    mock_from_resource,
-):
-    mock_execute_query.side_effect = Exception("Query execution failed")
-
-    mgr = DCMProjectManager()
-
-    with pytest.raises(Exception, match="Query execution failed"):
-        mgr.raw_analyze(
-            project_identifier=TEST_PROJECT,
-            from_stage="@test_stage",
-            configuration="some_configuration",
-            save_output=True,
-        )
-
-    temp_stage_fqn = mock_from_resource()
-    mock_execute_query.assert_called_once()
-    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
-    mock_get_recursive.assert_called_once_with(
-        stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out"),
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE USING CONFIGURATION"
+        " some_configuration FROM @test_stage OUTPUT_PATH @output_stage/outputs"
     )
 
 
@@ -242,17 +180,11 @@ def test_raw_analyze_project_with_env_vars(
     mock_execute_query.assert_not_called()
 
 
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
 @mock.patch(execute_queries)
 @mock.patch(execute_query_with_params)
-def test_raw_analyze_project_with_save_output_and_env_vars(
+def test_raw_analyze_project_with_output_path_and_env_vars(
     mock_execute_with_params,
     mock_execute_query,
-    mock_create,
-    mock_get_recursive,
-    mock_from_resource,
-    project_directory,
 ):
     mgr = DCMProjectManager()
     env_vars = {"WH_SIZE": "XLARGE"}
@@ -260,15 +192,15 @@ def test_raw_analyze_project_with_save_output_and_env_vars(
     mgr.raw_analyze(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
-        save_output=True,
+        output_path="@output_stage/outputs",
         env_vars=env_vars,
     )
 
-    mock_execute_with_params.assert_called_once()
-    query = mock_execute_with_params.call_args.kwargs["query"]
-    assert "ENVIRONMENT (?)" in query
-    assert "OUTPUT_PATH" in query
-    assert mock_execute_with_params.call_args.kwargs["params"] == [json.dumps(env_vars)]
+    mock_execute_with_params.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE ENVIRONMENT (?)"
+        " FROM @test_stage OUTPUT_PATH @output_stage/outputs",
+        params=[json.dumps(env_vars)],
+    )
     mock_execute_query.assert_not_called()
 
 
@@ -410,100 +342,81 @@ def test_deploy_async_project_with_empty_env_vars_passes_no_params(mock_conn_cur
     )
 
 
-@mock.patch(execute_queries)
-def test_plan_project_default_no_download(mock_execute_query, project_directory):
+def test_plan_async_project_with_output_path(mock_conn_cursor):
     mgr = DCMProjectManager()
 
-    mgr.plan(
+    sfqid = mgr.plan_async(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         configuration="some_configuration",
+        output_path="@output_stage/outputs",
     )
 
-    mock_execute_query.assert_called_once()
-    query = mock_execute_query.call_args.kwargs["query"]
-    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
-    assert "OUTPUT_PATH" not in query
-
-
-@mock.patch("snowflake.cli._plugins.dcm.manager.FQN.from_resource")
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-@mock.patch(execute_queries)
-def test_plan_project_with_save_output(
-    mock_execute_query,
-    mock_create,
-    mock_get_recursive,
-    project_directory,
-):
-    mgr = DCMProjectManager()
-    mgr.plan(
-        project_identifier=TEST_PROJECT,
-        from_stage="@test_stage",
-        configuration="some_configuration",
-        save_output=True,
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION"
+        " some_configuration FROM @test_stage OUTPUT_PATH @output_stage/outputs",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
-    mock_execute_query.assert_called_once()
-    query = mock_execute_query.call_args.kwargs["query"]
-    assert "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN" in query
-    assert "OUTPUT_PATH" in query
-    mock_get_recursive.assert_called_once()
 
-
-@mock.patch(execute_queries)
-def test_plan_project_with_from_stage(mock_execute_query, project_directory):
+def test_plan_async_project_with_from_stage(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.plan(
+
+    sfqid = mgr.plan_async(
         project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
         configuration="some_configuration",
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration"
-        " FROM @my_stage"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION"
+        " some_configuration FROM @my_stage",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-def test_plan_project_with_delta(mock_execute_query):
+def test_plan_async_project_with_delta(mock_conn_cursor):
     mgr = DCMProjectManager()
-    mgr.plan(
+
+    sfqid = mgr.plan_async(
         project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
         delta=True,
     )
 
-    mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN DELTA FROM @my_stage"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN DELTA FROM @my_stage",
+        None,
+        _force_qmark_paramstyle=True,
     )
 
 
-@mock.patch(execute_queries)
-@mock.patch(execute_query_with_params)
-def test_plan_project_with_env_vars(mock_execute_with_params, mock_execute_query):
+def test_plan_async_project_with_env_vars(mock_conn_cursor):
     mgr = DCMProjectManager()
     env_vars = {"WH_SIZE": "XLARGE"}
 
-    mgr.plan(
+    sfqid = mgr.plan_async(
         project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
         env_vars=env_vars,
     )
 
-    mock_execute_with_params.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN ENVIRONMENT (?)"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN ENVIRONMENT (?)"
         " FROM @my_stage",
-        params=[json.dumps(env_vars)],
+        [json.dumps(env_vars)],
+        _force_qmark_paramstyle=True,
     )
-    mock_execute_query.assert_not_called()
 
 
-@mock.patch(execute_queries)
-@mock.patch(execute_query_with_params)
-def test_plan_project_with_configuration_variables_and_env_vars(
-    mock_execute_with_params, mock_execute_query
+def test_plan_async_project_with_configuration_variables_and_env_vars(
+    mock_conn_cursor,
 ):
     # ENVIRONMENT is stacked after USING CONFIGURATION/variables and before FROM --
     # verifies the two clause-building code paths (templating vars vs. env vars)
@@ -511,7 +424,7 @@ def test_plan_project_with_configuration_variables_and_env_vars(
     mgr = DCMProjectManager()
     env_vars = {"WH_SIZE": "XLARGE"}
 
-    mgr.plan(
+    sfqid = mgr.plan_async(
         project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
         configuration="some_configuration",
@@ -519,42 +432,33 @@ def test_plan_project_with_configuration_variables_and_env_vars(
         env_vars=env_vars,
     )
 
-    mock_execute_with_params.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION"
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION"
         " some_configuration (key=>value) ENVIRONMENT (?) FROM @my_stage",
-        params=[json.dumps(env_vars)],
+        [json.dumps(env_vars)],
+        _force_qmark_paramstyle=True,
     )
-    mock_execute_query.assert_not_called()
 
 
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-@mock.patch(execute_queries)
-@mock.patch(execute_query_with_params)
-def test_plan_project_with_save_output_and_env_vars(
-    mock_execute_with_params,
-    mock_execute_query,
-    mock_create,
-    mock_get_recursive,
-    mock_from_resource,
-    project_directory,
-):
+def test_plan_async_project_with_output_path_and_env_vars(mock_conn_cursor):
     mgr = DCMProjectManager()
     env_vars = {"WH_SIZE": "XLARGE"}
 
-    mgr.plan(
+    sfqid = mgr.plan_async(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
-        save_output=True,
+        output_path="@output_stage/outputs",
         env_vars=env_vars,
     )
 
-    mock_execute_with_params.assert_called_once()
-    query = mock_execute_with_params.call_args.kwargs["query"]
-    assert "ENVIRONMENT (?)" in query
-    assert "OUTPUT_PATH" in query
-    assert mock_execute_with_params.call_args.kwargs["params"] == [json.dumps(env_vars)]
-    mock_execute_query.assert_not_called()
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN ENVIRONMENT (?)"
+        " FROM @test_stage OUTPUT_PATH @output_stage/outputs",
+        [json.dumps(env_vars)],
+        _force_qmark_paramstyle=True,
+    )
 
 
 @mock.patch(execute_queries)
@@ -594,38 +498,6 @@ def test_preview_project_basic(mock_execute_query):
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PREVIEW IDENTIFIER('my_table') FROM @test_stage"
-    )
-
-
-@mock.patch(execute_queries)
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.get_recursive")
-@mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-def test_plan_project_with_output_path__exception_handling(
-    mock_create,
-    mock_get_recursive,
-    mock_execute_query,
-    project_directory,
-    mock_from_resource,
-):
-    mock_execute_query.side_effect = Exception("Query execution failed")
-
-    mgr = DCMProjectManager()
-
-    with pytest.raises(Exception, match="Query execution failed"):
-        mgr.plan(
-            project_identifier=TEST_PROJECT,
-            from_stage="@test_stage",
-            configuration="some_configuration",
-            save_output=True,
-        )
-
-    # But the output should still be downloaded before exception is reraised
-    temp_stage_fqn = mock_from_resource()
-    mock_execute_query.assert_called_once()
-    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
-    mock_get_recursive.assert_called_once_with(
-        stage_path=f"@{str(temp_stage_fqn)}/outputs",
-        dest_path=Path("out"),
     )
 
 

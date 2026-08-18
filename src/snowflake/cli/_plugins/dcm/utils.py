@@ -19,6 +19,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, Generator
 
+from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -110,7 +111,7 @@ def command_artifacts(save_output: bool) -> Generator[None, None, None]:
     Both only happen with --save-output, so a run that writes nothing back leaves
     an earlier run's artifacts alone and stays quiet about them.
 
-    Announcing from a finally covers the failure path too: collect_output performs
+    Announcing from a finally covers the failure path too: _collect_output performs
     a best-effort download when the command fails, so the user is told where those
     artifacts landed even though the command errors out.
     """
@@ -124,13 +125,18 @@ def command_artifacts(save_output: bool) -> Generator[None, None, None]:
 
 
 @contextmanager
-def collect_output(
+def _collect_output(
     project_identifier: FQN,
     command_name: str,
 ) -> Generator[str, None, None]:
     """
     Context manager for handling command output artifacts - creates temporary stage,
     downloads files to the out/ folder after execution.
+
+    A command that failed is still downloaded from, so the user gets whatever
+    diagnostics the backend wrote. A command the CLI stopped tracking without
+    learning its outcome is not: the backend may still be writing to the stage, and
+    a snapshot of a run in flight is not that run's output.
 
     Args:
         project_identifier: The DCM project identifier
@@ -170,6 +176,14 @@ def collect_output(
 
     try:
         yield effective_output_path.absolute_path()
+    except QueryStatusUnavailableCliError:
+        log.info(
+            "Not downloading DCM %s artifacts: the operation may still be running "
+            "(project_identifier=%s).",
+            command_name,
+            project_identifier,
+        )
+        raise
     except Exception:
         try:
             _download_artifacts()
@@ -183,6 +197,25 @@ def collect_output(
         raise
     else:
         _download_artifacts()
+
+
+@contextmanager
+def output_stage(
+    project_identifier: FQN,
+    command_name: str,
+    save_output: bool,
+) -> Generator[str | None, None, None]:
+    """The stage to pass as OUTPUT_PATH, or None when the command was not asked to
+    save its output.
+
+    The artifacts are downloaded when this closes, so a caller waiting on an
+    asynchronous operation has to hold it open until that operation finishes.
+    """
+    if not save_output:
+        yield None
+        return
+    with _collect_output(project_identifier, command_name=command_name) as stage_path:
+        yield stage_path
 
 
 class FakeCursor:

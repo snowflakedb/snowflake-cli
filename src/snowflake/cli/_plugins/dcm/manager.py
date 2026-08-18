@@ -26,10 +26,6 @@ from snowflake.cli._plugins.dcm.models import (
 )
 from snowflake.cli._plugins.dcm.multistep_progress import StepProgressUpdater
 from snowflake.cli._plugins.dcm.progress import FileUploadProgress, upload_details
-from snowflake.cli._plugins.dcm.utils import (
-    RAW_ANALYZE_COMMAND_NAME,
-    collect_output,
-)
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
@@ -199,49 +195,41 @@ class DCMProjectManager(SqlExecutionMixin):
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
-        save_output: bool = False,
+        output_path: str | None = None,
         env_vars: dict[str, str] | None = None,
     ):
         log.info(
-            "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s).",
+            "Running DCM raw-analyze manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, has_output_path=%s).",
             project_identifier,
             bool(configuration),
             len(variables or []),
-            save_output,
+            bool(output_path),
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
         query += self._get_configuration_and_variables_query(configuration, variables)
         if env_vars:
             query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
+        if output_path:
+            query += f" OUTPUT_PATH {output_path}"
+        return self._execute_with_optional_env_vars(query, env_vars)
 
-        if save_output:
-            with collect_output(
-                project_identifier,
-                command_name=RAW_ANALYZE_COMMAND_NAME,
-            ) as output_stage:
-                query += f" OUTPUT_PATH {output_stage}"
-                result = self._execute_with_optional_env_vars(query, env_vars)
-        else:
-            result = self._execute_with_optional_env_vars(query, env_vars)
-        return result
-
-    def plan(
+    def plan_async(
         self,
         project_identifier: FQN,
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
-        save_output: bool = False,
         delta: bool = False,
+        output_path: str | None = None,
         env_vars: dict[str, str] | None = None,
-    ) -> SnowflakeCursor:
+    ) -> str:
         log.info(
-            "Running DCM plan manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, save_output=%s, delta=%s).",
+            "Submitting DCM plan async (project_identifier=%s, has_configuration=%s, variables_count=%d, has_output_path=%s, delta=%s).",
             project_identifier,
             bool(configuration),
             len(variables or []),
-            save_output,
+            bool(output_path),
             delta,
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
@@ -251,17 +239,15 @@ class DCMProjectManager(SqlExecutionMixin):
         if env_vars:
             query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
-
-        if save_output:
-            with collect_output(
-                project_identifier,
-                command_name="plan",
-            ) as output_stage:
-                query += f" OUTPUT_PATH {output_stage}"
-                result = self._execute_with_optional_env_vars(query, env_vars)
-        else:
-            result = self._execute_with_optional_env_vars(query, env_vars)
-        return result
+        if output_path:
+            query += f" OUTPUT_PATH {output_path}"
+        cursor = self._execute_with_optional_env_vars_async(query, env_vars)
+        log.info(
+            "DCM plan async submitted (project_identifier=%s, sfqid=%s).",
+            project_identifier,
+            cursor.sfqid,
+        )
+        return cursor.sfqid
 
     def create(self, project_identifier: FQN) -> None:
         log.info(
