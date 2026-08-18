@@ -30,6 +30,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from rich.console import Console, RenderableType
 from rich.spinner import Spinner
+from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
 from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
@@ -54,7 +55,6 @@ from snowflake.cli._plugins.dcm.progress import (
     upload_details,
     upload_tree,
 )
-from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.constants import QueryStatus
@@ -523,10 +523,10 @@ class TestServerPollUnavailableStatus:
 
         # when
         with patch(_SLEEP):
-            with pytest.raises(CliError) as err:
+            with pytest.raises(QueryStatusUnavailableCliError) as err:
                 poll.run()
 
-        # then
+        # then:
         assert TEST_SFQID in str(err.value)
         assert "no status" in str(err.value)
 

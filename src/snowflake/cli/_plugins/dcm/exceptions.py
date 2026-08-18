@@ -12,6 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from snowflake.cli.api.exceptions import CliError
+
+
+class QueryStatusUnavailableCliError(CliError):
+    """Snowflake never reported a submitted query's status, so the CLI stopped
+    waiting on an operation that may still be running.
+
+    Unlike a failure, this says nothing about how the operation ended: whatever it
+    has written so far belongs to a run still in flight, not to a finished one.
+    """
+
 
 class ManifestNotFoundError(Exception):
     """Manifest file does not exist."""
