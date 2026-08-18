@@ -41,6 +41,10 @@ EXCLUDED_PATHS = [
 
     # ── Internal release tooling ──
     "scripts/release-plugin/**",
+
+    # ── Internal workflows ──
+    ".github/workflows/daily-cve-check.yaml",
+    ".github/scripts/create_jira_tickets.py",
 ]
 
 # Re-include seam: paths matched here are mirrored even if excluded above.
