@@ -27,12 +27,12 @@ from rich.console import RenderableType
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
+from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
     StepProgressUpdater,
 )
-from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector import SnowflakeConnection
@@ -240,7 +240,7 @@ class ServerPoll:
         Polling cannot make progress without a status, so waiting longer would
         hang the CLI indefinitely on a query it may never learn anything about.
         """
-        raise CliError(
+        raise QueryStatusUnavailableCliError(
             f"Snowflake reported no status for query {self._sfqid} in "
             f"{_NO_DATA_MAX_RETRY} consecutive checks, so its progress cannot be "
             "tracked. The operation may still be running - check the query in "

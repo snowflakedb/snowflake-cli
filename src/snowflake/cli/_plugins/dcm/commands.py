@@ -53,7 +53,12 @@ from snowflake.cli._plugins.dcm.reporters import (
     RefreshReporter,
     TestReporter,
 )
-from snowflake.cli._plugins.dcm.utils import command_artifacts, mock_dcm_response
+from snowflake.cli._plugins.dcm.utils import (
+    RAW_ANALYZE_COMMAND_NAME,
+    command_artifacts,
+    mock_dcm_response,
+    output_stage,
+)
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -549,29 +554,26 @@ def plan(
         project_id = context.project_identifier
         env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-        progress = MultiStepProgress([UPLOAD, RENDER, COMPILE, PLAN])
+        server_steps = [RENDER, COMPILE, PLAN]
+        progress = MultiStepProgress([UPLOAD, *server_steps])
         with progress_session(progress):
             manager = DCMProjectManager()
             effective_stage = _upload_step(
                 progress, manager, project_id, from_location, assets=context.assets
             )
-            # The backend doesn't report progress for `plan` yet, so RENDER/COMPILE
-            # are simulated as instantly-completing steps. Once it does (soon),
-            # replace these with real ServerPoll-driven tracking, as in `deploy`.
-            progress.run_step(RENDER.key, lambda step: None)
-            progress.run_step(COMPILE.key, lambda step: None)
-            result = progress.run_step(
-                PLAN.key,
-                lambda step: manager.plan(
+            with output_stage(
+                project_id, command_name="plan", save_output=save_output
+            ) as output_path:
+                sfqid = manager.plan_async(
                     project_identifier=project_id,
                     configuration=context.configuration,
                     from_stage=effective_stage,
                     variables=variables,
-                    save_output=save_output,
                     delta=delta,
+                    output_path=output_path,
                     env_vars=env_vars,
-                ),
-            )
+                )
+                result = _run_server_poll(manager, progress, server_steps, sfqid)
 
         reporter = PlanReporter(
             save_output=save_output,
@@ -605,17 +607,22 @@ def raw_analyze(
             effective_stage = _upload_step(
                 progress, manager, project_id, from_location, assets=context.assets
             )
-            result = progress.run_step(
-                ANALYZE.key,
-                lambda step: manager.raw_analyze(
-                    project_identifier=project_id,
-                    configuration=context.configuration,
-                    from_stage=effective_stage,
-                    variables=variables,
-                    save_output=save_output,
-                    env_vars=env_vars,
-                ),
-            )
+            with output_stage(
+                project_id,
+                command_name=RAW_ANALYZE_COMMAND_NAME,
+                save_output=save_output,
+            ) as output_path:
+                result = progress.run_step(
+                    ANALYZE.key,
+                    lambda step: manager.raw_analyze(
+                        project_identifier=project_id,
+                        configuration=context.configuration,
+                        from_stage=effective_stage,
+                        variables=variables,
+                        output_path=output_path,
+                        env_vars=env_vars,
+                    ),
+                )
 
         reporter = AnalyzeReporter(save_output=save_output)
         return reporter.process(result)
