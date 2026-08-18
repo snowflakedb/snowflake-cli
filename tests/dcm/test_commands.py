@@ -22,9 +22,9 @@ def _analyze_response(files=None):
     if files is None:
         files = [
             {
-                "sourcePath": "sources/definitions/ok.sql",
-                "definitions": [{"name": "OK", "errors": []}],
-                "errors": [],
+                "source_path": "sources/definitions/ok.sql",
+                "definitions": [{"id": {"name": "OK"}, "issues": []}],
+                "issues": [],
             }
         ]
     return json.dumps({"files": files})
@@ -2003,7 +2003,7 @@ class TestDCMRawAnalyze:
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
         )
 
-    def test_raw_analyze_with_errors_exits(
+    def test_raw_analyze_with_issues_exits(
         self,
         mock_dcm_manager,
         mock_manifest_load,
@@ -2012,17 +2012,17 @@ class TestDCMRawAnalyze:
         mock_cursor,
         mock_connect,
     ):
-        error_response = _analyze_response(
+        issue_response = _analyze_response(
             files=[
                 {
-                    "sourcePath": "sources/definitions/bad.sql",
+                    "source_path": "sources/definitions/bad.sql",
                     "definitions": [],
-                    "errors": [{"message": "syntax error"}],
+                    "issues": [{"message": "syntax error", "severity": "ERROR"}],
                 }
             ]
         )
         mock_dcm_manager().raw_analyze.return_value = mock_cursor(
-            rows=[(error_response,)], columns=("result",)
+            rows=[(issue_response,)], columns=("result",)
         )
         mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
         mock_manifest_load.return_value = _manifest_without_config()
@@ -2315,15 +2315,7 @@ class TestDCMRawAnalyze:
     ):
         """raw-analyze's result file is compile_result.json, matching the file the
         backend itself writes."""
-        analyze_response = {
-            "files": [
-                {
-                    "sourcePath": "sources/definitions/ok.sql",
-                    "definitions": [{"name": "OK", "errors": []}],
-                    "errors": [],
-                }
-            ]
-        }
+        analyze_response = json.loads(_analyze_response())
         mock_dcm_manager().raw_analyze.return_value = mock_cursor(
             rows=[(json.dumps(analyze_response),)], columns=("result",)
         )

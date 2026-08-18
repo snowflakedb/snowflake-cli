@@ -30,59 +30,52 @@ class TestAnalyzeReporter:
     def _make_response(self, files):
         return {"files": files}
 
-    def test_process_no_errors(self):
-        data = self._make_response(
-            [
+    def test_process_fails_when_issues_present(self):
+        data = {
+            "issues": [{"message": "advisory", "severity": "INFO"}],
+            "files": [
                 {
-                    "sourcePath": "sources/definitions/customers.sql",
-                    "definitions": [{"name": "CUSTOMERS", "errors": []}],
-                    "errors": [],
-                }
-            ]
-        )
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            reporter.process(cursor)  # Should not raise
-
-    def test_process_with_file_errors(self):
-        data = self._make_response(
-            [
-                {
-                    "sourcePath": "sources/definitions/bad.sql",
-                    "definitions": [],
-                    "errors": [{"message": "syntax error"}],
-                }
-            ]
-        )
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            with pytest.raises(CliError) as exc_info:
-                reporter.process(cursor)
-
-        assert "1 error(s)" in exc_info.value.message
-
-    def test_process_with_definition_errors(self):
-        data = self._make_response(
-            [
-                {
-                    "sourcePath": "sources/definitions/customers.sql",
+                    "source_path": "sources/definitions/orders.sql",
                     "definitions": [
                         {
-                            "name": "CUSTOMERS",
-                            "errors": [
-                                {"message": "column not found"},
-                                {"message": "type mismatch"},
+                            "id": {"name": "ORDERS"},
+                            "issues": [
+                                {
+                                    "message": "unresolved dependency",
+                                    "severity": "ERROR",
+                                },
+                                {
+                                    "message": "could not analyze lineage",
+                                    "severity": "INFO",
+                                },
+                            ],
+                        },
+                        {
+                            "id": {"name": "ORDERS_VIEW"},
+                            "issues": [
+                                {
+                                    "message": "conflicting definition",
+                                    "severity": "ERROR",
+                                }
+                            ],
+                        },
+                    ],
+                    "issues": [{"message": "invalid identifier", "severity": "WARN"}],
+                },
+                {
+                    "source_path": "sources/definitions/broken.sql",
+                    "definitions": [
+                        {
+                            "id": {"name": "BROKEN"},
+                            "issues": [
+                                {"message": "syntax error", "severity": "ERROR"}
                             ],
                         }
                     ],
-                    "errors": [],
-                }
-            ]
-        )
+                    "issues": [{"message": "parse failure", "severity": "ERROR"}],
+                },
+            ],
+        }
         reporter = AnalyzeReporter()
         cursor = FakeCursor(data)
 
@@ -90,39 +83,34 @@ class TestAnalyzeReporter:
             with pytest.raises(CliError) as exc_info:
                 reporter.process(cursor)
 
-        assert "2 error(s)" in exc_info.value.message
+        assert "7 error(s)" in exc_info.value.message
 
-    def test_process_with_mixed_errors(self):
-        data = self._make_response(
-            [
+    @pytest.mark.parametrize(
+        "data",
+        [
+            pytest.param({"files": []}, id="empty_files"),
+            pytest.param(
                 {
-                    "sourcePath": "sources/definitions/a.sql",
-                    "definitions": [{"name": "A", "errors": [{"message": "err1"}]}],
-                    "errors": [{"message": "file err"}],
+                    "files": [
+                        {
+                            "source_path": "sources/definitions/ok.sql",
+                            "definitions": [{"id": {"name": "T"}, "issues": []}],
+                            "issues": [],
+                        }
+                    ],
+                    "issues": [],
                 },
-                {
-                    "sourcePath": "sources/definitions/b.sql",
-                    "definitions": [{"name": "B", "errors": []}],
-                    "errors": [],
-                },
-            ]
-        )
+                id="no_issues",
+            ),
+        ],
+    )
+    def test_process_succeeds_when_no_issues(self, data):
         reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
 
-        with mock.patch(CLI_CONSOLE_PATH):
-            with pytest.raises(CliError) as exc_info:
-                reporter.process(cursor)
+        output = capture_reporter_output(reporter, FakeCursor(data))
 
-        assert "2 error(s)" in exc_info.value.message
-
-    def test_process_empty_files(self):
-        data = self._make_response([])
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            reporter.process(cursor)  # Should not raise
+        assert "Analysis completed successfully." in output
+        assert "error(s)" not in output
 
     def test_process_no_data(self):
         reporter = AnalyzeReporter()
@@ -131,119 +119,13 @@ class TestAnalyzeReporter:
         output = capture_reporter_output(reporter, cursor)
         assert "No data." in output
 
-    def test_process_with_file_issues(self):
-        data = self._make_response(
-            [
-                {
-                    "source_path": "sources/definitions/bad.sql",
-                    "definitions": [{"id": {"name": "T"}, "issues": []}],
-                    "issues": [{"message": "syntax error", "severity": "ERROR"}],
-                }
-            ]
-        )
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            with pytest.raises(CliError) as exc_info:
-                reporter.process(cursor)
-
-        assert "1 error(s)" in exc_info.value.message
-
-    def test_process_with_definition_issues(self):
-        data = self._make_response(
-            [
-                {
-                    "source_path": "sources/definitions/customers.sql",
-                    "definitions": [
-                        {
-                            "id": {"name": "CUSTOMERS"},
-                            "issues": [
-                                {"message": "column not found", "severity": "ERROR"},
-                                {"message": "type mismatch", "severity": "ERROR"},
-                            ],
-                        }
-                    ],
-                    "issues": [],
-                }
-            ]
-        )
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            with pytest.raises(CliError) as exc_info:
-                reporter.process(cursor)
-
-        assert "2 error(s)" in exc_info.value.message
-
-    def test_process_with_top_level_issues(self):
-        data = {"files": [], "issues": [{"message": "rate limit exceeded"}]}
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            with pytest.raises(CliError) as exc_info:
-                reporter.process(cursor)
-
-        assert "1 error(s)" in exc_info.value.message
-
-    def test_process_with_top_level_errors(self):
-        data = {"files": [], "errors": [{"message": "definition files too large"}]}
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            with pytest.raises(CliError) as exc_info:
-                reporter.process(cursor)
-
-        assert "1 error(s)" in exc_info.value.message
-
-    def test_process_with_both_errors_and_issues_at_same_level(self):
-        # Both keys present simultaneously at file level — counts are summed
-        data = self._make_response(
-            [
-                {
-                    "source_path": "sources/definitions/a.sql",
-                    "definitions": [],
-                    "errors": [{"message": "old error"}],
-                    "issues": [{"message": "new issue"}],
-                }
-            ]
-        )
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            with pytest.raises(CliError) as exc_info:
-                reporter.process(cursor)
-
-        assert "2 error(s)" in exc_info.value.message
-
-    def test_process_no_issues_new_format(self):
-        data = {
-            "files": [
-                {
-                    "source_path": "sources/definitions/ok.sql",
-                    "definitions": [{"id": {"name": "T"}, "issues": []}],
-                    "issues": [],
-                }
-            ],
-            "issues": [],
-        }
-        reporter = AnalyzeReporter()
-        cursor = FakeCursor(data)
-
-        with mock.patch(CLI_CONSOLE_PATH):
-            reporter.process(cursor)  # Should not raise
-
     def test_prints_raw_json(self):
         data = self._make_response(
             [
                 {
-                    "sourcePath": "sources/definitions/ok.sql",
-                    "definitions": [{"name": "OK", "errors": []}],
-                    "errors": [],
+                    "source_path": "sources/definitions/ok.sql",
+                    "definitions": [{"id": {"name": "OK"}, "issues": []}],
+                    "issues": [],
                 }
             ]
         )
