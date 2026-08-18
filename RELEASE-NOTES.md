@@ -31,6 +31,7 @@
   unless the `enable_dcm_preview_features` CLI feature flag is enabled, so they no
   longer appear in `snow dcm --help` without an explicit opt-in.
 * `snow dcm plan` now tracks the server's own progress, like `snow dcm deploy` already does: its `RENDER`, `COMPILE` and `PLAN` steps advance as the backend reports each phase. Previously `RENDER` and `COMPILE` completed instantly and the rest of the run showed as a single `PLAN` spinner.
+* `snow dcm deploy`, `snow dcm plan` and `snow dcm purge` no longer require an active warehouse. Progress tracking read the result with `RESULT_SCAN`, which requires a warehouse.
 * `snow streamlit deploy --replace`: fixed a crash when replacing a legacy `ROOT_LOCATION` Streamlit app with a versioned deployment.
 * Upgraded `GitPython` from 3.1.57 to 3.1.58.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.16 to 3.10.21.
