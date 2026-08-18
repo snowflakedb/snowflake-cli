@@ -55,9 +55,11 @@ from snowflake.cli._plugins.dcm.progress import (
     upload_details,
     upload_tree,
 )
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.constants import QueryStatus
+from snowflake.connector.errors import ProgrammingError
 
 from tests.dcm.multi_step_progress_capture import find_line
 
@@ -71,10 +73,12 @@ def _conn(
     still_running: Sequence[bool],
     is_error: bool,
     rows: Sequence[Optional[list]] = (),
+    query_error: Optional[BaseException] = None,
 ) -> Tuple[MagicMock, MagicMock]:
     conn = MagicMock()
     conn.is_still_running.side_effect = still_running
     conn.is_an_error.return_value = is_error
+    conn.get_query_status_throw_if_error.side_effect = query_error
     poll_count = sum(1 for value in still_running if value)
     padded_rows = list(rows) + [None] * (poll_count - len(rows))
     cursor = MagicMock()
@@ -124,23 +128,46 @@ class TestServerPollRun:
 
         # then
         assert result is cursor
-        cursor.get_results_from_sfqid.assert_called_once_with(TEST_SFQID)
+        cursor.query_result.assert_called_once_with(TEST_SFQID)
         for step in self._STEPS:
             assert progress.step_state(step.key) == StepState.DONE
 
-    def test_failure_marks_non_terminal_steps_failed(self) -> None:
-        # given
-        conn, cursor = _conn(still_running=[False], is_error=True)
+    def test_result_is_fetched_without_running_a_query(self) -> None:
+        """``get_results_from_sfqid`` would run ``result_scan``, needing a warehouse."""
+        conn, cursor = _conn(still_running=[False], is_error=False)
+
+        ServerPoll(conn, MultiStepProgress(self._STEPS), self._STEPS, TEST_SFQID).run()
+
+        cursor.get_results_from_sfqid.assert_not_called()
+        cursor.execute.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "query_error, expected, match",
+        [
+            (
+                ProgrammingError(msg="Statement failed."),
+                ProgrammingError,
+                "Statement failed.",
+            ),
+            (None, CliError, TEST_SFQID),
+        ],
+        ids=["query_error_reported", "no_error_reported"],
+    )
+    def test_failure_raises_and_reads_no_result(
+        self, query_error, expected, match
+    ) -> None:
+        conn, cursor = _conn(
+            still_running=[False], is_error=True, query_error=query_error
+        )
         progress = MultiStepProgress(self._STEPS)
         poll = ServerPoll(conn, progress, self._STEPS, TEST_SFQID)
 
-        # when
-        result = poll.run()
+        with pytest.raises(expected, match=match):
+            poll.run()
 
-        # then
-        assert result is cursor
         for step in self._STEPS:
             assert progress.step_state(step.key) == StepState.FAILED
+        cursor.query_result.assert_not_called()
 
     def test_fetches_query_status_once_per_loop_boundary(self) -> None:
         # given: loop runs for 2 iterations (True, False) then checks success/failure
@@ -398,11 +425,12 @@ class TestServerPoll:
             still_running=[True, False],
             is_error=True,
             rows=[['{"phase": "COMPILE", "progress": 0}']],
+            query_error=ProgrammingError(msg="Statement failed."),
         )
         poll = ServerPoll(conn, progress, self._STEPS, TEST_SFQID)
 
         # when
-        with patch(_SLEEP):
+        with patch(_SLEEP), pytest.raises(ProgrammingError):
             poll.run()
 
         # then

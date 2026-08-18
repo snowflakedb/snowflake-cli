@@ -33,6 +33,7 @@ from snowflake.cli._plugins.dcm.multistep_progress import (
     StepDefinition,
     StepProgressUpdater,
 )
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector import SnowflakeConnection
@@ -227,12 +228,18 @@ class ServerPoll:
 
         if self._conn.is_an_error(status):
             self._finalize_failure()
-        else:
-            self._finalize_success()
+            self._abandon_failed_query()
 
+        self._finalize_success()
         result_cursor = self._conn.cursor()
-        result_cursor.get_results_from_sfqid(self._sfqid)
+        result_cursor.query_result(self._sfqid)
         return result_cursor
+
+    def _abandon_failed_query(self) -> NoReturn:
+        self._conn.get_query_status_throw_if_error(self._sfqid)
+        raise CliError(
+            f"Query {self._sfqid} failed, but Snowflake reported no error for it."
+        )
 
     def _abandon_unavailable_status(self) -> NoReturn:
         """Stops waiting on a query whose status Snowflake does not report.

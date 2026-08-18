@@ -110,6 +110,32 @@ def assert_format_result(result: CommandResult, format_name: str):
         raise ValueError(f"Unsupported format: {format_name}")
 
 
+NON_EXISTENT_WAREHOUSE = "cli_integration_no_such_warehouse"
+
+
+@pytest.fixture
+def cli_without_warehouse(monkeypatch, runner):
+    """Runs the CLI under test on a session with no warehouse. Naming a warehouse that
+    does not exist leaves `current_warehouse()` null, and unlike unsetting it, is not
+    overridden by the user's `DEFAULT_WAREHOUSE`. `snowflake_session` keeps its own
+    warehouse, so fixtures and verification queries are unaffected."""
+    for variable in (
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE",
+        "SNOWFLAKE_WAREHOUSE",
+    ):
+        monkeypatch.setenv(variable, NON_EXISTENT_WAREHOUSE)
+
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", "select current_warehouse() as wh"]
+    )
+    assert result.exit_code == 0, result.output
+    assert result.json[0]["WH"] is None, (
+        f"The CLI session has warehouse {result.json[0]['WH']}, so this test cannot "
+        f"check that the command works without one; {NON_EXISTENT_WAREHOUSE} must not "
+        "exist on the test account."
+    )
+
+
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_dcm_deploy(
@@ -117,6 +143,7 @@ def test_dcm_deploy(
     test_database,
     dcm_project_directory,
     sql_test_helper,
+    cli_without_warehouse,
 ):
     project_name = "project_descriptive_name"
     standard_table_fqn = f"{test_database}.PUBLIC.MYTABLE"
@@ -190,6 +217,7 @@ def test_create_corner_cases(
     runner,
     test_database,
     dcm_project_directory,
+    cli_without_warehouse,
 ):
     project_name = "project_descriptive_name"
     with dcm_project_directory("dcm_project"):
@@ -222,9 +250,7 @@ def test_create_corner_cases(
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_dcm_drop_deployment(
-    runner,
-    test_database,
-    dcm_project_directory,
+    runner, test_database, dcm_project_directory, cli_without_warehouse
 ):
     project_name = "project_descriptive_name"
 
@@ -357,10 +383,7 @@ def test_dcm_drop_deployment(
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_dcm_plan_and_deploy_from_another_directory(
-    runner,
-    test_database,
-    dcm_project_directory,
-    tmp_path,
+    runner, test_database, dcm_project_directory, tmp_path, cli_without_warehouse
 ):
     project_name = "project_descriptive_name"
 
@@ -414,6 +437,7 @@ def test_dcm_plan_with_save_output(
     runner,
     test_database,
     dcm_project_directory,
+    cli_without_warehouse,
 ):
     project_name = "project_descriptive_name"
     output_dir = "out"
@@ -458,6 +482,7 @@ def test_dcm_plan_with_delta(
     test_database,
     dcm_project_directory,
     object_name_provider,
+    cli_without_warehouse,
 ):
     project_name = object_name_provider.create_and_get_next_object_name()
 
@@ -500,6 +525,7 @@ def test_dcm_command_respects_format_option(
     object_name_provider,
     format_name,
     command,
+    cli_without_warehouse,
 ):
     project_name = object_name_provider.create_and_get_next_object_name()
 
@@ -697,6 +723,7 @@ def test_dcm_test_command(
     dcm_project_directory,
     object_name_provider,
     sql_test_helper,
+    cli_without_warehouse,
 ):
     project_name = object_name_provider.create_and_get_next_object_name()
     table_name = f"{test_database}.PUBLIC.TestedTable"
@@ -790,6 +817,7 @@ def test_dcm_end_to_end_workflow(
     dcm_project_directory,
     target_args,
     expected_config,
+    cli_without_warehouse,
 ):
     target_args = list(target_args)
 
@@ -848,9 +876,7 @@ def test_dcm_end_to_end_workflow(
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_dcm_raw_analyze_with_save_output(
-    runner,
-    test_database,
-    dcm_project_directory,
+    runner, test_database, dcm_project_directory, cli_without_warehouse
 ):
     project_name = "project_descriptive_name"
 
@@ -894,6 +920,7 @@ def test_dcm_raw_analyze_with_errors(
     test_database,
     dcm_project_directory,
     object_name_provider,
+    cli_without_warehouse,
 ):
     project_name = object_name_provider.create_and_get_next_object_name()
     correct_table_fqn = f"{test_database}.PUBLIC.CORRECT_TABLE"
@@ -924,6 +951,7 @@ def test_dcm_purge(
     test_database,
     dcm_project_directory,
     sql_test_helper,
+    cli_without_warehouse,
 ):
     project_name = "project_descriptive_name"
     table_fqn = f"{test_database}.PUBLIC.PurgeTestTable"
@@ -1023,7 +1051,9 @@ def dcm_project_directory(project_directory, snowflake_session):
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_dcm_account_identifier_validation(runner, test_database, project_directory):
+def test_dcm_account_identifier_validation(
+    runner, test_database, project_directory, cli_without_warehouse
+):
     with project_directory("dcm_project") as project_root:
         manifest = {
             "manifest_version": 2,
@@ -1047,7 +1077,7 @@ def test_dcm_account_identifier_validation(runner, test_database, project_direct
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_dcm_project_owner_validation(
-    runner, test_database, project_directory, snowflake_session
+    runner, test_database, project_directory, snowflake_session, cli_without_warehouse
 ):
     with project_directory("dcm_project") as project_root:
         account_id, _ = _get_snowflake_identifiers(snowflake_session)
