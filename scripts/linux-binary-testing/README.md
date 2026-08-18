@@ -64,7 +64,39 @@ SUBNET_ID="your-subnet-id"
 REGION="your-aws-region"
 ```
 
-### 2. Run Tests
+### 2. Build Packages
+
+The test script requires pre-built `.rpm` and `.deb` packages. These must be
+built inside Docker (the binaries target Linux and depend on a custom Python
+built in the container).
+
+```bash
+cd scripts/packaging
+
+# Build the Docker image (once, or after Dockerfile changes)
+docker compose build
+
+# Build x86_64 packages
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose run --rm package-builder \
+  bash -c "scripts/packaging/build_binaries.sh && scripts/packaging/build_packages.sh"
+
+# Build aarch64 packages
+DOCKER_DEFAULT_PLATFORM=linux/arm64 docker compose run --rm package-builder \
+  bash -c "scripts/packaging/build_binaries.sh && scripts/packaging/build_packages.sh"
+```
+
+Packages are written to `dist/` in the repo root:
+```
+dist/
+├── snowflake-cli-<version>.x86_64.rpm
+├── snowflake-cli-<version>.x86_64.deb
+├── snowflake-cli-<version>.aarch64.rpm
+└── snowflake-cli-<version>.aarch64.deb
+```
+
+Set `PACKAGE_DIR` to the `dist/` directory when running the tests.
+
+### 3. Run Tests
 ```bash
 # Run the test suite (using config file)
 ./scripts/linux-binary-testing/test_snowflake_cli_aws.sh
@@ -79,7 +111,7 @@ REGION="your-aws-region"
   -r region_name
 ```
 
-### 3. View Results
+### 4. View Results
 ```bash
 # Test results are saved in timestamped directories
 ls scripts/linux-binary-testing/logs/

@@ -32,6 +32,7 @@
   longer appear in `snow dcm --help` without an explicit opt-in.
 * `snow streamlit deploy --replace`: fixed a crash when replacing a legacy `ROOT_LOCATION` Streamlit app with a versioned deployment.
 * Upgraded `GitPython` from 3.1.57 to 3.1.58.
+* Upgraded the Python interpreter embedded in Linux binaries from 3.10.16 to 3.10.21.
 
 
 # v3.24.1
