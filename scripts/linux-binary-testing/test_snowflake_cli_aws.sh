@@ -194,30 +194,30 @@ warning() {
 # Format: "OS_NAME:AMI_ID:INSTANCE_TYPE:ARCH:PACKAGE_TYPE"
 # Using verified AMIs for eu-central-1 region
 CONFIGS=(
-    # Amazon Linux 2023 AMI 2023.8.20250818.0 x86_64 HVM kernel-6.1
-    "amazonlinux-x86:ami-015cbce10f839bd0c:t3.micro:x86_64:rpm"
-    # Amazon Linux 2023 AMI 2023.8.20250818.0 arm64 HVM kernel-6.1
-    "amazonlinux-arm:ami-0c76eed7d4d298d55:t4g.micro:arm64:rpm"
+    # Amazon Linux 2023 AMI 2023.12.20260803.3 x86_64 HVM kernel-6.18
+    "amazonlinux-x86:ami-0bdc7d025135d7b49:t3.micro:x86_64:rpm"
+    # Amazon Linux 2023 AMI 2023.12.20260803.3 arm64 HVM kernel-6.1
+    "amazonlinux-arm:ami-09317ccfac89b432d:t4g.micro:arm64:rpm"
 
-    # Red Hat Enterprise Linux 10 x86_64
-    "redhat-10-x86:ami-005c89b47f40aa0e1:t3.micro:x86_64:rpm"
-    # Red Hat Enterprise Linux 10 ARM64
-    "redhat-10-arm:ami-0624b52bb7600a790:t4g.micro:arm64:rpm"
+    # Red Hat Enterprise Linux 10.2 x86_64
+    "redhat-10-x86:ami-0808d5e30f25d9f5c:t3.micro:x86_64:rpm"
+    # Red Hat Enterprise Linux 10.2 ARM64
+    "redhat-10-arm:ami-0d019eb72731282ff:t4g.micro:arm64:rpm"
 
-    # Red Hat Enterprise Linux 9 x86_64
-    "redhat-9-x86:ami-0b6cae6b0598176ae:t3.micro:x86_64:rpm"
-    # Red Hat Enterprise Linux 9 ARM64
-    "redhat-9-arm:ami-091cd356fd6ad46ec:t4g.micro:arm64:rpm"
+    # Red Hat Enterprise Linux 9.8 x86_64
+    "redhat-9-x86:ami-0225644bfadc204f7:t3.micro:x86_64:rpm"
+    # Red Hat Enterprise Linux 9.8 ARM64
+    "redhat-9-arm:ami-055a92ee4155e3dfd:t4g.micro:arm64:rpm"
 
-    # Debian x86_64
-    "debian-x86:ami-0f439e819ba112bd7:t3.micro:x86_64:deb"
-    # Debian ARM64
-    "debian-arm:ami-0bdbe4d582d76c8ca:t4g.micro:arm64:deb"
+    # Debian 13 x86_64
+    "debian-x86:ami-0b764bc5915734858:t3.micro:x86_64:deb"
+    # Debian 13 ARM64
+    "debian-arm:ami-0936a0e3c81a519f5:t4g.micro:arm64:deb"
 
     # Canonical, Ubuntu, 24.04, amd64 noble image
-    "ubuntu-x86:ami-02003f9f0fde924ea:t3.micro:x86_64:deb"
+    "ubuntu-x86:ami-052355af2a014bd2c:t3.micro:x86_64:deb"
     # Canonical, Ubuntu, 24.04, arm64 noble image
-    "ubuntu-arm:ami-0fd8fe5cdf7cad6f6:t4g.micro:arm64:deb"
+    "ubuntu-arm:ami-02c4144237becae44:t4g.micro:arm64:deb"
 )
 
 # Check prerequisites
@@ -309,7 +309,7 @@ ARCH="$arch"
 PACKAGE_TYPE="$package_type"
 
 echo "=== Snowflake CLI Binary Test ==="
-echo "OS: \$(cat /etc/os-release | grep PRETTY_NAME | cut -d'\"' -f2)"
+echo "OS: \$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"')"
 echo "Architecture: \$ARCH"
 echo ""
 
@@ -343,13 +343,7 @@ echo "Detected package: \$PACKAGE_FILE"
 
 # Install the package
 if [ "\$PACKAGE_TYPE" = "rpm" ]; then
-    if command -v yum &> /dev/null; then
-        sudo yum install -y "./\$PACKAGE_FILE"
-    elif command -v dnf &> /dev/null; then
-        sudo dnf install -y "./\$PACKAGE_FILE"
-    else
-        sudo rpm -i "./\$PACKAGE_FILE"
-    fi
+    sudo rpm -i "./\$PACKAGE_FILE"
 elif [ "\$PACKAGE_TYPE" = "deb" ]; then
     sudo dpkg -i "./\$PACKAGE_FILE" || sudo apt-get install -f -y
 fi

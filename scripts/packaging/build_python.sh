@@ -4,7 +4,7 @@ set -e
 # Build Python with conservative CPU flags for maximum compatibility
 # This script is designed to be run in a Docker container
 
-PYTHON_VERSION=3.10.16
+PYTHON_VERSION=3.10.21
 PYTHON_PREFIX=/usr/local
 
 echo "=== Starting Python build process ==="
