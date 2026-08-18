@@ -18,7 +18,8 @@ install_cargo() {
 }
 
 clean_build_workspace() {
-  rm -rf $DIST_DIR || true
+  rm -rf $DIST_DIR/binary $DIST_DIR/snow || true
+  rm -f $DIST_DIR/snowflake-cli-*${MACHINE}.rpm $DIST_DIR/snowflake-cli-*${MACHINE}.deb || true
 }
 
 build_binaries() {
