@@ -2,9 +2,11 @@ import json
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
 from snowflake.cli._plugins.dcm.utils import (
     OUTPUT_FOLDER,
     announce_output_artifacts,
+    output_stage,
     prepare_output_folder,
     result_file_exists,
     save_command_response,
@@ -155,26 +157,30 @@ class TestResultFileExists:
             assert not result_file_exists("plan")
 
 
+OUTPUT_TMP_STAGE = "DCM_MY_PROJECT_OUTPUT_TMP_STAGE"
+
+
+def _project_identifier():
+    return FQN.from_string("my_project")
+
+
+@pytest.fixture(autouse=True)
+def mock_from_resource():
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.utils.FQN.from_resource",
+        return_value=FQN(
+            database="MockDatabase",
+            schema="MockSchema",
+            name=OUTPUT_TMP_STAGE,
+        ),
+    ) as _fixture:
+        yield _fixture
+
+
 class TestCollectOutput:
-    @staticmethod
-    def _project_identifier():
-        return FQN.from_string("my_project")
-
-    @pytest.fixture(autouse=True)
-    def mock_from_resource(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dcm.utils.FQN.from_resource",
-            return_value=FQN(
-                database="MockDatabase",
-                schema="MockSchema",
-                name="DCM_MY_PROJECT_OUTPUT_TMP_STAGE",
-            ),
-        ) as _fixture:
-            yield _fixture
-
     @mock.patch("snowflake.cli._plugins.dcm.utils.StageManager")
     def test_downloads_directly_into_out(self, stage_manager_cls, tmp_path):
-        from snowflake.cli._plugins.dcm.utils import collect_output
+        from snowflake.cli._plugins.dcm.utils import _collect_output
 
         stage_manager = stage_manager_cls.return_value
 
@@ -188,8 +194,8 @@ class TestCollectOutput:
 
         with change_directory(tmp_path):
             prepare_output_folder()
-            with collect_output(
-                self._project_identifier(),
+            with _collect_output(
+                _project_identifier(),
                 command_name="plan",
             ):
                 pass
@@ -200,15 +206,15 @@ class TestCollectOutput:
 
     @mock.patch("snowflake.cli._plugins.dcm.utils.StageManager")
     def test_no_error_when_no_rendered_produced(self, stage_manager_cls, tmp_path):
-        from snowflake.cli._plugins.dcm.utils import collect_output
+        from snowflake.cli._plugins.dcm.utils import _collect_output
 
         stage_manager = stage_manager_cls.return_value
         stage_manager.get_recursive.side_effect = lambda stage_path, dest_path: []
 
         with change_directory(tmp_path):
             prepare_output_folder()
-            with collect_output(
-                self._project_identifier(),
+            with _collect_output(
+                _project_identifier(),
                 command_name="plan",
             ):
                 pass
@@ -217,7 +223,7 @@ class TestCollectOutput:
 
     @mock.patch("snowflake.cli._plugins.dcm.utils.StageManager")
     def test_downloads_artifacts_when_command_fails(self, stage_manager_cls, tmp_path):
-        from snowflake.cli._plugins.dcm.utils import collect_output
+        from snowflake.cli._plugins.dcm.utils import _collect_output
 
         stage_manager = stage_manager_cls.return_value
 
@@ -229,8 +235,8 @@ class TestCollectOutput:
         with change_directory(tmp_path):
             prepare_output_folder()
             with pytest.raises(RuntimeError, match="plan failed"):
-                with collect_output(
-                    self._project_identifier(),
+                with _collect_output(
+                    _project_identifier(),
                     command_name="plan",
                 ):
                     raise RuntimeError("plan failed")
@@ -238,10 +244,29 @@ class TestCollectOutput:
             assert (tmp_path / OUTPUT_FOLDER / "plan_result.json").exists()
 
     @mock.patch("snowflake.cli._plugins.dcm.utils.StageManager")
+    def test_does_not_download_when_the_operation_was_left_running(
+        self, stage_manager_cls, tmp_path
+    ):
+        from snowflake.cli._plugins.dcm.utils import _collect_output
+
+        stage_manager = stage_manager_cls.return_value
+
+        with change_directory(tmp_path):
+            prepare_output_folder()
+            with pytest.raises(QueryStatusUnavailableCliError):
+                with _collect_output(
+                    _project_identifier(),
+                    command_name="plan",
+                ):
+                    raise QueryStatusUnavailableCliError("no status for query 42")
+
+        stage_manager.get_recursive.assert_not_called()
+
+    @mock.patch("snowflake.cli._plugins.dcm.utils.StageManager")
     def test_download_failure_does_not_mask_command_error(
         self, stage_manager_cls, tmp_path
     ):
-        from snowflake.cli._plugins.dcm.utils import collect_output
+        from snowflake.cli._plugins.dcm.utils import _collect_output
 
         stage_manager = stage_manager_cls.return_value
         stage_manager.get_recursive.side_effect = OSError("nothing to download")
@@ -249,8 +274,8 @@ class TestCollectOutput:
         with change_directory(tmp_path):
             prepare_output_folder()
             with pytest.raises(RuntimeError, match="plan failed"):
-                with collect_output(
-                    self._project_identifier(),
+                with _collect_output(
+                    _project_identifier(),
                     command_name="plan",
                 ):
                     raise RuntimeError("plan failed")
@@ -259,15 +284,54 @@ class TestCollectOutput:
     def test_download_failure_propagates_on_success_path(
         self, stage_manager_cls, tmp_path
     ):
-        from snowflake.cli._plugins.dcm.utils import collect_output
+        from snowflake.cli._plugins.dcm.utils import _collect_output
 
         stage_manager = stage_manager_cls.return_value
         stage_manager.get_recursive.side_effect = OSError("stage unreachable")
 
         with change_directory(tmp_path):
             with pytest.raises(OSError, match="stage unreachable"):
-                with collect_output(
-                    self._project_identifier(),
+                with _collect_output(
+                    _project_identifier(),
                     command_name="plan",
                 ):
                     pass
+
+
+class TestOutputStage:
+    """The save_output-conditional wrapper the commands hold open around the
+    operation that writes to OUTPUT_PATH."""
+
+    @mock.patch("snowflake.cli._plugins.dcm.utils.StageManager")
+    def test_yields_nothing_and_touches_no_stage_without_save_output(
+        self, stage_manager_cls, tmp_path
+    ):
+        with change_directory(tmp_path):
+            with output_stage(
+                _project_identifier(),
+                command_name="plan",
+                save_output=False,
+            ) as stage_path:
+                assert stage_path is None
+
+        stage_manager_cls.assert_not_called()
+
+    @mock.patch("snowflake.cli._plugins.dcm.utils.StageManager")
+    def test_yields_the_created_stage_with_save_output(
+        self, stage_manager_cls, tmp_path
+    ):
+        stage_manager = stage_manager_cls.return_value
+
+        with change_directory(tmp_path):
+            prepare_output_folder()
+            with output_stage(
+                _project_identifier(),
+                command_name="plan",
+                save_output=True,
+            ) as stage_path:
+                assert (
+                    stage_path == f"@MockDatabase.MockSchema.{OUTPUT_TMP_STAGE}/outputs"
+                )
+
+        stage_manager.create.assert_called_once()
+        stage_manager.get_recursive.assert_called_once()
