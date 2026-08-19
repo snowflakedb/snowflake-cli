@@ -1430,9 +1430,9 @@ def _ensure_cng_url_cert_ready(
     happen inside ``CREATE APPLICATION SERVICE`` — so this probes for it up front
     (never polling) via a client-side TLS probe.
 
-    The caller gates this on the app being CNG, which also implies the feature
-    flag is on (``compute_resource`` stays ``None`` while it is off), so the flag
-    is not re-checked here.
+    The caller gates this on the app being CNG, which is an ``app.yml`` v2-only
+    feature (``compute_resource`` is only resolved on that path), so no flag is
+    re-checked here.
 
     ``required`` says whether a missing certificate is fatal for the current
     phase: only the deploy phase creates the service, so only it passes
@@ -1499,13 +1499,13 @@ def _warn_if_cng_url_cert_missing(manager: SnowflakeAppManager, url: str) -> Non
     probes the resolved *url*'s host directly (the exact certificate the browser
     would see). Unlike the deploy pre-check — which knows the app is CNG from its
     resolved ``compute_resource`` — ``open`` does not resolve the entity, so it
-    gates on the CNG feature flag and leans on ``per_account_cert_status_for_url``
-    returning ``UNKNOWN`` for non-per-account hosts (e.g. SPCS
-    ``snowflakecomputing.app``), so an SPCS app's TLS state is never
-    misattributed to a per-account cert. Any probe error is swallowed so ``open``
-    never breaks on this advisory.
+    gates on the ``app.yml`` v2 feature flag (the only path that can deploy a CNG
+    app) and leans on ``per_account_cert_status_for_url`` returning ``UNKNOWN``
+    for non-per-account hosts (e.g. SPCS ``snowflakecomputing.app``), so an SPCS
+    app's TLS state is never misattributed to a per-account cert. Any probe error
+    is swallowed so ``open`` never breaks on this advisory.
     """
-    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
+    if not FeatureFlag.ENABLE_SAR_APP_YML_V2.is_enabled():
         return
     try:
         status = manager.per_account_cert_status_for_url(url)
@@ -2040,11 +2040,9 @@ def _deploy_from_app_yml(
         )
 
     # ``compute_resource`` selects the CNG (serverless) or SPCS backend and is
-    # write-once. It stays experimental, so it is only honoured while the
-    # feature flag is on; when off it is ignored and the server defaults it.
-    compute_resource: Optional[str] = None
-    if FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
-        compute_resource = tgt.compute_resource
+    # write-once. CNG is an ``app.yml`` v2-only feature, so it is honoured here
+    # unconditionally; when unset the server defaults the backend.
+    compute_resource: Optional[str] = tgt.compute_resource
 
     # Probe for the per-account URL certificate up front (see
     # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
@@ -2097,8 +2095,7 @@ def _deploy_from_app_yml(
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
     # ``url_prefix`` is a CNG-only field, so it is only emitted on the CNG
-    # (serverless) path, which already requires the feature flag (compute_resource
-    # stays None while it is off).
+    # (serverless) path.
     specification = manager.build_service_specification(
         tgt,
         database=database,
@@ -2171,7 +2168,6 @@ def snowflake_app_deploy(
 
     run_upload = not build_only and not promote_only
     run_build = not upload_only and not promote_only
-    run_deploy = not upload_only and not build_only
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
@@ -2209,19 +2205,6 @@ def snowflake_app_deploy(
     # ``service_eai`` is optional; when omitted, continue using ``build_eai``
     # for the deployed application service to preserve existing projects.
     service_eai = defaults.get("service_eai") or build_eai
-
-    compute_resource: Optional[str] = None
-    if FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
-        compute_resource = defaults.get("compute_resource")
-
-    # Probe for the per-account URL certificate up front (see
-    # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
-    # far too slow to happen inside CREATE APPLICATION SERVICE.
-    if _is_cng_compute_resource(compute_resource):
-        with metrics.span("snowflake_app.deploy.cng_cert_precheck"):
-            _ensure_cng_url_cert_ready(
-                manager, provision=provision_certs, required=run_deploy
-            )
 
     # ── Resolve code storage backend ──────────────────────────────────
     # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
@@ -2318,7 +2301,6 @@ def snowflake_app_deploy(
                         query_warehouse=query_warehouse,
                         external_access_integrations=eai_list,
                         comment=app_comment,
-                        compute_resource=compute_resource,
                     )
                 except ProgrammingError as e:
                     # "Already exists" is the expected re-deploy path: the
