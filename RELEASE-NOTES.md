@@ -24,6 +24,7 @@
 * The `snow app` commands now support an `app.yml` (version 2) for Snowflake App Runtime projects; when present it drives the flow instead of `snowflake.yml` (the Native App flow is unchanged). Its `targets` block declares named per-environment deployments, and a new `--target` flag on `deploy`, `open`, `events`, `teardown`, and `validate` selects which one to use. `snow app deploy` runs an upload → build → deploy pipeline that can be limited to a single phase with `--upload-only`, `--build-only`, or `--promote-only`.
 
 ## Fixes and improvements
+* A `snow app` command no longer fails because it could not clean up after itself. If a leftover file cannot be deleted — common on Windows, where an editor or antivirus can be holding it — the command still succeeds and warns which directory was left behind. When the bundle directory cannot be cleared before bundling, the command now stops with an explanation of what to do instead of a permissions error.
 * `snow app events` for Snowflake App Runtime projects can now return more events by requesting a higher `--last` value.
 * `snow app deploy` with workspace-backed storage now builds from `versions/live/` (the current working state) instead of the last committed version. In the Workspaces editor, files auto-save to the live version continuously — reading `versions/last` during the build phase caused stale content to be deployed when running from a live workspace session.
 * DCM projects: the `snow dcm preview`, `snow dcm refresh`, and `snow dcm test`

@@ -176,6 +176,9 @@ from snowflake.cli._plugins.apps.events import (
     EVENT_TABLE_FUNCTION,
     EVENT_TABLE_MAX_ROWS_PARAMETER,
 )
+from snowflake.cli._plugins.apps.snowflake_app_project_paths import (
+    SnowflakeAppProjectPaths,
+)
 from snowflake.cli._plugins.connection.util import (
     get_account_identifier,
     guess_regioned_host_from_allowlist,
@@ -836,7 +839,7 @@ def _get_entity(entity_id: str) -> SnowflakeAppEntityModel:
 def perform_bundle(
     resolved_entity_id: str,
     entity: "SnowflakeAppEntityModel",
-) -> ProjectPaths:
+) -> SnowflakeAppProjectPaths:
     """Bundle source artifacts for a snowflake-app entity.
 
     Resolves glob patterns and src/dest mappings defined in the entity's
@@ -847,14 +850,14 @@ def perform_bundle(
     ``snow app bundle`` and the bundling step of ``snow app deploy`` for
     ``snowflake-app`` entities.
 
-    Returns the :class:`ProjectPaths` instance so callers can inspect or
-    upload the bundle root, and are responsible for cleanup via
+    Returns the :class:`SnowflakeAppProjectPaths` instance so callers can
+    inspect or upload the bundle root, and are responsible for cleanup via
     ``project_paths.clean_up_output()`` when finished.
     """
     artifacts = entity.artifacts
 
     project_root = get_cli_context().project_root
-    project_paths = ProjectPaths(project_root=project_root)
+    project_paths = SnowflakeAppProjectPaths(project_root=project_root)
     project_paths.remove_up_bundle_root()
     SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
 
