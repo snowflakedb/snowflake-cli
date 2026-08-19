@@ -663,7 +663,7 @@ def _resolve_deploy_defaults(
     4. Current session values (lowest priority)
 
     Returns a dict with keys ``query_warehouse``, ``build_compute_pool``,
-    ``service_compute_pool``, ``compute_resource``, ``build_eai``,
+    ``service_compute_pool``, ``build_eai``,
     ``service_eai``, ``artifact_repository``,
     ``artifact_repo_database``, ``artifact_repo_schema``, ``database``,
     and ``schema``.  Any of them may still be ``None`` if no source
@@ -696,10 +696,6 @@ def _resolve_deploy_defaults(
         "service_compute_pool": (
             entity.service_compute_pool.name if entity.service_compute_pool else None
         ),
-        # Resolved only from snowflake.yml (tier 1); no account-parameter or
-        # session fallback. Emitted on CREATE only when the
-        # ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag is enabled.
-        "compute_resource": entity.compute_resource,
         "build_eai": entity.build_eai.name if entity.build_eai else None,
         "service_eai": entity.service_eai.name if entity.service_eai else None,
         "artifact_repository": (
@@ -2033,17 +2029,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         query_warehouse: Optional[str] = None,
         external_access_integrations: Optional[list[str]] = None,
         comment: Optional[str] = None,
-        compute_resource: Optional[str] = None,
     ) -> None:
         """Create an application service from an artifact repository package.
 
-        ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
-        the write-once ``COMPUTE_RESOURCE`` DDL field. It can only be set at
-        CREATE time — it is immutable afterwards, so it is intentionally never
-        emitted on the ``ALTER ... UPGRADE`` path in
-        :meth:`upgrade_app_service`. Callers gate this behind the
-        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
-        field is omitted and the server defaults the backend.
+        The ``COMPUTE_RESOURCE`` DDL field (CNG/serverless) is intentionally not
+        emitted here: it is only supported through the ``app.yml`` v2 deploy
+        path (see :meth:`create_or_alter_app_service`).
         """
         parts = [
             f"CREATE APPLICATION SERVICE {service_fqn.identifier}",
@@ -2058,8 +2049,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
             parts.append(f"EXTERNAL_ACCESS_INTEGRATIONS = ({eai_list})")
         if query_warehouse:
             parts.append(f"QUERY_WAREHOUSE = {query_warehouse}")
-        if compute_resource:
-            parts.append(f"COMPUTE_RESOURCE = {compute_resource}")
         if comment:
             escaped = comment.replace("'", "''")
             parts.append(f"COMMENT = '{escaped}'")
@@ -2105,8 +2094,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         through unchanged.
 
         ``url_prefix`` is a CNG-only (serverless) field, so it is emitted only
-        when *include_url_prefix* is set — the caller gates it on the CNG compute
-        resource behind the feature flag — and dropped otherwise.
+        when *include_url_prefix* is set — the caller gates it on the resolved
+        CNG compute resource (an ``app.yml`` v2-only feature) — and dropped
+        otherwise.
 
         Deployment-location fields (``name`` / ``database`` / ``schema`` /
         ``account``) locate and name the service and are not part of the
@@ -2174,9 +2164,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
         the write-once ``COMPUTE_RESOURCE`` DDL clause — it is not owned by the
         ``SPECIFICATION`` and so is emitted alongside it. It is immutable after
-        the first deploy, and callers gate it behind the
-        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
-        clause is omitted and the server defaults the backend.
+        the first deploy and is only reachable through the ``app.yml`` v2 deploy
+        path (CNG is an ``app.yml`` v2-only feature); when ``None`` the clause is
+        omitted and the server defaults the backend.
 
         The specification is dollar-quoted (``$$...$$``) and embeds
         user-supplied app.yml values verbatim (``label`` / ``description`` /
