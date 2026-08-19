@@ -35,6 +35,7 @@
 * `snow streamlit deploy --replace`: fixed a crash when replacing a legacy `ROOT_LOCATION` Streamlit app with a versioned deployment.
 * Upgraded `GitPython` from 3.1.57 to 3.1.58.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.16 to 3.10.21.
+* Upgraded pip from 26.1.2 to 26.2.1.
 
 
 # v3.24.1
