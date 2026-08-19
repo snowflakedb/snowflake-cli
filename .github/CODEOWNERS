@@ -21,4 +21,4 @@
 /tests_integration/test_data/projects/dcm_project_multiple_configurations/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/dev-platform-dcm-waw
 
 # Release notes
-/RELEASE-NOTES.md @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
+/RELEASE-NOTES.md @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps @snowflake-eng/dev-platform-dcm-waw
