@@ -1365,11 +1365,26 @@ class SnowflakeAppManager(SqlExecutionMixin):
 
         yield from self._run_uploads(uploads)
 
-    def get_service_logs(self, service_fqn: FQN, last: int = 500) -> str:
+    def get_service_logs(
+        self,
+        service_fqn: FQN,
+        last: Optional[int] = None,
+        instance_id: Optional[int] = None,
+    ) -> str:
         """Fetch recent log output from an application service."""
-        cursor = self.execute_query(
-            f"CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('{service_fqn.identifier}', {last})"
-        )
+        if instance_id is not None:
+            # instance_id is a third positional arg — tail_lines must be present.
+            # Use the caller's value or fall back to the server default (500).
+            effective_last = last if last is not None else 500
+            sql = "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)"
+            params = [service_fqn.identifier, effective_last, instance_id]
+        elif last is not None:
+            sql = "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?)"
+            params = [service_fqn.identifier, last]
+        else:
+            sql = "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?)"
+            params = [service_fqn.identifier]
+        cursor = self.execute_query_with_params(sql, params)
         row = cursor.fetchone()
         return row[0] if row else ""
 
