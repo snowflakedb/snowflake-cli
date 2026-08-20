@@ -33,6 +33,7 @@ from snowflake.cli._plugins.dcm.multistep_progress import (
     StepDefinition,
     StepProgressUpdater,
 )
+from snowflake.cli._plugins.dcm.tree import CompactTree
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -130,13 +131,7 @@ def _printable_filename(name: str) -> str:
 
 
 def _detail_text(text: str) -> Text:
-    """One line of detail, sanitized and kept to a single row.
-
-    Built as ``Text`` so a name containing square brackets is rendered
-    literally rather than read as rich markup, and so a name too long for the
-    terminal is cropped instead of wrapping - a wrapped continuation would
-    break the tree's guide alignment.
-    """
+    """One line of detail, sanitized and kept to a single cropped row."""
     return Text(sanitize_for_terminal(text) or "", no_wrap=True, overflow="ellipsis")
 
 
@@ -160,7 +155,7 @@ def upload_tree(
     if not root_files and not folders:
         return None
 
-    tree = Tree(_detail_text(_TREE_HEADER))
+    tree = CompactTree(_detail_text(_TREE_HEADER))
     for name in root_files:
         tree.add(_detail_text(_printable_filename(name)))
     _add_folders(tree, folders)

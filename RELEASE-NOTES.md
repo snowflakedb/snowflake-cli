@@ -33,6 +33,7 @@
   longer appear in `snow dcm --help` without an explicit opt-in.
 * `snow dcm plan` now tracks the server's own progress, like `snow dcm deploy` already does: its `RENDER`, `COMPILE` and `PLAN` steps advance as the backend reports each phase. Previously `RENDER` and `COMPILE` completed instantly and the rest of the run showed as a single `PLAN` spinner.
 * `snow dcm deploy`, `snow dcm plan` and `snow dcm purge` no longer require an active warehouse. Progress tracking read the result with `RESULT_SCAN`, which requires a warehouse.
+* `snow dcm deploy`, `snow dcm plan` and `snow dcm purge` now wrap a change line too wide for the terminal, with its continuation aligned under the change instead of breaking back to the left margin. The file list shown while uploading uses the same tree guides as the changeset.
 * `snow streamlit deploy --replace`: fixed a crash when replacing a legacy `ROOT_LOCATION` Streamlit app with a versioned deployment.
 * Upgraded `GitPython` from 3.1.57 to 3.1.58.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.16 to 3.10.21.

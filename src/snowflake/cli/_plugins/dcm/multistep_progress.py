@@ -249,7 +249,7 @@ class MultiStepProgress:
         if not self._prints_step_lines:
             return
         for detail in details:
-            cli_console.renderable(_render_detail(detail))
+            cli_console.renderable(_render_detail(detail), soft_wrap=False)
 
     def _elapsed_suffix(self, key: str) -> str:
         task_id = self._steps[key].task_id

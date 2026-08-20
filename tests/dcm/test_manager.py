@@ -1502,9 +1502,9 @@ class TestAssetUpload:
             f"  {DETAIL_BULLET}Create temporary stage inside "
             f"{mock_from_resource.return_value.prefix}",
             f"  {DETAIL_BULLET}Upload files",
-            f"    ├── {MANIFEST_FILE_NAME}",
-            f"    └── {SOURCES_FOLDER}",
-            "        └── definitions (2 files)",
+            f"    ├─ {MANIFEST_FILE_NAME}",
+            f"    └─ {SOURCES_FOLDER}",
+            "       └─ definitions (2 files)",
         ]
         assert "UPLOAD" in lines[0]
 
