@@ -100,12 +100,6 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-# Default number of log lines returned by ``snow app events`` for the
-# Snowflake App Runtime flow. The unified command accepts ``--last`` with a ``None``
-# default; each flow applies its own default when the user does not provide
-# a value (Native App uses ``-1``, Snowflake App Runtime uses this constant).
-DEFAULT_SNOWFLAKE_APP_EVENTS_LAST = 500
-
 # Telemetry counter recording how many files were uploaded during the
 # upload phase of a deploy.
 FILES_UPLOADED_COUNTER = "snowflake_app.upload.files_uploaded"
@@ -1271,6 +1265,7 @@ def snowflake_app_events(
     metric: Optional[str] = None,
     raw: bool = False,
     target: Optional[str] = None,
+    instance: Optional[int] = None,
 ) -> CommandResult:
     """Fetch logs, metrics, or lifecycle events from a deployed Snowflake App Runtime.
 
@@ -1289,6 +1284,14 @@ def snowflake_app_events(
         raise CliError("--metric can only be used with --type metric.")
     if raw and stream is not EventStream.METRIC:
         raise CliError("--raw can only be used with --type metric.")
+    if instance is not None and instance < 0:
+        raise CliError(
+            "--instance must be a non-negative integer (0-based service instance index)."
+        )
+    if instance is not None and (stream is not EventStream.LOG or since or until):
+        raise CliError(
+            "--instance can only be used with the live log tail (--type log with no --since/--until)."
+        )
 
     svc = _resolve_command_service(entity_id, target)
     return _emit_app_events(
@@ -1300,6 +1303,7 @@ def snowflake_app_events(
         since=since,
         until=until,
         raw=raw,
+        instance=instance,
     )
 
 
@@ -1313,6 +1317,7 @@ def _emit_app_events(
     since: Optional[str],
     until: Optional[str],
     raw: bool,
+    instance: Optional[int] = None,
 ) -> CommandResult:
     """Fetch and render one observability stream for an application service.
 
@@ -1323,15 +1328,20 @@ def _emit_app_events(
 
     # Logs with no window keep the legacy live-container tail.
     if stream is EventStream.LOG and not since and not until:
-        effective_last = last if last is not None else DEFAULT_SNOWFLAKE_APP_EVENTS_LAST
         try:
             with metrics.span("snowflake_app.events.fetch_logs"):
-                logs = manager.get_service_logs(service_fqn, last=effective_last)
+                logs = manager.get_service_logs(
+                    service_fqn, last=last, instance_id=instance
+                )
         except ProgrammingError as err:
+            hint = (
+                f" Instance {instance} may not exist — verify the index is valid and the service is running."
+                if instance is not None
+                else " Verify that the app is deployed and the service is running."
+                " If the service exists, this can also happen when the active role cannot read application service logs."
+            )
             raise CliError(
-                f"Could not retrieve logs for '{service_fqn.identifier}'. "
-                "Verify that the app is deployed and the service is running. "
-                "If the service exists, this can also happen when the active role cannot read application service logs."
+                f"Could not retrieve logs for '{service_fqn.identifier}': {err.msg}.{hint}"
             ) from err
         return MessageResult(logs)
 
