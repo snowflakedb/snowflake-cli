@@ -574,8 +574,9 @@
    three observability streams for the application service, selected with --type: 
                                                                                   
                                                                                   
-    - log (default): live container log tail, sized with --last (default          
-      500, capped at 100KB). Supplying --since / --until switches to              
+    - log (default): live container log tail, sized with --last (defaults to      
+      the server default when not provided, capped at 100KB). Supplying           
+      --since / --until switches to                                               
       historical logs read from the service's event table (works over             
       history and after suspend, with a short ingestion lag).                     
     - metric: CPU / memory / network telemetry from the event table. Narrow       
@@ -681,6 +682,14 @@
   |                                                      instead of              |
   |                                                      human-readable          |
   |                                                      conversions.            |
+  | --instance                   INTEGER                 (Snowflake App Runtime  |
+  |                                                      only) Zero-based index  |
+  |                                                      of the service instance |
+  |                                                      to retrieve logs from.  |
+  |                                                      Only valid with --type  |
+  |                                                      log and no              |
+  |                                                      --since/--until.        |
+  |                                                      Defaults to instance 0. |
   | --target                     TEXT                    (Snowflake App Runtime  |
   |                                                      only) Name of the       |
   |                                                      target (environment) to |
