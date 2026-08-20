@@ -15,10 +15,9 @@
 RESULT_COLUMN_NAME = "SUCCESS"
 OUTPUT_COLUMN_NAME = "STDOUT"
 PROFILES_FILENAME = "profiles.yml"
-# Higher-precedence profiles file. When ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE
-# is on, this file (if present in --profiles-dir) is staged in preference to
-# profiles.yml, under its own name. Mirrors the server-side
-# DBT_PROJECTS_PROFILES_FILENAME default.
+# Higher-precedence profiles file. If present in --profiles-dir, this file is
+# staged in preference to profiles.yml, under its own name. Mirrors the
+# server-side DBT_PROJECTS_PROFILES_FILENAME default.
 DBT_PROJECTS_PROFILES_FILENAME = "dbt_projects_profiles.yml"
 SUPPORTED_DBT_VERSIONS_QUERY = "SELECT SYSTEM$SUPPORTED_DBT_VERSIONS()"
 ENV_FILENAME = "env.yml"
