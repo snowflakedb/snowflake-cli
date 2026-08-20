@@ -32,6 +32,7 @@ from snowflake.cli._plugins.apps.commands import (
     _make_build_log_streamer,
     _utf8_output,
     _warn_if_cng_url_cert_missing,
+    snowflake_app_events,
 )
 from snowflake.cli._plugins.apps.events import parse_lifecycle_records
 from snowflake.cli._plugins.apps.generate import (
@@ -68,6 +69,9 @@ from tests_common import change_directory, simulated_ansi_locale
 from tests_common.feature_flag_utils import with_feature_flags
 
 EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query"
+EXECUTE_QUERY_WITH_PARAMS = (
+    "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query_with_params"
+)
 GET_CLI_CONTEXT = "snowflake.cli._plugins.apps.manager.get_cli_context"
 GET_ENV_USERNAME = "snowflake.cli._plugins.apps.commands.get_env_username"
 FETCH_APP_SERVICE_DEFAULTS = (
@@ -2595,7 +2599,7 @@ class TestSnowflakeAppManager:
             "CREATE ARTIFACT REPOSITORY IF NOT EXISTS IDENTIFIER('DB.SCHEMA.MY_REPO') TYPE=APPLICATION"
         )
 
-    @patch(EXECUTE_QUERY)
+    @patch(EXECUTE_QUERY_WITH_PARAMS)
     def test_get_service_logs(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = ("INFO: app started\nINFO: listening",)
@@ -2605,10 +2609,11 @@ class TestSnowflakeAppManager:
         logs = SnowflakeAppManager().get_service_logs(fqn)
         assert logs == "INFO: app started\nINFO: listening"
         mock_execute.assert_called_once_with(
-            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('DB.SCHEMA.MY_APP', 500)"
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?)",
+            ["DB.SCHEMA.MY_APP"],
         )
 
-    @patch(EXECUTE_QUERY)
+    @patch(EXECUTE_QUERY_WITH_PARAMS)
     def test_get_service_logs_custom_last(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = ("line1\nline2",)
@@ -2618,10 +2623,11 @@ class TestSnowflakeAppManager:
         logs = SnowflakeAppManager().get_service_logs(fqn, last=100)
         assert logs == "line1\nline2"
         mock_execute.assert_called_once_with(
-            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('DB.SCHEMA.MY_APP', 100)"
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?)",
+            ["DB.SCHEMA.MY_APP", 100],
         )
 
-    @patch(EXECUTE_QUERY)
+    @patch(EXECUTE_QUERY_WITH_PARAMS)
     def test_get_service_logs_empty_result(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = None
@@ -2630,6 +2636,43 @@ class TestSnowflakeAppManager:
         fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
         logs = SnowflakeAppManager().get_service_logs(fqn)
         assert logs == ""
+
+    @patch(EXECUTE_QUERY_WITH_PARAMS)
+    def test_get_service_logs_with_instance(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("instance1 log output",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        logs = SnowflakeAppManager().get_service_logs(fqn, last=200, instance_id=1)
+        assert logs == "instance1 log output"
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)",
+            ["DB.SCHEMA.MY_APP", 200, 1],
+        )
+
+    @patch(EXECUTE_QUERY_WITH_PARAMS)
+    def test_get_service_logs_instance_no_last_uses_server_default(self, mock_execute):
+        # --instance without --last: falls back to 500 (required positionally for SQL)
+        cursor = Mock()
+        cursor.fetchone.return_value = ("instance0 logs",)
+        mock_execute.return_value = cursor
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        logs = SnowflakeAppManager().get_service_logs(fqn, instance_id=0)
+        assert logs == "instance0 logs"
+        mock_execute.assert_called_once_with(
+            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)",
+            ["DB.SCHEMA.MY_APP", 500, 0],
+        )
+
+    def test_get_service_logs_rejects_negative_instance(self):
+        with pytest.raises(CliError, match="non-negative"):
+            snowflake_app_events(
+                None,
+                None,
+                instance=-1,
+            )
 
     @patch(EXECUTE_QUERY)
     def test_get_event_table_data_with_window(self, mock_execute):

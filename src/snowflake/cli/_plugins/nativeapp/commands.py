@@ -927,6 +927,16 @@ def app_events(
             "values (bytes, cores) instead of human-readable conversions."
         ),
     ),
+    instance: Optional[int] = typer.Option(
+        None,
+        "--instance",
+        show_default=False,
+        help=(
+            "(Snowflake App Runtime only) Zero-based index of the service instance "
+            "to retrieve logs from. Only valid with --type log and no --since/--until. "
+            "Defaults to instance 0."
+        ),
+    ),
     target: Optional[str] = _snowflake_app_target_option("query events for"),
     **options,
 ):
@@ -946,8 +956,9 @@ def app_events(
       Returns one of three observability streams for the application service,
       selected with --type:
 
-        - log (default): live container log tail, sized with --last (default
-          500, capped at 100KB). Supplying --since / --until switches to
+        - log (default): live container log tail, sized with --last (defaults to
+          the server default when not provided, capped at 100KB). Supplying
+          --since / --until switches to
           historical logs read from the service's event table (works over
           history and after suspend, with a short ingestion lag).
         - metric: CPU / memory / network telemetry from the event table. Narrow
@@ -984,6 +995,7 @@ def app_events(
             metric=metric or None,
             raw=raw,
             target=target,
+            instance=instance,
         )
 
     _reject_snowflake_app_options(
@@ -992,6 +1004,7 @@ def app_events(
             "--metric": metric or None,
             "--raw": True if raw else None,
             "--target": target,
+            "--instance": instance,
         },
     )
 
