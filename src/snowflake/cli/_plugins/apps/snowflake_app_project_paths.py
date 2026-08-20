@@ -124,7 +124,12 @@ class SnowflakeAppProjectPaths(ProjectPaths):
             ) from e
 
     def clean_up_output(self) -> None:
-        """Delete the directory the bundle was written to. Never raises.
+        """Delete the bundle directory the CLI created. Never raises.
+
+        Only the bundle directory is deleted, and the directories above it only
+        for as long as they are empty — so ``output`` still disappears when the
+        CLI was the only thing using it, and survives when it is also where the
+        project keeps its own build output.
 
         This runs once the command's real work has finished, so failing to
         delete a directory the CLI no longer needs must not fail the command: a
@@ -133,19 +138,38 @@ class SnowflakeAppProjectPaths(ProjectPaths):
         which directory was left behind instead, and the failure is recorded on
         its own span so that it stays visible.
         """
-        output = SecurePath(self.project_root / "output")
-        if not output.exists():
-            return
-        with get_cli_context().metrics.span(CLEAN_UP_OUTPUT_SPAN) as span:
+        bundle_root = SecurePath(self.bundle_root)
+        if bundle_root.exists():
+            with get_cli_context().metrics.span(CLEAN_UP_OUTPUT_SPAN) as span:
+                try:
+                    _remove_directory(bundle_root)
+                except OSError as e:
+                    log.debug("Failed to clean up %s", bundle_root.path, exc_info=True)
+                    span.finish(error=e)
+                    cli_console.warning(
+                        f"Could not remove the bundle directory "
+                        f"'{sanitize_for_terminal(str(bundle_root.path))}': {e}. "
+                        f"The command itself finished successfully. This is "
+                        f"usually {_LIKELY_HOLDERS}; the directory can be "
+                        f"deleted at any time."
+                    )
+                    return
+        self._remove_empty_directories_up_to_project_root(self.bundle_root.parent)
+
+    def _remove_empty_directories_up_to_project_root(self, directory: Path) -> None:
+        """Remove *directory* and its parents while they are empty.
+
+        Deleting only the bundle directory would leave the ``output`` directory
+        the CLI created behind, which for most projects is the only thing in it.
+        Anything the project itself put there stops the walk, since a non-empty
+        directory is not the CLI's to delete.
+        """
+        while directory != self.project_root and self.project_root in directory.parents:
             try:
-                _remove_directory(output)
-            except OSError as e:
-                log.debug("Failed to clean up %s", output.path, exc_info=True)
-                span.finish(error=e)
-                cli_console.warning(
-                    f"Could not remove the temporary directory "
-                    f"'{sanitize_for_terminal(str(output.path))}': {e}. The "
-                    f"command itself finished successfully. This is usually "
-                    f"{_LIKELY_HOLDERS}; the directory can be deleted at any "
-                    f"time."
-                )
+                directory.rmdir()
+            except OSError:
+                # Not empty, or not removable: either way this is as far up as
+                # the CLI may go, and nothing here is worth reporting.
+                log.debug("Leaving %s in place", directory, exc_info=True)
+                return
+            directory = directory.parent
