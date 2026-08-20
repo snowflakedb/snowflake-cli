@@ -141,10 +141,29 @@ class TestCleanUpOutput:
             None,
         )
 
-    def test_removes_the_output_directory(self, project_paths):
+    def test_removes_the_bundle_directory(self, project_paths):
+        project_paths.clean_up_output()
+
+        assert not project_paths.bundle_root.exists()
+
+    def test_removes_the_output_directory_it_created(self, project_paths):
+        """``output`` exists only to hold the bundle in most projects, so it
+        should not be left behind either."""
         project_paths.clean_up_output()
 
         assert not (project_paths.project_root / "output").exists()
+
+    def test_keeps_what_the_project_put_in_the_output_directory(self, project_paths):
+        """``output`` is a common name for a project's own build artifacts,
+        exports and notebook results. Bundling into a subdirectory of it must
+        not destroy them."""
+        report = project_paths.project_root / "output" / "report.csv"
+        report.write_text("id,value")
+
+        project_paths.clean_up_output()
+
+        assert report.exists()
+        assert not project_paths.bundle_root.exists()
 
     def test_is_a_no_op_when_there_is_nothing_to_remove(self, tmp_path):
         SnowflakeAppProjectPaths(project_root=tmp_path).clean_up_output()
@@ -157,7 +176,7 @@ class TestCleanUpOutput:
             project_paths.clean_up_output()
 
         warning = capsys.readouterr().out
-        assert str(project_paths.project_root / "output") in warning
+        assert str(project_paths.bundle_root) in warning
         assert "finished successfully" in warning
 
     def test_a_failed_clean_up_is_attributed_to_a_span(self, project_paths):
