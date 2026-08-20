@@ -1757,12 +1757,37 @@ class FeatureManager(SqlExecutionMixin):
     def _fetch_entity_rows(self, target: FSTarget) -> list[dict[str, Any]]:
         """Fetch entity tag rows via the imperative ``list_entities()`` facade.
 
+        Unlike the ``_fetch_feature_view_rows`` / ``_fetch_feature_group_rows``
+        / ``_fetch_stream_source_rows`` siblings, this helper does **not**
+        soft-fail to ``[]`` on a backend error.  The entity read is
+        load-bearing for planner correctness: an empty applied-state
+        entity set makes ``validate_specs`` emit ``MISSING_ENTITY`` for
+        every FV that references an entity present only in applied
+        state.  Swallowing the ``list_entities()`` /
+        warehouse-auto-suspend race (already retried at the imperative
+        layer in ``imperative_executor.fetch_entity_rows``) into ``[]``
+        turned that transient failure into a spurious
+        ``validation_failed`` on an otherwise-valid, unchanged project
+        (see ``plans/bug_cleanup_sweep_list_entities_warehouse_suspend_race.md``).
+        A failure that survives the retry therefore surfaces as a clear
+        ``CliError`` — "unknown" must never be reported as "no
+        entities."
+
+        Returns:
+            The entity rows in ``SHOW TAGS`` shape (possibly empty when
+            the schema genuinely has no registered entities).
+
         Raises:
             decl_api.FeatureStoreNotInitializedError: When the target
                 schema lacks the bootstrap feature-store tags.  The
                 command-level wrapper in ``commands.py`` converts this
                 into a ``ClickException`` whose message directs the
                 operator at ``snow feature init``.
+            CliError: When the entity read fails for any other reason
+                (e.g. the warehouse-auto-suspend race surviving the
+                imperative-layer retry).  Surfaced instead of an empty
+                list so a transient backend failure never masquerades as
+                a real "no entities registered" state.
         """
         from snowflake.ml.feature_store.decl.errors import (
             FeatureStoreNotInitializedError,
@@ -1785,8 +1810,23 @@ class FeatureManager(SqlExecutionMixin):
             # downstream).
             raise
         except Exception as exc:
-            log.debug("fetch_entity_rows failed (treating as empty): %s", exc)
-            return []
+            # Do NOT degrade to [] — an empty entity set spuriously
+            # produces MISSING_ENTITY for every referencing FV.  The
+            # imperative layer already retried a transient
+            # warehouse-suspend loss, so a failure here is real (or
+            # persistently transient) and must be surfaced.
+            log.warning(
+                "fetch_entity_rows failed for %s.%s: %s",
+                target.database,
+                target.schema,
+                exc,
+            )
+            raise CliError(
+                f"Failed to read registered entities for {target.database}.{target.schema}: {exc}. "
+                "This is often a transient warehouse auto-resume/auto-suspend race "
+                "(the entity lookup runs a warehouse-bound RESULT_SCAN query); re-run the command. "
+                "If it persists, verify the warehouse is available and the schema is a feature store."
+            ) from exc
 
     def _fetch_feature_view_rows(self, target: FSTarget) -> list[dict[str, Any]]:
         """Fetch feature-view rows via the imperative ``list_feature_views()``.
