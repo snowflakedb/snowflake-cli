@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Callable, Iterator, Optional
 
-from rich import print as rich_print
+from rich import get_console
 from rich.console import RenderableType
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
@@ -61,10 +61,15 @@ class AbstractConsole(ABC):
         """Indicated whether output should be grouped."""
         return self._in_phase
 
-    def _print(self, text: RenderableType, end: str = "\n"):
+    def _print(
+        self,
+        text: RenderableType,
+        end: str = "\n",
+        soft_wrap: Optional[bool] = None,
+    ):
         if self.is_silent:
             return
-        rich_print(text, end=end)
+        get_console().print(text, end=end, soft_wrap=soft_wrap)
 
     @contextmanager
     @abstractmethod
@@ -114,11 +119,14 @@ class AbstractConsole(ABC):
     def styled_message(self, message: str, style: Any):
         """Displays a message with provided style."""
 
-    def renderable(self, renderable: RenderableType):
+    def renderable(self, renderable: RenderableType, soft_wrap: Optional[bool] = None):
         """Displays a rich renderable, such as a tree or a table.
 
         Concrete rather than abstract: this is the public plugin surface, so an
         external subclass must keep working across an upgrade. For content that
         is not a plain message, it is displayed as given - indentation, styling
-        and sanitizing belong to whoever built it."""
-        self._print(renderable)
+        and sanitizing belong to whoever built it.
+
+        Pass ``soft_wrap=False`` to wrap a renderable wider than the console
+        instead of cropping it."""
+        self._print(renderable, soft_wrap=soft_wrap)

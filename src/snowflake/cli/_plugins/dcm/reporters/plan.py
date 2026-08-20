@@ -20,8 +20,10 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from pydantic import BaseModel, Field, ValidationError
 from rich.style import Style
 from rich.text import Text
+from rich.tree import Tree
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
+from snowflake.cli._plugins.dcm.tree import CompactTree
 from snowflake.cli.api.exceptions import CliError, FQNNameError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import unquote_identifier
@@ -34,12 +36,6 @@ _DOMAIN_WIDTH = 20
 _COLLECTION_KIND = "collection"
 _NESTED_KIND = "nested"
 _CONTAINER_KINDS = (_COLLECTION_KIND, _NESTED_KIND)
-
-
-_TREE_BRANCH = "├─ "  # non-last sibling at this level
-_TREE_LAST = "└─ "  # last sibling at this level
-_TREE_PIPE = "│  "  # ancestor still has siblings to come
-_TREE_GAP = "   "  # ancestor was the last sibling (no pipe)
 
 
 class PlanObjectId(BaseModel):
@@ -187,37 +183,37 @@ def _item_desc(item_id: Any) -> str:
     return ""
 
 
-def _emit_property_name(attr: str) -> None:
-    cli_console.styled_message(" ")
-    cli_console.styled_message(attr, style=styles.NEUTRAL_STYLE)
+def _append_property_name(text: Text, attr: str) -> None:
+    text.append(" ")
+    text.append(attr, styles.NEUTRAL_STYLE)
 
 
-def _emit_scalar(value_str: str) -> None:
-    cli_console.styled_message(": ")
-    cli_console.styled_message(value_str, style=styles.VALUE_STYLE)
+def _append_scalar(text: Text, value_str: str) -> None:
+    text.append(": ")
+    text.append(value_str, styles.VALUE_STYLE)
 
 
-def _emit_transition(prev_str: str, new_str: str) -> None:
-    cli_console.styled_message(": ")
-    cli_console.styled_message(prev_str, style=styles.VALUE_STYLE)
-    cli_console.styled_message(" ")
-    cli_console.styled_message("→", style=styles.ALTER_STYLE)
-    cli_console.styled_message(" ")
-    cli_console.styled_message(new_str, style=styles.VALUE_STYLE)
+def _append_transition(text: Text, prev_str: str, new_str: str) -> None:
+    text.append(": ")
+    text.append(prev_str, styles.VALUE_STYLE)
+    text.append(" ")
+    text.append("→", styles.ALTER_STYLE)
+    text.append(" ")
+    text.append(new_str, styles.VALUE_STYLE)
 
 
-def _emit_property_value(value: Any, prev_value: Any) -> None:
+def _append_property_value(text: Text, value: Any, prev_value: Any) -> None:
     new = _format_value(value)
     prev = _format_value(prev_value)
     if new is not None and prev is not None:
         prev_str, new_str = _truncate_value_pair(prev, new)
-        _emit_transition(prev_str, new_str)
+        _append_transition(text, prev_str, new_str)
     elif new is not None:
-        _emit_scalar(_truncate_inline(new))
+        _append_scalar(text, _truncate_inline(new))
 
 
 class _ChangeNode:
-    """A typed changeset change. Subclasses render their own line content"""
+    """A typed changeset change. Subclasses build their own tree label"""
 
     kind: str = ""
     sort_key: Tuple[int, int] = (100, 0)
@@ -227,10 +223,10 @@ class _ChangeNode:
     def __init__(self, children: Optional[List["_ChangeNode"]] = None):
         self.children: List["_ChangeNode"] = children or []
 
-    def _emit_keyword(self) -> None:
-        cli_console.styled_message(self.kind, style=self.style)
+    def _append_keyword(self, text: Text) -> None:
+        text.append(self.kind, self.style)
 
-    def render_content(self) -> None:
+    def label(self) -> Text:
         raise NotImplementedError
 
 
@@ -250,15 +246,17 @@ class _PropertyNode(_ChangeNode):
         self.value = value
         self.prev_value = prev_value
 
-    def render_content(self) -> None:
-        self._emit_keyword()
+    def label(self) -> Text:
+        text = Text()
+        self._append_keyword(text)
         attr = sanitize_for_terminal(self.attribute_name or "").upper()
         if not attr:
-            return
-        _emit_property_name(attr)
-        self._emit_value_part()
+            return text
+        _append_property_name(text, attr)
+        self._append_value_part(text)
+        return text
 
-    def _emit_value_part(self) -> None:
+    def _append_value_part(self, text: Text) -> None:
         pass
 
 
@@ -267,10 +265,10 @@ class _SetNode(_PropertyNode):
     sort_key = (0, 1)
     style = styles.CREATE_STYLE
 
-    def _emit_value_part(self) -> None:
+    def _append_value_part(self, text: Text) -> None:
         new = _format_value(self.value)
         if new is not None:
-            _emit_scalar(_truncate_inline(new))
+            _append_scalar(text, _truncate_inline(new))
 
 
 class _ChangedNode(_PropertyNode):
@@ -278,8 +276,8 @@ class _ChangedNode(_PropertyNode):
     sort_key = (1, 1)
     style = styles.ALTER_STYLE
 
-    def _emit_value_part(self) -> None:
-        _emit_property_value(self.value, self.prev_value)
+    def _append_value_part(self, text: Text) -> None:
+        _append_property_value(text, self.value, self.prev_value)
 
 
 class _UnsetNode(_PropertyNode):
@@ -295,11 +293,13 @@ class _ItemNode(_ChangeNode):
         super().__init__(children)
         self.item_id = item_id
 
-    def render_content(self) -> None:
-        self._emit_keyword()
+    def label(self) -> Text:
+        text = Text()
+        self._append_keyword(text)
         desc = _item_desc(self.item_id)
         if desc:
-            cli_console.styled_message(" " + desc)
+            text.append(" " + desc)
+        return text
 
 
 class _ItemAddedNode(_ItemNode):
@@ -323,17 +323,17 @@ class _ItemRemovedNode(_ItemNode):
 
 
 class _ContainerNode(_ChangeNode):
-    """A named group (``collection``/``nested``) whose ``label`` heads an
+    """A named group (``collection``/``nested``) whose ``name`` heads an
     indented block of child changes."""
 
     sort_key = (3, 0)
 
-    def __init__(self, label: str, children: Optional[List[_ChangeNode]] = None):
+    def __init__(self, name: str, children: Optional[List[_ChangeNode]] = None):
         super().__init__(children)
-        self.label = label
+        self.name = name
 
-    def render_content(self) -> None:
-        cli_console.styled_message(self.label)
+    def label(self) -> Text:
+        return Text(self.name)
 
 
 class _GenericNode(_ChangeNode):
@@ -355,15 +355,19 @@ class _GenericNode(_ChangeNode):
         self.value = value
         self.prev_value = prev_value
 
-    def render_content(self) -> None:
+    def label(self) -> Text:
+        text = Text()
         if self.kind:
-            self._emit_keyword()
+            self._append_keyword(text)
         desc = _item_desc(self.item_id)
         if desc:
-            cli_console.styled_message(" " + desc)
+            text.append(" " + desc)
         elif self.attribute_name:
-            _emit_property_name(sanitize_for_terminal(self.attribute_name).upper())
-            _emit_property_value(self.value, self.prev_value)
+            _append_property_name(
+                text, sanitize_for_terminal(self.attribute_name).upper()
+            )
+            _append_property_value(text, self.value, self.prev_value)
+        return text
 
 
 _ITEM_NODE_TYPES = {
@@ -420,29 +424,19 @@ def _build_nodes(changes: List[PlanChange]) -> List[_ChangeNode]:
     return [node for c in changes if (node := _build_node(c)) is not None]
 
 
-def _render_nodes(nodes: List[_ChangeNode], prefix: str = "") -> None:
-    """Render sibling nodes as an indented tree.
+def _add_nodes(tree: Tree, nodes: List[_ChangeNode]) -> None:
+    """Adds sibling nodes as branches, stable-sorted by kind category."""
+    for node in sorted(nodes, key=lambda node: node.sort_key):
+        branch = tree.add(node.label())
+        if node.expand_children:
+            _add_nodes(branch, node.children)
 
-    Owns the cross-cutting layout: stable sort by kind category, tree
-    connectors, and skipping the children of nodes that opt out
-    (``expand_children``). Each node renders only its own line content via
-    :meth:`_ChangeNode.render_content`. ``prefix`` is the accumulated ancestor
-    indentation (pipe/gap columns); each node appends its own connector, and its
-    children inherit ``prefix`` extended by one more column.
-    """
-    ordered = sorted(nodes, key=lambda node: node.sort_key)
-    last = len(ordered) - 1
-    for index, node in enumerate(ordered):
-        is_last = index == last
-        cli_console.styled_message(
-            prefix + (_TREE_LAST if is_last else _TREE_BRANCH), style="dim"
-        )
-        node.render_content()
-        cli_console.styled_message("\n")
-        if node.expand_children and node.children:
-            _render_nodes(
-                node.children, prefix + (_TREE_GAP if is_last else _TREE_PIPE)
-            )
+
+def _change_tree(label: Text, nodes: List[_ChangeNode]) -> CompactTree:
+    """The changes under one entity, as a tree rooted at its header line."""
+    tree = CompactTree(label, guide_style=styles.TREE_GUIDE_STYLE)
+    _add_nodes(tree, nodes)
+    return tree
 
 
 @dataclass
@@ -562,21 +556,25 @@ class PlanReporter(Reporter[PlanRow]):
         rows.sort(key=lambda row: row.sort_key)
         return iter(rows)
 
+    @classmethod
+    def _header(cls, entry: PlanRow) -> Text:
+        """The entity's operation, domain and name, in aligned columns."""
+        text = Text()
+        text.append(
+            entry.operation.ljust(_OPERATION_WIDTH) + " ",
+            cls._style_for_operation(entry.operation) + styles.BOLD_STYLE,
+        )
+        text.append(entry.domain.ljust(_DOMAIN_WIDTH) + " ")
+        text.append(entry.display_fqn(), styles.OBJECT_NAME_STYLE)
+        return text
+
     def print_renderables(self, data: Iterator[PlanRow]) -> None:
         entries = list(data)
         last_index = len(entries) - 1
         for index, entry in enumerate(entries):
-            style = self._style_for_operation(entry.operation) + styles.BOLD_STYLE
-            cli_console.styled_message(
-                entry.operation.ljust(_OPERATION_WIDTH) + " ",
-                style=style,
+            cli_console.renderable(
+                _change_tree(self._header(entry), entry.details), soft_wrap=False
             )
-            cli_console.styled_message(entry.domain.ljust(_DOMAIN_WIDTH) + " ")
-            cli_console.styled_message(
-                entry.display_fqn(), style=styles.OBJECT_NAME_STYLE
-            )
-            cli_console.styled_message("\n")
-            _render_nodes(entry.details)
             if entry.details and index != last_index:
                 cli_console.styled_message("\n")
 

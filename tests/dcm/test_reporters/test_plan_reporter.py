@@ -11,10 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from io import StringIO
-from unittest import mock
+
+from typing import Any, Dict, List
 
 import pytest
+from rich.style import Style
+from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli._plugins.dcm.reporters.plan import (
     _DIFF_CONTEXT,
@@ -22,17 +24,21 @@ from snowflake.cli._plugins.dcm.reporters.plan import (
     PlanEntityChange,
     PlanReporter,
     PlanRow,
-    _render_nodes,
+    _change_tree,
     _truncate_inline,
     _truncate_value_pair,
 )
+from snowflake.cli._plugins.dcm.tree import CompactTree
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 
 from tests.dcm.test_reporters.utils import (
-    CLI_CONSOLE_PATH,
+    RENDER_WIDTH,
     FakeCursor,
     capture_reporter_output,
+    capture_reporter_renderables,
+    render_to_styled_runs,
+    render_to_text,
 )
 
 
@@ -49,20 +55,15 @@ def plan_row(entry):
     return PlanRow.from_entity(PlanEntityChange.model_validate(entry))
 
 
-def render_detail_lines(entry):
-    """Render the sub-change tree for a single changeset entry's details —
-    the indented lines with tree connectors, exactly as the user sees them
-    under the entity header.
-    """
-    row = plan_row(entry)
-    output = StringIO()
+def detail_tree(entry: Dict[str, Any], header: str = "HEADER") -> CompactTree:
+    """The tree a single changeset entry renders as, rooted at its header."""
+    return _change_tree(Text(header), plan_row(entry).details)
 
-    def mock_print(text, style=""):
-        output.write(text.plain if hasattr(text, "plain") else str(text))
 
-    with mock.patch(CLI_CONSOLE_PATH, side_effect=mock_print):
-        _render_nodes(row.details)
-    return [line for line in output.getvalue().split("\n") if line]
+def render_detail_lines(entry: Dict[str, Any], width: int = RENDER_WIDTH) -> List[str]:
+    """The entry's sub-change rows, without the entity header or blank lines."""
+    rendered = render_to_text(detail_tree(entry), width)
+    return [line.rstrip() for line in rendered.split("\n")[1:] if line.strip()]
 
 
 class TestTruncateInline:
@@ -458,6 +459,70 @@ class TestPlanReporter:
         assert "Planned 1 entity (0 to create, 1 to alter, 0 to drop)." in output
 
 
+class TestPlanHeaderRendering:
+    """The header line each entity's tree is rooted at, as ``process`` builds it."""
+
+    @staticmethod
+    def _entity_tree(operation: str) -> CompactTree:
+        data = {
+            "version": 2,
+            "metadata": {},
+            "changeset": [
+                {
+                    "type": operation,
+                    "object_id": {
+                        "domain": "TABLE",
+                        "name": '"ORDERS"',
+                        "fqn": '"DB"."SCH"."ORDERS"',
+                    },
+                    "changes": [
+                        {
+                            "type": "SET_PROPERTY",
+                            "attribute_name": "comment",
+                            "new_value": "hi",
+                        }
+                    ],
+                }
+            ],
+        }
+        trees = capture_reporter_renderables(PlanReporter(), FakeCursor(data))
+        assert len(trees) == 1
+        return trees[0]
+
+    @pytest.mark.parametrize(
+        "operation, expected_style",
+        [
+            ("CREATE", styles.CREATE_STYLE),
+            ("ALTER", styles.ALTER_STYLE),
+            ("DROP", styles.DROP_STYLE),
+            ("RENAME", styles.UNKNOWN_STYLE),
+        ],
+    )
+    def test_operation_is_bold_in_its_own_color(
+        self, operation: str, expected_style: Style
+    ) -> None:
+        runs = render_to_styled_runs(self._entity_tree(operation))
+
+        assert runs[0] == (
+            operation.ljust(8) + " ",
+            expected_style + styles.BOLD_STYLE,
+        )
+
+    def test_domain_is_unstyled_and_object_name_is_colored(self) -> None:
+        runs = render_to_styled_runs(self._entity_tree("ALTER"))
+
+        assert runs[1] == ("TABLE".ljust(20) + " ", Style())
+        assert runs[2] == ("DB.SCH.ORDERS", styles.OBJECT_NAME_STYLE)
+
+    def test_tree_guides_are_dimmed(self) -> None:
+        """Rich combines the guide style with negations, so only ``dim`` is asserted."""
+        runs = render_to_styled_runs(self._entity_tree("ALTER"))
+
+        guide_style = next(run[1] for run in runs if "\u2514\u2500" in run[0])
+        assert styles.TREE_GUIDE_STYLE.dim
+        assert guide_style is not None and guide_style.dim
+
+
 class TestPlanRow:
     @pytest.mark.parametrize("operation", ["CREATE", "DROP"])
     def test_non_alter_stays_terse(self, operation):
@@ -791,6 +856,33 @@ class TestChangeTreeRendering:
             "   └─ added B",
         ]
 
+    def test_a_change_wider_than_the_terminal_wraps_under_its_own_row(self) -> None:
+        """A row too wide for the terminal continues indented, losing nothing."""
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "TABLE", "fqn": '"T"'},
+            "changes": [
+                {
+                    "kind": "collection",
+                    "collection_name": "columns",
+                    "changes": [
+                        {"kind": "added", "item_id": "A"},
+                        {"kind": "added", "item_id": "B" * 60},
+                    ],
+                }
+            ],
+        }
+
+        lines = render_detail_lines(entry, width=40)
+
+        assert lines == [
+            "└─ columns",
+            "   ├─ added A",
+            "   └─ added",
+            "      " + "B" * 34,
+            "      " + "B" * 26,
+        ]
+
     def test_set_scalar_values(self):
         entry = {
             "type": "ALTER",
@@ -1010,16 +1102,6 @@ class TestChangeTreeRendering:
         assert new_rendered.endswith("…")
         assert len(new_rendered) == _MAX_VALUE_LEN + 1
 
-    def _record_process(self, data):
-        calls = []
-
-        def record(text, style=""):
-            calls.append((str(text), style))
-
-        with mock.patch(CLI_CONSOLE_PATH, side_effect=record):
-            PlanReporter().process(FakeCursor(data))
-        return calls
-
     @pytest.mark.parametrize(
         "kind, expected_style",
         [
@@ -1050,12 +1132,12 @@ class TestChangeTreeRendering:
                 }
             ],
         }
-        calls = self._record_process(data)
+        runs = render_to_styled_runs(detail_tree(data["changeset"][0]))
 
-        kind_call = next(c for c in calls if c[0].strip() == kind)
-        desc_call = next(c for c in calls if "SOME_DESC" in c[0])
-        assert kind_call[1] == expected_style
-        assert desc_call[1] == ""
+        kind_run = next(run for run in runs if run[0].strip() == kind)
+        desc_run = next(run for run in runs if "SOME_DESC" in run[0])
+        assert kind_run[1] == expected_style
+        assert desc_run[1] == Style()
 
     @pytest.mark.parametrize(
         "kind, expected_style",
@@ -1085,10 +1167,10 @@ class TestChangeTreeRendering:
                 }
             ],
         }
-        calls = self._record_process(data)
+        runs = render_to_styled_runs(detail_tree(data["changeset"][0]))
 
-        kind_call = next(c for c in calls if c[0].strip() == kind)
-        assert kind_call[1] == expected_style
+        kind_run = next(run for run in runs if run[0].strip() == kind)
+        assert kind_run[1] == expected_style
 
     def test_blank_line_separates_consecutive_trees(self):
         """A rendered ALTER tree is followed by a blank line before the next
