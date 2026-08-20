@@ -212,14 +212,10 @@ def deploy_dbt(
     ),
     profiles_dir: Optional[str] = typer.Option(
         help=(
-            f"Path to directory containing {PROFILES_FILENAME}"
-            + (
-                f" (or {DBT_PROJECTS_PROFILES_FILENAME}, which takes precedence over "
-                f"{PROFILES_FILENAME} and is staged under its own name)"
-                if FeatureFlag.ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE.is_enabled()
-                else ""
-            )
-            + ". Defaults to directory provided in --source or current working directory"
+            f"Path to directory containing {PROFILES_FILENAME} or "
+            f"{DBT_PROJECTS_PROFILES_FILENAME} (the latter takes precedence and "
+            "is staged under its own name). Defaults to directory provided in "
+            "--source or current working directory"
         ),
         show_default=False,
         default=None,

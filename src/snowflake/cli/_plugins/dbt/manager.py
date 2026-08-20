@@ -21,7 +21,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import (
@@ -38,7 +38,6 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliArgumentError, CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
@@ -574,15 +573,11 @@ class DBTManager(SqlExecutionMixin):
     def _candidate_profiles_filenames() -> tuple[str, ...]:
         """Profiles filenames to look for, in precedence order.
 
-        When ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE is on, a
-        dbt_projects_profiles.yml in the profiles directory takes precedence
+        A dbt_projects_profiles.yml in the profiles directory takes precedence
         over profiles.yml and is staged under its own name (the server applies
-        the precedence at execution time). With the flag off only profiles.yml
-        is recognized, so the command behaves exactly as before.
+        the precedence at execution time).
         """
-        if FeatureFlag.ENABLE_DBT_PROJECT_PROFILES_FILE_PRECEDENCE.is_enabled():
-            return (DBT_PROJECTS_PROFILES_FILENAME, PROFILES_FILENAME)
-        return (PROFILES_FILENAME,)
+        return (DBT_PROJECTS_PROFILES_FILENAME, PROFILES_FILENAME)
 
     @classmethod
     def _resolve_profiles_filename(cls, profiles_path: SecurePath) -> Optional[str]:
@@ -592,6 +587,16 @@ class DBTManager(SqlExecutionMixin):
             if (profiles_path / filename).exists():
                 return filename
         return None
+
+    @staticmethod
+    def _parse_profiles_yaml(fd, filename: str) -> Any:
+        """Parse an open profiles file, reporting malformed YAML as a CliError."""
+        try:
+            return yaml.safe_load(fd)
+        except yaml.constructor.ConstructorError as e:
+            raise CliError(f"Failed to parse {filename}: {e.problem}")
+        except yaml.YAMLError as e:
+            raise CliError(f"{filename} is not valid YAML: {e}")
 
     def _validate_profiles(
         self,
@@ -613,7 +618,10 @@ class DBTManager(SqlExecutionMixin):
             )
         profiles_file = profiles_path / filename
         with profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-            profiles = yaml.safe_load(fd)
+            profiles = self._parse_profiles_yaml(fd, filename)
+        if not isinstance(profiles, dict):
+            # None (empty file) or non-mapping would raise a bare TypeError below.
+            raise CliError(f"{filename} does not contain any profiles.")
 
         if profile_name not in profiles:
             raise CliError(f"Profile {profile_name} is not defined in {filename}.")
@@ -677,12 +685,12 @@ class DBTManager(SqlExecutionMixin):
     ) -> None:
         """Warn when both profiles files are present and reconcile tmp_path.
 
-        Only relevant when dbt_projects_profiles.yml wins (flag on). Two cases:
+        Only relevant when dbt_projects_profiles.yml is the winner. Two cases:
         - Project root: both files stay in the deployed object (server resolves
           precedence); emit a warning so the user knows what to expect.
         - Separate --profiles-dir: profiles.yml must not appear at the root of
           the deployed object alongside the winner; remove it and warn.
-        When profiles.yml is the winner (flag off), this is a no-op.
+        When profiles.yml is the winner, this is a no-op.
         """
         if filename == PROFILES_FILENAME:
             return
@@ -727,8 +735,8 @@ class DBTManager(SqlExecutionMixin):
         for candidate in DBTManager._candidate_profiles_filenames():
             f = tmp_path / candidate
             if f.exists():
-                with f.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as sfd:
-                    content = yaml.safe_load(sfd)
+                with f.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+                    content = DBTManager._parse_profiles_yaml(fd, candidate)
                 f.unlink()
                 with f.open(mode="w") as tfd:
                     yaml.safe_dump(content, tfd, sort_keys=False)
@@ -751,12 +759,12 @@ class DBTManager(SqlExecutionMixin):
         # This overwrites whatever copy_to_tmp_dir placed there earlier.
         source_profiles_file = profiles_path / filename
         target_profiles_file = tmp_path / filename
+        with source_profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as sfd:
+            content = DBTManager._parse_profiles_yaml(sfd, filename)
         if target_profiles_file.exists():
             target_profiles_file.unlink()
-        with source_profiles_file.open(
-            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
-        ) as sfd, target_profiles_file.open(mode="w") as tfd:
-            yaml.safe_dump(yaml.safe_load(sfd), tfd, sort_keys=False)
+        with target_profiles_file.open(mode="w") as tfd:
+            yaml.safe_dump(content, tfd, sort_keys=False)
 
     @staticmethod
     def _validate_and_parse_env_file(env_file: SecurePath) -> str:

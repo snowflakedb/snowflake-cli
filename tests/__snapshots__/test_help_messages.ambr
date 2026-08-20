@@ -5728,7 +5728,12 @@
   |                                                    current working           |
   |                                                    directory.                |
   | --profiles-dir                               TEXT  Path to directory         |
-  |                                                    containing profiles.yml.  |
+  |                                                    containing profiles.yml   |
+  |                                                    or                        |
+  |                                                    dbt_projects_profiles.yml |
+  |                                                    (the latter takes         |
+  |                                                    precedence and is staged  |
+  |                                                    under its own name).      |
   |                                                    Defaults to directory     |
   |                                                    provided in --source or   |
   |                                                    current working directory |
