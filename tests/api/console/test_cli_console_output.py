@@ -20,6 +20,7 @@ from unittest import mock
 
 import pytest
 from rich.text import Text
+from rich.tree import Tree
 from snowflake.cli.api.console.console import (
     CliConsole,
 )
@@ -69,6 +70,29 @@ def test_phase_after_step_not_indented(cli_console, capsys):
 def test_renderable_is_printed_as_given(cli_console, capsys):
     cli_console.renderable(Text("a detail"))
     assert_output_matches("a detail\n", capsys)
+
+
+def test_renderable_wider_than_the_console_is_not_cropped_with_soft_wrap_off(
+    cli_console: CliConsole, capsys: pytest.CaptureFixture[str]
+) -> None:
+    wide = "x" * 500
+
+    cli_console.renderable(Tree(Text(wide)), soft_wrap=False)
+
+    printed = capsys.readouterr().out
+    assert "".join(printed.split()) == wide
+
+
+def test_renderable_leaves_soft_wrap_to_the_console_by_default(
+    cli_console: CliConsole, capsys: pytest.CaptureFixture[str]
+) -> None:
+    wide = "x" * 500
+
+    cli_console.renderable(Tree(Text(wide)))
+
+    printed = capsys.readouterr().out
+    assert printed.count("\n") == 1
+    assert len(printed.strip()) < len(wide)
 
 
 def test_renderable_is_muted_when_silent(cli_console, capsys):

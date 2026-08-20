@@ -730,25 +730,24 @@ class TestStepDetails:
         assert capsys.readouterr().out == ""
         assert console.file.getvalue() == ""
 
-    def test_a_long_detail_is_cropped_to_the_terminal_without_a_tty(
-        self, capsys
+    def test_a_long_detail_that_does_not_crop_itself_is_kept_whole(
+        self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        # given
+        # given: a component that made no cropping decision
         name = "long" * 40 + ".sql"
         console = _non_terminal_console()
+
+        # when
         with patch.object(progress_module, "get_console", return_value=console):
             progress = MultiStepProgress([StepDefinition("a", "UPLOAD")])
             with progress.display():
                 progress.start_step("a")
-                # when
                 progress.set_step_details("a", [Text(name)])
 
-        # then: printed as the component renders, so a name wider than the
-        # terminal is cropped to one row rather than kept whole
+        # then: wrapped over as many rows as it needs, dropping nothing
         printed = [ln for ln in capsys.readouterr().out.split("\n") if "long" in ln]
-        assert len(printed) == 1
-        assert name.startswith(printed[0].strip())
-        assert name not in printed[0]
+        assert len(printed) > 1
+        assert "".join(ln.strip() for ln in printed) == name
 
 
 class TestProgressSession:
