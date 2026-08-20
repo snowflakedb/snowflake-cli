@@ -666,11 +666,11 @@ class TestUploadDetails:
         # then
         assert lines[1:] == [
             f"{DETAIL_BULLET}Upload files",
-            "  ├── README.md",
-            f"  ├── {MANIFEST_FILE_NAME}",
-            "  ├── zzz.yml",
-            f"  └── {SOURCES_FOLDER} (1 file)",
-            "      └── definitions (2 files)",
+            "  ├─ README.md",
+            f"  ├─ {MANIFEST_FILE_NAME}",
+            "  ├─ zzz.yml",
+            f"  └─ {SOURCES_FOLDER} (1 file)",
+            "     └─ definitions (2 files)",
         ]
 
 
@@ -860,7 +860,7 @@ class TestUploadTreeEscapesNames:
 
         # then: without escaping the newline would open a second row and the
         # tree's guide alignment would break
-        assert lines[1:] == ["\u2514\u2500\u2500 evil\\nfake_root.yml"]
+        assert lines[1:] == ["\u2514\u2500 evil\\nfake_root.yml"]
 
     def test_a_folder_keeps_its_count_when_its_name_is_escaped(self) -> None:
         # given: tabs would otherwise expand and push the count past the crop
@@ -869,7 +869,7 @@ class TestUploadTreeEscapesNames:
         )
 
         # then
-        assert lines[1] == "\u2514\u2500\u2500 abc\\t\\t\\t\\t\\t\\tefg (2 files)"
+        assert lines[1] == "\u2514\u2500 abc\\t\\t\\t\\t\\t\\tefg (2 files)"
 
     def test_the_heading_is_not_treated_as_a_name(self) -> None:
         # given / when
@@ -905,12 +905,12 @@ class TestUploadTree:
         # then
         assert lines == [
             "Upload files",
-            "├── manifest.yml",
-            "└── sources (1 file)",
-            "    ├── definitions (12 files)",
-            "    ├── macros (4 files)",
-            "    ├── other_files (4 files)",
-            "    └── xyz (1 file)",
+            "├─ manifest.yml",
+            "└─ sources (1 file)",
+            "   ├─ definitions (12 files)",
+            "   ├─ macros (4 files)",
+            "   ├─ other_files (4 files)",
+            "   └─ xyz (1 file)",
         ]
 
     def test_folder_without_direct_files_shows_no_count(self) -> None:
@@ -925,8 +925,8 @@ class TestUploadTree:
         # then
         assert lines == [
             "Upload files",
-            "└── sources",
-            "    └── defs (3 files)",
+            "└─ sources",
+            "   └─ defs (3 files)",
         ]
 
     def test_root_files_only_still_render_connectors(self) -> None:
@@ -936,8 +936,8 @@ class TestUploadTree:
         # then
         assert lines == [
             "Upload files",
-            "├── a.yml",
-            "└── b.yml",
+            "├─ a.yml",
+            "└─ b.yml",
         ]
 
     def test_square_brackets_in_a_name_are_rendered_verbatim(self) -> None:
@@ -948,8 +948,8 @@ class TestUploadTree:
         lines = _rendered_lines(upload_tree(["[keep].yml"], folders))
 
         # then
-        assert lines[1] == "├── [keep].yml"
-        assert lines[2] == "└── [draft] (2 files)"
+        assert lines[1] == "├─ [keep].yml"
+        assert lines[2] == "└─ [draft] (2 files)"
 
     def test_long_names_are_not_wrapped_or_truncated(self) -> None:
         # given
@@ -959,4 +959,4 @@ class TestUploadTree:
         lines = _rendered_lines(upload_tree([name], []), width=500)
 
         # then: the component carries the whole name; cropping is the render's job
-        assert lines[1] == f"└── {name}"
+        assert lines[1] == f"└─ {name}"
