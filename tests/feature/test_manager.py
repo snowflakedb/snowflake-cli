@@ -2969,6 +2969,85 @@ def _make_target():
     )
 
 
+class TestFetchEntityRowsResilience:
+    """The entity read path must NOT swallow a transient backend failure
+    into an empty list.
+
+    ``_fetch_entity_rows`` is load-bearing for planner correctness: an
+    empty applied-state entity set makes ``validate_specs`` emit
+    ``MISSING_ENTITY`` for every FV that references an entity only
+    present in applied state.  The old ``except Exception: return []``
+    turned the ``list_entities()`` / warehouse-auto-suspend race
+    (``plans/bug_cleanup_sweep_list_entities_warehouse_suspend_race.md``)
+    into a spurious ``validation_failed`` on an otherwise-valid project.
+    A post-retry backend failure MUST surface as a clear error instead
+    (``FeatureStoreNotInitializedError`` still stays first-class).
+    """
+
+    _SUSPEND_ERR = (
+        "090109 (22000): Warehouse 'JKEW_WH' was suspended while SQL was "
+        "waiting to be scheduled. SQL execution canceled."
+    )
+
+    def test_fetch_entity_rows_reraises_transient_error_as_clierror(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A generic backend failure (e.g. the warehouse-suspend race
+        surviving the imperative-layer retry) MUST raise a ``CliError``
+        naming the entity read — never degrade to ``[]``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        target = _make_target()
+        mock_decl.fetch_entity_rows.side_effect = RuntimeError(self._SUSPEND_ERR)
+
+        with pytest.raises(CliError, match="registered entities"):
+            FeatureManager()._fetch_entity_rows(target)  # noqa: SLF001
+
+    def test_fetch_entity_rows_reraises_not_initialized(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``FeatureStoreNotInitializedError`` remains first-class — the
+        command-layer wrapper rewraps it into the actionable ``snow
+        feature init`` message, so this helper MUST propagate it
+        unchanged (not as a generic transient ``CliError``)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        target = _make_target()
+        mock_decl.fetch_entity_rows.side_effect = FeatureStoreNotInitializedError(
+            "TEST_DB",
+            "TEST_SCHEMA",
+            RuntimeError("missing SNOWML_FEATURE_STORE_OBJECT tag"),
+        )
+
+        with pytest.raises(FeatureStoreNotInitializedError):
+            FeatureManager()._fetch_entity_rows(target)  # noqa: SLF001
+
+    def test_plan_surfaces_transient_entity_error_not_missing_entity(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan()`` MUST propagate the transient entity-read error
+        rather than continuing with an empty applied state (which would
+        surface as a spurious ``MISSING_ENTITY`` ``validation_failed``)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        mock_decl.fetch_entity_rows.side_effect = RuntimeError(self._SUSPEND_ERR)
+
+        with pytest.raises(CliError, match="registered entities"):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                dev_mode=False,
+                allow_recreate=False,
+            )
+
+
 class TestFetchStreamSourceRowsThreading:
     """Wave 3B — ``_fetch_stream_source_rows`` + bundle threading."""
 
