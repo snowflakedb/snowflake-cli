@@ -256,6 +256,7 @@ def _to_message(text: str) -> CommandResult:
 _OPS_DISPLAY_COLUMNS = [
     "type",
     "name",
+    "version",
     "operation",
     "reason",
     "destructive",

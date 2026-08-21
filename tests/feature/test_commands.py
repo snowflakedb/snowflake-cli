@@ -465,6 +465,30 @@ def test_project_ops_columns_orders_and_preserves_error():
     ]
 
 
+def test_project_ops_columns_places_version_after_name():
+    """When an op row carries a ``version`` it renders right after ``name``.
+
+    Object identity is (name, version); the ops table surfaces the version so
+    the operator can tell which of two same-named FVs an op targets.
+    """
+    from snowflake.cli._plugins.feature.commands import _project_ops_columns
+
+    rows = _project_ops_columns(
+        [
+            {
+                "type": "BatchFeatureView",
+                "name": "MY_BFV",
+                "version": "V2",
+                "operation": "CREATE_FV",
+                "reason": "new",
+                "destructive": False,
+            }
+        ]
+    )
+    assert list(rows[0].keys())[:3] == ["type", "name", "version"]
+    assert rows[0]["version"] == "V2"
+
+
 def test_project_ops_columns_tolerates_missing_type():
     """An older decl build may omit ``type``; the projection must not
     inject empty columns and simply orders the keys that exist."""
