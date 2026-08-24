@@ -19,7 +19,7 @@ import re
 import subprocess
 from enum import Enum, unique
 
-VERSION = "3.25.0rc0"
+VERSION = "3.25.0"
 
 
 def get_display_version() -> str:
