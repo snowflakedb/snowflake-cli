@@ -45,6 +45,11 @@ EXCLUDED_PATHS = [
     # ── Internal workflows ──
     ".github/workflows/daily-cve-check.yaml",
     ".github/scripts/create_jira_tickets.py",
+    ".github/workflows/daily-python-version-check.yaml",
+    ".github/scripts/check_python_version.py",
+    ".github/scripts/create_python_version_jira_ticket.py",
+    ".github/scripts/jira_client.py",
+    "tests/scripts/**",
 ]
 
 # Re-include seam: paths matched here are mirrored even if excluded above.

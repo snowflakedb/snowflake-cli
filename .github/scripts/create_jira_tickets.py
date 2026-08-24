@@ -8,166 +8,8 @@ import argparse
 import json
 import os
 import sys
-from typing import Any, Dict, Optional, Union
 
-import requests
-
-
-class JiraClient:
-    """Client for interacting with JIRA REST API."""
-
-    def __init__(self, base_url: str, email: str, api_token: str):
-        self.base_url = base_url.rstrip("/")
-        self.auth = (email, api_token)
-        self.session = requests.Session()
-        self.session.auth = self.auth
-        self.session.headers.update({"Content-Type": "application/json"})
-
-    def search_existing_ticket(self, cve_id: str, parent_key: str) -> Optional[str]:
-        """Search for existing JIRA ticket by CVE ID and parent key."""
-        # Convert CVE ID to lowercase for label search
-        cve_label = cve_id.lower()
-
-        # Build JQL query - search by label (don't quote labels in JQL)
-        jql = f"project = SNOW AND parent = {parent_key} AND labels = {cve_label} AND labels = automated"
-
-        # Search for existing ticket using v3 API
-        # Note: requests library will automatically URL-encode the params
-        url = f"{self.base_url}/rest/api/3/search/jql"
-        params: Dict[str, Union[str, int]] = {"jql": jql, "maxResults": 1}
-
-        try:
-            response = self.session.get(url, params=params)  # type: ignore[arg-type]
-            if response.status_code == 200:
-                data = response.json()
-                issues = data.get("issues", [])
-                if len(issues) > 0:
-                    issue_key = issues[0].get("key")
-                    if issue_key:
-                        return issue_key
-                    # If key not in response, fetch it using the ID
-                    issue_id = issues[0].get("id")
-                    if issue_id:
-                        key_response = self.session.get(
-                            f"{self.base_url}/rest/api/2/issue/{issue_id}",
-                            params={"fields": "key"},
-                        )
-                        return key_response.json().get("key")
-            else:
-                print(f"    ⚠️  Search failed: {response.text}", file=sys.stderr)
-        except Exception as e:
-            print(f"    ⚠️  Search error: {e}", file=sys.stderr)
-
-        return None
-
-    def get_issue_status(self, issue_key: str) -> Optional[str]:
-        """Get the status of a JIRA issue."""
-        try:
-            url = f"{self.base_url}/rest/api/2/issue/{issue_key}"
-            params = {"fields": "status"}
-            response = self.session.get(url, params=params)
-            if response.status_code == 200:
-                return response.json()["fields"]["status"]["name"]
-        except Exception as e:
-            print(f"    ⚠️  Error getting status: {e}", file=sys.stderr)
-        return None
-
-    def reopen_issue(self, issue_key: str) -> bool:
-        """Reopen a closed JIRA issue."""
-        try:
-            # Get available transitions
-            url = f"{self.base_url}/rest/api/2/issue/{issue_key}/transitions"
-            response = self.session.get(url)
-            if response.status_code != 200:
-                return False
-
-            transitions = response.json().get("transitions", [])
-
-            # Find transition to reopen (TODO, Open, Reopened, etc.)
-            reopen_transition = None
-            for trans in transitions:
-                name = trans.get("name", "")
-                if any(
-                    keyword in name.lower() for keyword in ["todo", "open", "reopen"]
-                ):
-                    reopen_transition = trans.get("id")
-                    break
-
-            if reopen_transition:
-                payload = {"transition": {"id": reopen_transition}}
-                response = self.session.post(url, json=payload)
-                return response.status_code in [200, 204]
-            else:
-                print("    ⚠️  Could not find transition to reopen")
-                return False
-        except Exception as e:
-            print(f"    ⚠️  Error reopening issue: {e}", file=sys.stderr)
-            return False
-
-    def add_comment(self, issue_key: str, comment: str) -> bool:
-        """Add a comment to a JIRA issue."""
-        try:
-            url = f"{self.base_url}/rest/api/2/issue/{issue_key}/comment"
-            payload = {"body": comment}
-            response = self.session.post(url, json=payload)
-            return response.status_code in [200, 201]
-        except Exception as e:
-            print(f"    ⚠️  Error adding comment: {e}", file=sys.stderr)
-            return False
-
-    def create_issue(self, issue_data: Dict[str, Any]) -> Optional[str]:
-        """Create a new JIRA issue."""
-        try:
-            url = f"{self.base_url}/rest/api/2/issue"
-            response = self.session.post(url, json=issue_data)
-            if response.status_code == 201:
-                return response.json().get("key")
-            else:
-                print(f"❌ Failed to create ticket (HTTP {response.status_code})")
-                try:
-                    print(f"Response: {json.dumps(response.json(), indent=2)}")
-                except:
-                    print(f"Response: {response.text}")
-                return None
-        except Exception as e:
-            print(f"❌ Error creating issue: {e}", file=sys.stderr)
-            return None
-
-    def transition_to_todo(self, issue_key: str) -> bool:
-        """Transition a newly created issue to TODO status."""
-        try:
-            url = f"{self.base_url}/rest/api/2/issue/{issue_key}/transitions"
-            response = self.session.get(url)
-            if response.status_code != 200:
-                print(
-                    f"    ⚠️  Failed to get transitions: {response.text}",
-                    file=sys.stderr,
-                )
-                return False
-
-            transitions = response.json().get("transitions", [])
-
-            todo_transition = None
-            for trans in transitions:
-                name = trans.get("name", "")
-                if (
-                    "todo" in name.lower()
-                    or "to do" in name.lower()
-                    or "to-do" in name.lower()
-                ):
-                    todo_transition = trans.get("id")
-                    break
-
-            if todo_transition:
-                payload = {"transition": {"id": todo_transition}}
-                response = self.session.post(url, json=payload)
-                return response.status_code in [200, 204]
-            else:
-                print("    ⚠️  Could not find TODO transition", file=sys.stderr)
-                return False
-        except Exception as e:
-            print(f"    ⚠️  Error transitioning to TODO: {e}", file=sys.stderr)
-            return False
+from jira_client import JiraClient
 
 
 def process_cves(cves_file: str, parent_key: str, workflow_url: str):
@@ -185,22 +27,8 @@ def process_cves(cves_file: str, parent_key: str, workflow_url: str):
     cve_count = len(cves)
     print(f"📋 Processing {cve_count} CVE(s) from {cves_file}")
 
-    # Get JIRA credentials from environment
-    jira_base_url = os.environ.get("JIRA_BASE_URL")
-    jira_user_email = os.environ.get("JIRA_USER_EMAIL")
-    jira_api_token = os.environ.get("JIRA_API_TOKEN")
-
-    if not all([jira_base_url, jira_user_email, jira_api_token]):
-        print(
-            "❌ Missing required environment variables: JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN"
-        )
-        sys.exit(1)
-
-    # Initialize JIRA client (assert to satisfy type checker - we've validated above)
-    assert jira_base_url is not None
-    assert jira_user_email is not None
-    assert jira_api_token is not None
-    jira = JiraClient(jira_base_url, jira_user_email, jira_api_token)
+    # Initialize JIRA client from environment
+    jira = JiraClient.from_env()
 
     created = 0
     updated = 0
@@ -217,9 +45,12 @@ def process_cves(cves_file: str, parent_key: str, workflow_url: str):
         print()
         print(f"🔒 Processing CVE {i+1}/{cve_count}: {cve_id}")
 
+        # Create CVE label (lowercase)
+        cve_label = cve_id.lower()
+
         # Check for existing ticket
         print("  🔍 Searching for existing ticket...")
-        existing_key = jira.search_existing_ticket(cve_id, parent_key)
+        existing_key = jira.search_existing_ticket(cve_label, parent_key)
 
         if existing_key:
             print(f"  📌 Found existing ticket: {existing_key}")
@@ -280,9 +111,6 @@ This vulnerability is still present in the latest dependency scan. Please priori
 4. Re-run CVE scan to verify fix
 
 _This ticket was automatically created by the Daily CVE Check workflow._"""
-
-        # Create CVE label (lowercase)
-        cve_label = cve_id.lower()
 
         # Create JIRA ticket payload
         payload = {

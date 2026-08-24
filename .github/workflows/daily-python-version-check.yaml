@@ -1,0 +1,61 @@
+name: Daily Python Version Check with JIRA Integration
+
+on:
+  schedule:
+    - cron: '32 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-version-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Check for newer Python patch
+        id: check
+        run: python .github/scripts/check_python_version.py
+
+      - name: Login to JIRA
+        if: steps.check.outputs.update_available == 'true'
+        uses: atlassian/gajira-login@45fd029b9f1d6d8926c6f04175aa80c0e42c9026 # v3.0.1
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_TOKEN }}
+
+      - name: Create JIRA ticket for outdated Python version
+        if: steps.check.outputs.update_available == 'true'
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_TOKEN }}
+        run: |
+          python .github/scripts/create_python_version_jira_ticket.py \
+            "${{ steps.check.outputs.current_version }}" \
+            "${{ steps.check.outputs.latest_version }}" \
+            "${{ vars.JIRA_KTLO_EPIC }}" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Print scan summary
+        run: |
+          if [ "${{ steps.check.outputs.update_available }}" == "true" ]; then
+            echo "🚨 Newer Python patch available: ${{ steps.check.outputs.current_version }} -> ${{ steps.check.outputs.latest_version }}"
+            echo "🎫 JIRA ticket created/updated"
+            echo "🔗 View tickets: ${{ secrets.JIRA_BASE_URL }}/issues/?jql=parent=${{ vars.JIRA_KTLO_EPIC }} AND labels=automated"
+          else
+            echo "✅ Pinned Python version is already the latest published patch"
+          fi
