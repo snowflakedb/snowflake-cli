@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.25.0
+
+## Deprecations
+
+## New additions
 * `snow connection add` now supports `--client-store-temporary-credential`, which writes `client_store_temporary_credential = true` to the new connection in `config.toml`.
 * `snow sql --local-only` default can now be set via the `SNOWFLAKE_CLI_SQL_LOCAL_ONLY` environment variable. Accepted values: `1/true/yes/on` (enable) and `0/false/no/off` (disable). When unset, the default remains `false`.
 * `snow app events` now accepts `--instance <N>` (Snowflake App Runtime only) to retrieve live container logs from a specific service instance. Useful when horizontal scaling is active and more than one instance is running. Defaults to instance 0 when the flag is omitted.
