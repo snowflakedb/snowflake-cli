@@ -1751,3 +1751,163 @@ def test_sync_help_text(mock_manager, runner):
     assert "--yaml" in text
     assert "--target" in text
     assert "--from" in text
+
+
+# ---------------------------------------------------------------------------
+# Readable diagnostics (errors / warnings) — plan validation_failed + apply
+# ---------------------------------------------------------------------------
+#
+# On ``validation_failed`` the plan envelope carries ``errors`` /
+# ``warnings`` as lists of ``str(ValidationResult)`` reprs.  Rendering
+# them into a single key-value TABLE cell wrapped an unreadable blob;
+# the CLI now lifts them onto stderr as one readable finding per line
+# and compacts the stdout payload.  JSON / CSV callers keep the full
+# arrays untouched.
+
+_TILING_ERROR_REPR = (
+    "severity='ERROR' code='STREAM_FV_TILING_REFRESH' "
+    'message="USER_CLICK_BACKFILL_DECL: tiled StreamingFeatureView '
+    "requires ``refresh_freq`` so the offline tile Dynamic Table has a "
+    "refresh cadence. It drives the Online Feature Table's ingest-path "
+    'lag." '
+    "object_name='USER_CLICK_BACKFILL_DECL'"
+)
+
+
+def test_print_diagnostics_reformats_findings_readably(capsys):
+    """``_print_diagnostics`` renders ``OBJECT  [CODE]`` + wrapped
+    message on stderr instead of the raw ``severity='ERROR'`` repr."""
+    from snowflake.cli._plugins.feature.commands import _print_diagnostics
+
+    _print_diagnostics(
+        {
+            "errors": [_TILING_ERROR_REPR],
+            "warnings": [],
+        }
+    )
+    captured = capsys.readouterr()
+    assert "Errors (1):" in captured.err
+    assert "USER_CLICK_BACKFILL_DECL" in captured.err
+    assert "[STREAM_FV_TILING_REFRESH]" in captured.err
+    # The reformatted output must drop the raw repr scaffolding.
+    assert "severity='ERROR'" not in captured.err
+    assert "object_name=" not in captured.err
+    assert captured.out == ""
+
+
+def test_print_diagnostics_plain_string_fallback(capsys):
+    """Non-finding strings (e.g. init/sync warnings) fall back to a
+    plain ``- <text>`` bullet."""
+    from snowflake.cli._plugins.feature.commands import _print_diagnostics
+
+    _print_diagnostics({"warnings": ["orphaned OFT skipped during export"]})
+    captured = capsys.readouterr()
+    assert "Warnings (1):" in captured.err
+    assert "  - orphaned OFT skipped during export" in captured.err
+
+
+def test_print_diagnostics_silent_when_empty(capsys):
+    """No errors and no warnings → no stderr output at all."""
+    from snowflake.cli._plugins.feature.commands import _print_diagnostics
+
+    _print_diagnostics({"errors": [], "warnings": []})
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert captured.out == ""
+
+
+def test_compact_failure_envelope_drops_list_cells():
+    """The TABLE payload swaps the verbose ``errors`` / ``warnings`` /
+    ``ops`` lists for ``error_count`` / ``warning_count`` scalars while
+    keeping status + target fields."""
+    from snowflake.cli._plugins.feature.commands import _compact_failure_envelope
+
+    compact = _compact_failure_envelope(
+        {
+            "status": "validation_failed",
+            "target_name": "PROD",
+            "ops": [],
+            "errors": [_TILING_ERROR_REPR, _TILING_ERROR_REPR],
+            "warnings": ["w1"],
+        }
+    )
+    assert "errors" not in compact
+    assert "warnings" not in compact
+    assert "ops" not in compact
+    assert compact["status"] == "validation_failed"
+    assert compact["target_name"] == "PROD"
+    assert compact["error_count"] == 2
+    assert compact["warning_count"] == 1
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_plan_validation_failed_table_shows_readable_diagnostics(
+    mock_manager, runner, tmp_path
+):
+    """In TABLE mode, ``plan`` prints the readable diagnostics and must
+    not leak the raw ``severity='ERROR'`` list into the output."""
+    out_path = tmp_path / "plans" / "feature_plan_test.json"
+    mock_manager.return_value.plan.return_value = {
+        "status": "validation_failed",
+        "target_name": "PROD",
+        "ops": [],
+        "errors": [_TILING_ERROR_REPR],
+        "warnings": [],
+    }
+    result = runner.invoke(["feature", "plan", "--out", str(out_path)])
+    assert result.exit_code == 0, result.output
+    # Readable form present; ugly repr blob absent.
+    assert "Errors (1):" in result.output
+    assert "[STREAM_FV_TILING_REFRESH]" in result.output
+    assert "severity='ERROR'" not in result.output
+    # A failed plan still must not write a plan file.
+    mock_manager.return_value.write_plan.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.feature.commands._is_structured_output")
+@mock.patch(FEATURE_MANAGER)
+def test_plan_validation_failed_structured_keeps_error_list(
+    mock_manager, mock_structured, runner, tmp_path
+):
+    """In JSON / CSV mode, ``plan`` skips the stderr diagnostics and
+    returns the untouched envelope so the ``errors`` array reaches
+    machine consumers on stdout."""
+    mock_structured.return_value = True
+    out_path = tmp_path / "plans" / "feature_plan_test.json"
+    mock_manager.return_value.plan.return_value = {
+        "status": "validation_failed",
+        "ops": [],
+        "errors": [_TILING_ERROR_REPR],
+        "warnings": [],
+    }
+    with mock.patch(
+        "snowflake.cli._plugins.feature.commands._print_diagnostics"
+    ) as mock_diag:
+        result = runner.invoke(["feature", "plan", "--out", str(out_path)])
+    assert result.exit_code == 0, result.output
+    mock_diag.assert_not_called()
+    mock_manager.return_value.write_plan.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.feature.commands._is_structured_output")
+@mock.patch(FEATURE_MANAGER)
+def test_apply_prints_diagnostics_when_errors_present(
+    mock_manager, mock_structured, runner
+):
+    """``apply`` surfaces envelope ``errors`` via the readable
+    diagnostics in TABLE mode (refused / validation_failed / partial)."""
+    mock_structured.return_value = False
+    mock_manager.return_value.apply.return_value = {
+        "status": "refused",
+        "ops": [
+            {"operation": "RECREATE_FV", "name": "X", "status": "refused"},
+        ],
+        "errors": [
+            "Apply refused: 1 destructive operation(s) require --allow-recreate."
+        ],
+        "warnings": [],
+    }
+    result = runner.invoke(["feature", "apply"])
+    assert result.exit_code == 0, result.output
+    assert "Errors (1):" in result.output
+    assert "--allow-recreate" in result.output

@@ -29,7 +29,10 @@ import functools
 import json
 import logging
 import os
+import re
+import shutil
 import sys
+import textwrap
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -325,6 +328,139 @@ def _print_warnings(result: dict) -> None:
     sys.stderr.flush()
 
 
+# ``str(ValidationResult)`` (pydantic v2 __str__) renders as a
+# space-joined ``field=repr(value)`` sequence, e.g.::
+#
+#     severity='ERROR' code='STREAM_FV_TILING_REFRESH' message="..." object_name='X'
+#
+# The message value is a Python repr, so it is single-quoted unless it
+# contains a single quote / backtick (then double-quoted).  We parse
+# out ``object_name``, ``code`` and the (unquoted) ``message`` so the
+# stderr diagnostic can show one readable finding per line instead of
+# wrapping a giant list repr in a single TABLE cell.
+_FINDING_CODE_RE = re.compile(r"code='([^']*)'")
+_FINDING_OBJ_RE = re.compile(r"""object_name=(?:'([^']*)'|"([^"]*)")\s*$""")
+_FINDING_MSG_RE = re.compile(r"message=(.*?)\s+object_name=", re.S)
+
+
+def _parse_validation_finding(text: str) -> Optional[tuple[str, str, str]]:
+    """Best-effort parse of a ``str(ValidationResult)`` line.
+
+    Returns ``(object_name, code, message)`` when *text* looks like a
+    finding repr, or ``None`` when it does not (e.g. a plain warning
+    string emitted by ``init`` / ``sync``), so callers can fall back
+    to printing the raw string verbatim.
+    """
+    code_m = _FINDING_CODE_RE.search(text)
+    if code_m is None:
+        return None
+    code = code_m.group(1)
+    obj = ""
+    obj_m = _FINDING_OBJ_RE.search(text)
+    if obj_m is not None:
+        obj = obj_m.group(1) or obj_m.group(2) or ""
+    msg = ""
+    msg_m = _FINDING_MSG_RE.search(text)
+    if msg_m is not None:
+        raw = msg_m.group(1).strip()
+        if len(raw) >= 2 and raw[0] in "'\"" and raw[-1] == raw[0]:
+            raw = raw[1:-1]
+        msg = raw
+    return (obj, code, msg)
+
+
+def _write_finding_block(label: str, items: list) -> None:
+    """Write one ``Errors``/``Warnings`` diagnostic block to stderr.
+
+    Each finding is rendered as an ``OBJECT  [CODE]`` header with the
+    message wrapped beneath it at the terminal width, so long
+    validator copy stays readable instead of overflowing a table
+    cell.  Unrecognised (non-finding) strings fall back to a plain
+    ``- <text>`` bullet, matching the legacy ``_print_warnings`` look.
+    """
+    sys.stderr.write(f"\n{label} ({len(items)}):\n")
+    width = max(40, shutil.get_terminal_size((80, 24)).columns)
+    for item in items:
+        parsed = _parse_validation_finding(str(item))
+        if parsed is None:
+            sys.stderr.write(f"  - {item}\n")
+            continue
+        obj, code, msg = parsed
+        head = f"  {obj}  [{code}]" if obj else f"  [{code}]"
+        sys.stderr.write(head + "\n")
+        if msg:
+            sys.stderr.write(
+                textwrap.fill(
+                    msg,
+                    width=width,
+                    initial_indent="    ",
+                    subsequent_indent="    ",
+                )
+                + "\n"
+            )
+
+
+def _print_diagnostics(result: dict) -> None:
+    """Print a result envelope's ``errors`` / ``warnings`` to stderr.
+
+    The human-facing counterpart to the structured ``errors`` /
+    ``warnings`` arrays that JSON / CSV callers read from stdout.  Used
+    by ``plan`` (on ``validation_failed``) and ``apply`` (any envelope
+    carrying ``errors``) so a large findings list renders as one
+    readable finding per line rather than a single wrapped TABLE cell.
+    """
+    errors = result.get("errors") or []
+    warnings = result.get("warnings") or []
+    if not errors and not warnings:
+        return
+    if errors:
+        _write_finding_block("Errors", errors)
+    if warnings:
+        _write_finding_block("Warnings", warnings)
+    sys.stderr.write("\n")
+    sys.stderr.flush()
+
+
+def _compact_failure_envelope(result: dict) -> dict:
+    """Drop the verbose ``errors`` / ``warnings`` / ``ops`` cells for TABLE.
+
+    The full findings are surfaced on stderr by ``_print_diagnostics``;
+    leaving the raw ``ValidationResult`` repr lists in the key-value
+    payload makes the TABLE wrap an unreadable blob.  The compact
+    payload keeps ``status`` / target fields and swaps the lists for
+    ``error_count`` / ``warning_count`` scalars.  JSON / CSV callers
+    never see this — they keep the untouched envelope.
+    """
+    compact = {
+        k: v for k, v in result.items() if k not in ("errors", "warnings", "ops")
+    }
+    errors = result.get("errors") or []
+    warnings = result.get("warnings") or []
+    if errors:
+        compact["error_count"] = len(errors)
+    if warnings:
+        compact["warning_count"] = len(warnings)
+    return compact
+
+
+def _is_structured_output() -> bool:
+    """True when the active ``--format`` is JSON / CSV (machine-readable).
+
+    Structured callers must receive the full ``errors`` / ``warnings``
+    arrays on stdout untouched; only TABLE (human) output gets the
+    compact payload plus the stderr diagnostics.  Any failure to
+    resolve the CLI context is treated as TABLE (the default).
+    """
+    try:
+        from snowflake.cli.api.cli_global_context import get_cli_context
+        from snowflake.cli.api.output.formats import OutputFormat
+
+        fmt = get_cli_context().output_format
+    except Exception:
+        return False
+    return bool(getattr(fmt, "is_json", False)) or fmt == OutputFormat.CSV
+
+
 def _print_target_header(result: dict) -> None:
     """Print the resolved manifest target + warehouse to stderr."""
     db = result.get("target_database", "")
@@ -567,6 +703,8 @@ def apply(
     )
     _print_target_header(result)
     _print_status_header(result)
+    if result.get("errors") and not _is_structured_output():
+        _print_diagnostics(result)
     return _ops_result(result)
 
 
@@ -619,7 +757,10 @@ def plan(
     _print_target_header(result)
     if result.get("status") == "validation_failed":
         _print_status_header(result)
-        return _to_object(result)
+        if _is_structured_output():
+            return _to_object(result)
+        _print_diagnostics(result)
+        return _to_object(_compact_failure_envelope(result))
 
     plan_path = manager.write_plan(
         from_dir=from_location,

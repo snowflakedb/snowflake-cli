@@ -276,6 +276,34 @@ def _plan_out_with(
     )
 
 
+def _plan_out_diagnostic_block(
+    warnings: list[tuple[str, str]], errors: list[tuple[str, str]]
+) -> str:
+    """Build a fake plan capture in the new stderr diagnostic-block form.
+
+    Mirrors what ``commands._print_diagnostics`` writes (captured
+    alongside stdout by ``run_capture``): an ``Errors (N):`` block
+    followed by a ``Warnings (N):`` block, each finding rendered as
+    ``OBJECT  [CODE]`` with a wrapped message beneath it.  Errors are
+    emitted first, exactly like the CLI.
+    """
+
+    def _block(label: str, items: list[tuple[str, str]]) -> str:
+        if not items:
+            return ""
+        lines = [f"\n{label} ({len(items)}):"]
+        for code, name in items:
+            lines.append(f"  {name}  [{code}]")
+            lines.append(f"    {name}: synthetic test fixture")
+        return "\n".join(lines) + "\n"
+
+    return (
+        "Status: validation_failed  Operations: 0 (executed: 0)\n"
+        + _block("Errors", errors)
+        + _block("Warnings", warnings)
+    )
+
+
 class TestExtractPlanErrorCode:
     """Pin ``_extract_plan_error_code.py`` against the BUG_BASH step-6
     extraction contract.
@@ -383,4 +411,56 @@ class TestExtractPlanErrorCode:
         result = _run_extractor(str(tmp_path / "does-not-exist.out"))
 
         assert result.returncode == 1
+        assert result.stdout.strip() == ""
+
+    def test_extractor_returns_first_error_code_from_diagnostic_block(self, tmp_path):
+        """New TABLE-mode stderr form: the first ``[CODE]`` under the
+        ``Errors (N):`` header is returned, skipping the ``Warnings``
+        block's benign codes."""
+        plan = tmp_path / "step6_plan.out"
+        plan.write_text(
+            _plan_out_diagnostic_block(
+                warnings=[
+                    ("NO_CHANGE", "USER_ID"),
+                    ("COLUMN_ADDED", "CLICKSTREAM_EVENTS"),
+                ],
+                errors=[
+                    ("BATCH_FV_TILING_TIMESTAMP", "MY_BATCH_FV_BATCH_DECL"),
+                    ("BATCH_FV_TILING_AGG_METHOD", "MY_BATCH_FV_BATCH_DECL"),
+                ],
+            )
+        )
+
+        result = _run_extractor(str(plan))
+
+        assert result.returncode == 0, (
+            f"expected rc=0 for the diagnostic-block form; got "
+            f"rc={result.returncode!r} stderr={result.stderr!r}"
+        )
+        assert result.stdout.strip() == "BATCH_FV_TILING_TIMESTAMP", (
+            "expected the FIRST ERROR code under the Errors block; got "
+            f"stdout={result.stdout!r}"
+        )
+
+    def test_extractor_skips_warning_block_codes(self, tmp_path):
+        """A diagnostic block with only a ``Warnings (N):`` section must
+        return rc=1 — the ``Errors`` anchor keeps ``NO_CHANGE`` /
+        ``COLUMN_ADDED`` codes from masquerading as the blocker."""
+        plan = tmp_path / "step6_plan.out"
+        plan.write_text(
+            _plan_out_diagnostic_block(
+                warnings=[
+                    ("NO_CHANGE", "USER_ID"),
+                    ("COLUMN_ADDED", "CLICKSTREAM_EVENTS"),
+                ],
+                errors=[],
+            )
+        )
+
+        result = _run_extractor(str(plan))
+
+        assert result.returncode == 1, (
+            f"expected rc=1 when only a Warnings block is present; got "
+            f"rc={result.returncode!r} stdout={result.stdout!r}"
+        )
         assert result.stdout.strip() == ""
