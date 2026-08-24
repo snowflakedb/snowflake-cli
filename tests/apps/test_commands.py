@@ -56,6 +56,7 @@ from snowflake.cli._plugins.apps.manager import (
     is_personal_database,
     perform_bundle,
 )
+from snowflake.cli._plugins.apps.upload_errors import UploadError
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -113,6 +114,11 @@ def _get_completed_span(span_name: str) -> dict:
         f"Span {span_name!r} not found. Recorded spans: "
         f"{[span[CLIMetricsSpan.NAME_KEY] for span in spans]}"
     )
+
+
+def _unwrapped(output: str) -> str:
+    """Flatten Rich's error panel so assertions can span its line wrapping."""
+    return " ".join(output.replace("|", " ").split())
 
 
 # ── Helper function tests ─────────────────────────────────────────────
@@ -8607,14 +8613,15 @@ class TestDeployCommand:
             _reset_command_metrics()
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 1, result.output
-            assert (
-                "Failed to recreate stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'"
-                in result.output
-            )
-            assert "role 'APP_DEPLOYER'" in result.output
-            assert "OWNERSHIP on the stage" in result.output
+            output = _unwrapped(result.output)
+            assert "Failed to create stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'" in output
+            # The failing statement was CREATE STAGE, so only that grant is
+            # named — not every privilege the phase might use.
+            assert "role 'APP_DEPLOYER' has CREATE STAGE on the schema" in output
+            assert "OWNERSHIP" not in output
             prepare_span = _get_completed_span("snowflake_app.upload.prepare_stage")
-            assert prepare_span[CLIMetricsSpan.ERROR_KEY] == CliError.__name__
+            assert prepare_span[CLIMetricsSpan.ERROR_KEY] == UploadError.__name__
+            assert prepare_span[CLIMetricsSpan.ERROR_CODE_KEY] == 3001
 
         mock_mgr.build_app_artifact_repo.assert_not_called()
 
@@ -8687,14 +8694,173 @@ class TestDeployCommand:
             _reset_command_metrics()
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 1, result.output
-            assert (
-                "Failed to recreate stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'"
-                in result.output
-            )
-            assert "your role" in result.output
-            assert "OWNERSHIP on the stage" in result.output
+            output = _unwrapped(result.output)
+            assert "Failed to drop stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'" in output
+            assert "your role has OWNERSHIP on the stage" in output
 
         mock_mgr.create_stage.assert_not_called()
+        mock_mgr.build_app_artifact_repo.assert_not_called()
+
+    @pytest.mark.parametrize("errno", [2003, 2043])
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_missing_schema_error_points_at_the_database_and_schema(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        runner,
+        tmp_path,
+        errno,
+    ):
+        """These codes mean the object is missing or invisible, which in the
+        prepare phase almost always means the database or schema does not
+        exist. The message must not send the user hunting for a grant."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_STAGE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        # The SHOW STAGES probe is what fails when the schema is missing.
+        probe_error = ProgrammingError("Schema 'TEST_DB.TEST_SCHEMA' does not exist")
+        probe_error.errno = errno
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.side_effect = probe_error
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            output = _unwrapped(result.output)
+            assert "Failed to look up stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'" in output
+            assert "Database 'TEST_DB' or schema 'TEST_SCHEMA' does not exist" in output
+            assert "Create the schema, or correct the database and schema" in output
+            assert "OWNERSHIP" not in output
+            prepare_span = _get_completed_span("snowflake_app.upload.prepare_stage")
+            assert prepare_span[CLIMetricsSpan.ERROR_CODE_KEY] == errno
+
+        mock_mgr.create_stage.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_unsupported_feature_error_names_the_encryption_type(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        runner,
+        tmp_path,
+    ):
+        """The likely trigger for 60119 on CREATE STAGE is the requested
+        encryption type, so the message says which one was asked for."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_STAGE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        create_error = ProgrammingError("Unsupported feature 'SNOWFLAKE_SSE'")
+        create_error.errno = 60119
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.create_stage.side_effect = create_error
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            output = _unwrapped(result.output)
+            assert "does not support a stage with ENCRYPTION" in output
+            assert "(TYPE = 'SNOWFLAKE_SSE')" in output
+            assert "Set a different encryption_type on the code stage" in output
+            prepare_span = _get_completed_span("snowflake_app.upload.prepare_stage")
+            assert prepare_span[CLIMetricsSpan.ERROR_CODE_KEY] == 60119
+
         mock_mgr.build_app_artifact_repo.assert_not_called()
 
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -8765,14 +8931,14 @@ class TestDeployCommand:
             _reset_command_metrics()
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 1, result.output
+            output = _unwrapped(result.output)
             assert (
-                "Failed to create workspace "
-                "'USER$DEV.PUBLIC.SNOWFLAKE_APPS'" in result.output
+                "Failed to create workspace 'USER$DEV.PUBLIC.SNOWFLAKE_APPS'" in output
             )
-            assert "role 'APP_DEPLOYER'" in result.output
-            assert "CREATE WORKSPACE on the schema" in result.output
+            assert "role 'APP_DEPLOYER' has CREATE WORKSPACE on the schema" in output
             prepare_span = _get_completed_span("snowflake_app.upload.prepare_workspace")
-            assert prepare_span[CLIMetricsSpan.ERROR_KEY] == CliError.__name__
+            assert prepare_span[CLIMetricsSpan.ERROR_KEY] == UploadError.__name__
+            assert prepare_span[CLIMetricsSpan.ERROR_CODE_KEY] == 3001
 
         mock_mgr.clear_workspace_subdirectory.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_not_called()
@@ -8867,9 +9033,15 @@ class TestDeployCommand:
 
         with change_directory(tmp_path):
             _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 0, result.output
             assert "Falling back to a stage" in result.output
+            # The workspace failure must reach the caller as the raw
+            # ProgrammingError. Wrapping it in an UploadError would satisfy
+            # no `except ProgrammingError` and silently kill this fallback.
+            prepare_span = _get_completed_span("snowflake_app.upload.prepare_workspace")
+            assert prepare_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
 
         fallback_stage_fqn = FQN(
             database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"
@@ -8955,12 +9127,12 @@ class TestDeployCommand:
             _reset_command_metrics()
             result = runner.invoke(["app", "deploy"])
             assert result.exit_code == 1, result.output
+            output = _unwrapped(result.output)
             assert (
-                "Failed to clear workspace files "
-                "'USER$DEV.PUBLIC.SNOWFLAKE_APPS'" in result.output
+                "Failed to clear workspace files 'USER$DEV.PUBLIC.SNOWFLAKE_APPS'"
+                in output
             )
-            assert "your role" in result.output
-            assert "WRITE on the workspace" in result.output
+            assert "your role has WRITE on the workspace" in output
 
         mock_mgr.create_workspace.assert_called_once()
         mock_mgr.build_app_artifact_repo.assert_not_called()
