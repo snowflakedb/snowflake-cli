@@ -71,6 +71,10 @@ from snowflake.cli._plugins.apps.manager import (
     is_personal_database,
     perform_bundle,
 )
+from snowflake.cli._plugins.apps.upload_errors import (
+    UploadPhase,
+    classify_upload_error,
+)
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
@@ -406,13 +410,16 @@ def _upload_via_workspace(
 ) -> None:
     """Prepare and upload the workspace code-storage backend.
 
-    On a permission failure the behaviour depends on the destination: a
-    personal database cannot fall back to a stage, so an actionable
-    :class:`CliError` is raised; a regular database re-raises the raw
-    ``ProgrammingError`` so the caller can fall back to the stage flow.
+    On a failure the behaviour depends on the destination: a personal database
+    cannot fall back to a stage, so an actionable :class:`UploadError` is
+    raised; a regular database re-raises the raw ``ProgrammingError`` so the
+    caller can fall back to the stage flow.
     """
     workspace_source_uri = manager.workspace_subdirectory_uri(workspace_fqn, app_name)
     with metrics.span("snowflake_app.upload.prepare_workspace"):
+        # Tracked so the error names the statement that actually failed and
+        # the privilege that statement needs, rather than every privilege the
+        # phase might want.
         action = "create workspace"
         required_privilege = "CREATE WORKSPACE on the schema"
         try:
@@ -425,19 +432,22 @@ def _upload_via_workspace(
             )
             manager.clear_workspace_subdirectory(workspace_fqn, app_name)
         except ProgrammingError as e:
-            # Regular databases can fall back to a stage, so let the raw
-            # error propagate for the caller to handle. Personal databases
-            # have no such fallback (stages are unsupported), so surface an
-            # actionable privilege error instead.
+            # Regular databases can fall back to a stage, so let the raw error
+            # propagate for the caller to handle. Wrapping it here would
+            # silently disable that fallback. Personal databases have no such
+            # fallback (stages are unsupported), so surface an actionable
+            # error instead.
             if not is_personal_database(database):
                 raise
-            role = manager.current_role()
-            role_clause = f"role '{role}'" if role else "your role"
-            raise CliError(
-                f"Failed to {action} '{workspace_fqn.identifier}': {e}. "
-                f"Verify that {role_clause} has the required "
-                f"privileges (USAGE on the database and schema, "
-                f"and {required_privilege})."
+            raise classify_upload_error(
+                e,
+                phase=UploadPhase.PREPARE_WORKSPACE,
+                target=workspace_fqn.identifier,
+                action=action,
+                required_privilege=required_privilege,
+                role=manager.current_role(),
+                database=workspace_fqn.database,
+                schema=workspace_fqn.schema,
             ) from e
     with metrics.span("snowflake_app.upload.push_workspace_files"):
         cli_console.step(f"Uploading bundled files to {workspace_source_uri}")
@@ -469,21 +479,34 @@ def _upload_via_stage(
         # stage already exists. A first deploy has nothing to drop, and issuing
         # DROP STAGE there would demand OWNERSHIP the deploying role need not
         # hold, so skipping it lets a role with only CREATE STAGE deploy.
+        #
+        # Each statement needs a different privilege, so the action and the
+        # privilege are tracked as the block progresses and the error names
+        # only the one that actually failed.
+        action = "look up stage"
+        required_privilege = "USAGE on the schema"
         try:
             if manager.stage_exists(stage_fqn):
                 cli_console.step(f"Recreating stage @{stage_fqn}")
+                action = "drop stage"
+                required_privilege = "OWNERSHIP on the stage"
                 manager.drop_stage_if_exists(stage_fqn)
             else:
                 cli_console.step(f"Creating stage @{stage_fqn}")
+            action = "create stage"
+            required_privilege = "CREATE STAGE on the schema"
             manager.create_stage(stage_fqn, encryption)
         except ProgrammingError as e:
-            role = manager.current_role()
-            role_clause = f"role '{role}'" if role else "your role"
-            raise CliError(
-                f"Failed to recreate stage '{stage_fqn.identifier}': {e}. "
-                f"Verify that {role_clause} has the required "
-                f"privileges (USAGE on the database and schema, "
-                f"OWNERSHIP on the stage, and CREATE STAGE on the schema)."
+            raise classify_upload_error(
+                e,
+                phase=UploadPhase.PREPARE_STAGE,
+                target=stage_fqn.identifier,
+                action=action,
+                required_privilege=required_privilege,
+                role=manager.current_role(),
+                database=stage_fqn.database,
+                schema=stage_fqn.schema,
+                encryption_type=encryption,
             ) from e
 
     with metrics.span("snowflake_app.upload.push_stage_files"):
