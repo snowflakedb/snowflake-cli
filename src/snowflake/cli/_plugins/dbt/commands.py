@@ -264,7 +264,7 @@ def deploy_dbt(
         False,
         "--install-local-deps",
         show_default=False,
-        help="Installs local dependencies from project that don't require external access.",
+        help="Sets EXTERNAL_ACCESS_INTEGRATIONS = () on the dbt project. Snowflake still runs dbt deps at compile; Hub or Git packages in packages.yml still need network access.",
     ),
     dbt_version: Optional[str] = typer.Option(
         None,

@@ -5763,10 +5763,14 @@
   | --external-access-integr…                    TEXT  External access           |
   |                                                    integration to be used by |
   |                                                    the dbt object.           |
-  | --install-local-deps                               Installs local            |
-  |                                                    dependencies from project |
-  |                                                    that don't require        |
-  |                                                    external access.          |
+  | --install-local-deps                               Sets                      |
+  |                                                    EXTERNAL_ACCESS_INTEGRAT… |
+  |                                                    = () on the dbt project.  |
+  |                                                    Snowflake still runs dbt  |
+  |                                                    deps at compile; Hub or   |
+  |                                                    Git packages in           |
+  |                                                    packages.yml still need   |
+  |                                                    network access.           |
   | --dbt-version                                TEXT  dbt Core version to use   |
   |                                                    for the project, for      |
   |                                                    example '1.10.15'. Full   |
