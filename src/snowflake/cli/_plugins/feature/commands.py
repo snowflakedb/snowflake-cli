@@ -213,7 +213,6 @@ _TABLE_DISPLAY_COLUMNS = [
     "version",
     "entities",
     "created_on",
-    "details",
 ]
 
 
