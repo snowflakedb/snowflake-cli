@@ -32,10 +32,26 @@ The CLI surface mirrors DCM (D3 / D5 / D8 in
   fail-fast on a pre-existing ``manifest.yml`` (no ``--force``).
 """
 
+import json
 from pathlib import Path
 from unittest import mock
 
 FEATURE_MANAGER = "snowflake.cli._plugins.feature.commands.FeatureManager"
+
+
+def _json_from_output(output: str):
+    """Parse the JSON payload out of a ``--format json`` invocation.
+
+    The plugin preview ``WARNING:`` preamble (and, with the runner's
+    default ``mix_stderr=True``, any stderr) is prepended to the JSON
+    on stdout.  The structured payload is the first ``{`` / ``[`` to
+    end-of-string, so slice from whichever delimiter appears first and
+    ``json.loads`` the remainder.  This asserts, by construction, that
+    no free-form text trails the JSON in structured mode.
+    """
+    starts = [i for i in (output.find("{"), output.find("[")) if i != -1]
+    assert starts, f"no JSON payload found in output: {output!r}"
+    return json.loads(output[min(starts) :])
 
 
 # ---------------------------------------------------------------------------
@@ -918,6 +934,50 @@ def test_list_renders_multi_kind_rows(mock_manager, runner):
     assert "Schema: SCH" in result.output
 
 
+@mock.patch(FEATURE_MANAGER)
+def test_list_json_omits_schema_header(mock_manager, runner):
+    """``list --format json`` emits a JSON array and suppresses the
+    ``Database: … Schema: …`` free-form header (which previously
+    polluted machine-readable stdout)."""
+    mock_manager.return_value.list_specs.return_value = {
+        "source": "snowflake",
+        "specs": [
+            {
+                "type": "FeatureView",
+                "name": "click_fv",
+                "version": "v1",
+                "entities": "user_id",
+                "database_name": "DB",
+                "schema_name": "SCH",
+                "scheduling_state": "ACTIVE",
+                "created_on": "2024-01-01",
+            },
+            {
+                "type": "Entity",
+                "name": "user",
+                "version": "",
+                "entities": "USER_ID",
+                "database_name": "DB",
+                "schema_name": "SCH",
+            },
+        ],
+    }
+    result = runner.invoke(["feature", "list", "--format", "json"])
+    assert result.exit_code == 0, result.output
+
+    # Free-form scope header must not appear in structured mode.
+    assert "Database: DB" not in result.output
+    assert "Schema: SCH" not in result.output
+
+    payload = _json_from_output(result.output)
+    assert isinstance(payload, list)
+    assert payload[0]["type"] == "FeatureView"
+    assert payload[0]["name"] == "click_fv"
+    # Projected display columns only — verbose row fields stay out.
+    assert "database_name" not in payload[0]
+    assert "details" not in payload[0]
+
+
 # ---------------------------------------------------------------------------
 # describe
 # ---------------------------------------------------------------------------
@@ -985,6 +1045,80 @@ def test_describe_forwards_version(mock_manager, runner, tmp_path):
     call_kwargs = mock_manager.return_value.describe.call_args.kwargs
     assert call_kwargs["name"] == "USER_CLICKS"
     assert call_kwargs["version"] == "V2"
+
+
+_DESCRIBE_ENVELOPE = {
+    "name": "user_clicks",
+    "feature_view": "user_clicks",
+    "version": "v1",
+    "database": "JKEW_DB",
+    "schema": "JKEW_SCHEMA",
+    "oft_name": "USER_CLICKS$V1$ONLINE",
+    "entities": ["USER_ID"],
+    "rows": [
+        {"name": "USER_ID", "type": "NUMBER(38,0)", "primary key": "Y"},
+        {"name": "CLICK_COUNT", "type": "NUMBER(38,0)", "primary key": "N"},
+    ],
+    "_display": "\n==========\n  Feature View: user_clicks\n==========\n",
+}
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_describe_json_returns_envelope(mock_manager, runner):
+    """``describe --format json`` returns the full manager envelope as a
+    nested JSON object, with the DESCRIBE ``rows`` intact and the rich
+    ``_display`` banner suppressed.
+
+    Pre-fix the success path wrote ``_display`` to stderr and returned
+    ``_to_collection(rows)`` — which projected the OFT column metadata
+    onto the *list* display columns (``type`` / ``version`` / ...),
+    producing a useless mostly-empty array under ``--format json``.
+    """
+    mock_manager.return_value.describe.return_value = dict(_DESCRIBE_ENVELOPE)
+    result = runner.invoke(["feature", "describe", "USER_CLICKS", "--format", "json"])
+    assert result.exit_code == 0, result.output
+
+    # Rich banner suppressed in structured mode.
+    assert "Feature View: user_clicks" not in result.output
+
+    payload = _json_from_output(result.output)
+    assert payload["name"] == "user_clicks"
+    assert payload["oft_name"] == "USER_CLICKS$V1$ONLINE"
+    assert isinstance(payload["rows"], list)
+    # Rows are the authoritative DESCRIBE column metadata, not the list
+    # projection.
+    assert payload["rows"][0]["name"] == "USER_ID"
+    assert payload["rows"][0]["primary key"] == "Y"
+    # Display-only key must not leak into structured stdout.
+    assert "_display" not in payload
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_describe_table_still_writes_display(mock_manager, runner):
+    """Default (TABLE) ``describe`` still writes the rich banner."""
+    mock_manager.return_value.describe.return_value = dict(_DESCRIBE_ENVELOPE)
+    result = runner.invoke(["feature", "describe", "USER_CLICKS"])
+    assert result.exit_code == 0, result.output
+    assert "Feature View: user_clicks" in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_describe_error_json_returns_object(mock_manager, runner):
+    """A ``describe`` error envelope surfaces as a nested JSON object
+    with no free-form display text."""
+    mock_manager.return_value.describe.return_value = {
+        "status": "error",
+        "name": "CLICKSTREAM_EVENTS",
+        "error": "CLICKSTREAM_EVENTS: not found in deployed feature views",
+    }
+    result = runner.invoke(
+        ["feature", "describe", "CLICKSTREAM_EVENTS", "--format", "json"]
+    )
+    assert result.exit_code == 0, result.output
+    payload = _json_from_output(result.output)
+    assert payload["status"] == "error"
+    assert payload["name"] == "CLICKSTREAM_EVENTS"
+    assert "not found" in payload["error"]
 
 
 # ---------------------------------------------------------------------------
@@ -1171,6 +1305,84 @@ def test_online_service_status_error_still_returned_as_object(mock_manager, runn
     result = runner.invoke(["feature", "online-service"])
     assert result.exit_code == 0, result.output
     assert "Something went wrong" in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_json_returns_nested_status(mock_manager, runner):
+    """``online-service --format json`` returns the parsed status as a
+    nested JSON object on stdout and suppresses the rich banner.
+
+    Pre-fix the success path wrote the banner to stderr and returned an
+    empty ``MessageResult`` — so ``--format json`` produced
+    ``{"message": ""}`` while the banner still printed.  The fix returns
+    an ``ObjectResult`` of the parsed status (nested ``endpoints`` /
+    ``compute_pool`` intact) and skips the free-form banner entirely
+    when a structured format is active.
+    """
+    mock_manager.return_value.get_status.return_value = {
+        "status": "RUNNING",
+        "message": "running",
+        "endpoints": [
+            {"name": "ingest", "url": "https://ingest.example.snowflakecomputing.app"},
+        ],
+        "compute_pool": {"status": "ACTIVE", "name": "POOL"},
+        "postgres": {"status": "READY", "name": "PG"},
+        "service": {"status": "RUNNING", "name": "SVC"},
+        "_user": "jkew",
+        "_database": "JKEW_DB",
+        "_schema": "JKEW_SCHEMA",
+    }
+    result = runner.invoke(["feature", "online-service", "--format", "json"])
+    assert result.exit_code == 0, result.output
+
+    # No free-form banner anywhere.
+    assert "Feature Store — Online Service Status" not in result.output
+
+    payload = _json_from_output(result.output)
+    assert payload["status"] == "RUNNING"
+    assert isinstance(payload["endpoints"], list)
+    assert payload["endpoints"][0]["url"].startswith("https://")
+    assert isinstance(payload["compute_pool"], dict)
+    # Private display-only keys must never leak into structured stdout.
+    assert "_user" not in payload
+    assert "_database" not in payload
+    assert "_schema" not in payload
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_csv_suppresses_banner(mock_manager, runner):
+    """``online-service --format csv`` also suppresses the rich banner
+    (any structured format skips the free-form text)."""
+    mock_manager.return_value.get_status.return_value = {
+        "status": "RUNNING",
+        "message": "running",
+        "endpoints": [],
+        "compute_pool": {"status": "ACTIVE", "name": "POOL"},
+        "postgres": {"status": "READY", "name": "PG"},
+        "service": {"status": "RUNNING", "name": "SVC"},
+        "_user": "jkew",
+        "_database": "JKEW_DB",
+        "_schema": "JKEW_SCHEMA",
+    }
+    result = runner.invoke(["feature", "online-service", "--format", "csv"])
+    assert result.exit_code == 0, result.output
+    assert "Feature Store — Online Service Status" not in result.output
+    assert "status" in result.output
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_online_service_error_json_returns_object(mock_manager, runner):
+    """The error envelope surfaces as a nested JSON object under
+    ``--format json`` (not an empty message)."""
+    mock_manager.return_value.get_status.return_value = {
+        "status": "error",
+        "error": "Something went wrong",
+    }
+    result = runner.invoke(["feature", "online-service", "--format", "json"])
+    assert result.exit_code == 0, result.output
+    payload = _json_from_output(result.output)
+    assert payload["status"] == "error"
+    assert payload["error"] == "Something went wrong"
 
 
 @mock.patch(FEATURE_MANAGER)
