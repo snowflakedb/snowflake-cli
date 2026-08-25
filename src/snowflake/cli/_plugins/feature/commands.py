@@ -815,12 +815,20 @@ def describe(
     from_location: Path = from_option,
     target: Optional[str] = target_option,
     variables: Optional[List[str]] = variables_option,
+    version: Optional[str] = typer.Option(
+        None,
+        "--version",
+        help="Feature view version (e.g. 'V1'). Use to disambiguate "
+        "objects that share a base name but differ only by version. "
+        "Required when multiple versions of the named object are deployed.",
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """Describe a single feature-store object."""
     del variables
     result = FeatureManager().describe(
-        from_dir=from_location, target_name=target, name=name
+        from_dir=from_location, target_name=target, name=name, version=version
     )
 
     display = result.pop("_display", None)

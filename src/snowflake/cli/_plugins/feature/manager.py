@@ -1270,6 +1270,7 @@ class FeatureManager(SqlExecutionMixin):
         from_dir: Path,
         target_name: Optional[str],
         name: str,
+        version: Optional[str] = None,
     ) -> dict[str, Any]:
         """Return metadata for a named feature view (resolves to OFT name)."""
         _, _, target = self._resolve_project(from_dir, target_name)
@@ -1285,25 +1286,18 @@ class FeatureManager(SqlExecutionMixin):
             self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
         )
 
-        from snowflake.ml.feature_store.decl.state import _parse_oft_name
-
-        oft_name = None
-        for row in raw_show:
-            candidate = row.get("name", "")
-            base_name, _ = _parse_oft_name(candidate)
-            if base_name.upper() == name.upper():
-                oft_name = candidate
-                break
-            if candidate.upper() == name.upper():
-                oft_name = candidate
-                break
-
+        # Resolution + version disambiguation live in decl (which owns the
+        # `<base>$<version>$ONLINE` naming convention); the CLI stays thin.
+        oft_name, resolve_error = decl_api.resolve_oft_name(raw_show, name, version)
         if not oft_name:
             return {
                 "status": "error",
                 "name": name,
-                "error": f"{name}: not found in deployed feature views",
+                "error": resolve_error
+                or f"{name}: not found in deployed feature views",
             }
+
+        from snowflake.ml.feature_store.decl.state import _parse_oft_name
 
         show_row = None
         for row in raw_show:
