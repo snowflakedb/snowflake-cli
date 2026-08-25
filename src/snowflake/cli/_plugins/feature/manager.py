@@ -89,43 +89,78 @@ class _NullStateFetchProgress:
     """No-op progress handle used when output is structured / silent.
 
     ``callback`` always returns ``None`` so every fetch seam receives
-    ``on_progress=None`` and no bar is constructed.
+    ``on_progress=None`` and no bar is constructed.  ``begin_phase`` is a
+    no-op so callers can relabel unconditionally.
     """
+
+    def begin_phase(self, phase_label: str) -> None:
+        return None
 
     def callback(self, phase_label: str) -> Optional[ProgressCallback]:
         return None
 
 
 class _RichStateFetchProgress:
-    """Drives a single Rich task across the sequential fetch phases.
+    """Drives ONE cumulative, monotonic Rich task across the fetch phases.
 
-    Each phase starts as an indeterminate spinner (``total=None``); the
-    first ``(0, total, "")`` callback flips it to a determinate bar once
-    the listing has returned and the total is known, and subsequent
-    ``(i, total, name)`` calls advance it.
+    ``completed`` never resets between phases and ``total`` grows as each
+    listing reveals its count, so the operator always sees forward motion
+    and a total that widens as more objects are discovered:
+
+    - ``begin_phase(label)`` is called right before each slow fetch.  It
+      finalizes the previous phase into a running ``completed_base`` and
+      relabels the task immediately (the ``SpinnerColumn`` keeps animating
+      via Rich's background refresh while the blocking ``collect()`` runs),
+      so the description is never stale.
+    - The fetch's first ``(0, n, "")`` callback adds ``n`` to the running
+      ``known_total`` (the moment this phase's size is known); subsequent
+      ``(i, n, name)`` calls set ``completed = completed_base + i``.
     """
 
     def __init__(self, progress: Any, task_id: Any) -> None:
         self._progress = progress
         self._task_id = task_id
+        # Sum of the totals of phases that have fully completed.
+        self._completed_base = 0
+        # Sum of every phase total known so far (grows as listings return).
+        self._known_total = 0
+        # The in-flight phase's total, or ``None`` until its listing returns.
+        self._current_total: Optional[int] = None
+
+    def begin_phase(self, phase_label: str) -> None:
+        if self._current_total is not None:
+            # The previous phase is done; roll its count into the base so the
+            # cumulative ``completed`` stays monotonic across phases.
+            self._completed_base += self._current_total
+            self._current_total = None
+        self._progress.update(
+            self._task_id,
+            completed=self._completed_base,
+            # ``None`` renders an indeterminate spinner during the collect;
+            # any already-known total keeps the bar determinate.
+            total=(self._known_total or None),
+            description=phase_label,
+        )
 
     def callback(self, phase_label: str) -> ProgressCallback:
         def _on_progress(completed: int, total: int, label: str) -> None:
-            description = phase_label if not label else f"{phase_label}: {label}"
             if completed == 0:
-                # Total just became known (possibly 0) — flip the spinner to a
-                # determinate bar.  An empty phase shows 0/0 and moves on
-                # rather than inheriting the previous phase's stale total.
-                self._progress.reset(
-                    self._task_id,
-                    total=total,
-                    description=description,
-                )
-            else:
+                # This phase's total just became known (possibly 0) — widen
+                # the cumulative total; completed holds at the running base.
+                self._current_total = total
+                self._known_total += total
                 self._progress.update(
                     self._task_id,
-                    completed=completed,
-                    total=total,
+                    completed=self._completed_base,
+                    total=self._known_total,
+                    description=phase_label,
+                )
+            else:
+                description = phase_label if not label else f"{phase_label}: {label}"
+                self._progress.update(
+                    self._task_id,
+                    completed=self._completed_base + completed,
+                    total=self._known_total,
                     description=description,
                 )
 
@@ -1327,9 +1362,11 @@ class FeatureManager(SqlExecutionMixin):
                     self.execute_query(queries["show_ofts"], cursor_class=DictCursor)
                 )
 
+                progress.begin_phase("Loading entities")
                 entity_rows = self._fetch_entity_rows(
                     target, on_progress=progress.callback("Loading entities")
                 )
+                progress.begin_phase("Loading feature groups")
                 feature_group_rows = self._fetch_feature_group_rows(
                     target,
                     on_progress=progress.callback("Loading feature groups"),
@@ -1338,11 +1375,13 @@ class FeatureManager(SqlExecutionMixin):
                 # source that also surfaces OFT-less (``online: false``) BFVs the
                 # ``SHOW ONLINE FEATURE TABLES`` query never returns
                 # (bug_offline_bfv_invisible_in_list.md).
+                progress.begin_phase("Loading feature views")
                 feature_view_rows = self._fetch_feature_view_rows(
                     target,
                     on_progress=progress.callback("Loading feature views"),
                 )
 
+                progress.begin_phase("Loading online feature tables")
                 specification_map = self._fetch_oft_state(
                     oft_rows,
                     queries,
@@ -1752,21 +1791,26 @@ class FeatureManager(SqlExecutionMixin):
             raw_tables = _rows_to_dicts(
                 self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
             )
+            progress.begin_phase("Loading online feature tables")
             specification_map = self._fetch_oft_state(
                 raw_show,
                 sqls,
                 on_progress=progress.callback("Loading online feature tables"),
             )
             dt_text_map = self._fetch_dt_text_map(sqls)
+            progress.begin_phase("Loading entities")
             entity_rows = self._fetch_entity_rows(
                 target, on_progress=progress.callback("Loading entities")
             )
+            progress.begin_phase("Loading feature views")
             feature_view_rows = self._fetch_feature_view_rows(
                 target, on_progress=progress.callback("Loading feature views")
             )
+            progress.begin_phase("Loading feature groups")
             feature_group_rows = self._fetch_feature_group_rows(
                 target, on_progress=progress.callback("Loading feature groups")
             )
+            progress.begin_phase("Loading stream sources")
             stream_source_rows = self._fetch_stream_source_rows(
                 target, on_progress=progress.callback("Loading stream sources")
             )
