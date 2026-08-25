@@ -64,7 +64,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLIMetrics, CLIMetricsSpan
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.connector.cursor import DictCursor
-from snowflake.connector.errors import ProgrammingError
+from snowflake.connector.errors import OperationalError, ProgrammingError
 
 from tests_common import change_directory, simulated_ansi_locale
 from tests_common.feature_flag_utils import with_feature_flags
@@ -119,6 +119,16 @@ def _get_completed_span(span_name: str) -> dict:
 def _unwrapped(output: str) -> str:
     """Flatten Rich's error panel so assertions can span its line wrapping."""
     return " ".join(output.replace("|", " ").split())
+
+
+def _uploads_then_raises(results: list, error: BaseException):
+    """Build an ``upload_to_*`` stand-in that yields *results*, then fails."""
+
+    def upload(*args, **kwargs):
+        yield from results
+        raise error
+
+    return upload
 
 
 # ── Helper function tests ─────────────────────────────────────────────
@@ -10139,6 +10149,373 @@ class TestDeployCommand:
             assert result.exit_code == 0, result.output
             metrics = get_cli_context_manager().metrics
             assert metrics.get_counter(FILES_UPLOADED_COUNTER) == 2
+
+    @pytest.mark.parametrize(
+        "error, expected_phrases",
+        [
+            pytest.param(
+                ProgrammingError("Stage does not exist or not authorized", errno=2003),
+                [
+                    "existed when the upload started and is gone now",
+                    "concurrent deploys",
+                ],
+                id="stage-vanished-mid-upload",
+            ),
+            pytest.param(
+                OperationalError("Failed to upload file", errno=253003),
+                ["transfer to cloud storage failed", "transient network problem"],
+                id="transfer-failure",
+            ),
+            pytest.param(
+                ProgrammingError("SQL compilation error", errno=1003),
+                ["could not compile the statement"],
+                id="sql-compilation",
+            ),
+        ],
+    )
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_stage_push_failure_reports_the_target_and_progress(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        runner,
+        tmp_path,
+        error,
+        expected_phrases,
+    ):
+        """A failure mid-upload names the stage it was writing to, how far it
+        got, and what to do — rather than surfacing a raw connector traceback.
+        ``OperationalError`` counts: an ``except ProgrammingError`` misses it."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_STAGE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+        mock_mgr.upload_to_stage.side_effect = _uploads_then_raises(
+            [
+                {"source": "a.py", "target": "a.py"},
+                {"source": "pkg/b.py", "target": "pkg/b.py"},
+            ],
+            error,
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            output = _unwrapped(result.output)
+            assert "Failed to upload files to @TEST_DB.TEST_SCHEMA.MY_STAGE" in output
+            assert "after 2 files had already uploaded" in output
+            for phrase in expected_phrases:
+                assert phrase in output
+            push_span = _get_completed_span("snowflake_app.upload.push_stage_files")
+            assert push_span[CLIMetricsSpan.ERROR_KEY] == UploadError.__name__
+            assert push_span[CLIMetricsSpan.ERROR_CODE_KEY] == error.errno
+            # The progress counter is still recorded when the upload fails.
+            metrics = get_cli_context_manager().metrics
+            assert metrics.get_counter(FILES_UPLOADED_COUNTER) == 2
+
+        mock_mgr.build_app_artifact_repo.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_push_failure_names_a_vanished_file(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        runner,
+        tmp_path,
+    ):
+        """A local filesystem error identifies its own file, so the message
+        can name it."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = Mock(
+            encryption_type="SNOWFLAKE_SSE",
+            database=None,
+            schema_=None,
+        )
+        entity.code_stage.name = "MY_STAGE"
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        vanished = FileNotFoundError(2, "No such file or directory")
+        vanished.filename = "pkg/gone.py"
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+        mock_mgr.upload_to_stage.side_effect = _uploads_then_raises([], vanished)
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            output = _unwrapped(result.output)
+            assert "Failed to upload 'pkg/gone.py'" in output
+            assert "@TEST_DB.TEST_SCHEMA.MY_STAGE" in output
+            assert "removed from the bundle before it could be uploaded" in output
+            # Nothing uploaded, so no progress clause.
+            assert "had already uploaded" not in output
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_workspace_push_sql_error_still_falls_back_to_a_stage(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """On a regular database a SQL error during the workspace push must
+        stay raw, so ``_upload_app_code`` can still fall back to a stage."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "SNOWFLAKE_APPS"
+        entity.artifacts = []
+        entity.meta = None
+        entity.runtime_image = "runtime:latest"
+        entity.query_warehouse = "WH"
+        entity.artifact_repository = None
+        entity.build_compute_pool = None
+        entity.service_compute_pool = None
+        entity.build_eai = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.workspace_subdirectory_uri.return_value = (
+            "snow://workspace/TEST_DB.TEST_SCHEMA.SNOWFLAKE_APPS/versions/live/MY_APP"
+        )
+        mock_mgr.upload_to_workspace.side_effect = _uploads_then_raises(
+            [],
+            ProgrammingError("Workspace not authorized", errno=3001),
+        )
+        mock_mgr.upload_to_stage.return_value = [{"source": "a.py", "target": "a.py"}]
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+        mock_mgr.stage_exists.return_value = False
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+            assert "Falling back to a stage" in result.output
+            push_span = _get_completed_span("snowflake_app.upload.push_workspace_files")
+            assert push_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+
+        mock_mgr.create_stage.assert_called_once_with(
+            FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
+            "SNOWFLAKE_SSE",
+        )
+
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_workspace_push_transfer_failure_is_reported(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        runner,
+        tmp_path,
+    ):
+        """A transfer failure is not something the stage fallback can fix, so
+        it is reported rather than left raw."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = Mock(database=None, schema_=None)
+        entity.code_workspace.name = "SNOWFLAKE_APPS"
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        workspace_uri = (
+            "snow://workspace/TEST_DB.TEST_SCHEMA.SNOWFLAKE_APPS/versions/live/MY_APP"
+        )
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.workspace_subdirectory_uri.return_value = workspace_uri
+        mock_mgr.upload_to_workspace.side_effect = _uploads_then_raises(
+            [{"source": "a.py", "target": "a.py"}],
+            OperationalError("Failed to upload file", errno=253003),
+        )
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            output = _unwrapped(result.output)
+            assert f"Failed to upload files to {workspace_uri}" in output
+            assert "after 1 file had already uploaded" in output
+            assert "transfer to cloud storage failed" in output
+            push_span = _get_completed_span("snowflake_app.upload.push_workspace_files")
+            assert push_span[CLIMetricsSpan.ERROR_CODE_KEY] == 253003
+
+        # No stage fallback was attempted for a non-SQL failure.
+        mock_mgr.create_stage.assert_not_called()
 
 
 class TestTeardownCommand:
