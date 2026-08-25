@@ -941,6 +941,39 @@ def test_describe_passes_name_with_from_and_target(mock_manager, runner, tmp_pat
     assert call_kwargs["target_name"] == "PROD"
 
 
+@mock.patch(FEATURE_MANAGER)
+def test_describe_version_defaults_to_none(mock_manager, runner, tmp_path):
+    """``describe NAME`` (no ``--version``) forwards ``version=None``."""
+    mock_manager.return_value.describe.return_value = {}
+    result = runner.invoke(
+        ["feature", "describe", "MY_ENTITY", "--from", str(tmp_path)]
+    )
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.describe.call_args.kwargs
+    assert call_kwargs["version"] is None
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_describe_forwards_version(mock_manager, runner, tmp_path):
+    """``describe NAME --version V2`` forwards ``version='V2'`` to the manager."""
+    mock_manager.return_value.describe.return_value = {}
+    result = runner.invoke(
+        [
+            "feature",
+            "describe",
+            "USER_CLICKS",
+            "--from",
+            str(tmp_path),
+            "--version",
+            "V2",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    call_kwargs = mock_manager.return_value.describe.call_args.kwargs
+    assert call_kwargs["name"] == "USER_CLICKS"
+    assert call_kwargs["version"] == "V2"
+
+
 # ---------------------------------------------------------------------------
 # online-service
 # ---------------------------------------------------------------------------

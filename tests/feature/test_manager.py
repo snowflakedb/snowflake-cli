@@ -152,6 +152,12 @@ def mock_decl():
         m.describe_query.return_value = (
             "SHOW ONLINE FEATURE TABLES LIKE 'test' IN SCHEMA TEST_DB.TEST_SCHEMA"
         )
+        # Default: resolve to "not found" so describe returns the error
+        # envelope unless a test overrides it with a concrete OFT name.
+        m.resolve_oft_name.return_value = (
+            None,
+            "not found in deployed feature views",
+        )
         m.drop_queries.return_value = [
             'DROP ONLINE FEATURE TABLE IF EXISTS "TEST_DB"."TEST_SCHEMA"."test"'
         ]
@@ -2468,6 +2474,77 @@ class TestFeatureManagerDescribe:
 
         with pytest.raises(CliError):
             FeatureManager().describe(from_dir=tmp_path, target_name=None, name="X")
+
+    def test_describe_threads_version_to_resolver(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``describe(name, version=...)`` delegates OFT resolution to
+        ``decl_api.resolve_oft_name`` with the SHOW rows and the version,
+        then describes the resolved OFT name."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        show_rows = [
+            {"name": "USER_CLICKS$V1$ONLINE"},
+            {"name": "USER_CLICKS$V2$ONLINE"},
+        ]
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "ONLINE FEATURE TABLES" in str(sql) and "LIKE" not in str(sql):
+                return iter(show_rows)
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.resolve_oft_name.return_value = ("USER_CLICKS$V2$ONLINE", None)
+
+        FeatureManager().describe(
+            from_dir=tmp_path, target_name=None, name="USER_CLICKS", version="V2"
+        )
+
+        # Resolver received the SHOW rows, the bare name and the version.
+        args, _ = mock_decl.resolve_oft_name.call_args
+        assert args[0] == show_rows
+        assert args[1] == "USER_CLICKS"
+        assert args[2] == "V2"
+        # The resolved OFT name drives the DESCRIBE query.
+        mock_decl.describe_query.assert_called_once()
+        dq_args, _ = mock_decl.describe_query.call_args
+        assert dq_args[0] == "USER_CLICKS$V2$ONLINE"
+
+    def test_describe_ambiguous_returns_error_envelope(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """When the resolver reports ambiguity (no version given, multiple
+        versions), ``describe`` surfaces that message in the error envelope
+        and never issues a DESCRIBE query."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "ONLINE FEATURE TABLES" in str(sql) and "LIKE" not in str(sql):
+                return iter(
+                    [
+                        {"name": "USER_CLICKS$V1$ONLINE"},
+                        {"name": "USER_CLICKS$V2$ONLINE"},
+                    ]
+                )
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.resolve_oft_name.return_value = (
+            None,
+            "multiple versions of USER_CLICKS are deployed (V1, V2); "
+            "specify --version to select one",
+        )
+
+        result = FeatureManager().describe(
+            from_dir=tmp_path, target_name=None, name="USER_CLICKS"
+        )
+
+        assert result["status"] == "error"
+        assert "specify --version" in result["error"]
+        mock_decl.describe_query.assert_not_called()
 
 
 class TestFeatureManagerExportSpecsRemoved:
