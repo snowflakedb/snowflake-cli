@@ -494,13 +494,25 @@ the operator sees forward motion:
   json`/`csv` and `--silent`). When silent the context manager yields a
   no-op handle: no `Console`/`Progress` is constructed and every fetch seam
   receives `on_progress=None`.
-- Totals are never known up front. Each phase starts as an indeterminate
-  spinner (`total=None`); the fetch helper's first `on_progress(0, n, "")`
-  callback — fired right after the listing/`SHOW` returns — flips it to a
-  determinate `n`-item bar, and subsequent `on_progress(i, n, name)` calls
-  advance it. `_fetch_oft_state` drives the callback itself (the OFT count
-  comes from `SHOW ONLINE FEATURE TABLES`); the `list_*` phases are driven by
-  the snowml `decl_api.fetch_*` facades' optional `on_progress` callback.
+- Totals are never known up front, so the bar is **cumulative and
+  monotonic**: one task whose `completed` never resets between phases and
+  whose `total` grows as each listing reveals its size. `_RichStateFetchProgress`
+  tracks a running `completed_base` (sum of finished phases' totals) and
+  `known_total` (sum of every total known so far). A phase's first
+  `on_progress(0, n, "")` callback — fired right after the listing/`SHOW`
+  returns — adds `n` to `known_total`; subsequent `on_progress(i, n, name)`
+  calls set `completed = completed_base + i`. The operator therefore sees the
+  count climb continuously and the total widen as more objects are
+  discovered, rather than the bar snapping back to `0/n` each phase.
+- `begin_phase(label)` is called immediately before each slow fetch. It
+  finalizes the prior phase into `completed_base` and relabels the task at
+  once (dropping `total` back to `None` only when nothing is known yet), so
+  the description is never stale while the next `collect()` blocks; Rich's
+  background auto-refresh keeps the `SpinnerColumn` animating against the
+  correct label during that wait. `_fetch_oft_state` drives the callback
+  itself (the OFT count comes from `SHOW ONLINE FEATURE TABLES`); the
+  `list_*` phases are driven by the snowml `decl_api.fetch_*` facades'
+  optional `on_progress` callback.
 
 The library stays silent (see snowml `decl/DESIGN.md`): it only *invokes* the
 callback the CLI supplies; all rendering and the stderr/`silent` policy live
