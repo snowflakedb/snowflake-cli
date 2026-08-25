@@ -477,6 +477,36 @@ so structured stdout is a clean, parseable payload.
 - **`list`:** returns a projected `CollectionResult`; the `Database: X
   Schema: Y` scope header is written to stderr in TABLE mode only.
 
+### State-fetch progress bar (`plan` / `list`, stderr, TABLE-only)
+
+`plan` and `list` fetch deployed state before diffing/rendering, and that
+fetch is slow: one `DESCRIBE … TYPE = SPECIFICATION` round-trip per online
+feature table, plus `list_feature_views()` / `list_entities()` /
+`list_feature_groups()` / `list_stream_sources()` enumerations (each a
+`collect()`, and for BatchFVs a per-FV `get_feature_view` serialization).
+`manager._state_fetch_progress()` renders a transient Rich `Progress` bar so
+the operator sees forward motion:
+
+- The bar is bound to a `Console(file=sys.stderr)`, never stdout, so a stray
+  `plan`/`list` without `--format` still leaves any structured payload on
+  stdout parseable.
+- It is **gated on `get_cli_context().silent`** (True for `--format
+  json`/`csv` and `--silent`). When silent the context manager yields a
+  no-op handle: no `Console`/`Progress` is constructed and every fetch seam
+  receives `on_progress=None`.
+- Totals are never known up front. Each phase starts as an indeterminate
+  spinner (`total=None`); the fetch helper's first `on_progress(0, n, "")`
+  callback — fired right after the listing/`SHOW` returns — flips it to a
+  determinate `n`-item bar, and subsequent `on_progress(i, n, name)` calls
+  advance it. `_fetch_oft_state` drives the callback itself (the OFT count
+  comes from `SHOW ONLINE FEATURE TABLES`); the `list_*` phases are driven by
+  the snowml `decl_api.fetch_*` facades' optional `on_progress` callback.
+
+The library stays silent (see snowml `decl/DESIGN.md`): it only *invokes* the
+callback the CLI supplies; all rendering and the stderr/`silent` policy live
+in the CLI. No new dependency is added — Rich (`rich==14.0.0`) is already a
+CLI dependency (also used by `cli_console.spinner`).
+
 ---
 
 ## Parameter naming constraints
