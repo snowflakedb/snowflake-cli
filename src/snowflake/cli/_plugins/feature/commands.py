@@ -45,6 +45,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
+    EmptyResult,
     MessageResult,
     ObjectResult,
 )
@@ -460,6 +461,22 @@ def _is_structured_output() -> bool:
     return bool(getattr(fmt, "is_json", False)) or fmt == OutputFormat.CSV
 
 
+def _write_display(text: Optional[str]) -> None:
+    """Write a rich free-form display block to stderr — TABLE mode only.
+
+    The human-facing banners (``online-service`` status,
+    ``describe`` layout) are noise for machine consumers: they must
+    never appear when a structured ``--format`` is active, so both the
+    text and the write are gated on :func:`_is_structured_output`.  A
+    falsy *text* is a no-op so callers can pass ``result.pop("_display")``
+    directly.
+    """
+    if not text or _is_structured_output():
+        return
+    sys.stderr.write(text + "\n")
+    sys.stderr.flush()
+
+
 def _print_target_header(result: dict) -> None:
     """Print the resolved manifest target + warehouse to stderr."""
     db = result.get("target_database", "")
@@ -792,7 +809,8 @@ def list_cmd(
     result = FeatureManager().list_specs(from_dir=from_location, target_name=target)
     specs = result.get("specs", [])
     if isinstance(specs, list) and specs and isinstance(specs[0], dict):
-        _print_listing_scope_header(specs)
+        if not _is_structured_output():
+            _print_listing_scope_header(specs)
         return _to_collection(specs)
     return _to_object(result)
 
@@ -830,16 +848,26 @@ def describe(
         from_dir=from_location, target_name=target, name=name, version=version
     )
 
-    display = result.pop("_display", None)
-    if display:
-        sys.stderr.write(display + "\n")
-        sys.stderr.flush()
+    # The rich ``_display`` banner is TABLE-only; strip it from the
+    # payload either way so it never leaks into structured stdout.
+    _write_display(result.pop("_display", None))
 
+    if _is_structured_output():
+        # JSON / CSV: return the full envelope as a nested object —
+        # ``rows`` stays the authoritative DESCRIBE column metadata
+        # rather than the list-display projection.  ``examples`` (curl
+        # snippets) are kept when present.
+        return _to_object(result)
+
+    # TABLE mode: the banner on stderr is the canonical human surface
+    # for a successful describe; rendering ``rows`` as a projected
+    # collection here would duplicate a mostly-empty list table on
+    # stdout.  Error envelopes (no rows / no banner) still render as a
+    # key/value object so the operator sees the failure.
     result.pop("examples", None)
-
     rows = result.get("rows", [])
     if isinstance(rows, list) and rows:
-        return _to_collection(rows)
+        return EmptyResult()
     return _to_object(result)
 
 
@@ -915,6 +943,12 @@ def online_service(
         import threading
         import time
 
+        # A structured ``--format`` wants a clean JSON/CSV stdout with
+        # no interleaved progress noise, so the spinner and its status
+        # lines are TABLE-only.  The returned ObjectResult envelopes are
+        # identical in either mode.
+        structured = _is_structured_output()
+
         stop_event = threading.Event()
         stage_info = {"status": "CREATING", "message": "Sending create request..."}
 
@@ -934,8 +968,18 @@ def online_service(
                 sys.stderr.flush()
                 stop_event.wait(0.5)
 
-        spinner_thread = threading.Thread(target=_spin, daemon=True)
-        spinner_thread.start()
+        spinner_thread: Optional[threading.Thread] = None
+        if not structured:
+            spinner_thread = threading.Thread(target=_spin, daemon=True)
+            spinner_thread.start()
+
+        def _stop_spinner(final_line: str) -> None:
+            stop_event.set()
+            if spinner_thread is not None:
+                spinner_thread.join(timeout=2)
+            if not structured:
+                sys.stderr.write(final_line)
+                sys.stderr.flush()
 
         result = mgr.initialize_service(
             from_dir=from_location,
@@ -945,17 +989,11 @@ def online_service(
         )
 
         if result.get("status") == "error":
-            stop_event.set()
-            spinner_thread.join(timeout=2)
-            sys.stderr.write("\r" + " " * 80 + "\r")
-            sys.stderr.flush()
+            _stop_spinner("\r" + " " * 80 + "\r")
             return _to_object(result)
 
         if result.get("status") == "RUNNING":
-            stop_event.set()
-            spinner_thread.join(timeout=2)
-            sys.stderr.write("\r  Online service is RUNNING." + " " * 52 + "\n")
-            sys.stderr.flush()
+            _stop_spinner("\r  Online service is RUNNING." + " " * 52 + "\n")
             return _to_object(result)
 
         stage_info["message"] = "Waiting for service to start..."
@@ -969,10 +1007,7 @@ def online_service(
                 stage_info["status"] = current
                 stage_info["message"] = message
                 if current == "RUNNING":
-                    stop_event.set()
-                    spinner_thread.join(timeout=2)
-                    sys.stderr.write("\r  Online service is RUNNING." + " " * 52 + "\n")
-                    sys.stderr.flush()
+                    _stop_spinner("\r  Online service is RUNNING." + " " * 52 + "\n")
                     return _to_object(
                         {
                             "status": "RUNNING",
@@ -982,10 +1017,7 @@ def online_service(
             except Exception:
                 pass
 
-        stop_event.set()
-        spinner_thread.join(timeout=2)
-        sys.stderr.write("\r  Timed out waiting for RUNNING." + " " * 48 + "\n")
-        sys.stderr.flush()
+        _stop_spinner("\r  Timed out waiting for RUNNING." + " " * 48 + "\n")
         return _to_object({"status": "timeout", "error": "Timed out after 600s"})
     elif drop:
         result = FeatureManager().destroy_service(
@@ -997,27 +1029,37 @@ def online_service(
             from snowflake.cli.api.cli_global_context import get_cli_context
             from snowflake.ml.feature_store.decl import api as decl_api
 
+            # ``_user`` / ``_database`` / ``_schema`` are display-only
+            # header inputs — pop them regardless of format so they
+            # never leak into the structured payload.
+            user = result.pop("_user", "")
+            database = result.pop("_database", "")
+            schema = result.pop("_schema", "")
+
             # ``--verbose`` / ``-v`` is the framework-wide flag (also
             # used to raise log verbosity).  Reading it from the CLI
             # context avoids redefining the option locally — typer
             # rejects the duplicate name — while still giving operators
             # a single switch for "show me everything".
             verbose = bool(getattr(get_cli_context(), "verbose", False))
+            if _is_structured_output():
+                # JSON / CSV: the parsed status is the payload —
+                # nested ``endpoints`` / ``compute_pool`` / ``postgres``
+                # / ``service`` stay as objects/arrays.  No banner.
+                return _to_object(result)
+            # TABLE: the rich display on stderr is the canonical
+            # surface for operators; rendering ``result`` as an
+            # ObjectResult would duplicate the same fields on stdout as
+            # a key/value table, so emit nothing on stdout.
             display = decl_api.format_status_display(
                 result,
-                user=result.pop("_user", ""),
-                database=result.pop("_database", ""),
-                schema=result.pop("_schema", ""),
+                user=user,
+                database=database,
+                schema=schema,
                 verbose=verbose,
             )
-            sys.stderr.write(display + "\n")
-            sys.stderr.flush()
-            # The rich display on stderr is the canonical surface for
-            # operators; rendering ``result`` as an ObjectResult here
-            # would duplicate the same fields on stdout as a key/value
-            # table.  Return an empty message instead so the success
-            # path stays single-source.
-            return _to_message("")
+            _write_display(display)
+            return EmptyResult()
     return _to_object(result)
 
 
