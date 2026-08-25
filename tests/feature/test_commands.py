@@ -687,6 +687,18 @@ def test_list_table_display_columns_omits_database_and_schema():
     assert "schema_name" not in _TABLE_DISPLAY_COLUMNS
 
 
+def test_list_table_display_columns_omits_details():
+    """``details`` is intentionally excluded from the table display
+    columns.  The kind-specific ``details`` dict is verbose and its one
+    load-bearing field (``source_type`` for Datasource rows) is already
+    surfaced in the ``type`` column, so rendering the raw dict as its
+    own column was pure noise.  It is still carried on the raw row so
+    ``_project_columns`` can derive the Datasource ``type`` label."""
+    from snowflake.cli._plugins.feature.commands import _TABLE_DISPLAY_COLUMNS
+
+    assert "details" not in _TABLE_DISPLAY_COLUMNS
+
+
 def test_listing_scope_uniform_rows_returns_single_value_pair():
     """When every row has the same database_name and schema_name, the
     helper returns those values verbatim so the header can render
@@ -780,6 +792,7 @@ def test_project_columns_aligns_heterogeneous_rows():
         assert "scheduling_state" not in row
         assert "database_name" not in row
         assert "schema_name" not in row
+        assert "details" not in row
 
     fv_proj, entity_proj, ds_proj = projected
 
@@ -788,24 +801,18 @@ def test_project_columns_aligns_heterogeneous_rows():
     assert fv_proj["version"] == "v1"
     assert fv_proj["entities"] == "user_id"
     assert fv_proj["created_on"] == "2024-01-01"
-    assert fv_proj["details"] == {"scheduling_state": "ACTIVE"}
 
     assert entity_proj["type"] == "Entity"
     assert entity_proj["name"] == "user_id"
     assert entity_proj["entities"] == "USER_ID"
     assert entity_proj["version"] == ""
     assert entity_proj["created_on"] == ""
-    assert entity_proj["details"] == {
-        "join_keys": ["USER_ID"],
-        "comment": "User identity entity",
-    }
 
     assert ds_proj["type"] == "OfflineTable"
     assert ds_proj["name"] == "click_events_offline"
     assert ds_proj["entities"] == ""
     assert ds_proj["version"] == ""
     assert ds_proj["created_on"] == ""
-    assert ds_proj["details"] == {"source_type": "OfflineTable", "column_count": 7}
 
 
 def test_project_columns_surfaces_datasource_source_type_in_type_column():
@@ -842,6 +849,11 @@ def test_project_columns_surfaces_datasource_source_type_in_type_column():
     assert offline_proj["type"] == "OfflineTable"
     assert no_st_proj["type"] == "Datasource"
     assert no_det_proj["type"] == "Datasource"
+
+    # ``details`` drives the ``type`` derivation but is not itself a
+    # display column, so it must not leak into the projected rows.
+    for proj in (stream_proj, offline_proj, no_st_proj, no_det_proj):
+        assert "details" not in proj
 
     fv_row = {"type": "StreamingFeatureView", "name": "x"}
     entity_row = {"type": "Entity", "name": "user_id"}
@@ -901,6 +913,7 @@ def test_list_renders_multi_kind_rows(mock_manager, runner):
     assert "scheduling_state" not in header_block
     assert "database_name" not in header_block
     assert "schema_name" not in header_block
+    assert "details" not in header_block
     assert "Database: DB" in result.output
     assert "Schema: SCH" in result.output
 
