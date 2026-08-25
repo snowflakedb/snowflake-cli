@@ -230,9 +230,14 @@ return {**target_info, "source": "snowflake", "specs": rows}
 ```
 
 The returned `rows` are a single ordered list with a leading `type` column
-(`FeatureView` / `Entity` / `Datasource`), a uniform `name` column, plus
-kind-specific `details`. `commands._TABLE_DISPLAY_COLUMNS` projects this into
-the table view; the same dict is returned verbatim under `--format json`.
+(`FeatureView` / `Entity` / `Datasource`), a uniform `name` column, plus a
+kind-specific `details` dict. `commands._TABLE_DISPLAY_COLUMNS` projects this
+into the table view. The `details` dict is **not** surfaced as a display
+column — it is verbose and its one load-bearing field (`source_type` for
+Datasource rows) is already promoted into the `type` column by
+`_project_columns`, so rendering the raw dict was pure noise. It is still
+carried on each raw row so `_project_columns` can derive the Datasource `type`
+label.
 
 #### Strict spec-only Entity & Datasource rows
 
