@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import codecs
 import io
-import locale
 import logging
 import os
 import sys
@@ -37,6 +36,10 @@ from typing import (
 import tomlkit
 from click import ClickException
 from snowflake.cli.api.constants import IS_WINDOWS
+from snowflake.cli.api.encoding_diagnostics import detect_encoding_environment
+from snowflake.cli.api.encoding_diagnostics import (
+    get_encoding_diagnostics as _get_encoding_diagnostics_impl,
+)
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
     InvalidConnectionConfigurationError,
@@ -211,97 +214,28 @@ def config_init(config_file: Optional[Path]):
     create_initial_loggers()
     apply_stdout_encoding(get_stdout_encoding())
     if should_show_encoding_warnings():
-        detect_encoding_environment()
-
-
-def _canonical_encoding(enc: str) -> str:
-    """Return the canonical codec name for enc.
-
-    Routes through codecs.lookup so that aliases such as 'utf8', 'UTF_8', or
-    'u8' all resolve to 'utf-8', keeping mismatch detection consistent with
-    how _validate_encoding works.  Falls back to simple lower/replace for
-    unrecognised strings so detection never crashes on exotic platform values.
-    """
-    try:
-        return codecs.lookup(enc).name
-    except LookupError:
-        return enc.lower().replace("_", "-")
+        detect_encoding_environment(
+            all_cli_encodings_configured=_all_cli_encodings_configured()
+        )
 
 
 def get_encoding_diagnostics() -> str:
     """Return a detailed encoding diagnostics report for the current environment.
 
     Used by ``snow helpers detect-encoding`` to give the user actionable detail
-    about the encoding setup.  Mirrors the conditions that trigger
-    :func:`detect_encoding_environment` warnings so the command always shows
-    the same information the warning referenced.
+    about the encoding setup.
     """
-    fs_encoding = _canonical_encoding(sys.getfilesystemencoding())
-    default_encoding = _canonical_encoding(sys.getdefaultencoding())
-    locale_encoding = _canonical_encoding(locale.getpreferredencoding())
-
-    encodings = {fs_encoding, default_encoding, locale_encoding}
-
-    actionable_section = (
-        "This may cause file corruption when sharing projects across platforms.\n"
-        "Recommended actions:\n"
-        "1. Set environment variable: PYTHONUTF8=1\n"
-        "2. Configure encoding in config.toml:\n"
-        "   [cli.encoding]\n"
-        '   file_io = "utf-8"\n'
-        '   subprocess = "utf-8"\n'
-        '   stdout = "utf-8"\n'
-        "3. Set environment variables: SNOWFLAKE_CLI_ENCODING_FILE_IO='utf-8', "
-        "SNOWFLAKE_CLI_ENCODING_SUBPROCESS='utf-8', "
-        "and SNOWFLAKE_CLI_ENCODING_STDOUT='utf-8'"
+    return _get_encoding_diagnostics_impl(
+        all_cli_encodings_configured=_all_cli_encodings_configured()
     )
 
-    if (
+
+def _all_cli_encodings_configured() -> bool:
+    return (
         get_file_io_encoding() is not None
         and get_subprocess_encoding() is not None
         and get_stdout_encoding() is not None
-    ):
-        return "No encoding issues - your system is properly configured."
-
-    if len(encodings) > 1:
-        return (
-            f"Encoding mismatch detected:\n"
-            f"  Filesystem: {fs_encoding}\n"
-            f"  Default:    {default_encoding}\n"
-            f"  Locale:     {locale_encoding}\n"
-            f"\n{actionable_section}"
-        )
-
-    if locale_encoding != "utf-8":
-        return (
-            f"Platform encoding is {locale_encoding}, not utf-8.\n"
-            f"\n{actionable_section}"
-        )
-
-    return "No encoding issues - your system is properly configured."
-
-
-def detect_encoding_environment():
-    """Detect encoding configuration and warn about mismatches"""
-    fs_encoding = _canonical_encoding(sys.getfilesystemencoding())
-    default_encoding = _canonical_encoding(sys.getdefaultencoding())
-    locale_encoding = _canonical_encoding(locale.getpreferredencoding())
-
-    # Warn on mismatches
-    encodings = {fs_encoding, default_encoding, locale_encoding}
-
-    # if all encoding options are configured we assume the user knows what they are doing
-    if (
-        get_file_io_encoding() is not None
-        and get_subprocess_encoding() is not None
-        and get_stdout_encoding() is not None
-    ):
-        return
-    if len(encodings) > 1 or locale_encoding != "utf-8":
-        warnings.warn(
-            "Encoding mismatch detected. "
-            "Run 'snow helpers detect-encoding' for more details."
-        )
+    )
 
 
 def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig):

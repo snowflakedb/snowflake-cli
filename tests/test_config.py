@@ -1160,6 +1160,13 @@ def test_detect_encoding_no_warning_when_configured(config_file, monkeypatch):
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    # Pin this so the assertion below doesn't depend on the console this
+    # test happens to run in (e.g. a real Windows box with a non-UTF-8
+    # console codepage).
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: False,
+    )
     # Monkeypatch sys.stdout so apply_stdout_encoding does not mutate the
     # real stdout stream (which would corrupt subsequent tests on non-UTF-8 systems).
     fake_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
@@ -1220,6 +1227,104 @@ def test_detect_encoding_non_utf8_warning(config_file, monkeypatch):
     with config_file(config_content) as cfg:
         with pytest.warns(UserWarning, match="Encoding mismatch detected"):
             config_init(cfg)
+
+
+def test_detect_encoding_console_warning_when_platform_encoding_clean(
+    config_file, monkeypatch
+):
+    """When platform encodings already agree, a misconfigured console still
+    triggers its own warning pointing at the chcp.com fix and PS docs."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: True,
+    )
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with pytest.warns(UserWarning, match="Console is not configured"):
+            config_init(cfg)
+
+
+def test_detect_encoding_console_warning_when_cli_encoding_configured(
+    config_file, monkeypatch
+):
+    """A misconfigured console still warns even when all CLI encoding
+    options are explicitly configured."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: True,
+    )
+    fake_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+    monkeypatch.setattr("sys.stdout", fake_stdout)
+
+    config_content = """
+[cli.encoding]
+file_io = "utf-8"
+subprocess = "utf-8"
+stdout = "utf-8"
+"""
+    with config_file(config_content) as cfg:
+        with pytest.warns(UserWarning, match="Console is not configured"):
+            config_init(cfg)
+
+
+def test_detect_encoding_no_console_warning_when_console_configured(
+    config_file, monkeypatch
+):
+    """No console warning once the console itself is UTF-8."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: False,
+    )
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert (
+                len(encoding_warnings) == 0
+            ), f"Unexpected encoding warnings: {[str(warning.message) for warning in encoding_warnings]}"
+
+
+def test_detect_encoding_mismatch_warning_suppresses_console_warning(
+    config_file, monkeypatch
+):
+    """Only the mismatch warning fires when both conditions are true — the
+    console-specific warning is redundant once the general one already
+    points at 'snow helpers detect-encoding'."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: True,
+    )
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert len(encoding_warnings) == 1
+            assert "Encoding mismatch detected" in str(encoding_warnings[0].message)
 
 
 @pytest.mark.parametrize(
@@ -1474,6 +1579,10 @@ def test_encoding_diagnostics_clean_system(monkeypatch):
     monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: False,
+    )
 
     result = get_encoding_diagnostics()
     assert result == "No encoding issues - your system is properly configured."
@@ -1518,6 +1627,10 @@ def test_encoding_diagnostics_both_configured(monkeypatch):
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "utf-8")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: False,
+    )
 
     result = get_encoding_diagnostics()
     assert result == "No encoding issues - your system is properly configured."
