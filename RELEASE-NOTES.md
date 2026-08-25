@@ -23,6 +23,8 @@
 ## Fixes and improvements
 * `snow app deploy` for Snowflake App Runtime projects now explains a failure while preparing code storage in terms of the statement that actually failed. A missing database or schema is reported as such instead of as a missing privilege, a privilege error names only the grant that statement needs, and a rejected stage encryption type is named explicitly.
 * `snow app deploy` for Snowflake App Runtime projects no longer surfaces a raw connector traceback when uploading code fails. The error now names the stage or workspace being written to, how many files had already uploaded, and what to do next. Failed file transfers, which were previously not caught at all, are reported the same way.
+* `snow helpers detect-encoding` now detects when the Windows console isn't configured for UTF-8 output (independent of the CLI's own encoding settings) and points the user at the fix — `chcp.com 65001` for cmd.exe/Git Bash, or the docs for PowerShell 5.x. The CLI's startup encoding warning surfaces the same note, but only when it isn't already warning about a Python encoding mismatch — run `snow helpers detect-encoding` for the full picture.
+
 
 
 # v3.25.0
