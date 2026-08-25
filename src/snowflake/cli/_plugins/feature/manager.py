@@ -113,17 +113,19 @@ class _RichStateFetchProgress:
         def _on_progress(completed: int, total: int, label: str) -> None:
             description = phase_label if not label else f"{phase_label}: {label}"
             if completed == 0:
-                # Total just became known — flip spinner to a bar.
+                # Total just became known (possibly 0) — flip the spinner to a
+                # determinate bar.  An empty phase shows 0/0 and moves on
+                # rather than inheriting the previous phase's stale total.
                 self._progress.reset(
                     self._task_id,
-                    total=(total or None),
+                    total=total,
                     description=description,
                 )
             else:
                 self._progress.update(
                     self._task_id,
                     completed=completed,
-                    total=(total or None),
+                    total=total,
                     description=description,
                 )
 
