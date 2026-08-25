@@ -443,12 +443,39 @@ The contract source of truth is `plans/stream_source_contract.md` §8.
 
 ---
 
-## --json output
+## Output formatting (`--format`)
 
-All commands return a `MessageResult` wrapping a JSON-serialised dict.
-The global `--format json` flag (injected by `global_options_with_connection`)
-controls whether the Snow CLI output layer emits a table or raw JSON.
-No additional work is needed inside the plugin.
+Commands return a `CommandResult` and let the Snow CLI output layer render
+it for the active `--format` (injected by `global_options_with_connection`).
+The plugin never JSON-encodes payloads itself; it just picks the right
+`CommandResult` subtype:
+
+| Return type | TABLE render | `--format json` / `csv` |
+|---|---|---|
+| `CollectionResult([dict, ...])` | multi-column table (one column per key) | JSON array of objects |
+| `ObjectResult(dict)` | two-column `key` / `value` table (nested values stringify) | nested JSON object |
+| `MessageResult(text)` | raw text | `{"message": "<text>"}` |
+| `EmptyResult()` | nothing | nothing |
+
+`_is_structured_output()` returns `True` when `--format` is JSON or CSV.
+Commands that print a rich human banner or header use it to stay
+**format-aware**: the free-form text is written to stderr in TABLE mode only,
+so structured stdout is a clean, parseable payload.
+
+- **`online-service` (status):** TABLE writes the rich `format_status_display`
+  banner to stderr and returns `EmptyResult()` (no duplicate key/value table on
+  stdout). JSON/CSV suppress the banner and return `_to_object(result)` — the
+  parsed status with nested `endpoints` / `compute_pool` / `postgres` /
+  `service`. The `_user` / `_database` / `_schema` display-only keys are popped
+  in both modes so they never leak into the payload. The `--create` spinner and
+  progress lines are TABLE-only.
+- **`describe`:** TABLE writes the `_display` banner to stderr and returns
+  `EmptyResult()` on success (an error envelope with no rows still renders as an
+  `ObjectResult`). JSON/CSV suppress `_display` and return `_to_object(result)`
+  — the full envelope whose `rows` are the authoritative DESCRIBE column
+  metadata (never the list-display projection).
+- **`list`:** returns a projected `CollectionResult`; the `Database: X
+  Schema: Y` scope header is written to stderr in TABLE mode only.
 
 ---
 
