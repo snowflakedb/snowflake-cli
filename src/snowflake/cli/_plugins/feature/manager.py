@@ -38,8 +38,10 @@ Phase 3+4 manifest-driven shape (see
 from __future__ import annotations
 
 import logging
+import sys
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 
 from snowflake.cli._plugins.connection.util import get_account_identifier
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -72,6 +74,96 @@ except ImportError:
     _HAS_DECL_API = False
 
 log = logging.getLogger(__name__)
+
+
+# Per-row progress callback threaded from the CLI into the ``decl_api``
+# fetch facades and :meth:`FeatureManager._fetch_oft_state`.  Invoked as
+# ``on_progress(completed, total, label)``: once as ``(0, total, "")``
+# right after a listing returns (the moment ``total`` first exists), then
+# once per processed row.  The declarative library never prints — the CLI
+# owns the rendering (a Rich progress bar on stderr).
+ProgressCallback = Callable[[int, int, str], None]
+
+
+class _NullStateFetchProgress:
+    """No-op progress handle used when output is structured / silent.
+
+    ``callback`` always returns ``None`` so every fetch seam receives
+    ``on_progress=None`` and no bar is constructed.
+    """
+
+    def callback(self, phase_label: str) -> Optional[ProgressCallback]:
+        return None
+
+
+class _RichStateFetchProgress:
+    """Drives a single Rich task across the sequential fetch phases.
+
+    Each phase starts as an indeterminate spinner (``total=None``); the
+    first ``(0, total, "")`` callback flips it to a determinate bar once
+    the listing has returned and the total is known, and subsequent
+    ``(i, total, name)`` calls advance it.
+    """
+
+    def __init__(self, progress: Any, task_id: Any) -> None:
+        self._progress = progress
+        self._task_id = task_id
+
+    def callback(self, phase_label: str) -> ProgressCallback:
+        def _on_progress(completed: int, total: int, label: str) -> None:
+            description = phase_label if not label else f"{phase_label}: {label}"
+            if completed == 0:
+                # Total just became known — flip spinner to a bar.
+                self._progress.reset(
+                    self._task_id,
+                    total=(total or None),
+                    description=description,
+                )
+            else:
+                self._progress.update(
+                    self._task_id,
+                    completed=completed,
+                    total=(total or None),
+                    description=description,
+                )
+
+        return _on_progress
+
+
+@contextmanager
+def _state_fetch_progress() -> Iterator[Any]:
+    """Yield a progress handle for the plan/list state-fetch sequence.
+
+    When ``get_cli_context().silent`` is True (structured output —
+    ``--format json``/``csv`` — or ``--silent``) this is a no-op handle so
+    machine-readable stdout stays clean.  Otherwise it yields a handle
+    backed by a transient Rich ``Progress`` bound to a ``sys.stderr``
+    ``Console`` (never stdout), so progress is purely human-facing.
+    """
+    if get_cli_context().silent:
+        yield _NullStateFetchProgress()
+        return
+
+    from rich.console import Console
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+    )
+
+    console = Console(file=sys.stderr)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task("Loading feature store state", total=None)
+        yield _RichStateFetchProgress(progress, task_id)
 
 
 def _rows_to_dicts(rows) -> list[dict[str, Any]]:
@@ -1225,19 +1317,35 @@ class FeatureManager(SqlExecutionMixin):
 
         try:
             queries = decl_api.list_state_queries(target.database, target.schema)
-            oft_rows = _rows_to_dicts(
-                self.execute_query(queries["show_ofts"], cursor_class=DictCursor)
-            )
+            # Human-facing progress on stderr (TABLE output only); suppressed
+            # for structured/--silent output so machine-readable stdout stays
+            # clean.  Each fetch seam receives a per-phase callback.
+            with _state_fetch_progress() as progress:
+                oft_rows = _rows_to_dicts(
+                    self.execute_query(queries["show_ofts"], cursor_class=DictCursor)
+                )
 
-            entity_rows = self._fetch_entity_rows(target)
-            feature_group_rows = self._fetch_feature_group_rows(target)
-            # ``list_feature_views()`` discovery set — the authoritative FV
-            # source that also surfaces OFT-less (``online: false``) BFVs the
-            # ``SHOW ONLINE FEATURE TABLES`` query never returns
-            # (bug_offline_bfv_invisible_in_list.md).
-            feature_view_rows = self._fetch_feature_view_rows(target)
+                entity_rows = self._fetch_entity_rows(
+                    target, on_progress=progress.callback("Loading entities")
+                )
+                feature_group_rows = self._fetch_feature_group_rows(
+                    target,
+                    on_progress=progress.callback("Loading feature groups"),
+                )
+                # ``list_feature_views()`` discovery set — the authoritative FV
+                # source that also surfaces OFT-less (``online: false``) BFVs the
+                # ``SHOW ONLINE FEATURE TABLES`` query never returns
+                # (bug_offline_bfv_invisible_in_list.md).
+                feature_view_rows = self._fetch_feature_view_rows(
+                    target,
+                    on_progress=progress.callback("Loading feature views"),
+                )
 
-            specification_map = self._fetch_oft_state(oft_rows, queries)
+                specification_map = self._fetch_oft_state(
+                    oft_rows,
+                    queries,
+                    on_progress=progress.callback("Loading online feature tables"),
+                )
 
             enriched = decl_api.enrich_list_results(
                 oft_rows,
@@ -1633,27 +1741,41 @@ class FeatureManager(SqlExecutionMixin):
             ``RealtimeFeatureView`` kinds).
         """
         sqls = decl_api.state_queries(target.database, target.schema)
-        raw_show = _rows_to_dicts(
-            self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
-        )
-        raw_tables = _rows_to_dicts(
-            self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
-        )
-        specification_map = self._fetch_oft_state(raw_show, sqls)
-        dt_text_map = self._fetch_dt_text_map(sqls)
-        entity_rows = self._fetch_entity_rows(target)
-        feature_view_rows = self._fetch_feature_view_rows(target)
-        feature_group_rows = self._fetch_feature_group_rows(target)
-        # Wave 3B / contract §8b: thread runtime-authoritative
-        # ``FeatureStore.list_stream_sources()`` rows into
-        # ``decl_api.fetch_applied_state`` so the planner's source-diff
-        # branch sees ``Datasource(kind="StreamingSource")`` entries for
-        # already-registered stream sources and emits NO_CHANGE rather
-        # than the spurious CREATE_SOURCE noise that produced the
-        # ``UserWarning: StreamSource <name> already exists. Skip
-        # registration.`` symptom on apply.  The bundle contract's
-        # return-tuple shape is preserved (rows are not surfaced).
-        stream_source_rows = self._fetch_stream_source_rows(target)
+        # Human-facing progress on stderr (TABLE output only); suppressed for
+        # structured/--silent output so machine-readable stdout stays clean.
+        with _state_fetch_progress() as progress:
+            raw_show = _rows_to_dicts(
+                self.execute_query(sqls["show_ofts"], cursor_class=DictCursor)
+            )
+            raw_tables = _rows_to_dicts(
+                self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
+            )
+            specification_map = self._fetch_oft_state(
+                raw_show,
+                sqls,
+                on_progress=progress.callback("Loading online feature tables"),
+            )
+            dt_text_map = self._fetch_dt_text_map(sqls)
+            entity_rows = self._fetch_entity_rows(
+                target, on_progress=progress.callback("Loading entities")
+            )
+            feature_view_rows = self._fetch_feature_view_rows(
+                target, on_progress=progress.callback("Loading feature views")
+            )
+            feature_group_rows = self._fetch_feature_group_rows(
+                target, on_progress=progress.callback("Loading feature groups")
+            )
+            stream_source_rows = self._fetch_stream_source_rows(
+                target, on_progress=progress.callback("Loading stream sources")
+            )
+        # Wave 3B / contract §8b: ``stream_source_rows`` (fetched above,
+        # inside the progress block) is threaded runtime-authoritative into
+        # ``decl_api.fetch_applied_state`` so the planner's source-diff branch
+        # sees ``Datasource(kind="StreamingSource")`` entries for
+        # already-registered stream sources and emits NO_CHANGE rather than
+        # the spurious CREATE_SOURCE noise that produced the ``UserWarning:
+        # StreamSource <name> already exists. Skip registration.`` symptom on
+        # apply.  The bundle contract's return-tuple shape is preserved.
         applied_state = decl_api.fetch_applied_state(
             raw_show,
             raw_tables,
@@ -1679,27 +1801,42 @@ class FeatureManager(SqlExecutionMixin):
         self,
         oft_rows: list[dict[str, Any]],
         state_sqls: dict[str, str],
+        on_progress: Optional[ProgressCallback] = None,
     ) -> dict[str, dict[str, Any]]:
-        """Fetch per-OFT spec JSON via ``DESCRIBE … TYPE = SPECIFICATION``."""
+        """Fetch per-OFT spec JSON via ``DESCRIBE … TYPE = SPECIFICATION``.
+
+        This is the slowest leg of ``plan`` / ``list`` state fetch: one
+        ``DESCRIBE`` round-trip per online feature table.  ``on_progress``
+        (when supplied) is invoked as ``(0, N, "")`` once up front — the
+        row count from ``SHOW ONLINE FEATURE TABLES`` is the total — then
+        ``(i, N, name)`` after each OFT is processed (whether its DESCRIBE
+        succeeded, was skipped, or was nameless) so a determinate bar
+        always fills.  The library never prints; the CLI owns the bar.
+        """
         specification_map: dict[str, dict[str, Any]] = {}
         spec_template = state_sqls.get("describe_specification_template")
         if not spec_template:
             return specification_map
-        for row in oft_rows:
+        total = len(oft_rows)
+        if on_progress is not None:
+            on_progress(0, total, "")
+        for idx, row in enumerate(oft_rows, start=1):
             name = row.get("name", "")
-            if not name:
-                continue
-            spec_sql = spec_template.format(name=name)
-            try:
-                spec_rows = _rows_to_dicts(
-                    self.execute_query(spec_sql, cursor_class=DictCursor)
-                )
-            except Exception as exc:  # noqa: BLE001
-                log.debug("spec-query failed for %s (skipping): %s", name, exc)
-                continue
-            parsed = decl_api.parse_specification_rows(spec_rows)
-            if parsed is not None:
-                specification_map[name] = parsed
+            if name:
+                spec_sql = spec_template.format(name=name)
+                spec_rows = None
+                try:
+                    spec_rows = _rows_to_dicts(
+                        self.execute_query(spec_sql, cursor_class=DictCursor)
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    log.debug("spec-query failed for %s (skipping): %s", name, exc)
+                if spec_rows is not None:
+                    parsed = decl_api.parse_specification_rows(spec_rows)
+                    if parsed is not None:
+                        specification_map[name] = parsed
+            if on_progress is not None:
+                on_progress(idx, total, str(name))
         return specification_map
 
     def _fetch_dt_text_map(
@@ -1748,7 +1885,11 @@ class FeatureManager(SqlExecutionMixin):
                 result[name] = text
         return result
 
-    def _fetch_entity_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+    def _fetch_entity_rows(
+        self,
+        target: FSTarget,
+        on_progress: Optional[ProgressCallback] = None,
+    ) -> list[dict[str, Any]]:
         """Fetch entity tag rows via the imperative ``list_entities()`` facade.
 
         Unlike the ``_fetch_feature_view_rows`` / ``_fetch_feature_group_rows``
@@ -1795,6 +1936,7 @@ class FeatureManager(SqlExecutionMixin):
                 target.database,
                 target.schema,
                 ctx.connection.warehouse or "",
+                on_progress=on_progress,
             )
         except FeatureStoreNotInitializedError:
             # Init-required is a first-class error — let it propagate
@@ -1822,7 +1964,11 @@ class FeatureManager(SqlExecutionMixin):
                 "If it persists, verify the warehouse is available and the schema is a feature store."
             ) from exc
 
-    def _fetch_feature_view_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+    def _fetch_feature_view_rows(
+        self,
+        target: FSTarget,
+        on_progress: Optional[ProgressCallback] = None,
+    ) -> list[dict[str, Any]]:
         """Fetch feature-view rows via the imperative ``list_feature_views()``.
 
         Mirror of :func:`_fetch_entity_rows` for FeatureView
@@ -1858,6 +2004,7 @@ class FeatureManager(SqlExecutionMixin):
                 target.database,
                 target.schema,
                 ctx.connection.warehouse or "",
+                on_progress=on_progress,
             )
         except FeatureStoreNotInitializedError:
             raise
@@ -1865,7 +2012,11 @@ class FeatureManager(SqlExecutionMixin):
             log.debug("fetch_feature_view_rows failed (treating as empty): %s", exc)
             return []
 
-    def _fetch_stream_source_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+    def _fetch_stream_source_rows(
+        self,
+        target: FSTarget,
+        on_progress: Optional[ProgressCallback] = None,
+    ) -> list[dict[str, Any]]:
         """Fetch registered stream-source rows for *target*.
 
         Mirror of :func:`_fetch_entity_rows` for the imperative
@@ -1905,6 +2056,7 @@ class FeatureManager(SqlExecutionMixin):
                 target.database,
                 target.schema,
                 ctx.connection.warehouse or "",
+                on_progress=on_progress,
             )
         except FeatureStoreNotInitializedError:
             raise
@@ -1912,7 +2064,11 @@ class FeatureManager(SqlExecutionMixin):
             log.debug("fetch_stream_source_rows failed (treating as empty): %s", exc)
             return []
 
-    def _fetch_feature_group_rows(self, target: FSTarget) -> list[dict[str, Any]]:
+    def _fetch_feature_group_rows(
+        self,
+        target: FSTarget,
+        on_progress: Optional[ProgressCallback] = None,
+    ) -> list[dict[str, Any]]:
         """Fetch feature-group rows via the imperative ``list_feature_groups()``.
 
         Mirror of :func:`_fetch_feature_view_rows` for FeatureGroup
@@ -1949,6 +2105,7 @@ class FeatureManager(SqlExecutionMixin):
                 target.database,
                 target.schema,
                 ctx.connection.warehouse or "",
+                on_progress=on_progress,
             )
         except FeatureStoreNotInitializedError:
             raise
