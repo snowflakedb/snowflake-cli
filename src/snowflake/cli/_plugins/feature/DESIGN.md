@@ -63,7 +63,7 @@ All non-`init` Snowflake-bound commands take `--from <project_root>` (default cw
 | `snow feature apply`    | `apply()`            | Pure plan-file consumer (auto-discovers latest `feature_plan_*.json` under `<project_root>/out/plan/` or honours `--plan`). L6 now checks BOTH (a) `target.account_identifier` matches `get_account_identifier(connection)` and (b) plan envelope's `target_name` matches `--target` (D4-ext). |
 | `snow feature plan`     | `plan()` + `write_plan()` | Validate + generate_plan; persists JSON to `<project_root>/out/plan/feature_plan_<ts>.json` on success. `--dev` threads through to `decl_api.validate_specs(dev_mode=...)` so version invariants are properly relaxed. |
 | `snow feature list`     | `list_specs()`       | Lists Snowflake state for the resolved manifest target. |
-| `snow feature describe` | `describe()`         | Single-object metadata lookup        |
+| `snow feature describe` | `describe()`         | Single-object metadata lookup. Optional `--version` disambiguates objects that share a base name but differ only by version; OFT resolution is delegated to `decl_api.resolve_oft_name`, which errors (listing versions) when a bare name is ambiguous. |
 
 ### Manifest discovery + target resolution (`_resolve_project`)
 
