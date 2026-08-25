@@ -3553,3 +3553,89 @@ class TestListSpecsThreadsProgress:
             assert (
                 cb is None
             ), f"{facade} must receive on_progress=None when silent; got {cb!r}"
+
+
+class TestCumulativeProgress:
+    """``_RichStateFetchProgress`` renders ONE cumulative, monotonic bar.
+
+    ``completed`` never resets between phases and ``total`` grows as each
+    listing reveals its count; ``begin_phase`` relabels (and finalizes the
+    prior phase into the running base) before the next slow fetch so the
+    label is never stale and the count only ever climbs.
+    """
+
+    @staticmethod
+    def _make_handle():
+        from rich.progress import Progress
+        from snowflake.cli._plugins.feature.manager import _RichStateFetchProgress
+
+        # A live-refresh thread would fight the test; disable auto-refresh so
+        # ``tasks[0]`` reflects exactly the ``update`` calls we drive.
+        progress = Progress(auto_refresh=False)
+        task_id = progress.add_task("Loading feature store state", total=None)
+        return progress, _RichStateFetchProgress(progress, task_id)  # noqa: SLF001
+
+    def test_total_grows_and_completed_is_monotonic_across_phases(self):
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        # Phase 1: entities — spinner until the count is known, then 8 ticks.
+        handle.begin_phase("Loading entities")
+        assert task.completed == 0
+        assert task.total is None  # indeterminate spinner during collect()
+
+        cb1 = handle.callback("Loading entities")
+        cb1(0, 8, "")
+        assert task.total == 8
+        assert task.completed == 0
+        for i in range(1, 9):
+            cb1(i, 8, f"E{i}")
+        assert task.completed == 8
+        assert task.total == 8
+
+        # Phase 2: feature groups — begin_phase must NOT reset completed, and
+        # the total is not yet extended (still 8) while the collect runs.
+        handle.begin_phase("Loading feature groups")
+        assert task.completed == 8, "completed must be monotonic across phases"
+        assert task.description == "Loading feature groups"
+        assert task.total == 8
+
+        cb2 = handle.callback("Loading feature groups")
+        cb2(0, 3, "")
+        assert task.total == 11, "total must grow as the next listing returns"
+        assert task.completed == 8
+        for i in range(1, 4):
+            cb2(i, 3, f"G{i}")
+        assert task.completed == 11
+        assert task.total == 11
+
+    def test_empty_phase_extends_total_by_zero_and_keeps_completed(self):
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        handle.begin_phase("Loading entities")
+        cb1 = handle.callback("Loading entities")
+        cb1(0, 2, "")
+        cb1(1, 2, "E1")
+        cb1(2, 2, "E2")
+        assert task.completed == 2
+        assert task.total == 2
+
+        # An empty phase reveals a zero count: total unchanged, completed held.
+        handle.begin_phase("Loading feature groups")
+        cb2 = handle.callback("Loading feature groups")
+        cb2(0, 0, "")
+        assert task.total == 2
+        assert task.completed == 2
+
+
+class TestNullProgressBeginPhase:
+    """The silent/JSON handle stays a no-op, including ``begin_phase``."""
+
+    def test_begin_phase_is_noop_and_callback_is_none(self):
+        from snowflake.cli._plugins.feature.manager import _NullStateFetchProgress
+
+        handle = _NullStateFetchProgress()  # noqa: SLF001
+        # Must not raise and must not construct any Rich objects.
+        handle.begin_phase("Loading entities")
+        assert handle.callback("Loading entities") is None
