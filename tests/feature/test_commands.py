@@ -978,6 +978,36 @@ def test_list_json_omits_schema_header(mock_manager, runner):
     assert "details" not in payload[0]
 
 
+@mock.patch(FEATURE_MANAGER)
+def test_list_json_has_no_progress_phase_text(mock_manager, runner):
+    """The state-fetch progress bar is TABLE-only.  In structured mode
+    (``--format json``) none of the sequential phase labels may leak into
+    the machine-readable output — the bar renders on a stderr Console
+    that is suppressed when ``get_cli_context().silent`` is True.
+    """
+    mock_manager.return_value.list_specs.return_value = {
+        "source": "snowflake",
+        "specs": [],
+    }
+    result = runner.invoke(["feature", "list", "--format", "json"])
+    assert result.exit_code == 0, result.output
+
+    for phrase in (
+        "Loading online feature tables",
+        "Loading feature views",
+        "Loading entities",
+        "Loading feature groups",
+    ):
+        assert phrase not in result.output, (
+            f"progress phase {phrase!r} must not appear in --format json "
+            f"output; got: {result.output!r}"
+        )
+
+    # Structured stdout still parses cleanly (no progress text prepended).
+    payload = _json_from_output(result.output)
+    assert isinstance(payload, (list, dict))
+
+
 # ---------------------------------------------------------------------------
 # describe
 # ---------------------------------------------------------------------------

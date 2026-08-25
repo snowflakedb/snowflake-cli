@@ -203,6 +203,10 @@ def mock_cli_context():
         ctx.connection.warehouse = "TEST_WH"
         ctx.connection.role = "TEST_ROLE"
         ctx.connection.account = "TEST_ORG-TEST_ACCT"
+        # Default to a TABLE (non-structured) context so the state-fetch
+        # progress bar path is the one exercised by default; the
+        # structured-output tests flip this to True.
+        ctx.silent = False
         m.return_value = ctx
         yield m
 
@@ -3365,3 +3369,187 @@ class TestFeatureManagerSync:
         )
         assert result["status"] == "synced"
         assert result["files"] == []
+
+
+# ===========================================================================
+# State-fetch progress bar (stderr, TABLE-only).  The CLI renders a Rich
+# ``Progress`` on stderr while ``plan`` / ``list`` fetch online-feature-table
+# specs and enumerate feature views / entities / feature groups.  The library
+# stays silent: the manager passes a per-row ``on_progress`` callback into
+# ``_fetch_oft_state`` and the ``decl_api.fetch_*`` facades.  When the output
+# is structured (JSON/CSV) or ``--silent`` is set, ``get_cli_context().silent``
+# is True and NO bar is constructed and NO callback is threaded.
+# ===========================================================================
+
+
+class _ProgressRecorder:
+    """Records every ``on_progress(completed, total, label)`` call."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, completed, total, label):
+        self.calls.append((completed, total, label))
+
+
+class TestStateFetchProgressOftLoop:
+    """``_fetch_oft_state`` must drive the per-OFT progress callback:
+    ``(0, N, "")`` once up front, then ``(i, N, name)`` per OFT row."""
+
+    def test_fetch_oft_state_reports_progress_per_oft(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        state_sqls = {
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        oft_rows = [{"name": "OFT_A"}, {"name": "OFT_B"}]
+        mock_execute_query.return_value = iter([{"spec": "{}"}])
+        mock_decl.parse_specification_rows.return_value = {"kind": "BatchFeatureView"}
+
+        rec = _ProgressRecorder()
+        FeatureManager()._fetch_oft_state(  # noqa: SLF001
+            oft_rows, state_sqls, on_progress=rec
+        )
+
+        assert rec.calls[0] == (0, 2, "")
+        assert rec.calls[1] == (1, 2, "OFT_A")
+        assert rec.calls[2] == (2, 2, "OFT_B")
+        assert len(rec.calls) == 3
+
+    def test_fetch_oft_state_empty_reports_zero_total(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        state_sqls = {
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        rec = _ProgressRecorder()
+        mgr = FeatureManager()
+        mgr._fetch_oft_state([], state_sqls, on_progress=rec)  # noqa: SLF001
+
+        assert rec.calls == [(0, 0, "")]
+
+    def test_fetch_oft_state_none_callback_is_noop(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        state_sqls = {
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        mock_execute_query.return_value = iter([{"spec": "{}"}])
+        mock_decl.parse_specification_rows.return_value = {"kind": "BatchFeatureView"}
+
+        result = FeatureManager()._fetch_oft_state(  # noqa: SLF001
+            [{"name": "OFT_A"}], state_sqls, on_progress=None
+        )
+        assert "OFT_A" in result
+
+
+class TestStateFetchProgressHelper:
+    """``_state_fetch_progress`` gates on ``get_cli_context().silent``."""
+
+    def test_silent_yields_none_callback(self, mock_cli_context):
+        from snowflake.cli._plugins.feature import manager as mgr
+
+        mock_cli_context.return_value.silent = True
+        with mgr._state_fetch_progress() as prog:  # noqa: SLF001
+            assert prog.callback("Loading feature views") is None
+
+    def test_non_silent_yields_callable(self, mock_cli_context):
+        from snowflake.cli._plugins.feature import manager as mgr
+
+        mock_cli_context.return_value.silent = False
+        with mgr._state_fetch_progress() as prog:  # noqa: SLF001
+            cb = prog.callback("Loading feature views")
+            assert callable(cb)
+            # Driving the callback must not raise (it updates the bar).
+            cb(0, 2, "")
+            cb(1, 2, "FV_A")
+            cb(2, 2, "FV_B")
+
+    def test_silent_constructs_no_rich_progress(self, mock_cli_context):
+        from snowflake.cli._plugins.feature import manager as mgr
+
+        mock_cli_context.return_value.silent = True
+        with mock.patch("rich.progress.Progress") as mock_progress:
+            with mgr._state_fetch_progress() as prog:  # noqa: SLF001
+                prog.callback("Loading feature views")
+        mock_progress.assert_not_called()
+
+    def test_non_silent_writes_to_stderr_not_stdout(self, mock_cli_context):
+        """The bar targets a stderr ``Console`` so JSON/CSV on stdout stays
+        parseable even if someone forgot to set ``--format``."""
+        import sys
+
+        from snowflake.cli._plugins.feature import manager as mgr
+
+        mock_cli_context.return_value.silent = False
+        with mock.patch("rich.console.Console") as mock_console:
+            with mgr._state_fetch_progress():  # noqa: SLF001
+                pass
+        # A Console was constructed bound to sys.stderr.
+        assert any(
+            call.kwargs.get("file") is sys.stderr
+            for call in mock_console.call_args_list
+        ), f"expected a Console(file=sys.stderr); got {mock_console.call_args_list!r}"
+
+
+class TestListSpecsThreadsProgress:
+    """``list_specs`` threads the progress callback into every fetch seam
+    when not silent, and passes ``None`` when silent (JSON/CSV/--silent)."""
+
+    def test_threads_callable_callback_when_not_silent(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_cli_context.return_value.silent = False
+
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+
+        for facade in (
+            mock_decl.fetch_feature_view_rows,
+            mock_decl.fetch_entity_rows,
+            mock_decl.fetch_feature_group_rows,
+        ):
+            assert facade.called, f"{facade} was not called by list_specs"
+            cb = facade.call_args.kwargs.get("on_progress")
+            assert callable(cb), (
+                f"{facade} must receive a callable on_progress when not "
+                f"silent; got {cb!r}"
+            )
+
+    def test_threads_none_callback_when_silent(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_cli_context.return_value.silent = True
+
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+
+        for facade in (
+            mock_decl.fetch_feature_view_rows,
+            mock_decl.fetch_entity_rows,
+            mock_decl.fetch_feature_group_rows,
+        ):
+            assert facade.called, f"{facade} was not called by list_specs"
+            cb = facade.call_args.kwargs.get("on_progress")
+            assert (
+                cb is None
+            ), f"{facade} must receive on_progress=None when silent; got {cb!r}"
