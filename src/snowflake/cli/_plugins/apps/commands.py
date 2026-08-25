@@ -29,7 +29,15 @@ import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, Callable, Literal, NamedTuple, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Iterator,
+    Literal,
+    NamedTuple,
+    Optional,
+)
 
 import typer
 from click import ClickException
@@ -95,7 +103,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
-from snowflake.connector.errors import ProgrammingError
+from snowflake.connector.errors import OperationalError, ProgrammingError
 
 if TYPE_CHECKING:
     from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
@@ -399,6 +407,57 @@ def _storage_fqn(storage: _CodeStorage, *, database: str, schema: str) -> FQN:
     )
 
 
+def _failing_upload_file(exc: BaseException) -> Optional[str]:
+    """Return the local file an upload error names, if it names one.
+
+    Files are uploaded concurrently, so the exception that surfaces is not tied
+    to any yielded result. A local filesystem error identifies its own file; a
+    connector error does not, and its message text has to speak for itself.
+    """
+    filename = getattr(exc, "filename", None)
+    return str(filename) if filename else None
+
+
+def _stream_uploads(
+    manager: SnowflakeAppManager,
+    uploads: Iterator[dict],
+    *,
+    phase: UploadPhase,
+    target: str,
+    metrics,
+    reraise: tuple[type[BaseException], ...] = (),
+) -> None:
+    """Report upload progress, and explain a failure in context.
+
+    ``OperationalError`` matters as much as ``ProgrammingError`` here: the
+    connector raises it for a failed file transfer, so an ``except
+    ProgrammingError`` alone lets those through as a raw traceback.
+
+    Exceptions listed in *reraise* are left untouched for a caller that can
+    recover from them; wrapping those would silently disable that recovery.
+    """
+    files_uploaded = 0
+    try:
+        for result in uploads:
+            files_uploaded += 1
+            cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
+    except (ProgrammingError, OperationalError, OSError) as e:
+        if isinstance(e, reraise):
+            raise
+        raise classify_upload_error(
+            e,
+            phase=phase,
+            target=target,
+            role=manager.current_role(),
+            source_file=_failing_upload_file(e),
+            files_uploaded=files_uploaded,
+        ) from e
+    finally:
+        # Recorded on the failure path too, so telemetry shows how far the
+        # upload got before it broke.
+        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+
+
 def _upload_via_workspace(
     manager: SnowflakeAppManager,
     *,
@@ -451,16 +510,22 @@ def _upload_via_workspace(
             ) from e
     with metrics.span("snowflake_app.upload.push_workspace_files"):
         cli_console.step(f"Uploading bundled files to {workspace_source_uri}")
-        files_uploaded = 0
-        for result in manager.upload_to_workspace(
-            local_root=project_paths.bundle_root,
-            workspace_fqn=workspace_fqn,
-            target_subdirectory=app_name,
-            overwrite=True,
-        ):
-            files_uploaded += 1
-            cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
-        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+        _stream_uploads(
+            manager,
+            manager.upload_to_workspace(
+                local_root=project_paths.bundle_root,
+                workspace_fqn=workspace_fqn,
+                target_subdirectory=app_name,
+                overwrite=True,
+            ),
+            phase=UploadPhase.PUSH_WORKSPACE_FILES,
+            target=workspace_source_uri,
+            metrics=metrics,
+            # A regular database can still fall back to a stage, so a SQL
+            # error has to stay raw for the caller to catch. Anything else it
+            # cannot recover from, so those are wrapped.
+            reraise=() if is_personal_database(database) else (ProgrammingError,),
+        )
 
 
 def _upload_via_stage(
@@ -511,15 +576,17 @@ def _upload_via_stage(
 
     with metrics.span("snowflake_app.upload.push_stage_files"):
         cli_console.step(f"Uploading bundled files to @{stage_fqn}")
-        files_uploaded = 0
-        for result in manager.upload_to_stage(
-            local_root=project_paths.bundle_root,
-            stage_fqn=stage_fqn,
-            overwrite=True,
-        ):
-            files_uploaded += 1
-            cli_console.step(f"  Uploaded {result['source']} -> {result['target']}")
-        metrics.set_counter(FILES_UPLOADED_COUNTER, files_uploaded)
+        _stream_uploads(
+            manager,
+            manager.upload_to_stage(
+                local_root=project_paths.bundle_root,
+                stage_fqn=stage_fqn,
+                overwrite=True,
+            ),
+            phase=UploadPhase.PUSH_STAGE_FILES,
+            target=f"@{stage_fqn.identifier}",
+            metrics=metrics,
+        )
 
 
 def _upload_app_code(
