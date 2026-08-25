@@ -11,10 +11,6 @@ entities:
       - src: app/*
         dest: ./
     query_warehouse: xsmall
-    build_compute_pool:
-      name: snowcli_compute_pool
-    service_compute_pool:
-      name: snowcli_compute_pool
     build_eai: null
     artifact_repository:
       name: SNOW_APPS_DEFAULT_ARTIFACT_REPOSITORY
