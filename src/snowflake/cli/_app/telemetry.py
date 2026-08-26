@@ -67,6 +67,7 @@ class CLITelemetryField(Enum):
     # _get_auth_type.
     COMMAND_AUTH_TYPE = "command_auth_type"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
+    COMMAND_AGENT_SESSION_ID = "command_agent_session_id"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
     CONFIG_PROVIDER_TYPE = "config_provider_type"
@@ -395,6 +396,16 @@ def _detect_agent_environment() -> str:
     return "UNKNOWN"
 
 
+def _get_agent_session_id() -> str:
+    """Return the detected agent's session ID, or empty string."""
+    agent = _detect_agent_environment()
+    if agent == "CORTEX":
+        return os.environ.get("CORTEX_SESSION_ID", "").strip()
+    if agent == "CLAUDE_CODE":
+        return os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
+    return ""
+
+
 def command_info() -> str:
     info = _find_command_info()
     command = ".".join(info[CLITelemetryField.COMMAND])
@@ -471,6 +482,7 @@ class CLITelemetryClient:
             CLITelemetryField.COMMAND_CI_AUTH_TYPE: _get_ci_auth_type(),
             CLITelemetryField.COMMAND_AUTH_TYPE: _get_auth_type(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
+            CLITelemetryField.COMMAND_AGENT_SESSION_ID: _get_agent_session_id(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
