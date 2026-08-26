@@ -91,6 +91,7 @@ from snowflake.cli.api.config import (
     get_file_io_encoding,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
@@ -528,6 +529,140 @@ def _upload_via_workspace(
         )
 
 
+def _create_stage_if_permitted(
+    manager: SnowflakeAppManager, stage_fqn: FQN, encryption: str
+) -> Optional[ProgrammingError]:
+    """Create *stage_fqn*, returning the refusal if the role is not allowed to.
+
+    ``CREATE STAGE IF NOT EXISTS`` is a no-op when the stage is already there,
+    but it still needs CREATE STAGE on the schema, so it doubles as a probe:
+    it answers "could this stage be created again?" before anything drops it.
+
+    Only an insufficient-privileges failure is returned, because that is the
+    one the caller has an answer for; anything else is a real error.
+    """
+    try:
+        manager.create_stage(stage_fqn, encryption)
+        return None
+    except ProgrammingError as e:
+        if getattr(e, "errno", None) != INSUFFICIENT_PRIVILEGES:
+            raise
+        return e
+
+
+def _drop_stage_for_recreate(manager: SnowflakeAppManager, stage_fqn: FQN) -> bool:
+    """Drop *stage_fqn* so it can be recreated empty; False if not permitted.
+
+    ``DROP STAGE`` is documented as requiring OWNERSHIP. Only an
+    insufficient-privileges failure is read as "not permitted", because that is
+    the one the caller has a fallback for; anything else is a real error and
+    propagates.
+    """
+    try:
+        manager.drop_stage_if_exists(stage_fqn)
+        return True
+    except ProgrammingError as e:
+        if getattr(e, "errno", None) != INSUFFICIENT_PRIVILEGES:
+            raise
+        log.debug(
+            "Not permitted to drop stage %s; clearing its contents instead.",
+            stage_fqn.identifier,
+            exc_info=True,
+        )
+        return False
+
+
+def _warn_stage_cleared_not_recreated(stage_fqn: FQN, reason: str) -> None:
+    """Say that the stage was emptied in place, and what that costs."""
+    cli_console.warning(
+        f"Clearing stage @{sanitize_for_terminal(stage_fqn.identifier)} "
+        f"instead of recreating it, because {reason}. Files deleted from the "
+        "project since the last deploy may survive on the stage. Grant the "
+        "deploying role OWNERSHIP on the stage and CREATE STAGE on the schema "
+        "to have it recreated cleanly."
+    )
+
+
+def _empty_stage_for_upload(
+    manager: SnowflakeAppManager, stage_fqn: FQN, encryption: str
+) -> bool:
+    """Present an empty stage for the upload, and say whether it was created.
+
+    The upload has to start from an empty stage so files left over from an
+    earlier deploy never leak into the build. Dropping and recreating is the
+    only way to guarantee that, but it needs OWNERSHIP on the stage and CREATE
+    STAGE on the schema, and a deploying role often holds neither — such a role
+    could never redeploy at all.
+
+    So the approach follows what the role can do: drop and recreate when it can
+    do both, and otherwise clear the stage with ``REMOVE``, which needs only
+    WRITE. The weaker guarantee ``REMOVE`` gives is bounded, because every
+    ``PUT`` uses ``overwrite=true``: a file still in the project is always
+    replaced by its current version, and only a file deleted from the project
+    since the last deploy can survive. That path warns.
+
+    The order matters. ``CREATE STAGE IF NOT EXISTS`` runs first because it is
+    the one statement that is safe to attempt either way — a no-op when the
+    stage exists — so it reports whether the role could recreate the stage
+    while the stage is still there to fall back on. Dropping first would leave
+    a role that can drop but not create with no stage at all and no way to get
+    one back.
+
+    Each statement needs a different privilege, so the action and the privilege
+    are tracked as the block progresses and a failure names only the one that
+    actually applied.
+    """
+    action = "look up stage"
+    required_privilege = "USAGE on the schema"
+    try:
+        stage_existed = manager.stage_exists(stage_fqn)
+        cli_console.step(
+            f"Recreating stage @{stage_fqn}"
+            if stage_existed
+            else f"Creating stage @{stage_fqn}"
+        )
+
+        action = "create stage"
+        required_privilege = "CREATE STAGE on the schema"
+        cannot_create = _create_stage_if_permitted(manager, stage_fqn, encryption)
+        if not stage_existed:
+            if cannot_create:
+                raise cannot_create
+            return True
+
+        if cannot_create is None:
+            action = "drop stage"
+            required_privilege = "OWNERSHIP on the stage"
+            if _drop_stage_for_recreate(manager, stage_fqn):
+                action = "create stage"
+                required_privilege = "CREATE STAGE on the schema"
+                manager.create_stage(stage_fqn, encryption)
+                return True
+
+        _warn_stage_cleared_not_recreated(
+            stage_fqn,
+            "the deploying role cannot create it again"
+            if cannot_create
+            else "the deploying role cannot drop it",
+        )
+        action = "clear stage"
+        required_privilege = "WRITE on the stage"
+        manager.remove_stage_contents(stage_fqn)
+        return False
+    except ProgrammingError as e:
+        raise classify_upload_error(
+            e,
+            phase=UploadPhase.PREPARE_STAGE,
+            target=stage_fqn.identifier,
+            action=action,
+            required_privilege=required_privilege,
+            role=manager.current_role(),
+            database=stage_fqn.database,
+            schema=stage_fqn.schema,
+            encryption_type=encryption,
+        ) from e
+
+
 def _upload_via_stage(
     manager: SnowflakeAppManager,
     *,
@@ -535,44 +670,14 @@ def _upload_via_stage(
     encryption: str,
     project_paths,
     metrics,
-) -> None:
-    """Prepare and upload the stage code-storage backend."""
+) -> bool:
+    """Prepare and upload the stage code-storage backend.
+
+    Returns whether this invocation created the stage, so the caller knows
+    whether it may drop it once the build has consumed it.
+    """
     with metrics.span("snowflake_app.upload.prepare_stage"):
-        # Start the upload from an empty stage so files left over from a prior
-        # deploy never leak into the build. Clearing with REMOVE can leave stale
-        # chunks behind, so drop and recreate instead — but drop only when the
-        # stage already exists. A first deploy has nothing to drop, and issuing
-        # DROP STAGE there would demand OWNERSHIP the deploying role need not
-        # hold, so skipping it lets a role with only CREATE STAGE deploy.
-        #
-        # Each statement needs a different privilege, so the action and the
-        # privilege are tracked as the block progresses and the error names
-        # only the one that actually failed.
-        action = "look up stage"
-        required_privilege = "USAGE on the schema"
-        try:
-            if manager.stage_exists(stage_fqn):
-                cli_console.step(f"Recreating stage @{stage_fqn}")
-                action = "drop stage"
-                required_privilege = "OWNERSHIP on the stage"
-                manager.drop_stage_if_exists(stage_fqn)
-            else:
-                cli_console.step(f"Creating stage @{stage_fqn}")
-            action = "create stage"
-            required_privilege = "CREATE STAGE on the schema"
-            manager.create_stage(stage_fqn, encryption)
-        except ProgrammingError as e:
-            raise classify_upload_error(
-                e,
-                phase=UploadPhase.PREPARE_STAGE,
-                target=stage_fqn.identifier,
-                action=action,
-                required_privilege=required_privilege,
-                role=manager.current_role(),
-                database=stage_fqn.database,
-                schema=stage_fqn.schema,
-                encryption_type=encryption,
-            ) from e
+        stage_created = _empty_stage_for_upload(manager, stage_fqn, encryption)
 
     with metrics.span("snowflake_app.upload.push_stage_files"):
         cli_console.step(f"Uploading bundled files to @{stage_fqn}")
@@ -587,6 +692,8 @@ def _upload_via_stage(
             target=f"@{stage_fqn.identifier}",
             metrics=metrics,
         )
+
+    return stage_created
 
 
 def _upload_app_code(
@@ -607,21 +714,22 @@ def _upload_app_code(
     stage_created)``; ``storage_fqn`` may change when a regular-database
     workspace upload fails and the flow falls back to a ``<app>_CODE`` stage,
     and ``stage_created`` records whether this invocation created a stage (so
-    the caller can drop it once the build has consumed it).
+    the caller can drop it once the build has consumed it). A stage that was
+    cleared rather than recreated — because the role does not own it — is not
+    reported as created, since dropping it would fail for the same reason.
     """
     use_workspace = storage.type == "workspace"
     encryption_type = storage.encryption_type
     stage_created = False
     with metrics.span("snowflake_app.upload"):
         if not use_workspace:
-            _upload_via_stage(
+            stage_created = _upload_via_stage(
                 manager,
                 stage_fqn=storage_fqn,
                 encryption=encryption_type,
                 project_paths=project_paths,
                 metrics=metrics,
             )
-            stage_created = True
         elif is_personal_database(database):
             # Personal databases must use a workspace; there is no stage to fall
             # back to, so workspace failures surface as an actionable privilege
@@ -660,14 +768,13 @@ def _upload_app_code(
                     schema=schema,
                     name=f"{app_name}_CODE",
                 )
-                _upload_via_stage(
+                stage_created = _upload_via_stage(
                     manager,
                     stage_fqn=storage_fqn,
                     encryption="SNOWFLAKE_SSE",
                     project_paths=project_paths,
                     metrics=metrics,
                 )
-                stage_created = True
     return use_workspace, storage_fqn, stage_created
 
 
