@@ -5296,7 +5296,10 @@
    Tests the connection to Snowflake.                                             
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --print-diag            Print the full per-endpoint diagnostic to stdout.    |
+  |                         Without this flag, --enable-diag writes that         |
+  |                         diagnostic only to the report file.                  |
+  | --help        -h        Show this message and exit.                          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
