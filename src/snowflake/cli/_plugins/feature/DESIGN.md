@@ -498,21 +498,35 @@ the operator sees forward motion:
   monotonic**: one task whose `completed` never resets between phases and
   whose `total` grows as each listing reveals its size. `_RichStateFetchProgress`
   tracks a running `completed_base` (sum of finished phases' totals) and
-  `known_total` (sum of every total known so far). A phase's first
+  `known_total` (sum of every count known so far). A phase's first
   `on_progress(0, n, "")` callback — fired right after the listing/`SHOW`
   returns — adds `n` to `known_total`; subsequent `on_progress(i, n, name)`
   calls set `completed = completed_base + i`. The operator therefore sees the
   count climb continuously and the total widen as more objects are
   discovered, rather than the bar snapping back to `0/n` each phase.
-- `begin_phase(label)` is called immediately before each slow fetch. It
-  finalizes the prior phase into `completed_base` and relabels the task at
-  once (dropping `total` back to `None` only when nothing is known yet), so
-  the description is never stale while the next `collect()` blocks; Rich's
-  background auto-refresh keeps the `SpinnerColumn` animating against the
-  correct label during that wait. `_fetch_oft_state` drives the callback
-  itself (the OFT count comes from `SHOW ONLINE FEATURE TABLES`); the
-  `list_*` phases are driven by the snowml `decl_api.fetch_*` facades'
-  optional `on_progress` callback.
+- The denominator is **front-loaded** so the bar never reads as "done"
+  while a slow listing is still in flight (the reported `8/8` during the
+  feature-views collect):
+  - `add_known(n)` pre-seeds `known_total` with a count that is known
+    before its phase runs. In `list_specs` the OFT `DESCRIBE` phase runs
+    last, but its count (one `DESCRIBE` per `SHOW ONLINE FEATURE TABLES`
+    row) is known up front, so `list_specs` calls `add_known(len(oft_rows))`
+    immediately after the `SHOW` and marks that phase `pre_counted=True` so
+    its `(0, n, "")` advances `completed` without adding `n` again. (The
+    `plan` bundle needs no pre-seed: its OFT phase runs *first*, so its
+    count accumulates naturally before the feature-views collect.)
+  - `begin_phase(label)` reserves `+1` on the total while a normal phase is
+    in flight (its count still unknown), released when its `(0, n, "")`
+    fires. This guarantees `total > completed` throughout every `collect()`
+    — including the `N_OFT == 0` (all-offline-BFV) edge — so the bar reads
+    mid-flight (e.g. `8/22`) instead of full.
+- `begin_phase(label)` also finalizes the prior phase into `completed_base`
+  and relabels the task at once, so the description is never stale while the
+  next `collect()` blocks; Rich's background auto-refresh keeps the
+  `SpinnerColumn` animating against the correct label during that wait.
+  `_fetch_oft_state` drives its callback itself; the `list_*` phases are
+  driven by the snowml `decl_api.fetch_*` facades' optional `on_progress`
+  callback.
 
 The library stays silent (see snowml `decl/DESIGN.md`): it only *invokes* the
 callback the CLI supplies; all rendering and the stderr/`silent` policy live
