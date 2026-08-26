@@ -85,6 +85,9 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
         del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
+        del usage_command_event["message"][
+            "command_agent_session_id"
+        ]  # to avoid side effect from CORTEX_SESSION_ID
         assert usage_command_event == {
             "message": {
                 "driver_type": "PythonConnector",
@@ -161,6 +164,9 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
         del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
+        del usage_command_event["message"][
+            "command_agent_session_id"
+        ]  # to avoid side effect from CORTEX_SESSION_ID
 
         # Verify common fields
         message = usage_command_event["message"]
@@ -298,6 +304,92 @@ def test_detect_agent_environment_returns_correct_agent(
 
     with mock.patch.dict(os.environ, {env_var: env_value}, clear=True):
         assert _detect_agent_environment() == expected_agent
+
+
+@pytest.mark.parametrize(
+    "env, expected",
+    [
+        ({"CORTEX_SESSION_ID": "abc123"}, "abc123"),
+        ({"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "claude-sess"}, "claude-sess"),
+        ({}, ""),
+        ({"CLAUDECODE": "1"}, ""),
+        ({"CLAUDE_CODE_SESSION_ID": "orphan"}, ""),
+        ({"CORTEX_SESSION_ID": "  abc123  "}, "abc123"),
+        (
+            {"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "  claude-sess  "},
+            "claude-sess",
+        ),
+        (
+            {
+                "CORTEX_SESSION_ID": "cortex-id",
+                "CLAUDECODE": "1",
+                "CLAUDE_CODE_SESSION_ID": "claude-id",
+            },
+            "cortex-id",
+        ),
+    ],
+)
+def test_get_agent_session_id(env, expected):
+    """Session id follows the detected agent; Cortex wins when both are set."""
+    from snowflake.cli._app.telemetry import _get_agent_session_id
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        assert _get_agent_session_id() == expected
+
+
+@pytest.mark.parametrize(
+    "env, expected_agent, expected_session_id",
+    [
+        ({"CORTEX_SESSION_ID": "abc123"}, "CORTEX", "abc123"),
+        (
+            {"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "claude-sess"},
+            "CLAUDE_CODE",
+            "claude-sess",
+        ),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_session_id_appears_in_telemetry(
+    _, mock_conn, runner, env, expected_agent, expected_session_id
+):
+    """The detected agent's session ID is included in the telemetry payload."""
+    with mock.patch.dict(os.environ, env, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_agent_environment"] == expected_agent
+    assert (
+        usage_command_event["message"]["command_agent_session_id"]
+        == expected_session_id
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_session_id_empty_in_telemetry_when_unset(_, mock_conn, runner):
+    """command_agent_session_id is present and empty when no agent session."""
+    with mock.patch.dict(os.environ, {}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_agent_session_id"] == ""
 
 
 def test_agent_context_non_tty_with_agent_detected():
