@@ -1838,28 +1838,36 @@ class FeatureManager(SqlExecutionMixin):
             raw_tables = _rows_to_dicts(
                 self.execute_query(sqls["show_tables"], cursor_class=DictCursor)
             )
-            progress.begin_phase("Loading online feature tables")
-            specification_map = self._fetch_oft_state(
-                raw_show,
-                sqls,
-                on_progress=progress.callback("Loading online feature tables"),
-            )
+            # Front-load the denominator with the known OFT count (its
+            # per-item DESCRIBE phase runs LAST, mirroring ``list_specs``), so
+            # the feature-view collect reads mid-flight instead of "done".
+            progress.add_known(len(raw_show))
+            # No progress callback — fetched before the visible phases so the
+            # ``list``-parity phase ordering below stays clean.
             dt_text_map = self._fetch_dt_text_map(sqls)
             progress.begin_phase("Loading entities")
             entity_rows = self._fetch_entity_rows(
                 target, on_progress=progress.callback("Loading entities")
             )
-            progress.begin_phase("Loading feature views")
-            feature_view_rows = self._fetch_feature_view_rows(
-                target, on_progress=progress.callback("Loading feature views")
-            )
             progress.begin_phase("Loading feature groups")
             feature_group_rows = self._fetch_feature_group_rows(
                 target, on_progress=progress.callback("Loading feature groups")
             )
+            progress.begin_phase("Loading feature views")
+            feature_view_rows = self._fetch_feature_view_rows(
+                target, on_progress=progress.callback("Loading feature views")
+            )
             progress.begin_phase("Loading stream sources")
             stream_source_rows = self._fetch_stream_source_rows(
                 target, on_progress=progress.callback("Loading stream sources")
+            )
+            # OFT DESCRIBE runs LAST as a pre-counted phase (count already
+            # seeded via ``add_known`` above): the big, smooth per-item motion.
+            progress.begin_phase("Loading online feature tables", pre_counted=True)
+            specification_map = self._fetch_oft_state(
+                raw_show,
+                sqls,
+                on_progress=progress.callback("Loading online feature tables"),
             )
         # Wave 3B / contract §8b: ``stream_source_rows`` (fetched above,
         # inside the progress block) is threaded runtime-authoritative into
