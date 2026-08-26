@@ -1,0 +1,91 @@
+name: Mirror tagged release to public
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - '!v*.*.*-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Final version tag to mirror (e.g. v3.12.0)'
+        type: string
+        required: true
+
+concurrency:
+  group: mirror-release
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      # Use main's scripts — the tagged tree may predate them.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve tag and release branch
+        id: refs
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          PUSHED_TAG: ${{ github.ref_name }}
+        run: |
+          tag="${INPUT_TAG:-${PUSHED_TAG}}"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: '${tag}' is not a final version tag (vX.Y.Z)" >&2
+            exit 1
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "branch=release-${tag}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/create-github-app-token@v1
+        id: mirror-token
+        with:
+          app-id: ${{ secrets.MIRRORING_APP_ID }}
+          private-key: ${{ secrets.MIRRORING_APP_PRIVATE_KEY }}
+          owner: snowflakedb
+          repositories: snowflake-cli
+
+      - name: Load config
+        run: |
+          source scripts/mirroring/lib/config.sh
+          echo "COPYBARA_RELEASE=${COPYBARA_RELEASE}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: scripts/mirroring/copybara
+          push: false
+          load: true
+          tags: copybara:local
+          build-args: |
+            COPYBARA_RELEASE=${{ env.COPYBARA_RELEASE }}
+
+      - name: Mirror release branch
+        env:
+          SOURCE_GH_TOKEN: ${{ github.token }}
+          MIRROR_GH_TOKEN: ${{ steps.mirror-token.outputs.token }}
+        run: |
+          bash scripts/mirroring/mirror-branch.sh --branch "${{ steps.refs.outputs.branch }}"
+
+      - name: Mirror release tag
+        env:
+          SOURCE_GH_TOKEN: ${{ github.token }}
+          MIRROR_GH_TOKEN: ${{ steps.mirror-token.outputs.token }}
+        run: |
+          args=(
+            "${{ steps.refs.outputs.tag }}"
+            --branch "${{ steps.refs.outputs.branch }}"
+            --branch main
+          )
+          exit_code=0
+          bash scripts/mirroring/mirror-tag.sh "${args[@]}" || exit_code=$?
+          # 2 = already on the mirror (idempotent success)
+          if [[ "${exit_code}" -ne 0 && "${exit_code}" -ne 2 ]]; then
+            exit "${exit_code}"
+          fi
