@@ -14,12 +14,13 @@
 
 """Integration test for the ``snow app deploy`` code-upload phase.
 
-Scope: this module exercises *only* the workspace code-upload path via
-``snow app deploy --upload-only``. That is the code path behind the
-Windows ``file://`` URI fix — each bundled file is sent to the workspace
-live version with a ``PUT file://...``. ``--upload-only`` stops before the
-build and service phases, so the test needs no compute pool or other
-container-service resources and runs cheaply against a real account.
+Scope: this module exercises *only* the code-upload path via ``snow app deploy
+--upload-only``, for both a workspace and a stage. That is the code path behind
+the Windows ``file://`` URI fix — each bundled file is sent to its destination
+with a ``PUT file://...`` — and the path that has to work for a role that can
+write to a stage without owning it. ``--upload-only`` stops before the build
+and service phases, so these tests need no compute pool or other
+container-service resources and run cheaply against a real account.
 
 The full deploy flow (build + service) is covered by
 ``tests_integration/tests_using_container_services/spcs/test_snowflake_apps.py``;
@@ -72,6 +73,92 @@ def unique_stage(snowflake_session):
         )
     except Exception:
         pass  # best-effort cleanup
+
+
+@pytest.fixture()
+def stage_writable_but_not_owned(snowflake_session, unique_stage, test_role):
+    """Create a stage the connection's role owns and *test_role* can write to.
+
+    This is the situation the deploy has to handle: the deploying role can put
+    files on the stage but cannot replace the stage itself, because it neither
+    owns the stage nor may create one in the schema. Only the grants needed to
+    reach and write to the stage are given, so the deploy has to cope without
+    CREATE STAGE.
+    """
+    stage = f"{DATABASE}.{SCHEMA}.{unique_stage}"
+    snowflake_session.execute_string(
+        f"CREATE STAGE {stage} ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE');"
+        f"GRANT USAGE ON DATABASE {DATABASE} TO ROLE {test_role};"
+        f"GRANT USAGE ON SCHEMA {DATABASE}.{SCHEMA} TO ROLE {test_role};"
+        f"GRANT READ, WRITE ON STAGE {stage} TO ROLE {test_role};"
+        f"GRANT USAGE ON WAREHOUSE {WAREHOUSE} TO ROLE {test_role};"
+    )
+    return unique_stage
+
+
+@pytest.mark.integration
+def test_deploy_upload_only_uploads_to_a_stage_the_role_does_not_own(
+    runner,
+    temporary_working_directory,
+    snowflake_session,
+    test_role,
+    stage_writable_but_not_owned,
+):
+    """A role with WRITE but not OWNERSHIP can upload to an existing stage.
+
+    The upload used to begin by dropping the stage and creating it again, which
+    such a role cannot do, so it could never deploy to a stage that already
+    existed. The stage contents are cleared instead, and the stage itself has
+    to survive: recreating it is exactly what this role cannot do.
+    """
+    stage_name = stage_writable_but_not_owned
+    app_name = f"STAGE_REDEPLOY_APP_{uuid.uuid4().hex[:8]}"
+
+    project_dir = Path(temporary_working_directory)
+    (project_dir / "app").mkdir(parents=True)
+    (project_dir / "app" / "main.py").write_text("print('hello from snowflake app')\n")
+
+    (project_dir / "snowflake.yml").write_text(
+        textwrap.dedent(
+            f"""\
+            definition_version: "2"
+            entities:
+              stage_app:
+                type: snowflake-app
+                identifier:
+                  name: {app_name}
+                  database: {DATABASE}
+                  schema: {SCHEMA}
+                artifacts:
+                  - src: app/*
+                    dest: ./
+                query_warehouse: {WAREHOUSE}
+                code_stage:
+                  name: {stage_name}
+            """
+        )
+    )
+
+    result = runner.invoke_with_connection(
+        [
+            "app",
+            "deploy",
+            "--entity-id",
+            "stage_app",
+            "--upload-only",
+            "--role",
+            test_role,
+        ]
+    )
+    assert result.exit_code == 0, f"Upload failed:\n{result.output}"
+    assert "instead of recreating it" in result.output
+    assert "Artifacts uploaded to" in result.output
+    assert "main.py" in result.output
+
+    (stages,) = snowflake_session.execute_string(
+        f"SHOW STAGES LIKE '{stage_name}' IN SCHEMA {DATABASE}.{SCHEMA}"
+    )
+    assert stages.fetchall(), f"The deploy left no stage named {stage_name}"
 
 
 @pytest.mark.integration
