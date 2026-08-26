@@ -3555,6 +3555,100 @@ class TestListSpecsThreadsProgress:
             ), f"{facade} must receive on_progress=None when silent; got {cb!r}"
 
 
+class _BundleProgressRecorder:
+    """Records the progress-handle calls the bundle makes."""
+
+    def __init__(self):
+        self.add_known_calls = []
+        self.begin_phase_calls = []  # (label, pre_counted)
+
+    def add_known(self, n):
+        self.add_known_calls.append(n)
+
+    def begin_phase(self, label, *, pre_counted=False):
+        self.begin_phase_calls.append((label, pre_counted))
+
+    def callback(self, label):
+        return lambda *a, **k: None
+
+
+class TestBundleThreadsProgress:
+    """``_fetch_applied_state_bundle`` (the ``plan`` path) drives the
+    progress bar with the same front-loaded design as ``list``: pre-seed the
+    OFT count, run the OFT DESCRIBE phase last as ``pre_counted``, and order
+    the per-item listings the same way (plus a stream-sources phase)."""
+
+    def test_bundle_matches_list_progress_design(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        import contextlib
+
+        from snowflake.cli._plugins.feature import manager as mgr
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_cli_context.return_value.silent = False
+
+        # Two OFT rows so ``add_known`` reflects the SHOW-OFT row count; empty
+        # results for every other query keep the real helpers cheap.
+        oft_rows = [{"name": "OFT_A"}, {"name": "OFT_B"}]
+
+        def _exec(sql, *a, **k):
+            if str(sql).startswith("SHOW ONLINE FEATURE TABLES"):
+                return iter(list(oft_rows))
+            return iter([])
+
+        mock_execute_query.side_effect = _exec
+
+        rec = _BundleProgressRecorder()
+
+        @contextlib.contextmanager
+        def _fake_progress():
+            yield rec
+
+        with mock.patch.object(mgr, "_state_fetch_progress", _fake_progress):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                dev_mode=False,
+                allow_recreate=False,
+            )
+
+        # Pre-seed: add_known called once with the SHOW-OFT row count.
+        assert rec.add_known_calls == [len(oft_rows)]
+
+        # Phase order mirrors list (entities, feature groups, feature views),
+        # then the plan-only stream sources, then the OFT DESCRIBE phase last.
+        labels = [lbl for (lbl, _pc) in rec.begin_phase_calls]
+        assert labels == [
+            "Loading entities",
+            "Loading feature groups",
+            "Loading feature views",
+            "Loading stream sources",
+            "Loading online feature tables",
+        ]
+
+        # Only the (last) OFT DESCRIBE phase is pre-counted.
+        pre_counted = dict(rec.begin_phase_calls)
+        assert pre_counted["Loading online feature tables"] is True
+        assert all(
+            pc is False
+            for (lbl, pc) in rec.begin_phase_calls
+            if lbl != "Loading online feature tables"
+        )
+
+        # Every listing facade receives a callable on_progress when not silent.
+        for facade in (
+            mock_decl.fetch_entity_rows,
+            mock_decl.fetch_feature_group_rows,
+            mock_decl.fetch_feature_view_rows,
+            mock_decl.fetch_stream_source_rows,
+        ):
+            assert facade.called, f"{facade} was not called by the bundle"
+            assert callable(facade.call_args.kwargs.get("on_progress"))
+
+
 class TestCumulativeProgress:
     """``_RichStateFetchProgress`` renders ONE cumulative, monotonic bar.
 
