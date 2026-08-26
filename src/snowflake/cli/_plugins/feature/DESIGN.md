@@ -503,7 +503,11 @@ the operator sees forward motion:
   returns — adds `n` to `known_total`; subsequent `on_progress(i, n, name)`
   calls set `completed = completed_base + i`. The operator therefore sees the
   count climb continuously and the total widen as more objects are
-  discovered, rather than the bar snapping back to `0/n` each phase.
+  discovered, rather than the bar snapping back to `0/n` each phase. The
+  per-item `name` is intentionally **not** rendered in the description — a
+  long feature-view/object name changes width tick to tick and would shift
+  the bar's right edge around, so the description stays the fixed phase label
+  (e.g. `Loading feature views`) while `completed` advances.
 - The denominator is **front-loaded** so the bar never reads as "done"
   while a slow listing is still in flight (the reported `8/8` during the
   feature-views collect):
