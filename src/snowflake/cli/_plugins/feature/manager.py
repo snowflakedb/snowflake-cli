@@ -89,11 +89,15 @@ class _NullStateFetchProgress:
     """No-op progress handle used when output is structured / silent.
 
     ``callback`` always returns ``None`` so every fetch seam receives
-    ``on_progress=None`` and no bar is constructed.  ``begin_phase`` is a
-    no-op so callers can relabel unconditionally.
+    ``on_progress=None`` and no bar is constructed.  ``begin_phase`` and
+    ``add_known`` are no-ops so callers can relabel / pre-seed
+    unconditionally.
     """
 
-    def begin_phase(self, phase_label: str) -> None:
+    def begin_phase(self, phase_label: str, *, pre_counted: bool = False) -> None:
+        return None
+
+    def add_known(self, n: int) -> None:
         return None
 
     def callback(self, phase_label: str) -> Optional[ProgressCallback]:
@@ -103,17 +107,24 @@ class _NullStateFetchProgress:
 class _RichStateFetchProgress:
     """Drives ONE cumulative, monotonic Rich task across the fetch phases.
 
-    ``completed`` never resets between phases and ``total`` grows as each
-    listing reveals its count, so the operator always sees forward motion
-    and a total that widens as more objects are discovered:
+    ``completed`` never resets between phases, and the denominator is
+    front-loaded so the bar never reads as "done" while a slow listing is
+    still in flight:
 
+    - ``add_known(n)`` pre-seeds the total with a count we already know
+      before its phase runs (the ``SHOW ONLINE FEATURE TABLES`` row count,
+      which is exactly how many ``DESCRIBE``s the OFT phase will emit).
     - ``begin_phase(label)`` is called right before each slow fetch.  It
-      finalizes the previous phase into a running ``completed_base`` and
-      relabels the task immediately (the ``SpinnerColumn`` keeps animating
-      via Rich's background refresh while the blocking ``collect()`` runs),
-      so the description is never stale.
-    - The fetch's first ``(0, n, "")`` callback adds ``n`` to the running
-      ``known_total`` (the moment this phase's size is known); subsequent
+      finalizes the previous phase into ``completed_base`` and relabels the
+      task immediately (the ``SpinnerColumn`` keeps animating via Rich's
+      background refresh while the blocking ``collect()`` runs).  For a
+      normal phase it reserves ``+1`` on the total until the count is known,
+      so ``total > completed`` throughout the collect and the bar reads
+      mid-flight rather than full.  A ``pre_counted`` phase (its count was
+      already added via ``add_known``) takes no reserve and does not
+      re-add its count.
+    - The fetch's first ``(0, n, "")`` callback releases the reserve and
+      (unless pre-counted) adds ``n`` to ``known_total``; subsequent
       ``(i, n, name)`` calls set ``completed = completed_base + i``.
     """
 
@@ -122,37 +133,63 @@ class _RichStateFetchProgress:
         self._task_id = task_id
         # Sum of the totals of phases that have fully completed.
         self._completed_base = 0
-        # Sum of every phase total known so far (grows as listings return).
+        # Sum of every phase total known so far (pre-seeds + returned counts).
         self._known_total = 0
         # The in-flight phase's total, or ``None`` until its listing returns.
         self._current_total: Optional[int] = None
+        # ``1`` while an in-flight phase's count is still unknown, else ``0``;
+        # keeps the denominator above ``completed`` during the collect.
+        self._reserve = 0
+        # Whether the in-flight phase's count was already added via
+        # ``add_known`` (so its ``(0, n, "")`` must not add it again).
+        self._pre_counted = False
 
-    def begin_phase(self, phase_label: str) -> None:
+    def _render_total(self) -> Optional[int]:
+        total = self._known_total + self._reserve
+        return total or None
+
+    def add_known(self, n: int) -> None:
+        # Pre-seed a future phase's count that is already known (the OFT
+        # DESCRIBE count from ``SHOW ONLINE FEATURE TABLES``), so the
+        # denominator is realistic before that phase runs.
+        self._known_total += n
+        self._progress.update(
+            self._task_id,
+            completed=self._completed_base,
+            total=self._render_total(),
+        )
+
+    def begin_phase(self, phase_label: str, *, pre_counted: bool = False) -> None:
         if self._current_total is not None:
             # The previous phase is done; roll its count into the base so the
             # cumulative ``completed`` stays monotonic across phases.
             self._completed_base += self._current_total
             self._current_total = None
+        self._pre_counted = pre_counted
+        # A pre-counted phase is already in ``known_total`` (no reserve); a
+        # normal phase reserves +1 until its ``(0, n, "")`` reveals the count.
+        self._reserve = 0 if pre_counted else 1
         self._progress.update(
             self._task_id,
             completed=self._completed_base,
-            # ``None`` renders an indeterminate spinner during the collect;
-            # any already-known total keeps the bar determinate.
-            total=(self._known_total or None),
+            total=self._render_total(),
             description=phase_label,
         )
 
     def callback(self, phase_label: str) -> ProgressCallback:
         def _on_progress(completed: int, total: int, label: str) -> None:
             if completed == 0:
-                # This phase's total just became known (possibly 0) — widen
-                # the cumulative total; completed holds at the running base.
+                # This phase's total just became known (possibly 0).  Release
+                # the in-flight reserve; add the count unless it was already
+                # pre-seeded via ``add_known``.
                 self._current_total = total
-                self._known_total += total
+                self._reserve = 0
+                if not self._pre_counted:
+                    self._known_total += total
                 self._progress.update(
                     self._task_id,
                     completed=self._completed_base,
-                    total=self._known_total,
+                    total=self._render_total(),
                     description=phase_label,
                 )
             else:
@@ -160,7 +197,7 @@ class _RichStateFetchProgress:
                 self._progress.update(
                     self._task_id,
                     completed=self._completed_base + completed,
-                    total=self._known_total,
+                    total=self._render_total(),
                     description=description,
                 )
 
@@ -1361,6 +1398,11 @@ class FeatureManager(SqlExecutionMixin):
                 oft_rows = _rows_to_dicts(
                     self.execute_query(queries["show_ofts"], cursor_class=DictCursor)
                 )
+                # Front-load the denominator: the OFT DESCRIBE phase runs
+                # last, but its count is already known here (one DESCRIBE per
+                # SHOW row).  Pre-seeding it keeps the bar reading mid-flight
+                # during the slow feature-views collect instead of "done".
+                progress.add_known(len(oft_rows))
 
                 progress.begin_phase("Loading entities")
                 entity_rows = self._fetch_entity_rows(
@@ -1381,7 +1423,9 @@ class FeatureManager(SqlExecutionMixin):
                     on_progress=progress.callback("Loading feature views"),
                 )
 
-                progress.begin_phase("Loading online feature tables")
+                # Pre-counted: its count was added via ``add_known`` above, so
+                # its ``(0, n, "")`` must not add it a second time.
+                progress.begin_phase("Loading online feature tables", pre_counted=True)
                 specification_map = self._fetch_oft_state(
                     oft_rows,
                     queries,
