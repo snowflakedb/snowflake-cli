@@ -134,11 +134,11 @@ def test_snowflake_apps_setup_and_deploy(
 
 
 @pytest.mark.integration
-def test_snowflake_apps_setup_creates_valid_yml(
+def test_snowflake_apps_setup_creates_valid_manifest(
     runner,
     temporary_working_directory,
 ):
-    """``snow app setup`` should produce a valid snowflake.yml."""
+    """``snow app setup`` should produce a valid app.yml."""
 
     result = runner.invoke_with_connection(
         ["app", "setup", "--app-name", "my_test_app"]
@@ -146,14 +146,13 @@ def test_snowflake_apps_setup_creates_valid_yml(
     assert result.exit_code == 0, result.output
     assert "Initialized Snowflake App Runtime project" in result.output
 
-    yml_path = Path(temporary_working_directory) / "snowflake.yml"
-    assert yml_path.exists(), "snowflake.yml was not created"
+    yml_path = Path(temporary_working_directory) / "app.yml"
+    assert yml_path.exists(), "app.yml was not created"
 
     with open(yml_path) as fh:
         content = yaml.safe_load(fh)
 
-    assert content["definition_version"] == "2"
-    assert "my_test_app" in content["entities"]
-    assert content["entities"]["my_test_app"]["type"] == "snowflake-app"
-    assert "build_compute_pool" not in content["entities"]["my_test_app"]
-    assert "service_compute_pool" not in content["entities"]["my_test_app"]
+    assert content["version"] == 2
+    assert content["name"] == "MY_TEST_APP"
+    assert "build_compute_pool" not in content
+    assert "service_compute_pool" not in content
