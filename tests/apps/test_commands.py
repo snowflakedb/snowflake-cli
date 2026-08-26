@@ -44,8 +44,11 @@ from snowflake.cli._plugins.apps.generate import (
 from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_LABEL,
     CERT_PROBE_TIMEOUT_SECONDS,
+    MAX_UPLOAD_ATTEMPTS,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
     SNOWFLAKE_APP_ENTITY_TYPE,
+    UPLOAD_RETRY_BASE_DELAY_SECONDS,
+    UPLOAD_RETRY_MAX_DELAY_SECONDS,
     PerAccountCertStatus,
     SnowflakeAppManager,
     _get_entity,
@@ -53,6 +56,7 @@ from snowflake.cli._plugins.apps.manager import (
     _poll_until,
     _resolve_entity_id,
     _ts,
+    _upload_retry_delay,
     app_fqn,
     is_personal_database,
     perform_bundle,
@@ -2118,6 +2122,106 @@ class TestSnowflakeAppManager:
             sentinel.reset(token)
 
         assert seen == ["main-thread-value", "main-thread-value"]
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch(EXECUTE_QUERY)
+    def test_upload_retries_a_transient_transfer_failure(
+        self, mock_execute, mock_sleep, tmp_path
+    ):
+        """A failed transfer to cloud storage is retried and can then succeed.
+
+        Errno 253003 is the connector's generic file-transfer failure — an HTTP
+        error, a dropped connection, a TLS problem — and the upload had no
+        retry at all, so one network blip failed the whole deploy."""
+        (tmp_path / "a.py").write_text("1")
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        mock_execute.side_effect = [
+            OperationalError("Failed to upload file", errno=253003),
+            Mock(),
+        ]
+
+        results = list(
+            SnowflakeAppManager().upload_to_stage(local_root=tmp_path, stage_fqn=fqn)
+        )
+
+        assert [r["source"] for r in results] == ["a.py"]
+        assert mock_execute.call_count == 2
+        mock_sleep.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch(EXECUTE_QUERY)
+    def test_upload_retry_budget_is_bounded(self, mock_execute, mock_sleep, tmp_path):
+        """Retries stop at ``MAX_UPLOAD_ATTEMPTS`` and the error surfaces."""
+        (tmp_path / "a.py").write_text("1")
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        mock_execute.side_effect = OperationalError(
+            "Failed to upload file", errno=253003
+        )
+
+        with pytest.raises(OperationalError):
+            list(
+                SnowflakeAppManager().upload_to_stage(
+                    local_root=tmp_path, stage_fqn=fqn
+                )
+            )
+
+        assert mock_execute.call_count == MAX_UPLOAD_ATTEMPTS
+        # No sleep after the final attempt.
+        assert mock_sleep.call_count == MAX_UPLOAD_ATTEMPTS - 1
+        for sleep_call in mock_sleep.call_args_list:
+            assert 0 <= sleep_call.args[0] <= UPLOAD_RETRY_MAX_DELAY_SECONDS
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(
+                ProgrammingError("Stage does not exist", errno=2003), id="missing"
+            ),
+            pytest.param(
+                ProgrammingError("Insufficient privileges", errno=3001),
+                id="privileges",
+            ),
+            pytest.param(
+                ProgrammingError("SQL compilation error", errno=1003), id="compilation"
+            ),
+            pytest.param(
+                OperationalError("Not a file but a directory", errno=253006),
+                id="deterministic-transfer-error",
+            ),
+        ],
+    )
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch(EXECUTE_QUERY)
+    def test_upload_does_not_retry_a_deterministic_error(
+        self, mock_execute, mock_sleep, error, tmp_path
+    ):
+        """The server rejected the statement itself, so a retry would only
+        multiply the wait before the same failure."""
+        (tmp_path / "a.py").write_text("1")
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        mock_execute.side_effect = error
+
+        with pytest.raises(type(error)):
+            list(
+                SnowflakeAppManager().upload_to_stage(
+                    local_root=tmp_path, stage_fqn=fqn
+                )
+            )
+
+        assert mock_execute.call_count == 1
+        mock_sleep.assert_not_called()
+
+    def test_upload_retry_delay_grows_and_is_capped(self):
+        """Exponential backoff with full jitter, bounded by the ceiling."""
+        for attempt in range(1, 8):
+            ceiling = min(
+                UPLOAD_RETRY_MAX_DELAY_SECONDS,
+                UPLOAD_RETRY_BASE_DELAY_SECONDS * (2 ** (attempt - 1)),
+            )
+            delays = [_upload_retry_delay(attempt) for _ in range(50)]
+            assert all(0 <= d <= ceiling for d in delays)
+            # Full jitter, so the values must not all be identical.
+            assert len(set(delays)) > 1
 
     @pytest.mark.parametrize("upload", ["stage", "workspace"])
     @patch(EXECUTE_QUERY)
