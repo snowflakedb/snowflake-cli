@@ -26,7 +26,10 @@ from snowflake.cli._plugins.apps.app_yml import (
 )
 from snowflake.cli._plugins.apps.manager import SnowflakeAppManager
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+
+_CNG_FLAG = FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE
 
 _APP_YML = dedent(
     """\
@@ -1561,8 +1564,51 @@ class TestDeployFromAppYml:
     def test_cng_target_runs_cert_precheck_and_emits_compute_resource(
         self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, mock_cert, tmp_path
     ):
-        """A SERVERLESS target runs the per-account cert precheck and forwards
-        COMPUTE_RESOURCE to CREATE OR ALTER (CNG is app.yml v2-only, no flag)."""
+        """A SERVERLESS target (flag on) runs the per-account cert precheck and
+        forwards COMPUTE_RESOURCE to CREATE OR ALTER."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(self._CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "cng.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
+            snowflake_app_deploy(
+                None,
+                False,
+                False,
+                False,
+                interactive=False,
+                provision_certs=True,
+                target="prod",
+            )
+
+        # Precheck runs before the app exists, honouring --provision-certs and
+        # treating a missing cert as fatal for a full deploy.
+        mock_cert.assert_called_once()
+        assert mock_cert.call_args.kwargs["provision"] is True
+        assert mock_cert.call_args.kwargs["required"] is True
+        call = mgr.create_or_alter_app_service.call_args.kwargs
+        assert call["compute_resource"] == "SERVERLESS"
+        # url_prefix is a CNG-only field: emitted on the serverless path.
+        spec = yaml.safe_load(call["specification"])
+        assert spec["url_prefix"] == "CNG_APP"
+
+    @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_compute_resource_ignored_when_flag_disabled(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, mock_cert, tmp_path
+    ):
+        """CNG is off by default even though app.yml v2 is on: compute_resource
+        is not honoured, so there is no cert precheck and no COMPUTE_RESOURCE."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
 
         (tmp_path / APP_YML_FILENAME).write_text(self._CNG_APP_YML)
@@ -1575,25 +1621,15 @@ class TestDeployFromAppYml:
         ]
 
         snowflake_app_deploy(
-            None,
-            False,
-            False,
-            False,
-            interactive=False,
-            provision_certs=True,
-            target="prod",
+            None, False, False, False, interactive=False, target="prod"
         )
 
-        # Precheck runs before the app exists, honouring --provision-certs and
-        # treating a missing cert as fatal for a full deploy.
-        mock_cert.assert_called_once()
-        assert mock_cert.call_args.kwargs["provision"] is True
-        assert mock_cert.call_args.kwargs["required"] is True
+        mock_cert.assert_not_called()
         call = mgr.create_or_alter_app_service.call_args.kwargs
-        assert call["compute_resource"] == "SERVERLESS"
-        # url_prefix is a CNG-only field: emitted on the serverless path.
+        assert call["compute_resource"] is None
+        # Without the CNG path there is no url_prefix to emit.
         spec = yaml.safe_load(call["specification"])
-        assert spec["url_prefix"] == "CNG_APP"
+        assert "url_prefix" not in spec
 
     @patch(f"{_COMMANDS}._poll_until")
     @patch(f"{_COMMANDS}.perform_bundle")

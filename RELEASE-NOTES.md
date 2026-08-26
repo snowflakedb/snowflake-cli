@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `app.yml` (version 2) for Snowflake App Runtime projects is now generally available, and no longer needs a feature flag. `snow app setup` creates an `app.yml` for new projects. Existing `snowflake.yml` projects keep working as before.
 
 ## Fixes and improvements
 * `snow app deploy` for Snowflake App Runtime projects now explains a failure while preparing code storage in terms of the statement that actually failed. A missing database or schema is reported as such instead of as a missing privilege, a privilege error names only the grant that statement needs, and a rejected stage encryption type is named explicitly.

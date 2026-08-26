@@ -58,7 +58,7 @@ APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
 # lower-case regardless of the connection's configured schema; it is created in
 # ``DATABASE`` by the session fixture below.
 SCHEMA = "snowcli_app_lower_schema"  # bare, case-sensitive lower-case name
-QUOTED_SCHEMA = f'"{SCHEMA}"'  # how it appears in SQL and in snowflake.yml
+QUOTED_SCHEMA = f'"{SCHEMA}"'  # how it appears in SQL and in the manifest
 
 _ACCOUNT_PARAMS = {
     "DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE": WAREHOUSE,
@@ -168,16 +168,16 @@ def test_setup_resolves_from_account_parameters(
     assert "build_compute_pool" not in result.output, result.output
     assert "service_compute_pool" not in result.output, result.output
 
-    yml_path = Path(temporary_working_directory) / "snowflake.yml"
-    assert yml_path.exists(), "snowflake.yml was not created"
+    yml_path = Path(temporary_working_directory) / "app.yml"
+    assert yml_path.exists(), "app.yml was not created"
 
     with open(yml_path) as fh:
         content = yaml.safe_load(fh)
 
-    entity = content["entities"]["param_app"]
-    assert entity["identifier"]["database"].upper() == DATABASE.upper()
+    assert content["version"] == 2
+    assert content["database"].upper() == DATABASE.upper()
     # Quoted lower-case schema preserved verbatim (quotes kept, case-sensitive).
-    assert entity["identifier"]["schema"] == QUOTED_SCHEMA
-    assert entity["query_warehouse"].upper() == WAREHOUSE.upper()
-    assert "build_compute_pool" not in entity
-    assert "service_compute_pool" not in entity
+    assert content["schema"] == QUOTED_SCHEMA
+    assert content["query_warehouse"].upper() == WAREHOUSE.upper()
+    assert "build_compute_pool" not in content
+    assert "service_compute_pool" not in content

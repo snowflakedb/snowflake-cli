@@ -3489,18 +3489,19 @@
                                                                                   
    Usage: root app setup [OPTIONS]                                                
                                                                                   
-   (Snowflake App Runtime only) Initializes a snowflake.yml for a Snowflake App   
+   (Snowflake App Runtime only) Initializes an app.yml for a Snowflake App        
    Runtime project.                                                               
                                                                                   
-   Creates a snowflake.yml in the current directory with a snowflake-app entity   
-   preconfigured from account parameters and the current connection. This command 
-   does not apply to Native App projects.                                         
+   Creates an app.yml in the current directory: a flat version: 2 manifest whose  
+   name, database, schema, and query_warehouse are preconfigured from account     
+   parameters and the current connection. This command does not apply to Native   
+   App projects.                                                                  
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --app-name           TEXT  Name of the Snowflake App Runtime to initialize.  |
   |                            Defaults to the current directory name.           |
   | --dry-run                  Only print the resolved configuration values      |
-  |                            without writing snowflake.yml.                    |
+  |                            without writing app.yml.                          |
   | --build-eai          TEXT  External access integration used during the app   |
   |                            build.                                            |
   | --help       -h            Show this message and exit.                       |
@@ -4679,8 +4680,8 @@
   | version             Manages versions defined in an application package       |
   +------------------------------------------------------------------------------+
   +- Snowflake App Runtime commands ---------------------------------------------+
-  | setup               (Snowflake App Runtime only) Initializes a snowflake.yml |
-  |                     for a Snowflake App Runtime project.                     |
+  | setup               (Snowflake App Runtime only) Initializes an app.yml for  |
+  |                     a Snowflake App Runtime project.                         |
   +------------------------------------------------------------------------------+
   
   
@@ -26577,8 +26578,8 @@
   | version             Manages versions defined in an application package       |
   +------------------------------------------------------------------------------+
   +- Snowflake App Runtime commands ---------------------------------------------+
-  | setup               (Snowflake App Runtime only) Initializes a snowflake.yml |
-  |                     for a Snowflake App Runtime project.                     |
+  | setup               (Snowflake App Runtime only) Initializes an app.yml for  |
+  |                     a Snowflake App Runtime project.                         |
   +------------------------------------------------------------------------------+
   
   

@@ -265,6 +265,19 @@ class TestSnowflakeAppEntityModel:
                 code_workspace={"name": "MY_WORKSPACE"},
             )
 
+    @pytest.mark.parametrize("field", ["compute_resource", "url_prefix"])
+    def test_cng_fields_are_rejected(self, field):
+        """CNG is an app.yml v2 feature only. The v1 entity model has no
+        ``compute_resource`` / ``url_prefix``, and ``extra="forbid"`` means a
+        snowflake.yml cannot smuggle them in."""
+        with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+            SnowflakeAppEntityModel(
+                type="snowflake-app",
+                identifier="my_app",
+                artifacts=["app/*"],
+                **{field: "SERVERLESS"},
+            )
+
 
 class TestSnowflakeAppInProjectDefinition:
     def test_snowflake_app_entity_in_project_definition(self):
