@@ -516,9 +516,13 @@ the operator sees forward motion:
     last, but its count (one `DESCRIBE` per `SHOW ONLINE FEATURE TABLES`
     row) is known up front, so `list_specs` calls `add_known(len(oft_rows))`
     immediately after the `SHOW` and marks that phase `pre_counted=True` so
-    its `(0, n, "")` advances `completed` without adding `n` again. (The
-    `plan` bundle needs no pre-seed: its OFT phase runs *first*, so its
-    count accumulates naturally before the feature-views collect.)
+    its `(0, n, "")` advances `completed` without adding `n` again. The
+    `plan` bundle (`_fetch_applied_state_bundle`) mirrors this exactly: it
+    calls `add_known(len(raw_show))` right after the `SHOW`s, runs the same
+    listing phases in the same order (entities, feature groups, feature
+    views, then the plan-only stream-sources phase), and runs the OFT
+    `DESCRIBE` phase **last** as `pre_counted=True` — so its feature-views
+    collect is front-loaded with the OFT count just like `list_specs`.
   - `begin_phase(label)` reserves `+1` on the total while a normal phase is
     in flight (its count still unknown), released when its `(0, n, "")`
     fires. This guarantees `total > completed` throughout every `collect()`
