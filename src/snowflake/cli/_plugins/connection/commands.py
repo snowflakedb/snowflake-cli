@@ -28,6 +28,15 @@ from click import (  # type: ignore
 )
 from click.core import ParameterSource  # type: ignore
 from snowflake import connector
+from snowflake.cli._plugins.connection.diagnostic import (
+    DIAG_REPORT_FILENAME,
+    DiagnosticReport,
+    NetworkPolicySnapshot,
+    append_diagnostic_report,
+    collect_network_policy,
+    run_diagnostic,
+    status_line,
+)
 from snowflake.cli._plugins.connection.util import (
     strip_if_value_present,
 )
@@ -68,10 +77,13 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.config_ng.masking import mask_sensitive_value
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
+    MultipleResults,
     ObjectResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
@@ -398,6 +410,16 @@ def remove(
 
 @app.command(requires_connection=True)
 def test(
+    print_diag: bool = typer.Option(
+        False,
+        "--print-diag",
+        help=(
+            "Print the full per-endpoint diagnostic to stdout. "
+            "Without this flag, `--enable-diag` writes that diagnostic only "
+            "to the report file."
+        ),
+        is_flag=True,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -406,6 +428,15 @@ def test(
 
     # Test connection
     cli_context = get_cli_context()
+    conn_ctx = cli_context.connection_context
+
+    # The connector's `enable_diag=True` runs ConnectionDiagnostic during
+    # connect() — a silent multi-second probe of every endpoint. Only surface
+    # a heads-up when the user also asked for stdout (`--print-diag`);
+    # `--enable-diag` alone must keep the previous stdout contract.
+    if conn_ctx.enable_diag and print_diag:
+        cli_console.message("Running connector connectivity probe...")
+
     conn = cli_context.connection
 
     # Test session attributes
@@ -427,7 +458,6 @@ def test(
     except ProgrammingError as err:
         raise ClickException(str(err))
 
-    conn_ctx = cli_context.connection_context
     result = {
         "Connection name": conn_ctx.connection_name,
         "Status": "OK",
@@ -441,10 +471,122 @@ def test(
 
     if conn_ctx.enable_diag:
         result["Diag Report Location"] = os.path.join(
-            conn_ctx.diag_log_path, "SnowflakeConnectionTestReport.txt"
+            conn_ctx.diag_log_path, DIAG_REPORT_FILENAME
+        )
+
+    if conn_ctx.enable_diag or print_diag:
+        return _connection_test_with_diag(
+            conn, conn_ctx, result, print_to_stdout=print_diag
         )
 
     return ObjectResult(result)
+
+
+def _noop(_arg) -> None:
+    return None
+
+
+def _connection_test_with_diag(
+    conn,
+    conn_ctx,
+    connection_summary: dict,
+    print_to_stdout: bool = False,
+) -> CommandResult:
+    """Run the SnowCD-style per-endpoint diagnostic.
+
+    `--enable-diag` always appends the full report to
+    `SnowflakeConnectionTestReport.txt`. Stdout stays the pre-existing
+    connection-summary object unless `--print-diag` is also set.
+
+    With `--print-diag`, TABLE streams progress lines then a per-endpoint
+    table, a network-policy block, and a `Results: ...` summary. JSON nests
+    the diagnostic under `Diagnostic`; CSV gets flat scalar columns only.
+    Intermediate messages are force-muted for JSON/CSV by the global
+    context, so they are safe to emit whenever `print_to_stdout` is true.
+    """
+    if print_to_stdout:
+        cli_console.message("Fetching allowlist from Snowflake...")
+
+    report = run_diagnostic(
+        conn=conn,
+        allowlist_path=conn_ctx.diag_allowlist_path,
+        on_start=(
+            (
+                lambda n: cli_console.message(
+                    f"Discovered {n} endpoint(s). Running diagnostics..."
+                )
+            )
+            if print_to_stdout
+            else _noop
+        ),
+        on_skip=(
+            (lambda n: cli_console.message(f"Skipping {n} non-resolvable pattern(s)."))
+            if print_to_stdout
+            else _noop
+        ),
+        on_check=(
+            (lambda c: cli_console.message(status_line(c)))
+            if print_to_stdout
+            else _noop
+        ),
+    )
+
+    if print_to_stdout:
+        cli_console.message("Inspecting network policies...")
+    policy = collect_network_policy(conn, user=conn.user)
+
+    if conn_ctx.enable_diag and conn_ctx.diag_log_path:
+        try:
+            append_diagnostic_report(conn_ctx.diag_log_path, report, policy)
+        except OSError as exc:
+            raise CliError(
+                f"Could not append diagnostic report to {conn_ctx.diag_log_path}: {exc}"
+            ) from exc
+
+    if not print_to_stdout:
+        return ObjectResult(connection_summary)
+
+    output_format = get_cli_context().output_format
+    if output_format.is_json:
+        connection_summary["Diagnostic"] = report.to_dict(policy)
+        return ObjectResult(connection_summary)
+    if output_format == OutputFormat.CSV:
+        connection_summary.update(report.csv_summary(policy))
+        return ObjectResult(connection_summary)
+
+    return _diagnostic_table_results(connection_summary, report, policy)
+
+
+def _diagnostic_table_results(
+    connection_summary: dict,
+    report: DiagnosticReport,
+    policy: NetworkPolicySnapshot,
+) -> CommandResult:
+    """Assemble the TABLE-format output: summary, per-endpoint rows, policy block, totals.
+
+    Sanitization lives on the dataclasses (`to_row` / `to_summary`) so TABLE
+    and JSON/CSV cannot diverge again.
+    """
+    results = MultipleResults()
+    results.add(ObjectResult(connection_summary))
+
+    tested_rows = [c.to_row() for c in report.checks if c.status != "Skipped"]
+    if tested_rows:
+        results.add(CollectionResult(tested_rows))
+
+    if policy.has_policy():
+        results.add(ObjectResult(policy.to_summary()))
+        if policy.rules:
+            results.add(CollectionResult([r.to_row() for r in policy.rules]))
+    elif policy.current_ip:
+        results.add(
+            MessageResult(
+                "No network policy in effect "
+                f"(current IP: {policy.to_summary()['Current IP']})."
+            )
+        )
+    results.add(MessageResult(report.summary_line()))
+    return results
 
 
 @app.command(requires_connection=False)
