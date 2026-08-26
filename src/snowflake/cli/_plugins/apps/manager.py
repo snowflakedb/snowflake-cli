@@ -188,6 +188,7 @@ from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.errno import OBJECT_ALREADY_EXISTS_NO_PRIVILEGES
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
@@ -324,6 +325,16 @@ UPLOAD_RETRY_MAX_DELAY_SECONDS = 8.0
 # rather than the server, which is why it is not in ``api/errno.py``.
 _FILE_TRANSFER_FAILED_ERRNO = 253003
 RETRYABLE_UPLOAD_ERRNOS = frozenset({_FILE_TRANSFER_FAILED_ERRNO})
+
+# Only workspaces use this code, so it lives here rather than in api/errno.py.
+# Move it there if another plugin comes to need it.
+WORKSPACE_LIVE_VERSION_ALREADY_EXISTS = 99106
+
+# Error codes the server uses to say a workspace already has a live version.
+_LIVE_VERSION_EXISTS_ERRNOS = (
+    WORKSPACE_LIVE_VERSION_ALREADY_EXISTS,
+    OBJECT_ALREADY_EXISTS_NO_PRIVILEGES,
+)
 
 
 # Mapping from SHOW PARAMETERS result names to internal resolution keys.
@@ -468,6 +479,23 @@ def _is_unknown_function_error(exc: ProgrammingError) -> bool:
     return (
         "unknown function" in message.lower()
         and APP_SERVICE_DEFAULTS_FUNCTION in message
+    )
+
+
+def _is_live_version_already_exists(exc: ProgrammingError) -> bool:
+    """Return ``True`` when *exc* says the workspace already has a live version.
+
+    The server answers ``ADD LIVE VERSION FROM LAST`` with either the
+    workspace-specific 99106 or the generic "object already exists" 3041,
+    depending on the deployment, so both count. The text check is a fallback for
+    errors that reach us without an errno, and matches the codes as the
+    connector prints them: zero-padded to six digits, next to SQLSTATE 42710.
+    """
+    if getattr(exc, "errno", None) in _LIVE_VERSION_EXISTS_ERRNOS:
+        return True
+    error_text = str(exc)
+    return "42710" in error_text and any(
+        f"{code:06d}" in error_text for code in _LIVE_VERSION_EXISTS_ERRNOS
     )
 
 
@@ -1219,7 +1247,12 @@ class SnowflakeAppManager(SqlExecutionMixin):
         self.ensure_workspace_live_version(workspace_fqn)
 
     def ensure_workspace_live_version(self, workspace_fqn: FQN) -> None:
-        """Ensure the workspace has a writable live version."""
+        """Ensure the workspace has a writable live version.
+
+        A workspace that already has one is the expected case on every deploy
+        after the first, and the server reports it as an error. It comes back
+        as either 99106 or the generic 3041, so both are treated as success.
+        """
         try:
             # TODO: switch to "ADD LIVE VERSION IF NOT EXISTS FROM LAST"
             # when Snowflake workspaces support that syntax.
@@ -1228,10 +1261,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 f"ADD LIVE VERSION FROM LAST"
             )
         except ProgrammingError as e:
-            error_text = str(e)
-            if getattr(e, "errno", None) == 99106 or (
-                "099106" in error_text and "42710" in error_text
-            ):
+            if _is_live_version_already_exists(e):
                 return
             raise
 
