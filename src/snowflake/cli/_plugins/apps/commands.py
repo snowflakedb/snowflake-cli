@@ -58,10 +58,7 @@ from snowflake.cli._plugins.apps.events import (
     parse_metric_records,
     resolve_time_window,
 )
-from snowflake.cli._plugins.apps.generate import (
-    _generate_app_yml,
-    _generate_snowflake_yml,
-)
+from snowflake.cli._plugins.apps.generate import _generate_app_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFAULT_WORKSPACE_NAME,
@@ -988,19 +985,14 @@ def snowflake_app_setup(
 ) -> CommandResult:
     """Initialize a Snowflake App Runtime project manifest.
 
-    Writes a ``snowflake.yml`` by default, or an ``app.yml`` (the v2 manifest
-    the ``snow app`` commands read instead of ``snowflake.yml``) when the
-    ``ENABLE_SAR_APP_YML_V2`` feature flag is on. Both manifests are generated
-    from the same resolved configuration and code-storage decision. See the
-    ``snow app setup`` command in
+    Writes an ``app.yml`` — the v2 manifest the ``snow app`` commands read
+    instead of ``snowflake.yml`` — so new projects are always initialized as v2.
+    An already-initialized project is left untouched: initialization is skipped
+    when either manifest is present. See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
     """
     ctx = get_cli_context()
     metrics = ctx.metrics
-
-    app_yml = FeatureFlag.ENABLE_SAR_APP_YML_V2.is_enabled()
-    manifest_filename = APP_YML_FILENAME if app_yml else DEFINITION_FILENAME
-    generate_manifest = _generate_app_yml if app_yml else _generate_snowflake_yml
 
     def _run() -> CommandResult:
         with metrics.span("snowflake_app.setup"):
@@ -1027,17 +1019,22 @@ def snowflake_app_setup(
                     f"Invalid app name '{resolved_app_name}'. "
                     "Only letters, digits, and underscores are allowed."
                 )
-            # snowflake.yml is a CLI-owned manifest that the ``snow app`` commands read
+            # app.yml is a CLI-owned manifest that the ``snow app`` commands read
             # back with the same encoding policy (see _app_group_callback): an explicit
             # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
             # way keeps the round-trip consistent regardless of the host code page, even
             # when the generated content (e.g. a non-Latin app title) is non-ASCII.
             encoding = get_file_io_encoding() or "utf-8"
-            project_file = Path.cwd() / manifest_filename
-            if not dry_run and project_file.exists():
-                return MessageResult(
-                    f"{manifest_filename} already exists. Skipping initialization."
-                )
+            project_file = Path.cwd() / APP_YML_FILENAME
+            if not dry_run:
+                # A snowflake.yml project is already initialized, and an app.yml
+                # would silently take precedence over it at deploy time, so leave
+                # the project alone rather than migrating it behind the user's back.
+                for existing in (APP_YML_FILENAME, DEFINITION_FILENAME):
+                    if (Path.cwd() / existing).exists():
+                        return MessageResult(
+                            f"{existing} already exists. Skipping initialization."
+                        )
 
             connection_name = (
                 ctx.connection_context.connection_name or get_default_connection_name()
@@ -1180,7 +1177,7 @@ def snowflake_app_setup(
             if not dry_run:
                 with metrics.span("snowflake_app.setup.write_manifest"):
                     project_file.write_text(
-                        generate_manifest(
+                        _generate_app_yml(
                             resolved_app_name,
                             resolved_values,
                             use_workspace=use_workspace,
@@ -1202,7 +1199,7 @@ def snowflake_app_setup(
                 cli_console.step("Dry run — resolved configuration:")
             else:
                 cli_console.step(
-                    f"Initialized Snowflake App Runtime project in {manifest_filename}."
+                    f"Initialized Snowflake App Runtime project in {APP_YML_FILENAME}."
                 )
             for key, (value, source) in resolved.items():
                 # Skip optional fields that could not be resolved (e.g. ``build_eai``
@@ -1637,9 +1634,9 @@ def _ensure_cng_url_cert_ready(
     happen inside ``CREATE APPLICATION SERVICE`` — so this probes for it up front
     (never polling) via a client-side TLS probe.
 
-    The caller gates this on the app being CNG, which is an ``app.yml`` v2-only
-    feature (``compute_resource`` is only resolved on that path), so no flag is
-    re-checked here.
+    The caller gates this on the app being CNG, which also implies the feature
+    flag is on (``compute_resource`` stays ``None`` while it is off), so the flag
+    is not re-checked here.
 
     ``required`` says whether a missing certificate is fatal for the current
     phase: only the deploy phase creates the service, so only it passes
@@ -1706,13 +1703,13 @@ def _warn_if_cng_url_cert_missing(manager: SnowflakeAppManager, url: str) -> Non
     probes the resolved *url*'s host directly (the exact certificate the browser
     would see). Unlike the deploy pre-check — which knows the app is CNG from its
     resolved ``compute_resource`` — ``open`` does not resolve the entity, so it
-    gates on the ``app.yml`` v2 feature flag (the only path that can deploy a CNG
-    app) and leans on ``per_account_cert_status_for_url`` returning ``UNKNOWN``
-    for non-per-account hosts (e.g. SPCS ``snowflakecomputing.app``), so an SPCS
+    gates on the CNG feature flag (no CNG app can exist while it is off) and
+    leans on ``per_account_cert_status_for_url`` returning ``UNKNOWN`` for
+    non-per-account hosts (e.g. SPCS ``snowflakecomputing.app``), so an SPCS
     app's TLS state is never misattributed to a per-account cert. Any probe error
     is swallowed so ``open`` never breaks on this advisory.
     """
-    if not FeatureFlag.ENABLE_SAR_APP_YML_V2.is_enabled():
+    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
         return
     try:
         status = manager.per_account_cert_status_for_url(url)
@@ -2247,9 +2244,11 @@ def _deploy_from_app_yml(
         )
 
     # ``compute_resource`` selects the CNG (serverless) or SPCS backend and is
-    # write-once. CNG is an ``app.yml`` v2-only feature, so it is honoured here
-    # unconditionally; when unset the server defaults the backend.
-    compute_resource: Optional[str] = tgt.compute_resource
+    # write-once. CNG is not ready yet, so it is only honoured while the feature
+    # flag is on; when off it is ignored and the server defaults the backend.
+    compute_resource: Optional[str] = None
+    if FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
+        compute_resource = tgt.compute_resource
 
     # Probe for the per-account URL certificate up front (see
     # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
@@ -2302,7 +2301,8 @@ def _deploy_from_app_yml(
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
     # ``url_prefix`` is a CNG-only field, so it is only emitted on the CNG
-    # (serverless) path.
+    # (serverless) path, which already requires the feature flag
+    # (compute_resource stays None while it is off).
     specification = manager.build_service_specification(
         tgt,
         database=database,
