@@ -25,6 +25,12 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from snowflake.cli._plugins.connection import commands as connection_commands
+from snowflake.cli._plugins.connection.diagnostic import (
+    DiagnosticReport,
+    EndpointCheck,
+    NetworkPolicySnapshot,
+    NetworkRule,
+)
 from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.config_ng.masking import MASKED_VALUE
 from snowflake.cli.api.constants import ObjectType
@@ -1511,35 +1517,308 @@ def test_set_default_connection(runner):
         assert config["default_connection_name"] == "conn2"
 
 
+@mock.patch("snowflake.cli._plugins.connection.commands.collect_network_policy")
+@mock.patch("snowflake.cli._plugins.connection.commands.run_diagnostic")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
-def test_connection_test_diag_report(mock_connect, mock_om, runner):
+def test_connection_test_diag_report_keeps_previous_stdout(
+    mock_connect, mock_om, mock_run, mock_policy, runner, tmp_path
+):
+    mock_run.return_value = _diag_report_fixture()
+    mock_policy.return_value = _diag_policy_fixture()
+    _configure_mock_connection(mock_connect)
+    (tmp_path / "SnowflakeConnectionTestReport.txt").write_text("connector header\n")
+
     result = runner.invoke(
-        ["connection", "test", "-c", "full", "--enable-diag", "--diag-log-path", "/tmp"]
+        [
+            "connection",
+            "test",
+            "-c",
+            "full",
+            "--enable-diag",
+            "--diag-log-path",
+            str(tmp_path),
+        ]
     )
     assert result.exit_code == 0, result.output
-    print(result.output)
     assert "Host" in result.output
     assert "Diag Report" in result.output
+    assert "DEPLOYMENT" not in result.output
+    assert "Diagnostic" not in result.output
+    assert "Results:" not in result.output
+    assert "USER_POLICY" not in result.output
     mock_connect.assert_called_once_with(
         temporary_connection=False,
         enable_diag=True,
-        diag_log_path=Path("/tmp"),
+        diag_log_path=tmp_path,
         connection_name="full",
+    )
+    report_text = (tmp_path / "SnowflakeConnectionTestReport.txt").read_text()
+    assert report_text.startswith("connector header\n")
+    assert "Snowflake CLI connectivity diagnostics" in report_text
+    assert "acct.example.com" in report_text
+    assert "USER_POLICY" in report_text
+    assert "\x1b" not in report_text
+
+
+def _configure_mock_connection(mock_connect):
+    conn = mock_connect.return_value
+    conn.host = "dev_host"
+    conn.account = "dev_account"
+    conn.user = "dev_user"
+    conn.role = "dev_role"
+    conn.database = "dev_database"
+    conn.schema = "dev_schema"
+    conn.warehouse = "dev_warehouse"
+    return conn
+
+
+def _diag_report_fixture():
+    return DiagnosticReport(
+        checks=[
+            EndpointCheck(
+                "acct.example.com",
+                443,
+                "DEPLOYMENT",
+                "Healthy",
+                cert_issuer="DigiCert Inc",
+                cert_expires="Jan 19 23:59:59 2027 GMT",
+                latency_ms=12.3,
+            ),
+            EndpointCheck(
+                "\x1b[31mevil.com\x1b[0m",
+                443,
+                "STAGE",
+                "Unhealthy",
+                error="timed out",
+            ),
+            EndpointCheck(
+                "*.region.snowflakecomputing.com",
+                443,
+                "STAGE",
+                "Skipped",
+                error="non-resolvable pattern",
+            ),
+        ]
     )
 
 
+def _diag_policy_fixture():
+    return NetworkPolicySnapshot(
+        current_ip="1.2.3.4",
+        account_policy="ACCT_POLICY",
+        user_policy="USER_POLICY",
+        effective_policy="USER_POLICY",
+        allowed_ip_list=["0.0.0.0/0"],
+        blocked_ip_list=[],
+        allowed_network_rule_list=["DB.SCHEMA.NR1"],
+        blocked_network_rule_list=[],
+        rules=[
+            NetworkRule(
+                name="DB.SCHEMA.NR1",
+                mode="INGRESS",
+                type="IPV4",
+                values=["1.0.0.0/8"],
+            )
+        ],
+    )
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.collect_network_policy")
+@mock.patch("snowflake.cli._plugins.connection.commands.run_diagnostic")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
-def test_diag_log_path_default_is_actual_tempdir(mock_connect, mock_om, runner):
+def test_connection_test_diag_table_renders_endpoints(
+    mock_connect, mock_om, mock_run, mock_policy, runner, tmp_path
+):
+    mock_run.return_value = _diag_report_fixture()
+    mock_policy.return_value = _diag_policy_fixture()
+    _configure_mock_connection(mock_connect)
+    result = runner.invoke(
+        [
+            "connection",
+            "test",
+            "-c",
+            "full",
+            "--enable-diag",
+            "--print-diag",
+            "--diag-log-path",
+            str(tmp_path),
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert "DEPLOYMENT" in result.output
+    assert "USER_POLICY" in result.output
+    assert "1.2.3.4" in result.output
+    assert "Results: 1 Healthy, 1 Unhealthy out of 2 endpoints" in result.output
+    assert "\x1b" not in result.output
+    assert "evil.com" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.collect_network_policy")
+@mock.patch("snowflake.cli._plugins.connection.commands.run_diagnostic")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+def test_connection_test_diag_json_nests_sanitized_diagnostic(
+    mock_connect, mock_om, mock_run, mock_policy, runner, tmp_path
+):
+    mock_run.return_value = _diag_report_fixture()
+    mock_policy.return_value = _diag_policy_fixture()
+    _configure_mock_connection(mock_connect)
+    result = runner.invoke(
+        [
+            "connection",
+            "test",
+            "-c",
+            "full",
+            "--enable-diag",
+            "--print-diag",
+            "--diag-log-path",
+            str(tmp_path),
+            "--format",
+            "JSON",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    diag = payload["Diagnostic"]
+    assert diag["healthy"] == 1
+    assert diag["unhealthy"] == 1
+    assert diag["skipped"] == 1
+    assert diag["tested"] == 2
+    hosts = [c["host"] for c in diag["checks"]]
+    assert "acct.example.com" in hosts
+    assert "evil.com" in hosts
+    assert all("\x1b" not in c["host"] for c in diag["checks"])
+    assert diag["network_policy"]["effective_policy"] == "USER_POLICY"
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.collect_network_policy")
+@mock.patch("snowflake.cli._plugins.connection.commands.run_diagnostic")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+def test_connection_test_diag_csv_is_flat_scalars(
+    mock_connect, mock_om, mock_run, mock_policy, runner, tmp_path
+):
+    mock_run.return_value = _diag_report_fixture()
+    mock_policy.return_value = _diag_policy_fixture()
+    _configure_mock_connection(mock_connect)
+    result = runner.invoke(
+        [
+            "connection",
+            "test",
+            "-c",
+            "full",
+            "--enable-diag",
+            "--print-diag",
+            "--diag-log-path",
+            str(tmp_path),
+            "--format",
+            "CSV",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert "{'checks'" not in result.output
+    assert "healthy" in result.output.lower()
+    assert "USER_POLICY" in result.output
+    assert "\x1b" not in result.output
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.collect_network_policy")
+@mock.patch("snowflake.cli._plugins.connection.commands.run_diagnostic")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+def test_connection_test_diag_no_policy_message(
+    mock_connect, mock_om, mock_run, mock_policy, runner, tmp_path
+):
+    mock_run.return_value = DiagnosticReport(
+        checks=[EndpointCheck("a.com", 443, "X", "Healthy", latency_ms=1.0)]
+    )
+    mock_policy.return_value = NetworkPolicySnapshot(current_ip="9.9.9.9")
+    _configure_mock_connection(mock_connect)
+    result = runner.invoke(
+        [
+            "connection",
+            "test",
+            "-c",
+            "full",
+            "--enable-diag",
+            "--print-diag",
+            "--diag-log-path",
+            str(tmp_path),
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert "No network policy in effect" in result.output
+    assert "9.9.9.9" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.append_diagnostic_report")
+@mock.patch("snowflake.cli._plugins.connection.commands.collect_network_policy")
+@mock.patch("snowflake.cli._plugins.connection.commands.run_diagnostic")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+def test_diag_log_path_default_is_actual_tempdir(
+    mock_connect, mock_om, mock_run, mock_policy, mock_append, runner
+):
     from snowflake.cli.api.commands.flags import _DIAG_LOG_DEFAULT_VALUE
 
+    mock_run.return_value = DiagnosticReport()
+    mock_policy.return_value = NetworkPolicySnapshot()
+    _configure_mock_connection(mock_connect)
     result = runner.invoke(["connection", "test", "-c", "full", "--enable-diag"])
     assert result.exit_code == 0, result.output
     assert mock_connect.call_args.kwargs["diag_log_path"] not in [
         _DIAG_LOG_DEFAULT_VALUE,
         Path(_DIAG_LOG_DEFAULT_VALUE),
     ]
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.collect_network_policy")
+@mock.patch("snowflake.cli._plugins.connection.commands.run_diagnostic")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+def test_enable_diag_json_has_no_diagnostic_key(
+    mock_connect, mock_om, mock_run, mock_policy, runner, tmp_path
+):
+    mock_run.return_value = _diag_report_fixture()
+    mock_policy.return_value = _diag_policy_fixture()
+    _configure_mock_connection(mock_connect)
+    result = runner.invoke(
+        [
+            "connection",
+            "test",
+            "-c",
+            "full",
+            "--enable-diag",
+            "--diag-log-path",
+            str(tmp_path),
+            "--format",
+            "JSON",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert "Diagnostic" not in payload
+    assert "Diag Report Location" in payload
+    assert payload["Status"] == "OK"
+
+
+@mock.patch("snowflake.cli._plugins.connection.commands.collect_network_policy")
+@mock.patch("snowflake.cli._plugins.connection.commands.run_diagnostic")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+def test_print_diag_without_enable_diag_prints_to_stdout(
+    mock_connect, mock_om, mock_run, mock_policy, runner
+):
+    mock_run.return_value = _diag_report_fixture()
+    mock_policy.return_value = _diag_policy_fixture()
+    _configure_mock_connection(mock_connect)
+    result = runner.invoke(["connection", "test", "-c", "full", "--print-diag"])
+    assert result.exit_code == 0, result.output
+    assert "DEPLOYMENT" in result.output
+    assert "Results:" in result.output
+    assert "Diag Report" not in result.output
 
 
 def _run_connection_add_with_path_provided_as_argument(
