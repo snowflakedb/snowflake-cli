@@ -2175,8 +2175,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Create an application service from an artifact repository package.
 
         The ``COMPUTE_RESOURCE`` DDL field (CNG/serverless) is intentionally not
-        emitted here: it is only supported through the ``app.yml`` v2 deploy
-        path (see :meth:`create_or_alter_app_service`).
+        emitted here: it is only reachable from the ``app.yml`` deploy path, and
+        only with the ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag on
+        (see :meth:`create_or_alter_app_service`).
         """
         parts = [
             f"CREATE APPLICATION SERVICE {service_fqn.identifier}",
@@ -2236,9 +2237,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
         through unchanged.
 
         ``url_prefix`` is a CNG-only (serverless) field, so it is emitted only
-        when *include_url_prefix* is set — the caller gates it on the resolved
-        CNG compute resource (an ``app.yml`` v2-only feature) — and dropped
-        otherwise.
+        when *include_url_prefix* is set — the caller gates it on the CNG compute
+        resource behind the feature flag — and dropped otherwise.
 
         Deployment-location fields (``name`` / ``database`` / ``schema`` /
         ``account``) locate and name the service and are not part of the
@@ -2306,9 +2306,9 @@ class SnowflakeAppManager(SqlExecutionMixin):
         ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
         the write-once ``COMPUTE_RESOURCE`` DDL clause — it is not owned by the
         ``SPECIFICATION`` and so is emitted alongside it. It is immutable after
-        the first deploy and is only reachable through the ``app.yml`` v2 deploy
-        path (CNG is an ``app.yml`` v2-only feature); when ``None`` the clause is
-        omitted and the server defaults the backend.
+        the first deploy, and callers gate it behind the
+        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
+        clause is omitted and the server defaults the backend.
 
         The specification is dollar-quoted (``$$...$$``) and embeds
         user-supplied app.yml values verbatim (``label`` / ``description`` /

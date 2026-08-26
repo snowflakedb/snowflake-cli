@@ -240,8 +240,8 @@ class _AppYmlServiceConfig(UpdatableModel):
         title="Maximum number of running instances", default=None
     )
     # Backend for the application service (the write-once ``COMPUTE_RESOURCE`` DDL
-    # field). CNG (serverless) support lives only in the ``app.yml`` v2 deploy
-    # path.
+    # field). Parsed unconditionally but only applied at deploy time when the
+    # ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag is on.
     compute_resource: Optional[str] = Field(
         title="Compute resource backing the service (SERVERLESS or "
         "MANAGED_COMPUTE_POOL)",

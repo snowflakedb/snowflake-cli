@@ -36,11 +36,7 @@ from snowflake.cli._plugins.apps.commands import (
     snowflake_app_events,
 )
 from snowflake.cli._plugins.apps.events import parse_lifecycle_records
-from snowflake.cli._plugins.apps.generate import (
-    _generate_app_yml,
-    _generate_snowflake_yml,
-    _yaml_str,
-)
+from snowflake.cli._plugins.apps.generate import _generate_app_yml, _yaml_str
 from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_LABEL,
     CERT_PROBE_TIMEOUT_SECONDS,
@@ -72,7 +68,6 @@ from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import OperationalError, ProgrammingError
 
 from tests_common import change_directory, simulated_ansi_locale
-from tests_common.feature_flag_utils import with_feature_flags
 
 EXECUTE_QUERY = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.execute_query"
 EXECUTE_QUERY_WITH_PARAMS = (
@@ -718,7 +713,7 @@ class TestWarnIfCngUrlCertMissing:
     def test_noop_when_flag_disabled(self):
         manager = Mock()
         with patch.object(
-            FeatureFlag.ENABLE_SAR_APP_YML_V2,
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
             "is_enabled",
             return_value=False,
         ):
@@ -733,7 +728,7 @@ class TestWarnIfCngUrlCertMissing:
             PerAccountCertStatus.NOT_PROVISIONED
         )
         with patch.object(
-            FeatureFlag.ENABLE_SAR_APP_YML_V2,
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
             "is_enabled",
             return_value=True,
         ):
@@ -749,7 +744,7 @@ class TestWarnIfCngUrlCertMissing:
         manager = Mock()
         manager.per_account_cert_status_for_url.return_value = status
         with patch.object(
-            FeatureFlag.ENABLE_SAR_APP_YML_V2,
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
             "is_enabled",
             return_value=True,
         ):
@@ -761,7 +756,7 @@ class TestWarnIfCngUrlCertMissing:
         manager = Mock()
         manager.per_account_cert_status_for_url.side_effect = RuntimeError("boom")
         with patch.object(
-            FeatureFlag.ENABLE_SAR_APP_YML_V2,
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
             "is_enabled",
             return_value=True,
         ):
@@ -1030,218 +1025,6 @@ class TestLogServiceLogs:
         fqn = FQN.from_string("DB.SCHEMA.MY_APP")
 
         _log_service_logs(manager, fqn)  # should not raise
-
-
-# ── _generate_snowflake_yml tests ─────────────────────────────────────
-
-
-class TestGenerateSnowflakeYml:
-    _BASE_RESOLVED = {
-        "database": "TEST_DB",
-        "schema": "SNOW_APPS",
-        "warehouse": "TEST_WH",
-        "build_eai": "MY_EAI",
-    }
-
-    def test_generates_yml_with_all_required_values(self):
-        result = _generate_snowflake_yml(
-            "my_app", self._BASE_RESOLVED, use_workspace=True
-        )
-        assert "type: snowflake-app" in result
-        assert "name: MY_APP" in result
-        assert "database: TEST_DB" in result
-        assert "schema: SNOW_APPS" in result
-        assert "query_warehouse: TEST_WH" in result
-        assert "name: MY_EAI" in result
-        # code_workspace is a shared workspace, fully-qualified.
-        assert "code_workspace: TEST_DB.SNOW_APPS.SNOWFLAKE_APPS" in result
-        assert "code_stage:" not in result
-        assert "artifact_repository" not in result
-
-    def test_generates_yml_with_code_stage_when_not_using_workspace(self):
-        result = _generate_snowflake_yml(
-            "my_app", self._BASE_RESOLVED, use_workspace=False
-        )
-        assert "code_stage: MY_APP_CODE" in result
-        assert "code_workspace" not in result
-
-    def test_no_null_values_in_output(self):
-        result = _generate_snowflake_yml(
-            "my_app", self._BASE_RESOLVED, use_workspace=True
-        )
-        assert "null" not in result
-
-    def test_build_eai_omitted_when_missing(self):
-        """When ``build_eai`` is missing, the generated YAML has no
-        ``build_eai`` block — the field is optional."""
-        resolved = {**self._BASE_RESOLVED, "build_eai": None}
-        result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
-        assert "build_eai" not in result
-        assert "None" not in result
-
-    def test_build_eai_omitted_when_missing_key(self):
-        """When ``build_eai`` is not in the resolved dict at all, the
-        generated YAML still works and omits the block."""
-        resolved = {k: v for k, v in self._BASE_RESOLVED.items() if k != "build_eai"}
-        result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
-        assert "build_eai" not in result
-
-    def test_compute_pools_never_emitted(self):
-        """App services run on server-managed compute pools, so the generated
-        YAML never contains compute-pool blocks — even if the resolved values
-        somehow carry them."""
-        resolved = {
-            **self._BASE_RESOLVED,
-            "build_compute_pool": "MY_POOL",
-            "service_compute_pool": "SVC_POOL",
-        }
-        result = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
-        assert "build_compute_pool" not in result
-        assert "service_compute_pool" not in result
-        # Ensure neighbouring blocks are still emitted correctly.
-        assert "query_warehouse: TEST_WH" in result
-        assert "build_eai" in result
-
-    def test_generated_yml_has_unset_compute_pools_when_parsed(self):
-        """The generated YAML (without compute-pool blocks) parses cleanly
-        into a project definition with unset compute pools."""
-        import yaml
-        from snowflake.cli.api.utils.definition_rendering import (
-            render_definition_template,
-        )
-
-        raw_yml = _generate_snowflake_yml(
-            "my_app", self._BASE_RESOLVED, use_workspace=False
-        )
-        definition_input = yaml.safe_load(raw_yml)
-        result = render_definition_template(definition_input, {})
-        entity = result.project_definition.entities["my_app"]
-
-        assert entity.type == "snowflake-app"
-        assert entity.build_compute_pool is None
-        assert entity.service_compute_pool is None
-
-    def test_custom_schema(self):
-        resolved = {**self._BASE_RESOLVED, "schema": "CFG_SCHEMA"}
-        result = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
-        assert "schema: CFG_SCHEMA" in result
-
-    def test_generated_yml_is_valid_project_definition(self):
-        """Generated YAML is parsable and produces a valid project definition."""
-        import yaml
-        from snowflake.cli.api.utils.definition_rendering import (
-            render_definition_template,
-        )
-
-        raw_yml = _generate_snowflake_yml(
-            "my_app", self._BASE_RESOLVED, use_workspace=True
-        )
-        definition_input = yaml.safe_load(raw_yml)
-
-        result = render_definition_template(definition_input, {})
-        project = result.project_definition
-        entity = project.entities["my_app"]
-
-        assert entity.type == "snowflake-app"
-        assert entity.query_warehouse == "TEST_WH"
-        # code_workspace points at the shared SNOWFLAKE_APPS workspace and
-        # the validator parses it back into a ``CodeWorkspaceReference`` with
-        # db/schema set.
-        assert entity.code_workspace.name == "SNOWFLAKE_APPS"
-        assert entity.code_workspace.database == "TEST_DB"
-        assert entity.code_workspace.schema_ == "SNOW_APPS"
-        assert entity.code_stage is None
-        assert entity.artifacts is not None
-
-    def test_generated_yml_with_stage_is_valid_project_definition(self):
-        """When ``use_workspace`` is false, ``code_stage`` is a bare name."""
-        import yaml
-        from snowflake.cli.api.utils.definition_rendering import (
-            render_definition_template,
-        )
-
-        raw_yml = _generate_snowflake_yml(
-            "my_app", self._BASE_RESOLVED, use_workspace=False
-        )
-        definition_input = yaml.safe_load(raw_yml)
-
-        result = render_definition_template(definition_input, {})
-        entity = result.project_definition.entities["my_app"]
-
-        assert entity.code_stage.name == "MY_APP_CODE"
-        assert entity.code_stage.database is None
-        assert entity.code_stage.schema_ is None
-        assert entity.code_workspace is None
-
-    # ── Quoted (case-sensitive) identifier round-trip tests ──────────
-
-    def test_quoted_identifier_code_workspace_parses_into_components(self):
-        """The generated code_workspace FQN must survive the full project
-        definition parse — FQN.from_string must split it back into the correct
-        database, schema, and name components with double quotes intact."""
-        import yaml
-        from snowflake.cli.api.utils.definition_rendering import (
-            render_definition_template,
-        )
-
-        resolved = {
-            **self._BASE_RESOLVED,
-            "database": '"lower_db"',
-            "schema": '"lower_schema"',
-        }
-        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
-        definition_input = yaml.safe_load(raw_yml)
-        result = render_definition_template(definition_input, {})
-        ws = result.project_definition.entities["my_app"].code_workspace
-
-        assert ws.database == '"lower_db"'
-        assert ws.schema_ == '"lower_schema"'
-        assert ws.name == "SNOWFLAKE_APPS"
-
-    def test_quoted_identifiers_produce_valid_project_definition(self):
-        """All quoted-identifier fields survive the full project-definition
-        parse: identifier.database, identifier.schema, query_warehouse, and
-        build_eai.name must all retain their embedded double quotes."""
-        import yaml
-        from snowflake.cli.api.utils.definition_rendering import (
-            render_definition_template,
-        )
-
-        resolved = {
-            "database": '"lower_db"',
-            "schema": '"lower_schema"',
-            "warehouse": '"lower_wh"',
-            "build_eai": '"lower_eai"',
-        }
-        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=False)
-        result = render_definition_template(yaml.safe_load(raw_yml), {})
-        entity = result.project_definition.entities["my_app"]
-
-        assert entity.identifier.database == '"lower_db"'
-        assert entity.identifier.schema_ == '"lower_schema"'
-        assert entity.query_warehouse == '"lower_wh"'
-        assert entity.build_eai.name == '"lower_eai"'
-
-    def test_quoted_identifier_code_workspace_mixed_components(self):
-        """code_workspace is correctly single-quoted when only one component is
-        a quoted identifier — e.g. database quoted, schema plain."""
-        import yaml
-        from snowflake.cli.api.utils.definition_rendering import (
-            render_definition_template,
-        )
-
-        resolved = {
-            **self._BASE_RESOLVED,
-            "database": '"lower_db"',
-            "schema": "PUBLIC",
-        }
-        raw_yml = _generate_snowflake_yml("my_app", resolved, use_workspace=True)
-        result = render_definition_template(yaml.safe_load(raw_yml), {})
-        ws = result.project_definition.entities["my_app"].code_workspace
-
-        assert ws.database == '"lower_db"'
-        assert ws.schema_ == "PUBLIC"
-        assert ws.name == "SNOWFLAKE_APPS"
 
 
 # ── _generate_app_yml tests ───────────────────────────────────────────
@@ -2645,6 +2428,31 @@ class TestSnowflakeAppManager:
         assert "IN COMPUTE POOL SVC_POOL" in create_query
         assert "QUERY_WAREHOUSE = WH" in create_query
         assert "EXTERNAL_ACCESS_INTEGRATIONS = (MY_EAI)" in create_query
+
+    @patch(EXECUTE_QUERY)
+    def test_create_app_service_never_emits_compute_resource(self, mock_execute):
+        """The snowflake.yml path builds ``CREATE APPLICATION SERVICE`` without a
+        ``COMPUTE_RESOURCE`` clause, so CNG stays reachable only from app.yml v2
+        — even with the CNG feature flag on."""
+        mock_execute.return_value = Mock()
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
+        with patch.object(
+            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
+            "is_enabled",
+            return_value=True,
+        ):
+            SnowflakeAppManager().create_app_service(
+                service_fqn=fqn,
+                artifact_repo_fqn="DB.SCHEMA.REPO",
+                package_name="my_app",
+                compute_pool="SVC_POOL",
+            )
+        create_query = self._find_query(
+            mock_execute.call_args_list, "CREATE APPLICATION SERVICE"
+        )
+        assert "COMPUTE_RESOURCE" not in create_query
+        assert "IN COMPUTE POOL SVC_POOL" in create_query
 
     @patch(EXECUTE_QUERY)
     def test_create_app_service_with_comment(self, mock_execute):
@@ -4358,8 +4166,8 @@ class TestResolveDeployDefaults:
 
 class TestSetupCommand:
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_init_creates_file(self, mock_mgr_cls, mock_gen, runner, tmp_path):
@@ -4377,8 +4185,11 @@ class TestSetupCommand:
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
-            assert "Initialized Snowflake App Runtime project" in result.output
-            assert (tmp_path / "snowflake.yml").exists()
+            assert (
+                "Initialized Snowflake App Runtime project in app.yml" in result.output
+            )
+            assert (tmp_path / "app.yml").exists()
+            assert not (tmp_path / "snowflake.yml").exists()
 
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "PARAM_DB"
@@ -4396,70 +4207,7 @@ class TestSetupCommand:
         return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_app_yml_flag_creates_app_yml(
-        self, mock_mgr_cls, mock_gen, runner, tmp_path
-    ):
-        """With ``ENABLE_SAR_APP_YML_V2`` on, setup writes app.yml (not
-        snowflake.yml) using the app.yml generator, sharing the same resolution
-        and code-storage decision."""
-        mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_app_service_defaults.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-            "build_eai": "PARAM_EAI",
-        }
-        mock_mgr.role_can_create_workspace.return_value = True
-
-        with change_directory(tmp_path):
-            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
-                result = runner.invoke(["app", "setup", "--app-name", "my_app"])
-            assert result.exit_code == 0, result.output
-            assert (
-                "Initialized Snowflake App Runtime project in app.yml" in result.output
-            )
-            assert (tmp_path / "app.yml").exists()
-            assert not (tmp_path / "snowflake.yml").exists()
-
-        resolved = mock_gen.call_args[0][1]
-        assert resolved["database"] == "PARAM_DB"
-        assert resolved["warehouse"] == "PARAM_WH"
-        assert mock_gen.call_args.kwargs["use_workspace"] is True
-
-    @patch("snowflake.cli._plugins.apps.commands._generate_snowflake_yml")
-    @patch(
-        "snowflake.cli._plugins.apps.commands._generate_app_yml",
-        return_value="version: 2\n",
-    )
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_app_yml_flag_does_not_use_snowflake_yml_generator(
-        self, mock_mgr_cls, mock_app_gen, mock_snow_gen, runner, tmp_path
-    ):
-        """The snowflake.yml generator is never invoked in app.yml mode."""
-        mock_mgr = mock_mgr_cls.return_value
-        mock_mgr.fetch_app_service_defaults.return_value = {
-            "database": "PARAM_DB",
-            "schema": "PARAM_SCHEMA",
-            "query_warehouse": "PARAM_WH",
-        }
-        mock_mgr.role_can_create_workspace.return_value = True
-
-        with change_directory(tmp_path):
-            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
-                result = runner.invoke(["app", "setup", "--app-name", "my_app"])
-            assert result.exit_code == 0, result.output
-
-        mock_app_gen.assert_called_once()
-        mock_snow_gen.assert_not_called()
-
-    @patch(
-        "snowflake.cli._plugins.apps.commands._generate_app_yml",
-        return_value="version: 2\n",
-    )
-    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_app_yml_flag_skips_existing_app_yml(
-        self, mock_mgr_cls, mock_gen, runner, tmp_path
-    ):
+    def test_skips_existing_app_yml(self, mock_mgr_cls, mock_gen, runner, tmp_path):
         """An existing app.yml is left untouched (no overwrite)."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_app_service_defaults.return_value = {
@@ -4471,8 +4219,7 @@ class TestSetupCommand:
 
         with change_directory(tmp_path):
             (tmp_path / "app.yml").write_text("version: 2\nname: EXISTING\n")
-            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
-                result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
             assert "app.yml already exists" in result.output
             assert (tmp_path / "app.yml").read_text() == (
@@ -4485,10 +4232,8 @@ class TestSetupCommand:
         return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_app_yml_dry_run_writes_nothing(
-        self, mock_mgr_cls, mock_gen, runner, tmp_path
-    ):
-        """A dry run in app.yml mode resolves config but writes no file."""
+    def test_dry_run_writes_no_manifest(self, mock_mgr_cls, mock_gen, runner, tmp_path):
+        """A dry run resolves config but writes no file."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_app_service_defaults.return_value = {
             "database": "PARAM_DB",
@@ -4498,20 +4243,18 @@ class TestSetupCommand:
         mock_mgr.role_can_create_workspace.return_value = True
 
         with change_directory(tmp_path):
-            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
-                result = runner.invoke(
-                    ["app", "setup", "--app-name", "my_app", "--dry-run"]
-                )
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
             assert result.exit_code == 0, result.output
             assert not (tmp_path / "app.yml").exists()
-            assert not (tmp_path / "snowflake.yml").exists()
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_app_yml_end_to_end_produces_valid_v2_manifest(
+    def test_end_to_end_produces_valid_v2_manifest(
         self, mock_mgr_cls, runner, tmp_path
     ):
-        """Without mocking the generator, app.yml mode writes a manifest that
-        loads back as a v2 ``AppYmlDefinition``."""
+        """Without mocking the generator, setup writes a manifest that loads
+        back as a v2 ``AppYmlDefinition``."""
         import yaml
         from snowflake.cli._plugins.apps.app_yml import AppYmlDefinition
 
@@ -4525,8 +4268,7 @@ class TestSetupCommand:
         mock_mgr.role_can_create_workspace.return_value = True
 
         with change_directory(tmp_path):
-            with with_feature_flags({FeatureFlag.ENABLE_SAR_APP_YML_V2: True}):
-                result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
             written = (tmp_path / "app.yml").read_text()
 
@@ -4540,8 +4282,8 @@ class TestSetupCommand:
         assert model.code_stage is None
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_setup_records_spans(self, mock_mgr_cls, mock_gen, runner, tmp_path):
@@ -4604,16 +4346,16 @@ class TestSetupCommand:
             assert "snowflake_app.setup.write_manifest" not in recorded
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
         # "é" is U+00E9: 0xE9 in cp1252, 0xC3 0xA9 in UTF-8.
-        return_value="definition_version: '2'\ntitle: é\n",
+        return_value="version: 2\nlabel: é\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_init_writes_definition_as_utf8_by_default(
         self, mock_mgr_cls, mock_gen, runner, tmp_path
     ):
         """Without cli.encoding.file_io configured, ``snow app setup`` writes
-        snowflake.yml as UTF-8 (not the platform code page)."""
+        app.yml as UTF-8 (not the platform code page)."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_app_service_defaults.return_value = {
             "database": "PARAM_DB",
@@ -4625,21 +4367,21 @@ class TestSetupCommand:
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
 
-        data = (tmp_path / "snowflake.yml").read_bytes()
+        data = (tmp_path / "app.yml").read_bytes()
         assert b"\xc3\xa9" in data  # UTF-8 encoding of "é"
         assert b"\xe9" not in data  # not the cp1252 single-byte form
 
     @patch("snowflake.cli._plugins.apps.commands.get_file_io_encoding")
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\ntitle: é\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\nlabel: é\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_init_write_honors_file_io_encoding_setting(
         self, mock_mgr_cls, mock_gen, mock_encoding, runner, tmp_path
     ):
         """An explicit cli.encoding.file_io setting takes precedence over the
-        UTF-8 default when ``snow app setup`` writes snowflake.yml."""
+        UTF-8 default when ``snow app setup`` writes app.yml."""
         mock_encoding.return_value = "cp1252"
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_app_service_defaults.return_value = {
@@ -4652,13 +4394,13 @@ class TestSetupCommand:
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
 
-        data = (tmp_path / "snowflake.yml").read_bytes()
+        data = (tmp_path / "app.yml").read_bytes()
         assert b"\xe9" in data  # cp1252 single-byte encoding of "é"
         assert b"\xc3\xa9" not in data  # not the UTF-8 form
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_init_uses_current_directory_name_when_app_name_not_provided(
@@ -4679,8 +4421,8 @@ class TestSetupCommand:
         assert mock_gen.call_args[0][0] == tmp_path.name
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_init_normalizes_derived_directory_name(
@@ -4721,11 +4463,22 @@ class TestSetupCommand:
         assert "Could not derive app name from the current directory." in result.output
 
     def test_init_skips_when_file_exists(self, runner, tmp_path):
-        (tmp_path / "snowflake.yml").write_text("existing content")
+        (tmp_path / "app.yml").write_text("existing content")
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
             assert "already exists" in result.output
+
+    def test_init_skips_when_snowflake_yml_exists(self, runner, tmp_path):
+        """A snowflake.yml project is already initialized. Writing app.yml would
+        silently take precedence over it at deploy time, so setup leaves it
+        alone."""
+        (tmp_path / "snowflake.yml").write_text("definition_version: '2'\n")
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "snowflake.yml already exists" in result.output
+            assert not (tmp_path / "app.yml").exists()
 
     def test_init_rejects_invalid_explicit_app_name(self, runner, tmp_path):
         """``--app-name`` with characters outside ``[a-zA-Z0-9_]`` is rejected.
@@ -4757,7 +4510,7 @@ class TestSetupCommand:
                 ["app", "setup", "--app-name", "my_app", "--dry-run"]
             )
             assert result.exit_code == 0, result.output
-            assert not (tmp_path / "snowflake.yml").exists()
+            assert not (tmp_path / "app.yml").exists()
             assert "PARAM_DB" in result.output
             assert "PARAM_WH" in result.output
 
@@ -4780,7 +4533,7 @@ class TestSetupCommand:
 
         assert result.exit_code == 0, result.output
         assert "Missing warehouse. Provide --warehouse" in result.output
-        assert not (tmp_path / "snowflake.yml").exists()
+        assert not (tmp_path / "app.yml").exists()
 
     @patch("snowflake.cli._plugins.apps.commands.get_connection_dict", return_value={})
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -4859,8 +4612,8 @@ class TestSetupCommand:
             assert "service_compute_pool" not in parsed
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_success_json_includes_resolved_values(
@@ -4896,8 +4649,8 @@ class TestSetupCommand:
             assert parsed["warehouse"] == "PARAM_WH"
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_success_prints_resolved_values_in_default_format(
@@ -4922,8 +4675,8 @@ class TestSetupCommand:
             assert "service_compute_pool" not in result.output
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_flags_beat_parameters(self, mock_mgr_cls, mock_gen, runner, tmp_path):
@@ -4958,8 +4711,8 @@ class TestSetupCommand:
         assert resolved["warehouse"] == "PARAM_WH"
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_warehouse_flag_beats_account_param(
@@ -4993,8 +4746,8 @@ class TestSetupCommand:
         assert "warehouse: MY_WAREHOUSE  (user input)" in result.output
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_database_flag_beats_account_param(
@@ -5030,8 +4783,8 @@ class TestSetupCommand:
         assert "database: MY_DATABASE  (user input)" in result.output
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_database_without_schema_is_rejected(
@@ -5064,8 +4817,8 @@ class TestSetupCommand:
         mock_gen.assert_not_called()
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_schema_without_database_is_allowed(
@@ -5100,8 +4853,8 @@ class TestSetupCommand:
         assert resolved["database"] == "PARAM_DB"
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_schema_flag_beats_account_param(
@@ -5135,8 +4888,8 @@ class TestSetupCommand:
         assert "schema: MY_SCHEMA  (user input)" in result.output
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_all_three_flags_beat_account_params(
@@ -5234,8 +4987,8 @@ class TestSetupCommand:
             assert "Missing database" not in result.output
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_setup_shows_parameter_provenance(
@@ -5258,8 +5011,8 @@ class TestSetupCommand:
             assert "account parameter" in result.output
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_personal_db_default_and_public_schema(
@@ -5283,8 +5036,8 @@ class TestSetupCommand:
         assert mock_gen.call_args.kwargs["use_workspace"] is True
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -5313,8 +5066,8 @@ class TestSetupCommand:
         )
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -5340,8 +5093,8 @@ class TestSetupCommand:
         assert mock_gen.call_args.kwargs["use_workspace"] is True
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_setup_skips_workspace_privilege_check_for_personal_db(
@@ -5364,8 +5117,8 @@ class TestSetupCommand:
         mock_mgr.role_can_create_workspace.assert_not_called()
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -5393,8 +5146,8 @@ class TestSetupCommand:
         assert mock_gen.call_args.kwargs["use_workspace"] is True
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_compute_pools_not_resolved_from_account_params(
@@ -5421,8 +5174,8 @@ class TestSetupCommand:
         assert "service_compute_pool" not in resolved
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_compute_pool_flag_is_noop(self, mock_mgr_cls, mock_gen, runner, tmp_path):
@@ -5509,15 +5262,15 @@ class TestSetupCommand:
         assert "service_compute_pool" not in parsed
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\nentities:\n  my_app:\n    query_warehouse: ENTREPÔT_WH\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\nquery_warehouse: ENTREPÔT_WH\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_init_preserves_non_ascii_content_in_snowflake_yml(
+    def test_init_preserves_non_ascii_content_in_manifest(
         self, mock_mgr_cls, mock_gen, runner, tmp_path, monkeypatch
     ):
         """Snowflake identifiers can contain non-ASCII characters (e.g. an accented
-        French warehouse name like ENTREPÔT_WH).  snowflake.yml must be written
+        French warehouse name like ENTREPÔT_WH).  app.yml must be written
         through SecurePath so that get_file_io_encoding() is honoured and the
         content round-trips without corruption on non-UTF-8 platforms."""
         monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
@@ -5533,7 +5286,7 @@ class TestSetupCommand:
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
 
         assert result.exit_code == 0, result.output
-        content = (tmp_path / "snowflake.yml").read_text(encoding="utf-8")
+        content = (tmp_path / "app.yml").read_text(encoding="utf-8")
         assert "ENTREPÔT_WH" in content
 
 
@@ -5550,8 +5303,8 @@ class TestSetupServerResolvedDefaults:
     returns without probing privileges."""
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_personal_database_fallback_uses_workspace(
@@ -5577,8 +5330,8 @@ class TestSetupServerResolvedDefaults:
         assert mock_gen.call_args.kwargs["use_workspace"] is True
 
     @patch(
-        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
-        return_value="definition_version: '2'\n",
+        "snowflake.cli._plugins.apps.commands._generate_app_yml",
+        return_value="version: 2\n",
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_accessible_destination_is_used(

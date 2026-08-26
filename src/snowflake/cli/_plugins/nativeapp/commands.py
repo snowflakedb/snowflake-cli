@@ -289,7 +289,7 @@ def app_setup(
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
-        help="Only print the resolved configuration values without writing snowflake.yml.",
+        help="Only print the resolved configuration values without writing app.yml.",
     ),
     compute_pool: Optional[str] = typer.Option(
         None,
@@ -305,11 +305,12 @@ def app_setup(
     **options,
 ) -> CommandResult:
     """
-    (Snowflake App Runtime only) Initializes a snowflake.yml for a Snowflake App Runtime project.
+    (Snowflake App Runtime only) Initializes an app.yml for a Snowflake App Runtime project.
 
-    Creates a ``snowflake.yml`` in the current directory with a
-    ``snowflake-app`` entity preconfigured from account parameters and the
-    current connection. This command does not apply to Native App projects.
+    Creates an ``app.yml`` in the current directory: a flat ``version: 2``
+    manifest whose ``name``, ``database``, ``schema``, and ``query_warehouse``
+    are preconfigured from account parameters and the current connection.
+    This command does not apply to Native App projects.
     """
     set_app_flow(AppFlow.SNOWFLAKE_APP)
     return snowflake_app_setup(app_name, dry_run, compute_pool, build_eai)
