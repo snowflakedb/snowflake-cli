@@ -3579,26 +3579,27 @@ class TestCumulativeProgress:
         progress, handle = self._make_handle()
         task = progress.tasks[0]
 
-        # Phase 1: entities — spinner until the count is known, then 8 ticks.
+        # Phase 1: entities — an in-flight phase reserves +1 until its count
+        # is known, so the bar never reads 0/0 ("done") during the collect.
         handle.begin_phase("Loading entities")
         assert task.completed == 0
-        assert task.total is None  # indeterminate spinner during collect()
+        assert task.total == 1  # in-flight reserve (+1), not a spinner
 
         cb1 = handle.callback("Loading entities")
         cb1(0, 8, "")
-        assert task.total == 8
+        assert task.total == 8  # reserve released, real count added
         assert task.completed == 0
         for i in range(1, 9):
             cb1(i, 8, f"E{i}")
         assert task.completed == 8
         assert task.total == 8
 
-        # Phase 2: feature groups — begin_phase must NOT reset completed, and
-        # the total is not yet extended (still 8) while the collect runs.
+        # Phase 2: feature groups — begin_phase must NOT reset completed; the
+        # in-flight reserve makes total 8+1 until FG's count returns.
         handle.begin_phase("Loading feature groups")
         assert task.completed == 8, "completed must be monotonic across phases"
         assert task.description == "Loading feature groups"
-        assert task.total == 8
+        assert task.total == 9  # known(8) + reserve(1)
 
         cb2 = handle.callback("Loading feature groups")
         cb2(0, 3, "")
@@ -3609,7 +3610,79 @@ class TestCumulativeProgress:
         assert task.completed == 11
         assert task.total == 11
 
-    def test_empty_phase_extends_total_by_zero_and_keeps_completed(self):
+    def test_in_flight_phase_reserves_one_until_count_known(self):
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        handle.begin_phase("Loading entities")
+        # Before any callback the phase is in-flight with an unknown count:
+        # total must strictly exceed completed so the bar reads mid-flight.
+        assert task.total == task.completed + 1
+
+        cb = handle.callback("Loading entities")
+        cb(0, 5, "")
+        # The reserve is swapped for the real count (no lingering +1).
+        assert task.total == 5
+        assert task.completed == 0
+
+    def test_preseed_known_total_not_double_counted_by_pre_counted_phase(self):
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        # OFT count known up front (from SHOW ONLINE FEATURE TABLES).
+        handle.add_known(13)
+        assert task.total == 13
+        assert task.completed == 0
+
+        # Entities phase (normal) climbs to 8; total = 13 + 8 = 21.
+        handle.begin_phase("Loading entities")
+        cbe = handle.callback("Loading entities")
+        cbe(0, 8, "")
+        for i in range(1, 9):
+            cbe(i, 8, f"E{i}")
+        assert task.completed == 8
+        assert task.total == 21
+
+        # OFT phase is pre-counted: no +1 reserve, and its (0, n, "") must NOT
+        # add n again (it was pre-seeded via add_known).
+        handle.begin_phase("Loading online feature tables", pre_counted=True)
+        assert task.total == 21  # no reserve for a pre-counted phase
+        cbo = handle.callback("Loading online feature tables")
+        cbo(0, 13, "")
+        assert task.total == 21, "pre-counted phase must not double-count"
+        for i in range(1, 14):
+            cbo(i, 13, f"OFT{i}")
+        assert task.completed == 21
+        assert task.total == 21
+
+    def test_not_done_during_feature_view_stall(self):
+        # Reproduces the reported 8/8 case: after entities, the feature-views
+        # collect stalls before its count is known. With the OFT count pre-
+        # seeded and the in-flight reserve, the bar must read mid-flight.
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        handle.add_known(13)  # OFT describes (E), known at A
+        handle.begin_phase("Loading entities")
+        cbe = handle.callback("Loading entities")
+        cbe(0, 8, "")
+        for i in range(1, 9):
+            cbe(i, 8, f"E{i}")
+
+        # Feature groups: empty.
+        handle.begin_phase("Loading feature groups")
+        handle.callback("Loading feature groups")(0, 0, "")
+
+        # Feature views: in-flight, count still unknown (the stall).
+        handle.begin_phase("Loading feature views")
+        assert task.completed < task.total, (
+            "bar must read mid-flight during the feature-views stall, "
+            f"not done; got {task.completed}/{task.total}"
+        )
+        assert task.completed == 8
+        assert task.total == 22  # entities(8) + OFT(13) + reserve(1)
+
+    def test_empty_phase_releases_reserve_and_keeps_completed(self):
         progress, handle = self._make_handle()
         task = progress.tasks[0]
 
@@ -3621,21 +3694,23 @@ class TestCumulativeProgress:
         assert task.completed == 2
         assert task.total == 2
 
-        # An empty phase reveals a zero count: total unchanged, completed held.
+        # An empty phase: reserve +1 while in-flight, released to +0 on (0,0,"").
         handle.begin_phase("Loading feature groups")
+        assert task.total == 3  # known(2) + reserve(1)
         cb2 = handle.callback("Loading feature groups")
         cb2(0, 0, "")
-        assert task.total == 2
+        assert task.total == 2  # reserve released; empty phase adds nothing
         assert task.completed == 2
 
 
 class TestNullProgressBeginPhase:
     """The silent/JSON handle stays a no-op, including ``begin_phase``."""
 
-    def test_begin_phase_is_noop_and_callback_is_none(self):
+    def test_begin_phase_and_add_known_are_noop_and_callback_is_none(self):
         from snowflake.cli._plugins.feature.manager import _NullStateFetchProgress
 
         handle = _NullStateFetchProgress()  # noqa: SLF001
         # Must not raise and must not construct any Rich objects.
         handle.begin_phase("Loading entities")
+        handle.add_known(5)
         assert handle.callback("Loading entities") is None
