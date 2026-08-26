@@ -193,12 +193,15 @@ class _RichStateFetchProgress:
                     description=phase_label,
                 )
             else:
-                description = phase_label if not label else f"{phase_label}: {label}"
+                # Keep the stable phase label as the description — the
+                # per-item ``label`` (object name) is intentionally not
+                # rendered: a long name changes width tick to tick and would
+                # shift the bar's right edge around.
                 self._progress.update(
                     self._task_id,
                     completed=self._completed_base + completed,
                     total=self._render_total(),
-                    description=description,
+                    description=phase_label,
                 )
 
         return _on_progress
