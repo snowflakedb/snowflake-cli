@@ -3610,6 +3610,23 @@ class TestCumulativeProgress:
         assert task.completed == 11
         assert task.total == 11
 
+    def test_per_item_ticks_keep_phase_label_without_object_name(self):
+        # A long per-item object name would push the bar's right edge around
+        # as its width changes tick to tick, so the description must stay the
+        # stable phase label regardless of the name passed to the callback.
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        handle.begin_phase("Loading feature views")
+        cb = handle.callback("Loading feature views")
+        cb(0, 2, "")
+        cb(1, 2, "A_VERY_LONG_FEATURE_VIEW_NAME_THAT_WOULD_SHIFT_THE_BAR")
+        assert task.description == "Loading feature views"
+        assert task.completed == 1
+        cb(2, 2, "ANOTHER_LONG_NAME")
+        assert task.description == "Loading feature views"
+        assert task.completed == 2
+
     def test_in_flight_phase_reserves_one_until_count_known(self):
         progress, handle = self._make_handle()
         task = progress.tasks[0]
