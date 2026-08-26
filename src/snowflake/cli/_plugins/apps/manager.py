@@ -190,7 +190,11 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
-from snowflake.cli.api.project.util import identifier_to_str, to_identifier
+from snowflake.cli.api.project.util import (
+    identifier_to_str,
+    to_identifier,
+    to_string_literal,
+)
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -1115,9 +1119,14 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def create_stage(
         self, stage_fqn: FQN, encryption_type: str = "SNOWFLAKE_SSE"
     ) -> None:
-        """Create a stage if it doesn't exist."""
+        """Create a stage if it doesn't exist.
+
+        *encryption_type* comes from the project definition, so it is escaped
+        rather than interpolated as-is.
+        """
         self.execute_query(
-            f"CREATE STAGE IF NOT EXISTS {stage_fqn.sql_identifier} ENCRYPTION = (TYPE = '{encryption_type}')"
+            f"CREATE STAGE IF NOT EXISTS {stage_fqn.sql_identifier} "
+            f"ENCRYPTION = (TYPE = {to_string_literal(encryption_type)})"
         )
 
     def get_build_status(self, job_fqn: FQN) -> str:
@@ -1152,6 +1161,21 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def drop_stage_if_exists(self, stage_fqn: FQN) -> None:
         """Drop a stage if it exists."""
         self.execute_query(f"DROP STAGE IF EXISTS {stage_fqn.sql_identifier}")
+
+    def remove_stage_contents(self, stage_fqn: FQN) -> None:
+        """Remove every file from a stage, leaving the stage itself in place.
+
+        Needs only WRITE on the stage, where ``DROP STAGE`` needs OWNERSHIP.
+        In exchange it is a weaker guarantee: a file that has since been
+        deleted from the project can survive a ``REMOVE``, so this does not
+        promise a genuinely empty stage the way dropping and recreating does.
+
+        ``REMOVE`` takes a stage path, not an identifier, so ``IDENTIFIER()``
+        does not apply here; ``path_for_sql`` quotes the path when the stage
+        name is not a plain one.
+        """
+        stage_root = StagePath.from_stage_str(f"@{stage_fqn.identifier}/")
+        self.execute_query(f"REMOVE {stage_root.path_for_sql()}")
 
     def create_workspace(self, workspace_fqn: FQN) -> None:
         """Create a workspace if needed and ensure it has a live version."""

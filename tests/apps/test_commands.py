@@ -14,6 +14,7 @@
 
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -116,9 +117,46 @@ def _get_completed_span(span_name: str) -> dict:
     )
 
 
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+_PANEL_BORDER = re.compile(r"[|\u2502\u2503\u250c-\u257f]")
+
+
 def _unwrapped(output: str) -> str:
-    """Flatten Rich's error panel so assertions can span its line wrapping."""
-    return " ".join(output.replace("|", " ").split())
+    """Flatten Rich's error panel so assertions can span its line wrapping.
+
+    Where Rich wraps a message, and whether it colours it, depends on the
+    terminal it thinks it is writing to. Dropping the colour codes and the
+    panel border characters leaves the text itself, so an assertion does not
+    have to guess the width.
+    """
+    plain = _ANSI_ESCAPE.sub("", output)
+    return " ".join(_PANEL_BORDER.sub(" ", plain).split())
+
+
+def _stage_backed_entity() -> Mock:
+    """A deployable ``snowflake.yml`` entity that stores code in a stage."""
+    entity = Mock()
+    fqn = Mock()
+    fqn.name = "MY_APP"
+    fqn.database = "TEST_DB"
+    fqn.schema = "TEST_SCHEMA"
+    entity.fqn = fqn
+    entity.code_stage = Mock(
+        encryption_type="SNOWFLAKE_SSE",
+        database=None,
+        schema_=None,
+    )
+    entity.code_stage.name = "MY_STAGE"
+    entity.code_workspace = None
+    entity.artifacts = []
+    entity.meta = None
+    entity.runtime_image = "runtime:latest"
+    entity.query_warehouse = "WH"
+    entity.artifact_repository = None
+    entity.build_compute_pool = None
+    entity.service_compute_pool = None
+    entity.build_eai = None
+    return entity
 
 
 def _uploads_then_raises(results: list, error: BaseException):
@@ -1735,12 +1773,38 @@ class TestSnowflakeAppManager:
         )
 
     @patch(EXECUTE_QUERY)
+    def test_create_stage_escapes_the_encryption_type(self, mock_execute):
+        """The encryption type comes from the project definition, so a quote in
+        it must not be able to close the literal and append SQL."""
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().create_stage(fqn, "SNOWFLAKE_SSE'); DROP STAGE X --")
+        mock_execute.assert_called_once_with(
+            "CREATE STAGE IF NOT EXISTS IDENTIFIER('DB.SCHEMA.STAGE') "
+            "ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE''); DROP STAGE X --')"
+        )
+
+    @patch(EXECUTE_QUERY)
     def test_drop_stage_if_exists(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
         SnowflakeAppManager().drop_stage_if_exists(fqn)
         mock_execute.assert_called_once_with(
             "DROP STAGE IF EXISTS IDENTIFIER('DB.SCHEMA.STAGE')"
         )
+
+    @patch(EXECUTE_QUERY)
+    def test_remove_stage_contents(self, mock_execute):
+        fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().remove_stage_contents(fqn)
+        mock_execute.assert_called_once_with("REMOVE @DB.SCHEMA.STAGE/")
+
+    @patch(EXECUTE_QUERY)
+    def test_remove_stage_contents_quotes_an_unusual_stage_name(self, mock_execute):
+        """The stage name comes from the project definition, and REMOVE takes a
+        path rather than an identifier, so a name needing quotes is sent as a
+        quoted path instead of being pasted into the statement."""
+        fqn = FQN(database="DB", schema="SCHEMA", name='"my stage"')
+        SnowflakeAppManager().remove_stage_contents(fqn)
+        mock_execute.assert_called_once_with("REMOVE '@DB.SCHEMA.\"my stage\"/'")
 
     @patch(EXECUTE_QUERY)
     def test_stage_exists_returns_true(self, mock_execute):
@@ -7344,10 +7408,9 @@ class TestDeployCommand:
             _reset_command_metrics()
             result = runner.invoke(["app", "deploy", "--promote-only"])
             assert result.exit_code == 1
-            assert (
-                "Deployment failed while creating application service" in result.output
-            )
-            assert "Verify privileges for CREATE" in result.output
+            output = _unwrapped(result.output)
+            assert "Deployment failed while creating application service" in output
+            assert "Verify privileges for CREATE" in output
             create_span = _get_completed_span("snowflake_app.deploy_service.create")
             assert create_span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
             # The deploy path wraps default resolution in its own span so the
@@ -8160,13 +8223,15 @@ class TestDeployCommand:
 
         # The stage is dropped and recreated so the upload always starts from
         # an empty stage, never reusing files left over from a prior deploy,
-        # then dropped again once the build has consumed it.
+        # then dropped again once the build has consumed it. The extra create
+        # is the probe that checks the role could recreate the stage before the
+        # drop removes it.
         stage_fqn = FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_STAGE")
         assert mock_mgr.drop_stage_if_exists.call_args_list == [
             call(stage_fqn),
             call(stage_fqn),
         ]
-        mock_mgr.create_stage.assert_called_once()
+        assert mock_mgr.create_stage.call_count == 2
         mock_mgr.create_workspace.assert_not_called()
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
             stage_fqn=FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_STAGE"),
@@ -8615,6 +8680,7 @@ class TestDeployCommand:
         create_error.errno = 3001
 
         mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = False
         mock_mgr.create_stage.side_effect = create_error
         mock_mgr.current_role.return_value = "APP_DEPLOYER"
 
@@ -8656,7 +8722,7 @@ class TestDeployCommand:
         "snowflake.cli._plugins.apps.commands._resolve_entity_id",
         return_value="my_app",
     )
-    def test_deploy_drop_stage_privilege_error_includes_role_guidance(
+    def test_deploy_unclassified_drop_stage_error_reports_the_drop_action(
         self,
         mock_resolve,
         mock_get_entity,
@@ -8666,9 +8732,10 @@ class TestDeployCommand:
         runner,
         tmp_path,
     ):
-        """A privilege error while dropping the existing stage reports the
-        recreate action and the OWNERSHIP privilege hint, and falls back to a
-        generic role phrase when the role cannot be resolved."""
+        """A drop failure the CLI cannot classify still names the drop action
+        and the privilege that statement needs, and falls back to a generic
+        role phrase when the role cannot be resolved. Only an explicit
+        insufficient-privileges code takes the clear-contents path."""
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
@@ -8708,7 +8775,319 @@ class TestDeployCommand:
             assert "Failed to drop stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'" in output
             assert "your role has OWNERSHIP on the stage" in output
 
-        mock_mgr.create_stage.assert_not_called()
+        mock_mgr.remove_stage_contents.assert_not_called()
+        # Only the create-stage probe ran; the stage was never recreated.
+        assert mock_mgr.create_stage.call_count == 1
+        mock_mgr.build_app_artifact_repo.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_recreates_an_existing_stage_when_the_role_owns_it(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """The owner path is unchanged: drop, recreate, and drop again once the
+        build has consumed the stage."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = _stage_backed_entity()
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        stage_fqn = FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_STAGE")
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = True
+        mock_mgr.upload_to_stage.return_value = [{"source": "a.py", "target": "a.py"}]
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+            assert "Recreating stage" in result.output
+
+        mock_mgr.remove_stage_contents.assert_not_called()
+        # Once to check the role may create stages at all, once to recreate the
+        # stage the drop removed.
+        assert mock_mgr.create_stage.call_args_list == [
+            call(stage_fqn, "SNOWFLAKE_SSE"),
+            call(stage_fqn, "SNOWFLAKE_SSE"),
+        ]
+        # Dropped once to recreate it, and again after the build consumed it.
+        assert mock_mgr.drop_stage_if_exists.call_args_list == [
+            call(stage_fqn),
+            call(stage_fqn),
+        ]
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_clears_an_existing_stage_the_role_does_not_own(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """A role with WRITE but not OWNERSHIP could never redeploy, because
+        the stage was always dropped first. It now clears the contents instead
+        and the deploy completes."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = _stage_backed_entity()
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        stage_fqn = FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_STAGE")
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = True
+        mock_mgr.drop_stage_if_exists.side_effect = ProgrammingError(
+            "Insufficient privileges to operate on stage", errno=3001
+        )
+        mock_mgr.upload_to_stage.return_value = [{"source": "a.py", "target": "a.py"}]
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+            output = _unwrapped(result.output)
+            assert "Clearing stage @TEST_DB.TEST_SCHEMA.MY_STAGE" in output
+            assert "because the deploying role cannot drop it" in output
+            assert "Files deleted from the project" in output
+
+        mock_mgr.remove_stage_contents.assert_called_once_with(stage_fqn)
+        # Only the probe, which is a no-op on a stage that already exists.
+        assert mock_mgr.create_stage.call_count == 1
+        # The post-build cleanup drop is skipped: this deploy did not create
+        # the stage, and dropping it would fail for the same reason.
+        assert mock_mgr.drop_stage_if_exists.call_count == 1
+        mock_mgr.build_app_artifact_repo.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_keeps_a_stage_the_role_cannot_create_again(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """A role that may drop the stage but not create one must never lose
+        it: the stage is cleared in place instead, and nothing is dropped."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = _stage_backed_entity()
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        stage_fqn = FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_STAGE")
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = True
+        mock_mgr.create_stage.side_effect = ProgrammingError(
+            "Insufficient privileges to operate on schema", errno=3001
+        )
+        mock_mgr.upload_to_stage.return_value = [{"source": "a.py", "target": "a.py"}]
+        mock_mgr.artifact_repo_exists.return_value = False
+        mock_mgr.build_app_artifact_repo.return_value = (
+            "Build job submitted: TEST_DB.TEST_SCHEMA.BUILD_JOB_123"
+        )
+        _real_manager = SnowflakeAppManager()
+        mock_mgr.resolve_application_service_url_from_describe.side_effect = (
+            _real_manager.resolve_application_service_url_from_describe
+        )
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 0, result.output
+            output = _unwrapped(result.output)
+            assert "Clearing stage @TEST_DB.TEST_SCHEMA.MY_STAGE" in output
+            assert "because the deploying role cannot create it again" in output
+
+        mock_mgr.remove_stage_contents.assert_called_once_with(stage_fqn)
+        # Nothing is dropped, before or after the build: the stage could not be
+        # brought back.
+        mock_mgr.drop_stage_if_exists.assert_not_called()
+        mock_mgr.build_app_artifact_repo.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": "BUILD_POOL",
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": "MY_EAI",
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_reports_a_failure_to_clear_a_stage_it_cannot_drop(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_perform_bundle,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """When the role can neither drop nor clear the stage, the error names
+        the clear action and the privilege it needs."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        entity = _stage_backed_entity()
+        mock_get_entity.return_value = entity
+
+        bundle_dir = tmp_path / "output" / "bundle"
+        bundle_dir.mkdir(parents=True)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.stage_exists.return_value = True
+        mock_mgr.drop_stage_if_exists.side_effect = ProgrammingError(
+            "Insufficient privileges to operate on stage", errno=3001
+        )
+        mock_mgr.remove_stage_contents.side_effect = ProgrammingError(
+            "Insufficient privileges to operate on stage", errno=3001
+        )
+        mock_mgr.current_role.return_value = "APP_DEPLOYER"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy"])
+            assert result.exit_code == 1, result.output
+            output = _unwrapped(result.output)
+            assert "Failed to clear stage 'TEST_DB.TEST_SCHEMA.MY_STAGE'" in output
+            assert "role 'APP_DEPLOYER' has WRITE on the stage" in output
+
+        # Only the probe, which is a no-op on a stage that already exists.
+        assert mock_mgr.create_stage.call_count == 1
         mock_mgr.build_app_artifact_repo.assert_not_called()
 
     @pytest.mark.parametrize("errno", [2003, 2043])
@@ -9232,7 +9611,9 @@ class TestDeployCommand:
             assert "generally does not support stages" in result.output
 
         mock_mgr.create_workspace.assert_not_called()
-        mock_mgr.create_stage.assert_called_once()
+        # Once to probe that the role may create stages, once to recreate the
+        # stage after the drop.
+        assert mock_mgr.create_stage.call_count == 2
         mock_mgr.build_app_artifact_repo.assert_called_once_with(
             stage_fqn=FQN(
                 database="USER$SNOTEBAERT", schema="PUBLIC", name="MY_APP_CODE"
