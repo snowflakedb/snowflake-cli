@@ -4178,10 +4178,6 @@ class TestSetupCommand:
             "query_warehouse": "PARAM_WH",
             "build_eai": "PARAM_EAI",
         }
-        # Regular destination whose role can create a workspace: the workspace
-        # flow is the default, so setup persists ``code_workspace``.
-        mock_mgr.role_can_create_workspace.return_value = True
-
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
@@ -4197,10 +4193,10 @@ class TestSetupCommand:
         assert resolved["build_eai"] == "PARAM_EAI"
         assert "build_compute_pool" not in resolved
         assert "service_compute_pool" not in resolved
-        assert mock_gen.call_args.kwargs["use_workspace"] is True
-        mock_mgr.role_can_create_workspace.assert_called_once_with(
-            "PARAM_DB", "PARAM_SCHEMA"
-        )
+        # A regular destination defaults to a temporary stage, resolved at
+        # deploy time; setup does not probe workspace privileges.
+        assert mock_gen.call_args.kwargs["use_workspace"] is False
+        mock_mgr.role_can_create_workspace.assert_not_called()
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_app_yml",
@@ -5041,11 +5037,12 @@ class TestSetupCommand:
     )
     @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_setup_falls_back_to_stage_when_role_cannot_create_workspace(
+    def test_setup_reports_temporary_stage_for_regular_db(
         self, mock_mgr_cls, mock_get_conn, mock_gen, runner, tmp_path
     ):
-        """A regular database whose role provably lacks CREATE WORKSPACE
-        persists ``code_stage`` so later deploys skip the workspace flow."""
+        """A regular database defaults to a temporary stage, resolved at deploy
+        time; setup omits code storage from the manifest and never probes
+        CREATE WORKSPACE privileges."""
         mock_get_conn.return_value = {"database": "CONN_DB"}
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_app_service_defaults.return_value = {
@@ -5054,16 +5051,14 @@ class TestSetupCommand:
             "build_eai": "PARAM_EAI",
         }
         mock_mgr.get_personal_database.return_value = None
-        mock_mgr.role_can_create_workspace.return_value = False
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
+            assert "temporary stage" in result.output
 
         assert mock_gen.call_args.kwargs["use_workspace"] is False
-        mock_mgr.role_can_create_workspace.assert_called_once_with(
-            "CONN_DB", "PARAM_SCHEMA"
-        )
+        mock_mgr.role_can_create_workspace.assert_not_called()
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_app_yml",
@@ -5071,26 +5066,27 @@ class TestSetupCommand:
     )
     @patch("snowflake.cli._plugins.apps.commands.get_connection_dict")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
-    def test_setup_uses_workspace_for_regular_db_by_default(
+    def test_setup_reports_temporary_workspace_for_personal_db(
         self, mock_mgr_cls, mock_get_conn, mock_gen, runner, tmp_path
     ):
-        """A regular database whose role can create a workspace persists
-        ``code_workspace`` — the workspace flow is the default backend."""
-        mock_get_conn.return_value = {"database": "CONN_DB"}
+        """A personal database defaults to a temporary workspace (stages are
+        unsupported there), resolved at deploy time and never probed."""
+        mock_get_conn.return_value = {"database": "USER$SOMEONE"}
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.fetch_app_service_defaults.return_value = {
-            "schema": "PARAM_SCHEMA",
+            "schema": "PUBLIC",
             "query_warehouse": "PARAM_WH",
             "build_eai": "PARAM_EAI",
         }
         mock_mgr.get_personal_database.return_value = None
-        mock_mgr.role_can_create_workspace.return_value = True
 
         with change_directory(tmp_path):
             result = runner.invoke(["app", "setup", "--app-name", "my_app"])
             assert result.exit_code == 0, result.output
+            assert "temporary workspace" in result.output
 
         assert mock_gen.call_args.kwargs["use_workspace"] is True
+        mock_mgr.role_can_create_workspace.assert_not_called()
 
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_app_yml",
@@ -7066,7 +7062,7 @@ class TestResolveCodeStorage:
         )
         mock_console.warning.assert_not_called()
 
-    def test_no_code_storage_on_regular_db_defaults_to_stage(self):
+    def test_no_code_storage_on_regular_db_defaults_to_temporary_stage(self):
         storage = _entity_code_storage(
             self._entity(),
             database="TEST_DB",
@@ -7075,8 +7071,9 @@ class TestResolveCodeStorage:
         )
         assert storage.type == "stage"
         assert storage.name == "MY_APP_CODE"
+        assert storage.temporary is True
 
-    def test_no_code_storage_on_personal_db_defaults_to_workspace(self):
+    def test_no_code_storage_on_personal_db_defaults_to_temporary_workspace(self):
         storage = _entity_code_storage(
             self._entity(),
             database="USER$SNOTEBAERT",
@@ -7084,88 +7081,77 @@ class TestResolveCodeStorage:
             app_name="MY_APP",
         )
         assert storage.type == "workspace"
-        assert storage.name == "SNOWFLAKE_APPS"
+        assert storage.name == "MY_APP_CODE"
+        assert storage.temporary is True
+
+    def test_explicit_backends_are_not_temporary(self):
+        ws = Mock(database=None, schema_=None)
+        ws.name = "MY_WS"
+        storage = _entity_code_storage(
+            self._entity(code_workspace=ws),
+            database="TEST_DB",
+            schema="TEST_SCHEMA",
+            app_name="MY_APP",
+        )
+        assert storage.temporary is False
 
 
 class TestAppYmlCodeStorageProbe:
     """``app.yml`` no longer bakes the code-storage backend into the manifest.
 
-    When neither ``code_stage`` nor ``code_workspace`` is configured, the
-    resolver probes the role's CREATE WORKSPACE privilege (via the
-    ``can_create_workspace`` callback ``app.yml`` passes) so a regular database
-    prefers the shared workspace when the role can create one — mirroring
-    ``snow app setup`` — and falls back to a stage otherwise.
+    When neither ``code_stage`` nor ``code_workspace`` is configured, the CLI
+    provisions a *temporary* ``<app>_CODE`` backend for the deploy — a stage for
+    a regular database, or a workspace when the destination is a personal
+    database (stages are unsupported there) — and drops it after the build.
     """
 
-    def test_regular_db_probes_and_uses_workspace_when_capable(self):
-        probe = Mock(return_value=True)
+    def test_regular_db_defaults_to_temporary_stage(self):
         storage = _app_yml_code_storage(
             code_stage=None,
             code_workspace=None,
             database="TEST_DB",
             schema="TEST_SCHEMA",
             app_name="MY_APP",
-            can_create_workspace=probe,
         )
-        probe.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
-        assert storage.type == "workspace"
-        assert storage.name == "SNOWFLAKE_APPS"
-
-    def test_regular_db_probes_and_falls_back_to_stage_when_incapable(self):
-        probe = Mock(return_value=False)
-        storage = _app_yml_code_storage(
-            code_stage=None,
-            code_workspace=None,
-            database="TEST_DB",
-            schema="TEST_SCHEMA",
-            app_name="MY_APP",
-            can_create_workspace=probe,
-        )
-        probe.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
         assert storage.type == "stage"
         assert storage.name == "MY_APP_CODE"
+        assert storage.temporary is True
 
-    def test_personal_db_uses_workspace_without_probing(self):
-        probe = Mock(return_value=False)
+    def test_personal_db_defaults_to_temporary_workspace(self):
         storage = _app_yml_code_storage(
             code_stage=None,
             code_workspace=None,
             database="USER$SNOTEBAERT",
             schema="PUBLIC",
             app_name="MY_APP",
-            can_create_workspace=probe,
         )
-        # Personal databases only support workspaces, so the probe is skipped.
-        probe.assert_not_called()
         assert storage.type == "workspace"
-        assert storage.name == "SNOWFLAKE_APPS"
+        assert storage.name == "MY_APP_CODE"
+        assert storage.temporary is True
 
-    def test_explicit_stage_skips_probe(self):
-        probe = Mock(return_value=True)
+    def test_explicit_stage_is_persisted(self):
         storage = _app_yml_code_storage(
             code_stage="SNOWFLAKE_APPS.PUBLIC.MY_STAGE",
             code_workspace=None,
             database="TEST_DB",
             schema="TEST_SCHEMA",
             app_name="MY_APP",
-            can_create_workspace=probe,
         )
-        probe.assert_not_called()
         assert storage.type == "stage"
         assert storage.name == "MY_STAGE"
+        assert storage.temporary is False
 
-    def test_no_probe_defaults_to_stage(self):
-        # Callers that do not supply a probe (e.g. the snowflake.yml flow) keep
-        # the stage default for a regular database.
+    def test_explicit_workspace_is_persisted(self):
         storage = _app_yml_code_storage(
             code_stage=None,
-            code_workspace=None,
+            code_workspace="MY_DB.PUBLIC.MY_WS",
             database="TEST_DB",
             schema="TEST_SCHEMA",
             app_name="MY_APP",
         )
-        assert storage.type == "stage"
-        assert storage.name == "MY_APP_CODE"
+        assert storage.type == "workspace"
+        assert storage.name == "MY_WS"
+        assert storage.temporary is False
 
 
 # ── Deploy CLI command tests ──────────────────────────────────────────

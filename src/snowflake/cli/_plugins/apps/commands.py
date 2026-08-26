@@ -61,7 +61,6 @@ from snowflake.cli._plugins.apps.events import (
 from snowflake.cli._plugins.apps.generate import _generate_app_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
-    DEFAULT_WORKSPACE_NAME,
     DEFINITION_FILENAME,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
     SERVERLESS_COMPUTE_RESOURCE,
@@ -198,6 +197,15 @@ class _CodeStorage(NamedTuple):
     ``type`` selects between the ``"workspace"`` and ``"stage"`` flows.
     ``name`` plus the optional database/schema overrides identify the backing
     object; ``encryption_type`` applies only to the stage flow.
+
+    ``temporary`` marks a backend the CLI provisions for the deploy and owns
+    end to end: it is named ``<app>_CODE`` (an app-name prefix), created during
+    the upload phase, and dropped once the build has consumed it. It is set only
+    when neither ``code_stage`` nor ``code_workspace`` is configured, so an
+    explicitly configured stage/workspace is always persisted (never dropped).
+    Because the name is deterministic, a ``--build-only`` run that skips the
+    upload can still find and drop the temporary backend a prior
+    ``--upload-only`` created.
     """
 
     type: _CodeStorageType  # noqa: A003
@@ -205,6 +213,7 @@ class _CodeStorage(NamedTuple):
     database_override: Optional[str]
     schema_override: Optional[str]
     encryption_type: str
+    temporary: bool = False
 
 
 class _CodeStorageRef(NamedTuple):
@@ -229,7 +238,6 @@ def _resolve_code_storage(
     database: Optional[str],
     schema: Optional[str],
     app_name: str,
-    can_create_workspace: Optional[Callable[[str, str], bool]] = None,
 ) -> _CodeStorage:
     """Decide whether app code is uploaded to a workspace or a stage.
 
@@ -238,27 +246,25 @@ def _resolve_code_storage(
     workspace — regardless of what (if anything) was configured. This both
     honors explicit configuration for non-personal destinations and repairs
     projects that predate personal-database detection (a ``code_stage`` pointing
-    at a personal database, or no code-storage block at all) by transparently
-    routing them through the shared ``SNOWFLAKE_APPS`` workspace. Both the
-    ``snowflake.yml`` and ``app.yml`` flows share this decision so their
-    behavior stays aligned.
+    at a personal database) by transparently routing them through a workspace.
+    Both the ``snowflake.yml`` and ``app.yml`` flows share this decision so
+    their behavior stays aligned.
 
     Resolution order:
 
-    1. Explicit ``code_workspace`` → workspace, as configured.
-    2. Explicit ``code_stage`` → stage, as configured. A warning is emitted only
-       when the stage itself resolves into a personal database (stages are
-       generally unsupported there); a stage in a standard database is fine even
-       when the service is deployed to a personal database, since the two are
-       located independently.
-    3. Neither configured → workspace when the destination is a personal
-       database. For a regular database, when *can_create_workspace* is provided
-       it is probed and the shared ``SNOWFLAKE_APPS`` workspace is used when the
-       role can create one (matching ``snow app setup``); otherwise a stage
-       named ``<app>_CODE`` is used. ``app.yml`` (which no longer bakes the
-       backend into the manifest) passes this probe so the choice follows the
-       role's privileges at deploy time; callers that omit it keep the stage
-       default.
+    1. Explicit ``code_workspace`` → workspace, as configured and *persisted*.
+    2. Explicit ``code_stage`` → stage, as configured and *persisted*. A warning
+       is emitted only when the stage itself resolves into a personal database
+       (stages are generally unsupported there); a stage in a standard database
+       is fine even when the service is deployed to a personal database, since
+       the two are located independently.
+    3. Neither configured → a *temporary* backend the CLI owns end to end: a
+       ``<app>_CODE`` stage for a regular database, or a ``<app>_CODE``
+       workspace when the destination is a personal database (stages are
+       unsupported there). A temporary backend is created during the upload
+       phase and dropped once the build has consumed it (see
+       :func:`_upload_and_build_app`). To persist code storage across deploys,
+       configure ``code_stage`` / ``code_workspace`` explicitly.
     """
     destination_is_personal = is_personal_database(database)
 
@@ -293,26 +299,20 @@ def _resolve_code_storage(
             encryption_type=code_stage.encryption_type or "SNOWFLAKE_SSE",
         )
 
-    # Neither code_workspace nor code_stage configured: pick the backend that
-    # the destination supports.
-    #
-    # A personal database always uses the shared workspace (stages are
-    # unsupported there). For a regular database, probe the role's
-    # CREATE WORKSPACE privilege when a probe is supplied — preferring the
-    # shared workspace when the role can create one (mirroring ``snow app
-    # setup``) and falling back to a ``<app>_CODE`` stage otherwise. Without a
-    # probe the stage is the default.
-    use_workspace = destination_is_personal
-    if not use_workspace and can_create_workspace is not None and database and schema:
-        use_workspace = can_create_workspace(database, schema)
-
-    if use_workspace:
+    # Neither code_workspace nor code_stage configured: provision a temporary
+    # ``<app>_CODE`` backend the CLI owns for this deploy and drops after the
+    # build. A personal database has to use a workspace (stages are unsupported
+    # there); every other destination uses a stage, which is the lighter-weight
+    # default. The name is deterministic so a ``--build-only`` run can find (and
+    # drop) the backend a prior ``--upload-only`` created.
+    if destination_is_personal:
         return _CodeStorage(
             type="workspace",
-            name=DEFAULT_WORKSPACE_NAME,
+            name=f"{app_name}_CODE",
             database_override=None,
             schema_override=None,
             encryption_type="SNOWFLAKE_SSE",
+            temporary=True,
         )
     return _CodeStorage(
         type="stage",
@@ -320,6 +320,7 @@ def _resolve_code_storage(
         database_override=None,
         schema_override=None,
         encryption_type="SNOWFLAKE_SSE",
+        temporary=True,
     )
 
 
@@ -372,15 +373,13 @@ def _app_yml_code_storage(
     database: Optional[str],
     schema: Optional[str],
     app_name: str,
-    can_create_workspace: Optional[Callable[[str, str], bool]] = None,
 ) -> _CodeStorage:
     """Resolve the code-storage backend for an ``app.yml`` project.
 
     ``code_stage`` / ``code_workspace`` are overridable per target, so they are
-    taken from the resolved (merged) target. When neither is set, the backend is
-    chosen at deploy time; *can_create_workspace* lets the resolver probe the
-    role's CREATE WORKSPACE privilege for a regular database (see
-    :func:`_resolve_code_storage`).
+    taken from the resolved (merged) target. When neither is set the CLI
+    provisions a temporary ``<app>_CODE`` backend for the deploy and drops it
+    after the build (see :func:`_resolve_code_storage`).
     """
     return _resolve_code_storage(
         code_workspace=_app_yml_storage_ref(code_workspace),
@@ -388,7 +387,6 @@ def _app_yml_code_storage(
         database=database,
         schema=schema,
         app_name=app_name,
-        can_create_workspace=can_create_workspace,
     )
 
 
@@ -804,6 +802,36 @@ def _drop_stage_after_build(
             )
 
 
+def _drop_workspace_after_build(
+    manager: SnowflakeAppManager, storage_fqn: FQN, metrics
+) -> None:
+    """Drop a temporary code workspace once the build has consumed it.
+
+    Best-effort cleanup: the build has already succeeded, so a drop failure
+    only leaves a harmless workspace behind and must not fail the deploy —
+    record it on the span for observability, warn, and continue.
+    """
+    with metrics.span("snowflake_app.build.drop_workspace") as drop_span:
+        cli_console.step(
+            f"Dropping workspace {storage_fqn} now that the build is complete"
+        )
+        try:
+            manager.drop_workspace_if_exists(storage_fqn)
+        except Exception as e:
+            log.debug(
+                "Failed to drop workspace %s after build",
+                storage_fqn.identifier,
+                exc_info=True,
+            )
+            drop_span.finish(error=e)
+            cli_console.warning(
+                f"Could not drop workspace "
+                f"'{sanitize_for_terminal(storage_fqn.identifier)}' after the "
+                f"build completed: {e}. The build succeeded; you can remove the "
+                "workspace manually if desired."
+            )
+
+
 def _teardown_app_code(
     manager: SnowflakeAppManager,
     *,
@@ -815,16 +843,23 @@ def _teardown_app_code(
     """Clean up an app's code storage during teardown.
 
     Mirrors the deploy-time backend selection so a personal-database app is
-    torn down via its workspace rather than a (never-created) stage. The
-    workspace may be shared across apps, so only this app's subdirectory is
-    cleared; a stage is dropped outright.
+    torn down via its workspace rather than a (never-created) stage. A
+    temporary backend (one the CLI provisioned itself) is dropped outright — a
+    workspace as well as a stage — since the CLI owns it end to end. An
+    explicitly configured workspace may be shared across apps, so only this
+    app's subdirectory is cleared; a stage is dropped outright.
     """
     if storage.type == "workspace":
-        cli_console.step(
-            f"Clearing workspace files for {app_name} in {storage_fqn.identifier}"
-        )
-        with metrics.span("snowflake_app.teardown.clear_workspace"):
-            manager.clear_workspace_subdirectory(storage_fqn, app_name)
+        if storage.temporary:
+            cli_console.step(f"Dropping workspace {storage_fqn.identifier}")
+            with metrics.span("snowflake_app.teardown.drop_workspace"):
+                manager.drop_workspace_if_exists(storage_fqn)
+        else:
+            cli_console.step(
+                f"Clearing workspace files for {app_name} in {storage_fqn.identifier}"
+            )
+            with metrics.span("snowflake_app.teardown.clear_workspace"):
+                manager.clear_workspace_subdirectory(storage_fqn, app_name)
     else:
         cli_console.step(f"Dropping stage {storage_fqn.identifier}")
         with metrics.span("snowflake_app.teardown.drop_stage"):
@@ -962,12 +997,24 @@ def _upload_and_build_app(
                     on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
                 )
 
-            # The stage only holds the uploaded source that the artifact-repo
+            # Code storage only holds the uploaded source that the artifact-repo
             # build consumes; once the build succeeds it is no longer needed.
-            # Drop it only when this invocation created it, so a pre-existing
-            # stage relied on by ``--build-only`` (which skips the upload phase)
-            # is left untouched.
-            if stage_created:
+            #
+            # A temporary backend (one the CLI provisioned because neither
+            # ``code_stage`` nor ``code_workspace`` was configured) is always
+            # dropped here, even on a ``--build-only`` run that skipped the
+            # upload: its ``<app>_CODE`` name is deterministic, so the build
+            # phase finds and drops whatever a prior ``--upload-only`` created.
+            # An explicitly configured stage is instead dropped only when this
+            # invocation created it, so a persisted stage relied on by
+            # ``--build-only`` is left untouched; a configured workspace is
+            # never dropped here.
+            if storage.temporary:
+                if use_workspace:
+                    _drop_workspace_after_build(manager, storage_fqn, metrics)
+                else:
+                    _drop_stage_after_build(manager, storage_fqn, metrics)
+            elif stage_created:
                 _drop_stage_after_build(manager, storage_fqn, metrics)
 
     if build_only:
@@ -1152,27 +1199,19 @@ def snowflake_app_setup(
 
             resolved_values = {k: v[0] for k, v in resolved.items()}
 
-            # ── Decide the code-storage backend ──────────────────────────────
-            # The workspace flow is the default for both personal and regular
-            # databases. Personal databases (``USER$<user>``) do not support
-            # stages, so they always use a workspace. For a regular database the
-            # role's ``CREATE WORKSPACE`` privilege is probed up front and the
-            # backend falls back to a stage only when the role provably cannot
-            # create one — persisting the decision in ``snowflake.yml`` so every
-            # later ``snow app deploy`` follows the same path without having to
-            # rediscover it. An inconclusive probe keeps the workspace default;
-            # deploy still falls back to a stage at runtime if the workspace
-            # turns out to be unusable.
+            # ── Report the code-storage backend ──────────────────────────────
+            # ``app.yml`` no longer bakes the backend into the manifest:
+            # ``code_stage`` / ``code_workspace`` are omitted and the backend is
+            # provisioned *temporarily* at deploy time — a ``<app>_CODE`` stage
+            # for a regular database, or a ``<app>_CODE`` workspace when the
+            # destination is a personal database (stages are unsupported there).
+            # It is created for the deploy and dropped once the build consumes
+            # it. Configure ``code_stage`` / ``code_workspace`` in ``app.yml`` to
+            # persist code storage across deploys instead. Nothing is probed or
+            # persisted here; the value below is informational only.
             destination_db = resolved_values["database"]
-            destination_schema = resolved_values["schema"]
-            if is_personal_database(destination_db):
-                use_workspace = True
-            else:
-                with metrics.span("snowflake_app.setup.check_workspace_privileges"):
-                    use_workspace = manager.role_can_create_workspace(
-                        destination_db, destination_schema
-                    )
-            code_storage = "workspace" if use_workspace else "stage"
+            use_workspace = is_personal_database(destination_db)
+            code_storage = "temporary workspace" if use_workspace else "temporary stage"
 
             if not dry_run:
                 with metrics.span("snowflake_app.setup.write_manifest"):
@@ -1894,16 +1933,14 @@ def _resolve_app_yml_target(
 
     # Backend chosen the same way as the snowflake.yml flow (see
     # _resolve_code_storage); code storage comes from the merged target. With
-    # neither backend configured, probe the role's CREATE WORKSPACE privilege so
-    # a regular database prefers the shared workspace when the role can create
-    # one (matching ``snow app setup``), falling back to a stage otherwise.
+    # neither backend configured the CLI provisions a temporary ``<app>_CODE``
+    # backend for the deploy and drops it after the build.
     storage = _app_yml_code_storage(
         code_stage=tgt.code_stage,
         code_workspace=tgt.code_workspace,
         database=database,
         schema=schema,
         app_name=service_name,
-        can_create_workspace=manager.role_can_create_workspace,
     )
     storage_fqn = _storage_fqn(storage, database=database, schema=schema)
 

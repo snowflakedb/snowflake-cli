@@ -111,10 +111,9 @@ _APP_YML_PERSONAL_DB = dedent(
 )
 
 
-# A regular-database project with no code-storage configured. The backend is
-# chosen at deploy time by probing the role's CREATE WORKSPACE privilege: a
-# capable role gets the shared workspace, an incapable role falls back to a
-# ``<name>_CODE`` stage.
+# A regular-database project with no code-storage configured. At deploy time
+# the CLI provisions a temporary ``<name>_CODE`` stage it owns end to end,
+# building from it and dropping it once the build has consumed it.
 _APP_YML_REGULAR_DB_NO_CODE_STORAGE = dedent(
     """\
     version: 2
@@ -1325,9 +1324,8 @@ class TestDeployFromAppYml:
         )
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
-        # No code storage configured: pin the probe to the stage fallback so the
-        # <name>_CODE default is what gets exercised here.
-        mgr.role_can_create_workspace.return_value = False
+        # No code storage configured on a regular database: the temporary
+        # <name>_CODE stage default is what gets exercised here.
         mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
         mock_poll.side_effect = [
             "DONE",
@@ -1396,12 +1394,13 @@ class TestDeployFromAppYml:
     @patch(f"{_COMMANDS}.perform_bundle")
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
-    def test_deploy_personal_db_defaults_to_workspace(
+    def test_deploy_personal_db_defaults_to_temporary_workspace(
         self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
     ):
         """A personal-database (USER$) target with no code storage configured
-        uploads through a workspace (stages are unsupported there) and builds
-        from the workspace source URI — matching the snowflake.yml flow."""
+        uploads through a temporary ``<app>_CODE`` workspace (stages are
+        unsupported there), builds from the workspace source URI, and drops the
+        workspace once the build has consumed it."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
 
         (tmp_path / APP_YML_FILENAME).write_text(_APP_YML_PERSONAL_DB)
@@ -1418,19 +1417,23 @@ class TestDeployFromAppYml:
         )
 
         assert "ws-app.snowflakecomputing.app" in result.message
-        # Default backend for a personal DB is the shared workspace in the
-        # resolved USER$ database — never a stage.
+        # Default backend for a personal DB is a temporary ``<app>_CODE``
+        # workspace in the resolved USER$ database — never a stage.
         workspace_fqn = FQN(
-            database="USER$TESTUSER", schema="PUBLIC", name="SNOWFLAKE_APPS"
+            database="USER$TESTUSER", schema="PUBLIC", name="WS_APP_DEV_CODE"
         )
         mgr.create_workspace.assert_called_once_with(workspace_fqn)
         mgr.upload_to_workspace.assert_called_once()
         mgr.upload_to_stage.assert_not_called()
         mgr.create_stage.assert_not_called()
+        # The role's CREATE WORKSPACE privilege is no longer probed at deploy.
+        mgr.role_can_create_workspace.assert_not_called()
         # The build reads from the workspace source URI, not a stage.
         build_kwargs = mgr.build_app_artifact_repo.call_args.kwargs
         assert "source_uri" in build_kwargs
         assert "stage_fqn" not in build_kwargs
+        # The temporary workspace is dropped once the build consumes it.
+        mgr.drop_workspace_if_exists.assert_called_once_with(workspace_fqn)
 
     @patch(f"{_COMMANDS}._poll_until")
     @patch(f"{_COMMANDS}.perform_bundle")
@@ -1469,18 +1472,17 @@ class TestDeployFromAppYml:
     @patch(f"{_COMMANDS}.perform_bundle")
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
-    def test_deploy_regular_db_no_code_storage_probes_workspace_when_capable(
+    def test_deploy_regular_db_no_code_storage_uses_temporary_stage(
         self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
     ):
-        """A regular-database target with no code storage configured probes the
-        role's CREATE WORKSPACE privilege and uploads through the shared
-        workspace when the role can create one."""
+        """A regular-database target with no code storage configured provisions
+        a temporary ``<name>_CODE`` stage, builds from it, and drops it once the
+        build has consumed it — without probing CREATE WORKSPACE privileges."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
 
         (tmp_path / APP_YML_FILENAME).write_text(_APP_YML_REGULAR_DB_NO_CODE_STORAGE)
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
-        mgr.role_can_create_workspace.return_value = True
         mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
         mock_poll.side_effect = [
             "DONE",
@@ -1489,51 +1491,47 @@ class TestDeployFromAppYml:
 
         snowflake_app_deploy(None, False, False, False, interactive=False, target=None)
 
-        mgr.role_can_create_workspace.assert_called_once_with(
-            "SNOWFLAKE_APPS", "PUBLIC"
-        )
-        workspace_fqn = FQN(
-            database="SNOWFLAKE_APPS", schema="PUBLIC", name="SNOWFLAKE_APPS"
-        )
-        mgr.create_workspace.assert_called_once_with(workspace_fqn)
-        mgr.upload_to_workspace.assert_called_once()
-        mgr.upload_to_stage.assert_not_called()
-        build_kwargs = mgr.build_app_artifact_repo.call_args.kwargs
-        assert "source_uri" in build_kwargs
-        assert "stage_fqn" not in build_kwargs
-
-    @patch(f"{_COMMANDS}._poll_until")
-    @patch(f"{_COMMANDS}.perform_bundle")
-    @patch(f"{_COMMANDS}.SnowflakeAppManager")
-    @patch(f"{_COMMANDS}.get_cli_context")
-    def test_deploy_regular_db_no_code_storage_falls_back_to_stage(
-        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
-    ):
-        """A regular-database target with no code storage configured falls back
-        to a ``<name>_CODE`` stage when the role cannot create a workspace."""
-        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
-
-        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML_REGULAR_DB_NO_CODE_STORAGE)
-        mock_ctx.return_value = _make_ctx(tmp_path)
-        mgr = _make_manager_mock(mock_mgr_cls)
-        mgr.role_can_create_workspace.return_value = False
-        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
-        mock_poll.side_effect = [
-            "DONE",
-            {"url": "reg.snowflakecomputing.app", "is_upgrading": "false"},
-        ]
-
-        snowflake_app_deploy(None, False, False, False, interactive=False, target=None)
-
-        mgr.role_can_create_workspace.assert_called_once_with(
-            "SNOWFLAKE_APPS", "PUBLIC"
-        )
+        mgr.role_can_create_workspace.assert_not_called()
         stage_fqn = FQN(database="SNOWFLAKE_APPS", schema="PUBLIC", name="REG_APP_CODE")
         mgr.upload_to_stage.assert_called_once()
         mgr.upload_to_workspace.assert_not_called()
         build_kwargs = mgr.build_app_artifact_repo.call_args.kwargs
         assert build_kwargs.get("stage_fqn") == stage_fqn
         assert "source_uri" not in build_kwargs
+        # The temporary stage is dropped once the build consumes it.
+        mgr.drop_stage_if_exists.assert_called_once_with(stage_fqn)
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_build_only_drops_temporary_stage_from_naming_convention(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        """A ``--build-only`` run for a regular-database target with no code
+        storage configured skips the upload but still finds the temporary
+        ``<name>_CODE`` stage by its naming convention and drops it once the
+        build finishes."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML_REGULAR_DB_NO_CODE_STORAGE)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = ["DONE"]
+
+        result = snowflake_app_deploy(
+            None, False, True, False, interactive=False, target=None
+        )
+
+        assert "Build completed successfully." in result.message
+        # No upload happened, but the deterministic name still lets the build
+        # phase drop the temporary stage a prior --upload-only would have made.
+        stage_fqn = FQN(database="SNOWFLAKE_APPS", schema="PUBLIC", name="REG_APP_CODE")
+        mgr.upload_to_stage.assert_not_called()
+        build_kwargs = mgr.build_app_artifact_repo.call_args.kwargs
+        assert build_kwargs.get("stage_fqn") == stage_fqn
+        mgr.drop_stage_if_exists.assert_called_once_with(stage_fqn)
 
     _CNG_APP_YML = dedent(
         """\
@@ -1938,11 +1936,12 @@ class TestSharedCommandsFromAppYml:
 
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
-    def test_teardown_personal_db_clears_workspace(
+    def test_teardown_personal_db_drops_temporary_workspace(
         self, mock_ctx, mock_mgr_cls, tmp_path
     ):
-        """A personal-database target with no code storage is torn down via its
-        workspace subdirectory rather than a (never-created) stage."""
+        """A personal-database target with no code storage is torn down by
+        dropping its temporary ``<app>_CODE`` workspace outright (the CLI owns
+        it), rather than clearing a subdirectory or dropping a stage."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_teardown
         from snowflake.connector.errors import ProgrammingError
 
@@ -1953,10 +1952,10 @@ class TestSharedCommandsFromAppYml:
 
         result = snowflake_app_teardown(None, True, target="dev")
 
-        mgr.clear_workspace_subdirectory.assert_called_once_with(
-            FQN(database="USER$TESTUSER", schema="PUBLIC", name="SNOWFLAKE_APPS"),
-            "WS_APP",
+        mgr.drop_workspace_if_exists.assert_called_once_with(
+            FQN(database="USER$TESTUSER", schema="PUBLIC", name="WS_APP_DEV_CODE"),
         )
+        mgr.clear_workspace_subdirectory.assert_not_called()
         mgr.drop_stage_if_exists.assert_not_called()
         assert "Successfully dropped application service" in result.message
 
