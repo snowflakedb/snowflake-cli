@@ -1855,22 +1855,62 @@ class TestSnowflakeAppManager:
             "ADD LIVE VERSION FROM LAST"
         )
 
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(
+                ProgrammingError("There is already a live version", errno=99106),
+                id="99106-errno",
+            ),
+            pytest.param(
+                ProgrammingError("099106 (42710): There is already a live version"),
+                id="99106-text-only",
+            ),
+            pytest.param(
+                ProgrammingError("Object already exists", errno=3041),
+                id="3041-errno",
+            ),
+            pytest.param(
+                ProgrammingError("003041 (42710): Object already exists"),
+                id="3041-text-only",
+            ),
+        ],
+    )
     @patch(EXECUTE_QUERY)
     def test_ensure_workspace_live_version_ignores_duplicate_live_version_error(
-        self, mock_execute
+        self, mock_execute, error
     ):
+        """Every deploy after the first hits a workspace that already has a live
+        version, and the server reports that as either 99106 or 3041. Both mean
+        there is nothing to do."""
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
-        mock_execute.side_effect = ProgrammingError(
-            "099106 (42710): There is already a live version"
-        )
+        mock_execute.side_effect = error
         SnowflakeAppManager().ensure_workspace_live_version(fqn)
 
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(ProgrammingError("some other error"), id="no-errno"),
+            pytest.param(
+                ProgrammingError("Insufficient privileges", errno=3001),
+                id="privileges",
+            ),
+            pytest.param(
+                ProgrammingError("Workspace does not exist", errno=2003), id="missing"
+            ),
+            pytest.param(
+                # 42710 alone is not enough: the code has to match too.
+                ProgrammingError("002002 (42710): Object already exists"),
+                id="other-already-exists",
+            ),
+        ],
+    )
     @patch(EXECUTE_QUERY)
     def test_ensure_workspace_live_version_raises_unexpected_programming_error(
-        self, mock_execute
+        self, mock_execute, error
     ):
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
-        mock_execute.side_effect = ProgrammingError("some other error")
+        mock_execute.side_effect = error
         with pytest.raises(ProgrammingError):
             SnowflakeAppManager().ensure_workspace_live_version(fqn)
 
