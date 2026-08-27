@@ -103,6 +103,25 @@ PRIVILEGE_CHECK_OBJECT_NAME = "SNOWFLAKE_CLI_PRIVILEGE_CHECK"
 # to the legacy ``SHOW PARAMETERS`` flow (see ``fetch_app_service_defaults``).
 APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
 
+# Table function that supersedes ``APP_SERVICE_DEFAULTS_FUNCTION`` for resolving
+# Snowflake App Runtime deploy defaults (the "app area" model). It is rolling
+# out soon, so ``fetch_app_service_defaults`` tries it first and falls back to
+# ``APP_SERVICE_DEFAULTS_FUNCTION`` (and its legacy flow) on any failure. It
+# returns zero or one rows with columns ``DATABASE_NAME``, ``SCHEMA_NAME``,
+# ``QUERY_WAREHOUSE``, and ``BUILD_EXTERNAL_ACCESS_INTEGRATION`` (the last two
+# nullable). Remove the fallback once this function is live everywhere.
+DEFAULT_APP_AREA_FUNCTION = "SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA"
+
+# Maps ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` result columns to the CLI's
+# internal deploy-defaults resolution keys. ``APP_AREA_NAME`` is intentionally
+# omitted: it is informational and not part of the resolved defaults.
+_APP_AREA_COLUMN_MAP = {
+    "DATABASE_NAME": "database",
+    "SCHEMA_NAME": "schema",
+    "QUERY_WAREHOUSE": "query_warehouse",
+    "BUILD_EXTERNAL_ACCESS_INTEGRATION": "build_eai",
+}
+
 # ``COMPUTE_RESOURCE`` value selecting the CNG (serverless) app-service backend.
 # CNG apps serve ingress from per-account URLs (Northstar URLs) that require a
 # per-account TLS certificate to be provisioned for the account.
@@ -1679,20 +1698,132 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def fetch_app_service_defaults(self) -> Dict[str, str]:
         """Fetch the effective Snowflake App Runtime deploy defaults.
 
-        Calls ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``, which returns a
-        JSON object with keys ``database``, ``schema``, ``query_warehouse``,
-        and ``build_eai`` — the same internal resolution names the CLI uses.
-        The server resolves the ``DEFAULT_SNOWFLAKE_APPS_*`` USER/ACCOUNT
-        parameters and applies authorization-based fallbacks server-side
-        (personal database when the destination database is unset or
-        inaccessible, ``PUBLIC`` schema, the current session warehouse), so
-        the CLI no longer issues ``SHOW PARAMETERS`` or probes privileges with
-        ``EXPLAIN_PRIVILEGES`` itself.
+        Tries the new ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` table function
+        first (:meth:`_fetch_default_app_area`). When it returns nothing — the
+        function is missing, the call fails, or the caller's role has no default
+        app area — falls back to ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``
+        (:meth:`_fetch_app_service_defaults_via_system_function`), which in turn
+        falls back to the legacy ``SHOW PARAMETERS`` flow on older accounts.
 
-        The system function rolls out to deployments some time after the server
-        change merges. On an account that has not picked it up yet the call
-        fails with ``Unknown function``; in that case the CLI falls back to the
-        legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES`` flow
+        Both sources return the same keys (``database``, ``schema``,
+        ``query_warehouse``, ``build_eai``). Identifier values are ready to
+        embed in SQL verbatim (quoted only when required, e.g. ``"lower_db"``)
+        and unset values are omitted. Returns an empty dict when neither source
+        yields defaults, so resolution falls back to the CLI's built-in
+        defaults.
+        """
+        area = self._fetch_default_app_area()
+        if area:
+            return area
+        return self._fetch_app_service_defaults_via_system_function()
+
+    def _fetch_default_app_area(self) -> Dict[str, str]:
+        """Fetch deploy defaults from ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()``.
+
+        The forward-looking replacement for
+        ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``, rolling out soon. It is a
+        table function returning zero or one rows with columns ``DATABASE_NAME``,
+        ``SCHEMA_NAME``, ``QUERY_WAREHOUSE``, and
+        ``BUILD_EXTERNAL_ACCESS_INTEGRATION`` (the last two nullable), mapped to
+        the CLI's internal keys via :data:`_APP_AREA_COLUMN_MAP` (see
+        :meth:`_parse_app_area_row`).
+
+        Returns an empty dict on any failure — the function is missing, the call
+        fails, or the caller's role has no default app area — so
+        :meth:`fetch_app_service_defaults` falls back to the system-function
+        flow. The call runs in a ``<caller>.fetch_default_app_area`` telemetry
+        span (prefix taken from the enclosing span, else ``snowflake_app``), and
+        each failure is recorded on it so fallbacks stay observable during
+        rollout.
+        """
+        metrics = get_cli_context().metrics
+        parent = metrics.current_span
+        prefix = parent.name if parent else "snowflake_app"
+        with metrics.span(f"{prefix}.fetch_default_app_area") as span:
+            try:
+                cursor = self.execute_query(
+                    f"SELECT * FROM TABLE({DEFAULT_APP_AREA_FUNCTION}())",
+                    cursor_class=DictCursor,
+                )
+                row = cursor.fetchone()
+            except Exception as exc:  # noqa: BLE001 - any failure → fall back
+                log.info(
+                    "%s is unavailable on this account; falling back to %s.",
+                    DEFAULT_APP_AREA_FUNCTION,
+                    APP_SERVICE_DEFAULTS_FUNCTION,
+                )
+                log.debug("%s call failed.", DEFAULT_APP_AREA_FUNCTION, exc_info=True)
+                span.finish(error=exc)
+                return {}
+
+            if not row:
+                # No default app area for the caller's role. Expected on accounts
+                # that have not set one up, so fall back to the system-function
+                # flow (which supplies personal-database fallbacks).
+                log.debug(
+                    "%s returned no default app area; falling back to %s.",
+                    DEFAULT_APP_AREA_FUNCTION,
+                    APP_SERVICE_DEFAULTS_FUNCTION,
+                )
+                span.finish(
+                    error=CliError(f"{DEFAULT_APP_AREA_FUNCTION} returned no row")
+                )
+                return {}
+
+            result = self._parse_app_area_row(row)
+            if not result:
+                log.debug(
+                    "%s returned no usable defaults; falling back to %s.",
+                    DEFAULT_APP_AREA_FUNCTION,
+                    APP_SERVICE_DEFAULTS_FUNCTION,
+                )
+                span.finish(
+                    error=CliError(
+                        f"{DEFAULT_APP_AREA_FUNCTION} returned no usable defaults"
+                    )
+                )
+            return result
+
+    @staticmethod
+    def _parse_app_area_row(row: Dict[str, Any]) -> Dict[str, str]:
+        """Map a ``GET_DEFAULT_APP_AREA()`` result row to internal resolution keys.
+
+        ``DictCursor`` may surface column names in any case, so each mapped
+        column is looked up case-insensitively. NULL/empty values are dropped
+        (the nullable ``QUERY_WAREHOUSE`` / ``BUILD_EXTERNAL_ACCESS_INTEGRATION``
+        columns, and any unset location). Each retained value is normalized with
+        :func:`to_identifier` so names that require quoting are quoted and ready
+        to embed in SQL verbatim.
+        """
+        result: Dict[str, str] = {}
+        for column, key in _APP_AREA_COLUMN_MAP.items():
+            value = row.get(column)
+            if value is None:
+                value = row.get(column.lower())
+            if value:
+                result[key] = to_identifier(str(value))
+        return result
+
+    def _fetch_app_service_defaults_via_system_function(self) -> Dict[str, str]:
+        """Fetch deploy defaults via ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``.
+
+        The existing (pre-``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()``) behavior,
+        kept as the fallback :meth:`fetch_app_service_defaults` uses when the
+        forward-looking app area function is unavailable. Calls
+        ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``, which returns a JSON
+        object with keys ``database``, ``schema``, ``query_warehouse``, and
+        ``build_eai`` — the same internal resolution names the CLI uses. The
+        server resolves the ``DEFAULT_SNOWFLAKE_APPS_*`` USER/ACCOUNT parameters
+        and applies authorization-based fallbacks server-side (personal database
+        when the destination database is unset or inaccessible, ``PUBLIC``
+        schema, the current session warehouse), so the CLI no longer issues
+        ``SHOW PARAMETERS`` or probes privileges with ``EXPLAIN_PRIVILEGES``
+        itself.
+
+        The system function itself rolls out to deployments some time after its
+        server change merges. On an account that has not picked it up yet the
+        call fails with ``Unknown function``; in that case the CLI falls back to
+        the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES`` flow
         (:meth:`_fetch_legacy_app_service_defaults`) so resolution keeps working
         during the rollout window. The fallback (and the legacy helpers it
         relies on) can be removed a release or two after the function is live
