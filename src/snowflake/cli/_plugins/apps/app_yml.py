@@ -133,7 +133,8 @@ class _AppYmlServiceConfig(UpdatableModel):
     target's set fields onto the baseline, so any of these may be declared once
     at the top level and selectively overridden per target. This covers the
     service/deployment fields plus the package-build fields (``package_name`` /
-    ``artifact_repo`` / ``build_eai``) and the code-storage fields (``code_stage``
+    ``artifact_repo`` / ``build_eai`` / ``build_job_location``) and the
+    code-storage fields (``code_stage``
     / ``code_workspace`` / ``ignore``). Only the builder ``install`` / ``build``
     / ``run`` / ``dev`` sections are *not* part of this set — they are top-level
     only (optional, with defaults).
@@ -161,6 +162,18 @@ class _AppYmlServiceConfig(UpdatableModel):
     )
     build_eai: Optional[str] = Field(
         title="External access integration used by the builder", default=None
+    )
+    # Location (``<database>.<schema>``) where the builder service runs the
+    # ephemeral build job. When unset, the builder defaults to the current
+    # user's personal database (PDB); when set, the value is forwarded to the
+    # builder service, which creates the build job in that schema instead. The
+    # backend gates and enforces this override (via the
+    # ENABLE_APP_BUILDER_CUSTOM_JOB_LOCATION parameter plus the standard
+    # privilege checks), so the CLI only passes the value through without
+    # validating it.
+    build_job_location: Optional[str] = Field(
+        title="Location (database.schema) where the builder runs the build job",
+        default=None,
     )
     # ── Code storage (where uploaded source lives; overridable per target) ─────
     # ``code_stage`` and ``code_workspace`` name the same thing (where uploaded
