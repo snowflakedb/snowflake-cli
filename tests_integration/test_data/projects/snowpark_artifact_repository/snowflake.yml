@@ -6,6 +6,10 @@ mixins:
     returns: string
     artifact_repository: snowflake.snowpark.pypi_shared_repository
     artifact_repository_packages:
+      # snowflake-snowpark-python is required by test_procedure and has to be
+      # declared here: with artifact_repository set, packages resolved from
+      # Anaconda during build are not sent to Snowflake.
+      - 'snowflake-snowpark-python'
       - 'dummy-pkg-for-tests'
     artifacts:
       - "app.py"
