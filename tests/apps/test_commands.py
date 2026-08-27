@@ -2184,6 +2184,54 @@ class TestSnowflakeAppManager:
         assert "'nodejs'" not in build_query
 
     @patch(EXECUTE_QUERY)
+    def test_build_app_artifact_repo_forwards_build_job_location(self, mock_execute):
+        """``build_job_location`` is forwarded to the builder via the config
+        JSON so the build job runs in the requested ``<database>.<schema>``
+        instead of the caller's personal database."""
+        cursor = Mock()
+        cursor.fetchone.return_value = ("Build job submitted: DB.SCHEMA.JOB",)
+        mock_execute.return_value = cursor
+
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().build_app_artifact_repo(
+            stage_fqn=stage_fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="my_app",
+            database="DB",
+            schema="SCHEMA",
+            build_job_location="BUILD_DB.BUILD_SC",
+        )
+        build_query = self._find_query(
+            mock_execute.call_args_list, "SPCS_TEST_BUILD_APP_ARTIFACT_REPO"
+        )
+        # The config blob is the trailing string-literal argument; the location
+        # is carried inside it as JSON.
+        assert '"build_job_location": "BUILD_DB.BUILD_SC"' in build_query
+
+    @patch(EXECUTE_QUERY)
+    def test_build_app_artifact_repo_omits_build_job_location_when_unset(
+        self, mock_execute
+    ):
+        """With no ``build_job_location`` the config omits the key, leaving the
+        builder's default (personal database) behaviour in place."""
+        cursor = Mock()
+        cursor.fetchone.return_value = ("Build job submitted: DB.SCHEMA.JOB",)
+        mock_execute.return_value = cursor
+
+        stage_fqn = FQN(database="DB", schema="SCHEMA", name="STAGE")
+        SnowflakeAppManager().build_app_artifact_repo(
+            stage_fqn=stage_fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            app_id="my_app",
+            database="DB",
+            schema="SCHEMA",
+        )
+        build_query = self._find_query(
+            mock_execute.call_args_list, "SPCS_TEST_BUILD_APP_ARTIFACT_REPO"
+        )
+        assert "build_job_location" not in build_query
+
+    @patch(EXECUTE_QUERY)
     def test_build_app_artifact_repo_escapes_single_quotes(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = ("Build job submitted: DB.SCHEMA.JOB",)
@@ -8000,6 +8048,7 @@ class TestDeployCommand:
             runtime_image="runtime:latest",
             build_eai="MY_EAI",
             project_type="",
+            build_job_location=None,
         )
         mock_mgr.workspace_subdirectory_uri.assert_called_with(
             FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP_CODE"),
@@ -8108,6 +8157,7 @@ class TestDeployCommand:
             runtime_image="runtime:latest",
             build_eai="MY_EAI",
             project_type="",
+            build_job_location=None,
         )
         mock_mgr.create_app_service.assert_called_once_with(
             service_fqn=FQN(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP"),
@@ -8411,6 +8461,7 @@ class TestDeployCommand:
             runtime_image="runtime:latest",
             build_eai="MY_EAI",
             project_type="",
+            build_job_location=None,
         )
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
@@ -9794,6 +9845,7 @@ class TestDeployCommand:
             runtime_image="runtime:latest",
             build_eai="MY_EAI",
             project_type="",
+            build_job_location=None,
         )
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
