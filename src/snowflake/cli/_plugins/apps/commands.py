@@ -80,7 +80,7 @@ from snowflake.cli._plugins.apps.upload_errors import (
     classify_upload_error,
 )
 from snowflake.cli._plugins.connection.util import make_snowsight_url
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.config import (
     get_connection_dict,
     get_default_connection_name,
@@ -108,6 +108,21 @@ if TYPE_CHECKING:
     )
 
 log = logging.getLogger(__name__)
+
+# Telemetry span naming convention for the ``snow app`` commands:
+#   * Every command entry point opens one root span ``snowflake_app.<command>``
+#     (e.g. ``snowflake_app.deploy``) that wraps the whole command — including
+#     target resolution — so total duration and command-level failures are
+#     always attributable. ``setup`` opens it inline (see below); the others use
+#     the ``@span`` decorator.
+#   * A step that only belongs to one command nests under it as
+#     ``snowflake_app.<command>.<step>`` (e.g. ``snowflake_app.setup.write_manifest``,
+#     ``snowflake_app.deploy.resolve_defaults``).
+#   * A pipeline phase shared by both deploy flows (``snowflake.yml`` and
+#     ``app.yml``) keeps its own ``snowflake_app.<phase>`` namespace
+#     (``bundle``, ``upload``, ``build``, ``deploy_service``,
+#     ``endpoint_provision``) so it reads the same regardless of which flow ran
+#     it; it still nests under the ``snowflake_app.deploy`` root at runtime.
 
 # Telemetry counter recording how many files were uploaded during the
 # upload phase of a deploy.
@@ -1268,6 +1283,7 @@ def snowflake_app_setup(
 
 
 @_utf8_output
+@span("snowflake_app.bundle")
 def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
     """Bundle a Snowflake App Runtime project's source artifacts.
 
@@ -1298,6 +1314,7 @@ def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
 
 
 @_utf8_output
+@span("snowflake_app.validate")
 def snowflake_app_validate(
     entity_id: Optional[str], target: Optional[str] = None
 ) -> CommandResult:
@@ -1455,6 +1472,7 @@ def _wait_for_service_endpoint(
 
 
 @_utf8_output
+@span("snowflake_app.open")
 def snowflake_app_open(
     entity_id: Optional[str],
     print_only: bool,
@@ -1492,6 +1510,7 @@ def snowflake_app_open(
 
 
 @_utf8_output
+@span("snowflake_app.events")
 def snowflake_app_events(
     entity_id: Optional[str],
     last: Optional[int],
@@ -2380,6 +2399,7 @@ def _deploy_from_app_yml(
 
 
 @_utf8_output
+@span("snowflake_app.deploy")
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
@@ -2657,6 +2677,7 @@ def snowflake_app_deploy(
 
 
 @_utf8_output
+@span("snowflake_app.teardown")
 def snowflake_app_teardown(
     entity_id: Optional[str],
     force: bool,
