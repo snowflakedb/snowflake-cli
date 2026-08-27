@@ -21,6 +21,7 @@
 ## New additions
 * `snow connection test --enable-diag` now appends [SnowCD](https://docs.snowflake.com/en/user-guide/snowcd)-style per-endpoint connectivity checks (health, latency, certificate info, and an effective network policy summary) to the existing `SnowflakeConnectionTestReport.txt`. Stdout is unchanged. Pass `--print-diag` with `--enable-diag` to print that same report to stdout. Replaces the end-of-life SnowCD tool.
 * `app.yml` (version 2) for Snowflake App Runtime projects is now generally available, and no longer needs a feature flag. `snow app setup` creates an `app.yml` for new projects. Existing `snowflake.yml` projects keep working as before.
+* Git metadata support for `snow dbt deploy` is now available. `--git-commit` and `--git-branch` record the source commit and branch in the project's `last_deployed_from` metadata. These values will also be auto-detected from GitHub Actions environments if no explicit flags are specified.
 
 ## Fixes and improvements
 * `snow app deploy` for Snowflake App Runtime projects now explains a failure while preparing code storage in terms of the statement that actually failed. A missing database or schema is reported as such instead of as a missing privilege, a privilege error names only the grant that statement needs, and a rejected stage encryption type is named explicitly.
