@@ -2342,14 +2342,16 @@ def _deploy_from_app_yml(
         return result
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
-    # ``url_prefix`` is a CNG-only field, so it is only emitted on the CNG
-    # (serverless) path, which already requires the feature flag
-    # (compute_resource stays None while it is off).
+    # ``url_prefix`` and ``health_check`` are CNG-only fields, so they are only
+    # emitted on the CNG (serverless) path, which already requires the feature
+    # flag (compute_resource stays None while it is off).
+    is_cng = _is_cng_compute_resource(compute_resource)
     specification = manager.build_service_specification(
         tgt,
         database=database,
         schema=schema,
-        include_url_prefix=_is_cng_compute_resource(compute_resource),
+        include_url_prefix=is_cng,
+        include_health_check=is_cng,
     )
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step(f"Applying application service {service_fqn.identifier}...")

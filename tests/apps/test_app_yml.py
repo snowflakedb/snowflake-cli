@@ -912,6 +912,24 @@ class TestBuildServiceSpecification:
         )
         assert "url_prefix" not in default
 
+    def test_health_check_emitted_only_when_included(self):
+        # ``health_check`` is a CNG-only field: emitted only when the caller opts
+        # in (the deploy path gates it on the CNG compute resource behind the
+        # flag).
+        target = AppYmlTarget(query_warehouse="WH", health_check="/healthz")
+        included = yaml.safe_load(
+            SnowflakeAppManager.build_service_specification(
+                target, include_health_check=True
+            )
+        )
+        assert included["health_check"] == "/healthz"
+
+        # Dropped by default (non-CNG path), even when set on the target.
+        default = yaml.safe_load(
+            SnowflakeAppManager.build_service_specification(target)
+        )
+        assert "health_check" not in default
+
     def test_empty_target_produces_empty_spec(self):
         spec = yaml.safe_load(
             SnowflakeAppManager.build_service_specification(AppYmlTarget())
@@ -1657,6 +1675,7 @@ class TestDeployFromAppYml:
             query_warehouse: WH
             compute_resource: SERVERLESS
             url_prefix: CNG_APP
+            health_check: /healthz
         """
     )
 
@@ -1699,9 +1718,11 @@ class TestDeployFromAppYml:
         assert mock_cert.call_args.kwargs["required"] is True
         call = mgr.create_or_alter_app_service.call_args.kwargs
         assert call["compute_resource"] == "SERVERLESS"
-        # url_prefix is a CNG-only field: emitted on the serverless path.
+        # url_prefix and health_check are CNG-only fields: emitted on the
+        # serverless path.
         spec = yaml.safe_load(call["specification"])
         assert spec["url_prefix"] == "CNG_APP"
+        assert spec["health_check"] == "/healthz"
 
     @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
     @patch(f"{_COMMANDS}._poll_until")
@@ -1731,9 +1752,10 @@ class TestDeployFromAppYml:
         mock_cert.assert_not_called()
         call = mgr.create_or_alter_app_service.call_args.kwargs
         assert call["compute_resource"] is None
-        # Without the CNG path there is no url_prefix to emit.
+        # Without the CNG path there is no url_prefix or health_check to emit.
         spec = yaml.safe_load(call["specification"])
         assert "url_prefix" not in spec
+        assert "health_check" not in spec
 
     @patch(f"{_COMMANDS}._poll_until")
     @patch(f"{_COMMANDS}.perform_bundle")
