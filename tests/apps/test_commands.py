@@ -3207,13 +3207,32 @@ class TestSnowflakeAppManager:
 
 
 class TestFetchAppServiceDefaults:
-    """``fetch_app_service_defaults`` reads the server-resolved Snowflake App
-    Runtime defaults from ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``.
+    """``_fetch_app_service_defaults_via_system_function`` reads the
+    server-resolved Snowflake App Runtime defaults from
+    ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``.
 
-    The server resolves the ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and applies
-    all authorization-based fallbacks (personal database, ``PUBLIC`` schema,
-    current session warehouse), so the CLI only has to parse the returned JSON.
+    This is the fallback path ``fetch_app_service_defaults`` uses when the
+    forward-looking ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` table function is
+    unavailable (see :class:`TestFetchDefaultAppArea` and
+    :class:`TestFetchAppServiceDefaultsPrefersAppArea`). The server resolves the
+    ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and applies all authorization-based
+    fallbacks (personal database, ``PUBLIC`` schema, current session
+    warehouse), so the CLI only has to parse the returned JSON.
+
+    These tests drive the public ``fetch_app_service_defaults`` entry point with
+    the forward-looking app area lookup disabled (it resolves nothing), so they
+    exercise the ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` fallback path end
+    to end.
     """
+
+    @pytest.fixture(autouse=True)
+    def _no_default_app_area(self):
+        """Force the app area lookup to resolve nothing so the public method
+        falls through to the system-function path under test."""
+        with patch.object(
+            SnowflakeAppManager, "_fetch_default_app_area", return_value={}
+        ):
+            yield
 
     @patch(EXECUTE_QUERY)
     def test_returns_parsed_defaults(self, mock_execute):
@@ -3433,6 +3452,254 @@ class TestFetchAppServiceDefaults:
         assert (
             span[CLIMetricsSpan.PARENT_KEY] == "snowflake_app.deploy.resolve_defaults"
         )
+
+
+# ── _fetch_default_app_area tests ─────────────────────────────────────
+
+
+class TestFetchDefaultAppArea:
+    """``_fetch_default_app_area`` reads the caller's default app area from the
+    forward-looking ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` table function.
+
+    It maps the ``DATABASE_NAME`` / ``SCHEMA_NAME`` / ``QUERY_WAREHOUSE`` /
+    ``BUILD_EXTERNAL_ACCESS_INTEGRATION`` columns to the CLI's internal
+    resolution keys and returns ``{}`` on any failure so
+    ``fetch_app_service_defaults`` falls back to the system-function flow.
+    """
+
+    _SPAN_NAME = "snowflake_app.fetch_default_app_area"
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_mapped_defaults(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "APP_AREA_NAME": "Production",
+            "DATABASE_NAME": "MY_DB",
+            "SCHEMA_NAME": "MY_SCHEMA",
+            "QUERY_WAREHOUSE": "MY_WH",
+            "BUILD_EXTERNAL_ACCESS_INTEGRATION": "MY_EAI",
+        }
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        assert result == {
+            "database": "MY_DB",
+            "schema": "MY_SCHEMA",
+            "query_warehouse": "MY_WH",
+            "build_eai": "MY_EAI",
+        }
+        query = mock_execute.call_args[0][0]
+        assert "TABLE(SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA())" in query
+        assert mock_execute.call_args.kwargs["cursor_class"] is DictCursor
+
+    @patch(EXECUTE_QUERY)
+    def test_ignores_app_area_name_column(self, mock_execute):
+        """``APP_AREA_NAME`` is informational and is not part of the resolved
+        defaults, so it never appears in the result."""
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "APP_AREA_NAME": "Production",
+            "DATABASE_NAME": "MY_DB",
+            "SCHEMA_NAME": "MY_SCHEMA",
+            "QUERY_WAREHOUSE": None,
+            "BUILD_EXTERNAL_ACCESS_INTEGRATION": None,
+        }
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        assert result == {"database": "MY_DB", "schema": "MY_SCHEMA"}
+
+    @patch(EXECUTE_QUERY)
+    def test_drops_null_optional_columns(self, mock_execute):
+        """The nullable ``QUERY_WAREHOUSE`` / ``BUILD_EXTERNAL_ACCESS_INTEGRATION``
+        columns are omitted when NULL (e.g. a global-default row)."""
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "APP_AREA_NAME": None,
+            "DATABASE_NAME": "MY_DB",
+            "SCHEMA_NAME": "PUBLIC",
+            "QUERY_WAREHOUSE": None,
+            "BUILD_EXTERNAL_ACCESS_INTEGRATION": None,
+        }
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        assert result == {"database": "MY_DB", "schema": "PUBLIC"}
+
+    @patch(EXECUTE_QUERY)
+    def test_quotes_names_that_require_quoting(self, mock_execute):
+        """Column values are normalized with ``to_identifier`` so names that are
+        not valid unquoted identifiers come back SQL-quoted, ready to embed
+        verbatim."""
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "DATABASE_NAME": "MY DB",
+            "SCHEMA_NAME": "MY_SCHEMA",
+            "QUERY_WAREHOUSE": "my wh",
+            "BUILD_EXTERNAL_ACCESS_INTEGRATION": None,
+        }
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        assert result["database"] == '"MY DB"'
+        assert result["schema"] == "MY_SCHEMA"
+        assert result["query_warehouse"] == '"my wh"'
+
+    @patch(EXECUTE_QUERY)
+    def test_handles_lowercase_column_names(self, mock_execute):
+        """``DictCursor`` may surface column names in any case; lookups are
+        case-insensitive."""
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "database_name": "MY_DB",
+            "schema_name": "MY_SCHEMA",
+            "query_warehouse": "MY_WH",
+            "build_external_access_integration": "MY_EAI",
+        }
+        mock_execute.return_value = cursor
+        result = SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+        assert result == {
+            "database": "MY_DB",
+            "schema": "MY_SCHEMA",
+            "query_warehouse": "MY_WH",
+            "build_eai": "MY_EAI",
+        }
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_empty_dict_when_no_row(self, mock_execute):
+        """No default app area for the caller's role → empty dict so the caller
+        falls back to the system-function flow."""
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_empty_dict_when_row_has_no_usable_values(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {
+            "APP_AREA_NAME": "Empty",
+            "DATABASE_NAME": None,
+            "SCHEMA_NAME": None,
+            "QUERY_WAREHOUSE": None,
+            "BUILD_EXTERNAL_ACCESS_INTEGRATION": None,
+        }
+        mock_execute.return_value = cursor
+        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+
+    @patch(EXECUTE_QUERY, side_effect=ProgrammingError("Unknown function"))
+    def test_returns_empty_dict_on_programming_error(self, mock_execute):
+        """The function is not yet present on the account → empty dict (fall
+        back). Unlike the system function, *any* error falls back."""
+        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+
+    @patch(EXECUTE_QUERY, side_effect=RuntimeError("boom"))
+    def test_returns_empty_dict_on_any_error(self, mock_execute):
+        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+
+    @patch(EXECUTE_QUERY)
+    def test_records_span_without_error_on_success(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"DATABASE_NAME": "MY_DB"}
+        mock_execute.return_value = cursor
+
+        _reset_command_metrics()
+        SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+
+        span = _get_completed_span(self._SPAN_NAME)
+        assert span[CLIMetricsSpan.ERROR_KEY] is None
+
+    @patch(EXECUTE_QUERY)
+    def test_records_span_error_on_no_row(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        _reset_command_metrics()
+        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+
+        span = _get_completed_span(self._SPAN_NAME)
+        assert span[CLIMetricsSpan.ERROR_KEY] == "CliError"
+
+    @patch(EXECUTE_QUERY, side_effect=RuntimeError("boom"))
+    def test_records_span_error_on_exception(self, mock_execute):
+        _reset_command_metrics()
+        assert SnowflakeAppManager()._fetch_default_app_area() == {}  # noqa: SLF001
+
+        span = _get_completed_span(self._SPAN_NAME)
+        assert span[CLIMetricsSpan.ERROR_KEY] == "RuntimeError"
+
+    @patch(EXECUTE_QUERY)
+    def test_span_nests_under_enclosing_span(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"DATABASE_NAME": "MY_DB"}
+        mock_execute.return_value = cursor
+
+        _reset_command_metrics()
+        metrics = get_cli_context_manager().metrics
+        with metrics.span("snowflake_app.deploy.resolve_defaults"):
+            SnowflakeAppManager()._fetch_default_app_area()  # noqa: SLF001
+
+        span = _get_completed_span(
+            "snowflake_app.deploy.resolve_defaults.fetch_default_app_area"
+        )
+        assert (
+            span[CLIMetricsSpan.PARENT_KEY] == "snowflake_app.deploy.resolve_defaults"
+        )
+
+
+class TestFetchAppServiceDefaultsPrefersAppArea:
+    """``fetch_app_service_defaults`` prefers ``GET_DEFAULT_APP_AREA()`` and only
+    falls back to ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` when the app area
+    lookup yields nothing."""
+
+    def test_returns_app_area_and_skips_system_function(self):
+        """When the app area function resolves defaults, they are returned as-is
+        and the system function is never consulted."""
+        manager = SnowflakeAppManager()
+        area = {"database": "AREA_DB", "schema": "AREA_SCHEMA"}
+        with patch.object(
+            manager, "_fetch_default_app_area", return_value=area
+        ), patch.object(
+            manager, "_fetch_app_service_defaults_via_system_function"
+        ) as mock_system:
+            assert manager.fetch_app_service_defaults() == area
+        mock_system.assert_not_called()
+
+    def test_falls_back_to_system_function_when_app_area_empty(self):
+        """No default app area (empty dict) → fall back to the system-function
+        flow and return its result."""
+        manager = SnowflakeAppManager()
+        system = {"database": "SYS_DB", "query_warehouse": "SYS_WH"}
+        with patch.object(
+            manager, "_fetch_default_app_area", return_value={}
+        ), patch.object(
+            manager,
+            "_fetch_app_service_defaults_via_system_function",
+            return_value=system,
+        ) as mock_system:
+            assert manager.fetch_app_service_defaults() == system
+        mock_system.assert_called_once_with()
+
+    @patch(EXECUTE_QUERY)
+    def test_end_to_end_app_area_failure_falls_back_to_system_function(
+        self, mock_execute
+    ):
+        """End-to-end through the public method: the app area query errors, so
+        resolution falls back to the system function using the same
+        ``execute_query`` mock."""
+        area_cursor = Mock()
+        area_cursor.fetchone.side_effect = ProgrammingError("Unknown function")
+        system_cursor = Mock()
+        system_cursor.fetchone.return_value = ('{"database": "SYS_DB"}',)
+
+        def _execute(query, *args, **kwargs):
+            if "GET_DEFAULT_APP_AREA" in query:
+                return area_cursor
+            return system_cursor
+
+        mock_execute.side_effect = _execute
+        result = SnowflakeAppManager().fetch_app_service_defaults()
+        assert result == {"database": "SYS_DB"}
+        queries = [call.args[0] for call in mock_execute.call_args_list]
+        assert any("GET_DEFAULT_APP_AREA" in q for q in queries)
+        assert any("SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS" in q for q in queries)
 
 
 class TestIsUnknownFunctionError:
@@ -3983,12 +4250,23 @@ class TestResolveDeployDefaults:
         """End-to-end through the real ``_resolve_deploy_defaults`` wrapped in the
         span the deploy command opens: the (real) fetch span must nest under
         ``snowflake_app.deploy.resolve_defaults``. A hardcoded prefix would not
-        satisfy the ``PARENT_KEY`` assertion."""
+        satisfy the ``PARENT_KEY`` assertion.
+
+        The app area lookup returns no row here, so resolution exercises the
+        ``fetch_app_service_defaults`` (system-function) span."""
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
-        cursor = Mock()
-        cursor.fetchone.return_value = ('{"database": "MY_DB"}',)
-        mock_execute.return_value = cursor
+        area_cursor = Mock()
+        area_cursor.fetchone.return_value = None
+        system_cursor = Mock()
+        system_cursor.fetchone.return_value = ('{"database": "MY_DB"}',)
+
+        def _execute(query, *args, **kwargs):
+            if "GET_DEFAULT_APP_AREA" in query:
+                return area_cursor
+            return system_cursor
+
+        mock_execute.side_effect = _execute
 
         entity = self._make_entity()
         _reset_command_metrics()
@@ -4001,6 +4279,13 @@ class TestResolveDeployDefaults:
         )
         assert (
             span[CLIMetricsSpan.PARENT_KEY] == "snowflake_app.deploy.resolve_defaults"
+        )
+        area_span = _get_completed_span(
+            "snowflake_app.deploy.resolve_defaults.fetch_default_app_area"
+        )
+        assert (
+            area_span[CLIMetricsSpan.PARENT_KEY]
+            == "snowflake_app.deploy.resolve_defaults"
         )
 
     @patch(
