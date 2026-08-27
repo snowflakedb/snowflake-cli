@@ -5811,6 +5811,34 @@ class TestBundleCommand:
             assert result.exit_code == 0, result.output
             mock_resolve.assert_called_once_with("custom_app")
 
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._get_entity",
+    )
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_bundle_records_root_span(
+        self, mock_resolve, mock_get_entity, mock_perform_bundle, runner, tmp_path
+    ):
+        """``snow app bundle`` wraps its work in a top-level
+        ``snowflake_app.bundle`` span so the command is attributable in
+        telemetry like every other ``snow app`` command."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        mock_get_entity.return_value = Mock()
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "bundle"])
+            assert result.exit_code == 0, result.output
+
+            span = _get_completed_span("snowflake_app.bundle")
+            assert span[CLIMetricsSpan.ERROR_KEY] is None
+
 
 # ── Non-ASCII definition encoding regression tests ────────────────────
 
@@ -5926,6 +5954,45 @@ class TestValidateCommand:
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 0, result.output
             assert "Valid Snowflake App Runtime project" in result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_validate_records_root_span(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_perform_bundle,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """``snow app validate`` wraps its work in a top-level
+        ``snowflake_app.validate`` span, and its instrumented steps (e.g. the
+        bundle step) nest under it."""
+        from snowflake.cli.api.project.project_paths import ProjectPaths
+
+        mock_get_entity.return_value = self._make_validate_entity()
+        self._configure_manager_mock(mock_manager_cls)
+        mock_perform_bundle.return_value = ProjectPaths(project_root=tmp_path)
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "validate"])
+            assert result.exit_code == 0, result.output
+
+            root_span = _get_completed_span("snowflake_app.validate")
+            assert root_span[CLIMetricsSpan.ERROR_KEY] is None
+            bundle_span = _get_completed_span("snowflake_app.validate.bundle")
+            assert (
+                bundle_span[CLIMetricsSpan.PARENT_ID_KEY]
+                == root_span[CLIMetricsSpan.ID_KEY]
+            )
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands.perform_bundle")
@@ -6272,6 +6339,49 @@ class TestOpenCommand:
             )
             span = _get_completed_span("snowflake_app.open.resolve_endpoint")
             assert span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.launch")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_open_records_root_span(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        mock_launch,
+        runner,
+        tmp_path,
+    ):
+        """``snow app open`` wraps its work in a top-level ``snowflake_app.open``
+        span, and its endpoint-resolution step nests under it."""
+        entity = Mock()
+        fqn = Mock(database="DB", schema="SCHEMA")
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_endpoint_url.return_value = (
+            "https://my-app.snowflakecomputing.app"
+        )
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "open", "--print-only"])
+            assert result.exit_code == 0, result.output
+
+            root_span = _get_completed_span("snowflake_app.open")
+            assert root_span[CLIMetricsSpan.ERROR_KEY] is None
+            resolve_span = _get_completed_span("snowflake_app.open.resolve_endpoint")
+            assert (
+                resolve_span[CLIMetricsSpan.PARENT_ID_KEY]
+                == root_span[CLIMetricsSpan.ID_KEY]
+            )
 
     @patch("snowflake.cli._plugins.apps.commands.typer.launch")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -6827,6 +6937,43 @@ class TestEventsCommand:
             assert "Verify that the app is deployed" in result.output
             span = _get_completed_span("snowflake_app.events.fetch_logs")
             assert span[CLIMetricsSpan.ERROR_KEY] == ProgrammingError.__name__
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_events_records_root_span(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_manager_cls,
+        runner,
+        tmp_path,
+    ):
+        """``snow app events`` wraps its work in a top-level
+        ``snowflake_app.events`` span, and the log-fetch step nests under it."""
+        entity = Mock()
+        entity.fqn = Mock(database="DB", schema="SCHEMA", name="MY_APP")
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.get_service_logs.return_value = "line1"
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "events"])
+            assert result.exit_code == 0, result.output
+
+            root_span = _get_completed_span("snowflake_app.events")
+            assert root_span[CLIMetricsSpan.ERROR_KEY] is None
+            fetch_span = _get_completed_span("snowflake_app.events.fetch_logs")
+            assert (
+                fetch_span[CLIMetricsSpan.PARENT_ID_KEY]
+                == root_span[CLIMetricsSpan.ID_KEY]
+            )
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
@@ -7558,6 +7705,74 @@ class TestDeployCommand:
             mock_mgr.build_app_artifact_repo.assert_not_called()
             mock_mgr.artifact_repo_exists.assert_not_called()
             mock_mgr.create_app_service.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.commands._poll_until")
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "query_warehouse": "WH",
+            "build_compute_pool": None,
+            "service_compute_pool": "SVC_POOL",
+            "build_eai": None,
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+            "artifact_repository": "MY_APP_REPO",
+            "artifact_repo_database": "TEST_DB",
+            "artifact_repo_schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_deploy_records_root_span(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_poll,
+        runner,
+        tmp_path,
+    ):
+        """``snow app deploy`` wraps the whole command in a top-level
+        ``snowflake_app.deploy`` span; its command-specific step
+        (``resolve_defaults``) and the shared deploy-pipeline phases
+        (``deploy_service``) both nest under it."""
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifacts = []
+        entity.meta = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_poll.return_value = {
+            "url": "my-app.snowflakecomputing.app",
+            "is_upgrading": "false",
+        }
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "deploy", "--promote-only"])
+            assert result.exit_code == 0, result.output
+
+            root_span = _get_completed_span("snowflake_app.deploy")
+            assert root_span[CLIMetricsSpan.ERROR_KEY] is None
+            root_id = root_span[CLIMetricsSpan.ID_KEY]
+            resolve_span = _get_completed_span("snowflake_app.deploy.resolve_defaults")
+            assert resolve_span[CLIMetricsSpan.PARENT_ID_KEY] == root_id
+            deploy_service_span = _get_completed_span("snowflake_app.deploy_service")
+            assert deploy_service_span[CLIMetricsSpan.PARENT_ID_KEY] == root_id
 
     @patch("snowflake.cli._plugins.apps.commands._poll_until")
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -11326,3 +11541,60 @@ class TestTeardownCommand:
         mock_mgr.drop_app_service_if_exists.assert_not_called()
         span = _get_completed_span("snowflake_app.teardown.confirm")
         assert span[CLIMetricsSpan.ERROR_KEY] is None
+
+    @patch("snowflake.cli._plugins.apps.commands.typer.confirm", return_value=True)
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    @patch(
+        RESOLVE_DEPLOY_DEFAULTS,
+        return_value={
+            "database": "TEST_DB",
+            "schema": "TEST_SCHEMA",
+        },
+    )
+    @patch("snowflake.cli._plugins.apps.commands._get_entity")
+    @patch(
+        "snowflake.cli._plugins.apps.commands._resolve_entity_id",
+        return_value="my_app",
+    )
+    def test_teardown_records_root_span(
+        self,
+        mock_resolve,
+        mock_get_entity,
+        mock_defaults,
+        mock_manager_cls,
+        mock_confirm,
+        runner,
+        tmp_path,
+    ):
+        """``snow app teardown`` wraps the whole command in a top-level
+        ``snowflake_app.teardown`` span; its instrumented steps (default
+        resolution, the confirm prompt, and the service drop) nest under it."""
+        entity = Mock()
+        fqn = Mock()
+        fqn.name = "MY_APP"
+        fqn.database = "TEST_DB"
+        fqn.schema = "TEST_SCHEMA"
+        entity.fqn = fqn
+        entity.code_stage = None
+        entity.code_workspace = None
+        entity.artifact_repository = None
+        mock_get_entity.return_value = entity
+
+        mock_mgr = mock_manager_cls.return_value
+        mock_mgr.describe_app_service.return_value = {}
+
+        with change_directory(tmp_path):
+            _write_snowflake_app_yml(tmp_path)
+            _reset_command_metrics()
+            result = runner.invoke(["app", "teardown"])
+
+        assert result.exit_code == 0, result.output
+        root_span = _get_completed_span("snowflake_app.teardown")
+        assert root_span[CLIMetricsSpan.ERROR_KEY] is None
+        root_id = root_span[CLIMetricsSpan.ID_KEY]
+        for child in (
+            "snowflake_app.teardown.resolve_defaults",
+            "snowflake_app.teardown.confirm",
+            "snowflake_app.teardown.drop_service",
+        ):
+            assert _get_completed_span(child)[CLIMetricsSpan.PARENT_ID_KEY] == root_id
