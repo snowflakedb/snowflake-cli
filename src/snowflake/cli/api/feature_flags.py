@@ -80,7 +80,7 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_DBT_PROJECT_AUTO_COMPILE = BooleanFlag(
         "ENABLE_DBT_PROJECT_AUTO_COMPILE", False
     )
-    ENABLE_DBT_GIT_METADATA = BooleanFlag("ENABLE_DBT_GIT_METADATA", False)
+    ENABLE_DBT_GIT_METADATA = BooleanFlag("ENABLE_DBT_GIT_METADATA", True)
     # CNG (serverless COMPUTE_RESOURCE) has its own flag: app.yml v2 is now
     # generally available, but CNG is not ready yet.
     ENABLE_APP_SERVICE_COMPUTE_RESOURCE = BooleanFlag(

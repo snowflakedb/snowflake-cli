@@ -611,10 +611,11 @@ class TestDBTDeploy:
             "GITHUB_HEAD_REF": "shouldbeignored",
             "GITHUB_REF_NAME": "shouldbeignored",
         }
-        with mock.patch.dict("os.environ", gha_env):
-            result = runner.invoke(
-                ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
-            )
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: False}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
 
         assert result.exit_code == 0, result.output
         call_kwargs = mock_deploy.call_args[1]
