@@ -330,6 +330,20 @@ class TestAppYmlDefinition:
         assert model.code_workspace is None
         assert model.ignore is None
 
+    def test_build_job_location_defaults_to_none(self):
+        # Unset means "use the builder default" (the caller's personal
+        # database); it is distinguishable from a deliberately set value.
+        assert _definition().build_job_location is None
+        assert AppYmlTarget().build_job_location is None
+
+    def test_build_job_location_parsed_at_baseline_and_target(self):
+        model = _definition(
+            build_job_location="BASE_DB.BASE_SC",
+            targets={"prod": {"build_job_location": "PROD_DB.PROD_SC"}},
+        )
+        assert model.build_job_location == "BASE_DB.BASE_SC"
+        assert model.targets["prod"].build_job_location == "PROD_DB.PROD_SC"
+
     def test_single_target_requires_explicit_selection(self):
         # Once any target is declared a target must be selected explicitly;
         # even a lone target is not an implicit default.
@@ -771,6 +785,21 @@ class TestResolveTarget:
         )
         _, prod = resolve_target(model, "prod")
         assert prod.code_stage == "DB.PUBLIC.BASE_CODE"
+
+    def test_target_overrides_build_job_location(self):
+        # ``build_job_location`` is a package-build field: a target may override
+        # the baseline value, and a target that leaves it unset inherits it.
+        model = _definition(
+            build_job_location="BASE_DB.BASE_SC",
+            targets={
+                "prod": {"build_job_location": "PROD_DB.PROD_SC"},
+                "dev": {"query_warehouse": "WH"},
+            },
+        )
+        _, prod = resolve_target(model, "prod")
+        assert prod.build_job_location == "PROD_DB.PROD_SC"  # overridden
+        _, dev = resolve_target(model, "dev")
+        assert dev.build_job_location == "BASE_DB.BASE_SC"  # inherited
 
 
 _COMMANDS = "snowflake.cli._plugins.apps.commands"
@@ -1249,6 +1278,83 @@ class TestDeployFromAppYml:
         # The overriding build_eai is forwarded to the build job.
         assert (
             mgr.build_app_artifact_repo.call_args.kwargs.get("build_eai") == "PROD_EAI"
+        )
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_build_job_location_forwarded_to_build(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        """``build_job_location`` from the resolved target is forwarded to the
+        builder so the build job runs in the requested schema."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(
+            dedent(
+                """\
+                version: 2
+                name: MY_APP
+                database: SNOWFLAKE_APPS
+                schema: PUBLIC
+                query_warehouse: WH
+                package_name: MY_APP
+                build_job_location: BASE_DB.BASE_SC
+                code_stage: SNOWFLAKE_APPS.PUBLIC.PKG_CODE
+                artifact_repo: SNOWFLAKE_APPS.PUBLIC.PKG_REPO
+                default_target: prod
+                targets:
+                  prod:
+                    build_job_location: PROD_DB.PROD_SC
+                """
+            )
+        )
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "prod.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        snowflake_app_deploy(
+            None, False, False, False, interactive=False, target="prod"
+        )
+
+        # The target override wins over the baseline value.
+        assert (
+            mgr.build_app_artifact_repo.call_args.kwargs.get("build_job_location")
+            == "PROD_DB.PROD_SC"
+        )
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_build_job_location_defaults_to_none_when_unset(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        """With no ``build_job_location`` configured the builder is called with
+        ``None`` so it keeps its default (personal database) behaviour."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "prod.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        snowflake_app_deploy(
+            None, False, False, False, interactive=False, target="prod"
+        )
+
+        assert (
+            mgr.build_app_artifact_repo.call_args.kwargs.get("build_job_location")
+            is None
         )
 
     @patch(f"{_COMMANDS}._poll_until")

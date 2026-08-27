@@ -879,6 +879,7 @@ def _upload_and_build_app(
     artifact_repo_schema: Optional[str],
     artifact_repo_name: str,
     build_eai: Optional[str],
+    build_job_location: Optional[str],
     bundle: Callable[[], Any],
     run_upload: bool,
     run_build: bool,
@@ -896,9 +897,11 @@ def _upload_and_build_app(
 
     ``app_id`` is the code/package identifier used for the workspace
     subdirectory, the stage name, and the build's ``app_id`` (the entity's app
-    name or the ``app.yml`` package name). ``extra_build_kwargs`` carries flow-
-    specific build arguments (the entity flow forwards ``compute_pool``,
-    ``runtime_image`` and ``project_type``).
+    name or the ``app.yml`` package name). ``build_job_location`` is the
+    optional ``<database>.<schema>`` the builder runs the build job in (only the
+    ``app.yml`` flow sets it; ``None`` keeps the default PDB behaviour).
+    ``extra_build_kwargs`` carries flow-specific build arguments (the entity
+    flow forwards ``compute_pool``, ``runtime_image`` and ``project_type``).
 
     Returns a short-circuit :class:`CommandResult` for ``--upload-only`` /
     ``--build-only``, or ``None`` when the caller should proceed to its own
@@ -959,6 +962,7 @@ def _upload_and_build_app(
                     database=database,
                     schema=schema,
                     build_eai=build_eai,
+                    build_job_location=build_job_location,
                     **(extra_build_kwargs or {}),
                 )
                 if use_workspace:
@@ -2323,6 +2327,7 @@ def _deploy_from_app_yml(
         artifact_repo_schema=ar_schema,
         artifact_repo_name=ar_name,
         build_eai=tgt.build_eai,
+        build_job_location=tgt.build_job_location,
         bundle=lambda: perform_bundle(
             dep.package_name,
             SimpleNamespace(artifacts=tgt.bundle_artifacts),
@@ -2500,6 +2505,9 @@ def snowflake_app_deploy(
         artifact_repo_schema=ar_schema,
         artifact_repo_name=ar_name,
         build_eai=build_eai,
+        # ``build_job_location`` is an app.yml v2-only field; the snowflake.yml
+        # entity flow leaves it unset so the builder uses the default (PDB).
+        build_job_location=None,
         bundle=lambda: perform_bundle(resolved_entity_id, entity),
         run_upload=run_upload,
         run_build=run_build,

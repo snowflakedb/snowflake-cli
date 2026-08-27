@@ -1983,11 +1983,21 @@ class SnowflakeAppManager(SqlExecutionMixin):
     @staticmethod
     def _build_artifact_repo_config(
         build_eai: Optional[str] = None,
+        build_job_location: Optional[str] = None,
     ) -> str:
-        """Build the JSON config blob accepted by the artifact-repo system functions."""
+        """Build the JSON config blob accepted by the artifact-repo system functions.
+
+        ``build_job_location`` (``<database>.<schema>``) is forwarded verbatim
+        when set so the builder service runs the ephemeral build job there
+        instead of the caller's personal database. It is omitted when unset,
+        leaving the default (PDB) behaviour in place. The backend gates and
+        enforces this override, so the value is passed through unvalidated.
+        """
         cfg: Dict[str, Any] = {}
         if build_eai:
             cfg["external_access_integrations"] = [build_eai]
+        if build_job_location:
+            cfg["build_job_location"] = build_job_location
         return json.dumps(cfg)
 
     def artifact_repo_exists(self, database: str, schema: str, repo_name: str) -> bool:
@@ -2030,12 +2040,18 @@ class SnowflakeAppManager(SqlExecutionMixin):
         build_eai: Optional[str] = None,
         project_type: str = "",
         source_uri: Optional[str] = None,
+        build_job_location: Optional[str] = None,
     ) -> str:
         """Build an app using SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO.
 
         The build source is specified by either *stage_fqn* (legacy stage
         flow) or *source_uri* (e.g. a ``snow://workspace/...`` URI for the
         workspace flow).  Exactly one of the two must be provided.
+
+        ``build_job_location`` (``<database>.<schema>``) is passed through the
+        builder config so the build job runs there instead of the caller's
+        personal database; when unset the builder keeps its default (PDB)
+        behaviour.
         """
         from snowflake.cli.api.project.util import to_string_literal
 
@@ -2050,7 +2066,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             raise ValueError("app_id must be a non-empty string")
 
         with self._use_database_and_schema(database, schema):
-            config = self._build_artifact_repo_config(build_eai)
+            config = self._build_artifact_repo_config(build_eai, build_job_location)
             log.info(
                 "Calling SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO with arguments:\n"
                 "  source_uri=%r\n"
