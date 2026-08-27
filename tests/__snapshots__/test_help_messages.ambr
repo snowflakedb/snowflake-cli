@@ -5781,6 +5781,22 @@
   |                                                    list of supported         |
   |                                                    versions can be found at  |
   |                                                    https://docs.snowflake.c… |
+  | --git-commit                                 TEXT  Git commit hash to record |
+  |                                                    in last_deployed_from     |
+  |                                                    metadata when deploying   |
+  |                                                    from a plain stage (e.g.  |
+  |                                                    SnowCLI temp stage). In   |
+  |                                                    GitHub Actions it is      |
+  |                                                    auto-detected when not    |
+  |                                                    provided.                 |
+  | --git-branch                                 TEXT  Git branch name to record |
+  |                                                    in last_deployed_from     |
+  |                                                    metadata when deploying   |
+  |                                                    from a plain stage (e.g.  |
+  |                                                    SnowCLI temp stage). In   |
+  |                                                    GitHub Actions it is      |
+  |                                                    auto-detected when not    |
+  |                                                    provided.                 |
   | --help                     -h                      Show this message and     |
   |                                                    exit.                     |
   +------------------------------------------------------------------------------+
