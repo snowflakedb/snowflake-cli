@@ -547,20 +547,35 @@ def test_run_diagnostic_preserves_input_order_under_parallelism(monkeypatch):
     conn = mock.MagicMock()
     conn.execute_string.return_value = (_allowlist_cursor(entries),)
 
-    fast_done = threading.Event()
+    # Hold the slow probe until the fast one has been *streamed*. Waiting on the
+    # fast probe itself would only order the two check_endpoint calls, not the
+    # futures: after releasing the slow probe the fast worker still has to build
+    # its result and have the pool mark its future done, and if it loses the GIL
+    # anywhere in that window the slow future is marked done first and
+    # as_completed yields it first.
+    fast_streamed = threading.Event()
 
     def fake_check(host, port, type_, timeout=5.0):
         if host.startswith("slow"):
-            fast_done.wait(timeout=1)
-        else:
-            fast_done.set()
+            assert fast_streamed.wait(timeout=10), "fast probe was never streamed"
         return EndpointCheck(host, port, type_, "Healthy", latency_ms=1.0)
+
+    streamed = []
+
+    def record(check):
+        streamed.append(check)
+        if check.host.startswith("fast"):
+            fast_streamed.set()
 
     monkeypatch.setattr(
         "snowflake.cli._plugins.connection.diagnostic.check_endpoint", fake_check
     )
-    streamed = []
-    report = run_diagnostic(conn, None, on_check=streamed.append, max_workers=2)
+    # Keep the probe set hermetic: real DNS for these hosts would mark them
+    # non-resolvable and skip them before any thread is submitted.
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.connection.diagnostic.is_resolvable", lambda host: True
+    )
+    report = run_diagnostic(conn, None, on_check=record, max_workers=2)
     assert [c.host for c in report.checks] == ["slow.example.com", "fast.example.com"]
     assert [c.host for c in streamed] == ["fast.example.com", "slow.example.com"]
 
