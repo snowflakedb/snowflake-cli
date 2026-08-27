@@ -263,6 +263,9 @@ class _AppYmlServiceConfig(UpdatableModel):
     url_prefix: Optional[str] = Field(
         title="URL prefix for the application service", default=None
     )
+    health_check: Optional[str] = Field(
+        title="Health check endpoint path for the application service", default=None
+    )
     external_access_integrations: Optional[List[str]] = Field(
         title="External access integrations active for the service", default=None
     )
