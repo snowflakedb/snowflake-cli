@@ -111,7 +111,9 @@ def mock_decl():
     with mock.patch("snowflake.cli._plugins.feature.manager.decl_api") as m:
         m.fetch_applied_state.return_value = mock.MagicMock(name="state")
         m.validate_specs.return_value = []
-        m.generate_plan.return_value = mock.MagicMock(name="plan", ops=[], warnings=[])
+        m.generate_plan.return_value = mock.MagicMock(
+            name="plan", ops=[], warnings=[], errors=[]
+        )
         m.serialize_plan.return_value = json.dumps(
             {
                 "version": "1",

@@ -1236,6 +1236,24 @@ class FeatureManager(SqlExecutionMixin):
         # surface a connection in case downstream wiring is added).
         del ctx
 
+        # Planner-side blocking errors (e.g. FG_MEMBER_STILL_REFERENCED)
+        # surface exactly like validate_specs ERRORs: no op stream, no plan
+        # file.  ``getattr`` + isinstance keeps plan-file envelopes written
+        # before ``Plan.errors`` existed working.
+        plan_errors = getattr(plan, "errors", None)
+        if not isinstance(plan_errors, list):
+            plan_errors = []
+        if plan_errors:
+            return {
+                **self._target_info(target),
+                "status": "validation_failed",
+                "ops": [],
+                "executed": 0,
+                "warnings": [str(w) for w in warnings]
+                + list(getattr(plan, "warnings", [])),
+                "errors": [str(e) for e in plan_errors],
+            }
+
         return {
             **self._target_info(target),
             "status": "ready",
@@ -1320,6 +1338,19 @@ class FeatureManager(SqlExecutionMixin):
             database=target.database,
             schema=target.schema,
         )
+
+        # Never persist a plan that carries blocking planner errors (e.g.
+        # FG_MEMBER_STILL_REFERENCED).  ``snow feature plan`` reaches this only
+        # after ``plan`` already returned ``validation_failed``; this guard
+        # makes ``write_plan`` safe to call independently.  ``getattr`` +
+        # isinstance keeps older plan envelopes (no ``errors`` field) working.
+        plan_errors = getattr(plan, "errors", None)
+        if not isinstance(plan_errors, list):
+            plan_errors = []
+        if plan_errors:
+            raise CliError(
+                "Refusing to write plan: " + "; ".join(str(e) for e in plan_errors)
+            )
 
         source_files = sorted(
             str(p)
