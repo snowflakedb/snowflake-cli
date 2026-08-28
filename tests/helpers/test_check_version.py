@@ -96,9 +96,43 @@ def test_does_not_require_connection(runner):
 
 @mock.patch(_VERSION, "1.0.0")
 @mock.patch(_GET_LAST_VERSION, lambda _self, force_refresh=False: Version("2.0.0"))
+def test_records_last_time_shown_on_success(runner):
+    with mock.patch(
+        "snowflake.cli._app.version_check._VersionCache.update_last_time_shown"
+    ) as mock_update:
+        result = runner.invoke([*COMMAND, "--format", "JSON"])
+    assert result.exit_code == 0, result.output
+    mock_update.assert_called_once()
+
+
+@mock.patch(_GET_LAST_VERSION, lambda _self, force_refresh=False: None)
+def test_does_not_record_last_time_shown_on_failure(runner):
+    with mock.patch(
+        "snowflake.cli._app.version_check._VersionCache.update_last_time_shown"
+    ) as mock_update:
+        result = runner.invoke(COMMAND)
+    assert result.exit_code != 0
+    mock_update.assert_not_called()
+
+
+@mock.patch(_VERSION, "1.0.0")
+@mock.patch(_GET_LAST_VERSION, lambda _self, force_refresh=False: Version("2.0.0"))
 def test_ignores_new_version_warning_setting(runner, monkeypatch):
     """An explicit check always reports, even when the passive banner is muted."""
     monkeypatch.setenv("SNOWFLAKE_CLI_IGNORE_NEW_VERSION_WARNING", "true")
+    result = runner.invoke([*COMMAND, "--format", "JSON"])
+    assert result.exit_code == 0, result.output
+    payload = _json_output(result.output)
+    assert payload["update_available"] is True
+
+
+@mock.patch(_VERSION, "1.0.0")
+@mock.patch(_GET_LAST_VERSION, lambda _self, force_refresh=False: Version("2.0.0"))
+@mock.patch(
+    "snowflake.cli._app.version_check._VersionCache.update_last_time_shown",
+    side_effect=PermissionError("denied"),
+)
+def test_succeeds_when_throttle_write_fails(_mock_update_last_time_shown, runner):
     result = runner.invoke([*COMMAND, "--format", "JSON"])
     assert result.exit_code == 0, result.output
     payload = _json_output(result.output)

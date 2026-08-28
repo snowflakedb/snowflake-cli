@@ -27,6 +27,7 @@ import typer
 import yaml
 from snowflake.cli._app.version_check import (
     get_version_info,
+    record_version_check_displayed,
     suppress_new_version_banner,
 )
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
@@ -505,6 +506,7 @@ def check_version(
             "Check your network connection and try again. "
             "Re-run with --debug to see the underlying error."
         )
+    record_version_check_displayed()
     return ObjectResult(asdict(info))
 
 
