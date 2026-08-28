@@ -611,6 +611,24 @@ def global_setup(monkeypatch):
     monkeypatch.setenv("COLUMNS", str(width))
 
 
+@pytest.fixture(autouse=True)
+def disable_background_version_refresh():
+    """Prevent background version-refresh threads from running during tests.
+
+    Tests that specifically cover refresh behaviour patch or invoke the real
+    implementation themselves.
+    """
+    from snowflake.cli._app.version_check import reset_background_refresh_thread
+
+    reset_background_refresh_thread()
+    with (
+        mock.patch("snowflake.cli._app.main_typer.start_background_refresh"),
+        mock.patch("snowflake.cli._app.version_check.start_background_refresh"),
+    ):
+        yield
+    reset_background_refresh_thread()
+
+
 @pytest.fixture()
 def argument_instance():
     return Argument(name="Foo", type="Bar")
