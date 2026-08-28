@@ -36,11 +36,7 @@ from snowflake.cli._app.dev.pycharm_remote_debug import (
 )
 from snowflake.cli._app.main_typer import SnowCliMainTyper
 from snowflake.cli._app.printing import MessageResult, print_result
-from snowflake.cli._app.version_check import (
-    get_new_version_msg,
-    reset_new_version_banner_suppression,
-    show_new_version_banner_callback,
-)
+from snowflake.cli._app.version_check import show_new_version_banner_callback
 from snowflake.cli.api.config import (
     config_init,
     get_config_manager,
@@ -184,13 +180,10 @@ class CliAppFactory:
             return self._app
 
         app = SnowCliMainTyper()
-        reset_new_version_banner_suppression()
-        new_version_msg = get_new_version_msg()
 
         @app.callback(
             invoke_without_command=True,
-            epilog=new_version_msg,
-            result_callback=show_new_version_banner_callback(new_version_msg),
+            result_callback=show_new_version_banner_callback,
             add_help_option=False,  # custom_help option added below
             help=f"Snowflake CLI tool for developers [v{__about__.VERSION}]",
         )
