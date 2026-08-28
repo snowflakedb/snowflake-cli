@@ -1158,6 +1158,37 @@ class TestFeatureManagerPlan:
         assert result["errors"]
         mock_decl.generate_plan.assert_not_called()
 
+    def test_plan_returns_validation_failed_when_plan_has_errors(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Planner-side ``plan.errors`` (e.g. ``FG_MEMBER_STILL_REFERENCED``)
+        surface as ``validation_failed`` with an empty op stream, mirroring
+        ``validate_specs`` ERRORs."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        err = mock.MagicMock()
+        err.severity = "ERROR"
+        err.code = "FG_MEMBER_STILL_REFERENCED"
+        err.message = "FG still references member"
+        err.__str__ = (
+            lambda self: "FG_MEMBER_STILL_REFERENCED: FG still references member"
+        )
+        mock_decl.validate_specs.return_value = []
+        mock_decl.generate_plan.return_value = mock.MagicMock(
+            name="plan", ops=[], warnings=[], errors=[err]
+        )
+
+        result = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            allow_recreate=False,
+        )
+        assert result["status"] == "validation_failed"
+        assert result["errors"]
+        assert result["ops"] == []
+
     def test_plan_loads_project_via_decl_api(
         self, mock_execute_query, mock_decl, tmp_path
     ):
@@ -1861,6 +1892,38 @@ class TestWritePlan:
         assert result.name.startswith("feature_plan_")
         assert result.name.endswith(".json")
         assert result.exists()
+
+    def test_write_plan_does_not_write_when_plan_has_errors(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A plan carrying blocking ``plan.errors`` must not be persisted;
+        ``write_plan`` raises instead of writing an error plan to disk."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        err = mock.MagicMock()
+        err.severity = "ERROR"
+        err.code = "FG_MEMBER_STILL_REFERENCED"
+        err.__str__ = (
+            lambda self: "FG_MEMBER_STILL_REFERENCED: FG still references member"
+        )
+        mock_decl.generate_plan.return_value = mock.MagicMock(
+            name="plan", ops=[], warnings=[], errors=[err]
+        )
+
+        with pytest.raises(CliError):
+            FeatureManager().write_plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                out_path=None,
+            )
+
+        mock_decl.serialize_plan.assert_not_called()
+        assert not (tmp_path / "out" / "plan").exists() or not list(
+            (tmp_path / "out" / "plan").glob("feature_plan_*.json")
+        )
 
     def test_write_plan_explicit_out_path_honoured(
         self, mock_execute_query, mock_decl, tmp_path
