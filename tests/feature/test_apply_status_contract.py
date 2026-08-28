@@ -181,7 +181,6 @@ class TestFeatureManagerApplyStatusSet:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == status
@@ -197,7 +196,6 @@ class TestFeatureManagerApplyStatusSet:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "no_plan"
@@ -227,7 +225,6 @@ class TestFeatureManagerApplyStatusSet:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "target_mismatch"
@@ -249,7 +246,6 @@ class TestFeatureManagerApplyStatusSet:
             from_dir=tmp_path,
             target_name="DEV",
             plan_file=str(plan_path),
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "target_mismatch"
@@ -280,7 +276,6 @@ class TestFeatureManagerApplyStatusSet:
                 from_dir=tmp_path,
                 target_name=None,
                 plan_file=None,
-                dev_mode=False,
                 allow_recreate=False,
             )
             observed.add(r.get("status", ""))
@@ -292,7 +287,6 @@ class TestFeatureManagerApplyStatusSet:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
         observed.add(r.get("status", ""))
@@ -308,7 +302,6 @@ class TestFeatureManagerApplyStatusSet:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
         observed.add(r.get("status", ""))

@@ -61,7 +61,7 @@ All non-`init` Snowflake-bound commands take `--from <project_root>` (default cw
 | `snow feature init`     | `init()`             | Auto-derives `manifest.yml` from the active connection (D6: queries `get_account_identifier(connection)` for the canonical `<ORG>-<ACCOUNT>` form, copies `database`/`schema`/`role`); scaffolds `sources/{entities,datasources,feature_views}/` + `out/plan/.gitkeep`; calls `FeatureStore(creation_mode=CREATE_IF_NOT_EXIST)`. The global `--database` / `--schema` flags are forwarded to `init(database=..., schema=...)`: on a fresh manifest they win over the connection profile and are baked into the new target; on a re-init they MUST match the resolved manifest target's stored values, otherwise `init` aborts with `CliError` (the manifest is the source of truth on re-init — preserved bytes-identical, no `--force`). |
 | `snow feature sync`     | `sync()`             | `init`'s export phase without the Snowflake-side bootstrap. Requires an existing `manifest.yml` and an already-initialised feature store. Pulls all deployed objects into `sources/` (or, with `--name <object>`, a single named object across all kinds). `--python` emits `.py` Pydantic constructors instead of YAML. Does NOT call `FeatureStore(CREATE_IF_NOT_EXIST)`. |
 | `snow feature apply`    | `apply()`            | Pure plan-file consumer (auto-discovers latest `feature_plan_*.json` under `<project_root>/out/plan/` or honours `--plan`). L6 now checks BOTH (a) `target.account_identifier` matches `get_account_identifier(connection)` and (b) plan envelope's `target_name` matches `--target` (D4-ext). |
-| `snow feature plan`     | `plan()` + `write_plan()` | Validate + generate_plan; persists JSON to `<project_root>/out/plan/feature_plan_<ts>.json` on success. `--dev` threads through to `decl_api.validate_specs(dev_mode=...)` so version invariants are properly relaxed. |
+| `snow feature plan`     | `plan()` + `write_plan()` | Validate + generate_plan; persists JSON to `<project_root>/out/plan/feature_plan_<ts>.json` on success. |
 | `snow feature list`     | `list_specs()`       | Lists Snowflake state for the resolved manifest target. |
 | `snow feature describe` | `describe()`         | Single-object metadata lookup. Optional `--version` disambiguates objects that share a base name but differ only by version; OFT resolution is delegated to `decl_api.resolve_oft_name`, which errors (listing versions) when a bare name is ambiguous. |
 
@@ -191,7 +191,6 @@ for execution:
 6. decl_api.validate_specs(batch, state,
        target_database=target.database,
        target_schema=target.schema,
-       dev_mode=dev_mode,
    )
    → if any ERROR results, return {status: "validation_failed", errors: [...], ops: []}
 7. decl_api.generate_plan(batch, state, opts,

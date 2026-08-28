@@ -680,9 +680,6 @@ def apply(
     from_location: Path = from_option,
     target: Optional[str] = target_option,
     variables: Optional[List[str]] = variables_option,
-    dev: bool = typer.Option(
-        False, "--dev", help="Apply in dev mode (relaxed validation)."
-    ),
     allow_recreate: bool = typer.Option(
         False, "--allow-recreate", help="Allow destructive recreation of objects."
     ),
@@ -714,7 +711,6 @@ def apply(
         from_dir=from_location,
         target_name=target,
         plan_file=plan,
-        dev_mode=dev,
         allow_recreate=allow_recreate,
     )
     _print_target_header(result)
@@ -735,9 +731,6 @@ def plan(
     from_location: Path = from_option,
     target: Optional[str] = target_option,
     variables: Optional[List[str]] = variables_option,
-    dev: bool = typer.Option(
-        False, "--dev", help="Plan in dev mode (relaxed validation)."
-    ),
     out: Optional[str] = typer.Option(
         None,
         "--out",
@@ -766,7 +759,6 @@ def plan(
         from_dir=from_location,
         target_name=target,
         variables=variables,
-        dev_mode=dev,
         allow_recreate=False,
         no_delete=no_delete,
     )
@@ -782,7 +774,6 @@ def plan(
         from_dir=from_location,
         target_name=target,
         variables=variables,
-        dev_mode=dev,
         out_path=out,
         no_delete=no_delete,
     )

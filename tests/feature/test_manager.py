@@ -1088,7 +1088,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1130,7 +1129,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1154,7 +1152,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "validation_failed"
@@ -1173,62 +1170,10 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
         mock_decl.load_project.assert_called_once()
-
-    def test_plan_dev_mode_threads_into_validate_specs(
-        self, mock_execute_query, mock_decl, tmp_path
-    ):
-        """``--dev`` MUST forward into ``decl_api.validate_specs`` so
-        relaxed version validation actually applies. A regression here
-        surfaces as ``MISSING_VERSION`` errors on a freshly-authored
-        feature view despite ``--dev``.
-        """
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        _write_manifest(tmp_path)
-
-        FeatureManager().plan(
-            from_dir=tmp_path,
-            target_name=None,
-            variables=[],
-            dev_mode=True,
-            allow_recreate=False,
-        )
-
-        kwargs = mock_decl.validate_specs.call_args.kwargs
-        assert kwargs.get("dev_mode") is True, (
-            "manager.plan must forward dev_mode=True to "
-            f"decl_api.validate_specs; got kwargs={kwargs!r}"
-        )
-
-    def test_plan_dev_mode_false_threads_into_validate_specs(
-        self, mock_execute_query, mock_decl, tmp_path
-    ):
-        """The strict-mode path must explicitly pass ``dev_mode=False``
-        rather than relying on the api's default, so the contract is
-        exercised in both directions.
-        """
-        from snowflake.cli._plugins.feature.manager import FeatureManager
-
-        _write_manifest(tmp_path)
-
-        FeatureManager().plan(
-            from_dir=tmp_path,
-            target_name=None,
-            variables=[],
-            dev_mode=False,
-            allow_recreate=False,
-        )
-
-        kwargs = mock_decl.validate_specs.call_args.kwargs
-        assert kwargs.get("dev_mode") is False, (
-            "manager.plan must forward dev_mode=False explicitly to "
-            f"decl_api.validate_specs; got kwargs={kwargs!r}"
-        )
 
     def test_plan_runtime_variables_flow_through_to_load_project(
         self, mock_execute_query, mock_decl, tmp_path
@@ -1241,7 +1186,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=["env_suffix=_DEV", "tenant=acme"],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1261,7 +1205,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1295,7 +1238,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1314,7 +1256,6 @@ class TestFeatureManagerPlan:
                 from_dir=tmp_path,
                 target_name=None,
                 variables=[],
-                dev_mode=False,
                 allow_recreate=False,
             )
 
@@ -1339,7 +1280,6 @@ class TestFeatureManagerPlan:
                 from_dir=tmp_path,
                 target_name=None,
                 variables=[],
-                dev_mode=False,
                 allow_recreate=False,
             )
 
@@ -1376,7 +1316,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1428,7 +1367,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1476,7 +1414,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1533,7 +1470,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             out_path=str(tmp_path / "plan.json"),
         )
 
@@ -1571,7 +1507,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             out_path=str(tmp_path / "plan.json"),
         )
 
@@ -1632,7 +1567,6 @@ class TestFeatureManagerPlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -1917,7 +1851,6 @@ class TestWritePlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             out_path=None,
         )
 
@@ -1940,7 +1873,6 @@ class TestWritePlan:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             out_path=str(out),
         )
         assert result_path == str(out)
@@ -1958,7 +1890,6 @@ class TestWritePlan:
             from_dir=tmp_path,
             target_name="DEFAULT",
             variables=[],
-            dev_mode=False,
             out_path=None,
         )
 
@@ -2007,7 +1938,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -2037,7 +1967,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -2065,7 +1994,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -2090,7 +2018,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -2119,7 +2046,6 @@ class TestApplyCommand:
                 from_dir=tmp_path,
                 target_name=None,
                 plan_file=None,
-                dev_mode=False,
                 allow_recreate=False,
             )
         except RuntimeError:
@@ -2154,7 +2080,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -2191,7 +2116,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -2236,7 +2160,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name="DEV",
             plan_file=str(plan_path),
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -2261,7 +2184,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name="DEFAULT",
             plan_file=str(plan_path),
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "applied"
@@ -2284,7 +2206,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=str(plan_path),
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "applied"
@@ -2304,7 +2225,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -2329,7 +2249,6 @@ class TestApplyCommand:
             from_dir=tmp_path,
             target_name=None,
             plan_file=None,
-            dev_mode=False,
             allow_recreate=True,
         )
 
@@ -3124,7 +3043,6 @@ class TestFetchEntityRowsResilience:
                 from_dir=tmp_path,
                 target_name=None,
                 variables=[],
-                dev_mode=False,
                 allow_recreate=False,
             )
 
@@ -3240,7 +3158,6 @@ class TestFetchStreamSourceRowsThreading:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -3271,7 +3188,6 @@ class TestFetchStreamSourceRowsThreading:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             out_path=str(tmp_path / "plan.json"),
         )
 
@@ -3611,7 +3527,6 @@ class TestBundleThreadsProgress:
                 from_dir=tmp_path,
                 target_name=None,
                 variables=[],
-                dev_mode=False,
                 allow_recreate=False,
             )
 

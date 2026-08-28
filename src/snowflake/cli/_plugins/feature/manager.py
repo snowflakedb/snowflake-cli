@@ -844,7 +844,6 @@ class FeatureManager(SqlExecutionMixin):
         from_dir: Path,
         target_name: Optional[str],
         plan_file: Optional[str],
-        dev_mode: bool,
         allow_recreate: bool,
     ) -> dict[str, Any]:
         """Apply the discovered (or explicit) plan file.
@@ -866,7 +865,6 @@ class FeatureManager(SqlExecutionMixin):
             plan_file: Optional explicit plan file (L7).  When given,
                 auto-discovery is skipped but L6 (account +
                 ``target_name`` match) still runs.
-            dev_mode: Apply in dev-mode relaxed validation.
             allow_recreate: Permit recreate (drop-and-create) operations.
 
         Returns:
@@ -913,7 +911,6 @@ class FeatureManager(SqlExecutionMixin):
                 plan_file=plan_file,
                 target=target,
                 requested_target_name=target_name,
-                dev_mode=dev_mode,
                 allow_recreate=allow_recreate,
             )
 
@@ -939,7 +936,6 @@ class FeatureManager(SqlExecutionMixin):
             plan_file=discovered,
             target=target,
             requested_target_name=target_name,
-            dev_mode=dev_mode,
             allow_recreate=allow_recreate,
         )
 
@@ -994,7 +990,6 @@ class FeatureManager(SqlExecutionMixin):
         plan_file: str,
         target: FSTarget,
         requested_target_name: Optional[str],
-        dev_mode: bool,
         allow_recreate: bool,
     ) -> dict[str, Any]:
         """Execute a pre-computed plan loaded from a JSON plan file.
@@ -1019,7 +1014,6 @@ class FeatureManager(SqlExecutionMixin):
             requested_target_name: The ``--target`` argument the
                 operator supplied (``None`` if defaulted).  Used for
                 the L6 ``target_name`` mismatch check.
-            dev_mode: Apply dev-mode relaxed validation.
             allow_recreate: Permit recreate (drop-and-create) operations.
 
         Returns:
@@ -1095,7 +1089,6 @@ class FeatureManager(SqlExecutionMixin):
             }
 
         options = PlanOptions(
-            dev_mode=dev_mode,
             allow_recreate=allow_recreate,
             overwrite=allow_recreate,
         )
@@ -1141,7 +1134,6 @@ class FeatureManager(SqlExecutionMixin):
         from_dir: Path,
         target_name: Optional[str],
         variables: Optional[Sequence[str]],
-        dev_mode: bool,
         allow_recreate: bool,
         no_delete: bool = True,
     ) -> dict[str, Any]:
@@ -1168,7 +1160,6 @@ class FeatureManager(SqlExecutionMixin):
             from_dir: Project-root start.
             target_name: Optional manifest target name.
             variables: ``--variable key=value`` repeats.
-            dev_mode: Apply dev-mode relaxed validation.
             allow_recreate: Permit recreate (drop-and-create) ops.
             no_delete: When True, deletion detection is disabled.
 
@@ -1215,7 +1206,6 @@ class FeatureManager(SqlExecutionMixin):
             applied_state,
             target_database=target.database,
             target_schema=target.schema,
-            dev_mode=dev_mode,
         )
         errors = [r for r in validation_results if r.severity == "ERROR"]
         warnings = [r for r in validation_results if r.severity == "WARNING"]
@@ -1230,7 +1220,6 @@ class FeatureManager(SqlExecutionMixin):
             }
 
         options = PlanOptions(
-            dev_mode=dev_mode,
             allow_recreate=allow_recreate,
             full_directory_mode=not no_delete,
         )
@@ -1276,7 +1265,6 @@ class FeatureManager(SqlExecutionMixin):
         from_dir: Path,
         target_name: Optional[str],
         variables: Optional[Sequence[str]],
-        dev_mode: bool,
         out_path: Optional[str],
         no_delete: bool = True,
     ) -> str:
@@ -1291,7 +1279,6 @@ class FeatureManager(SqlExecutionMixin):
             from_dir: Project-root start.
             target_name: Optional manifest target name.
             variables: ``--variable key=value`` repeats.
-            dev_mode: Apply dev-mode relaxed validation.
             out_path: Destination path.  Parent directories are
                 created automatically.  When ``None`` the default
                 location under ``out/plan/`` is used.
@@ -1325,7 +1312,7 @@ class FeatureManager(SqlExecutionMixin):
 
         decl_api.resolve_datasource_columns(batch)
 
-        options = PlanOptions(dev_mode=dev_mode, full_directory_mode=not no_delete)
+        options = PlanOptions(full_directory_mode=not no_delete)
         plan = decl_api.generate_plan(
             batch,
             applied_state,

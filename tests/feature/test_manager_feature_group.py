@@ -251,7 +251,6 @@ class TestPlanWiresFGRows:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 

@@ -250,7 +250,6 @@ class TestPlanIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "ready"
@@ -262,7 +261,6 @@ class TestPlanIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["executed"] == 0
@@ -274,7 +272,6 @@ class TestPlanIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
         assert isinstance(result["ops"], list)
@@ -287,7 +284,6 @@ class TestPlanIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
         calls = [c.args[0] for c in mock_execute_query.call_args_list if c.args]
@@ -321,7 +317,6 @@ class TestApplyExecuteIntegration:
                 from_dir=project_dir,
                 target_name=None,
                 plan_file=str(plan_path),
-                dev_mode=False,
                 allow_recreate=False,
             )
         assert result["status"] == "applied"
@@ -350,7 +345,6 @@ class TestApplyExecuteIntegration:
                 from_dir=project_dir,
                 target_name=None,
                 plan_file=str(plan_path),
-                dev_mode=False,
                 allow_recreate=False,
             )
         assert "ops" in result
@@ -422,7 +416,6 @@ class TestValidationErrorPath:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
         assert result["status"] == "validation_failed"
@@ -576,7 +569,6 @@ class TestApplySqlUsesConnectionContext:
                 from_dir=project_dir,
                 target_name=None,
                 plan_file=str(plan_path),
-                dev_mode=True,
                 allow_recreate=False,
             )
 
@@ -616,7 +608,6 @@ class TestWritePlanIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=True,
             out_path=str(out_path),
         )
         parsed = json.loads(out_path.read_text())
@@ -635,7 +626,6 @@ class TestWritePlanIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=True,
             out_path=str(out_path),
         )
         parsed = json.loads(out_path.read_text())
@@ -657,7 +647,6 @@ class TestWritePlanIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=True,
             out_path=str(out_path),
         )
         parsed = json.loads(out_path.read_text())
@@ -683,7 +672,6 @@ class TestApplyWithPlanFileIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=True,
             out_path=str(plan_path),
         )
 
@@ -696,7 +684,6 @@ class TestApplyWithPlanFileIntegration:
                 from_dir=project_dir,
                 target_name=None,
                 plan_file=str(plan_path),
-                dev_mode=False,
                 allow_recreate=False,
             )
         assert isinstance(result, dict)
@@ -714,7 +701,6 @@ class TestApplyWithPlanFileIntegration:
             from_dir=project_dir,
             target_name=None,
             variables=[],
-            dev_mode=True,
             out_path=str(plan_path),
         )
 
@@ -730,7 +716,6 @@ class TestApplyWithPlanFileIntegration:
                 from_dir=project_dir,
                 target_name=None,
                 plan_file=str(plan_path),
-                dev_mode=False,
                 allow_recreate=False,
             )
 

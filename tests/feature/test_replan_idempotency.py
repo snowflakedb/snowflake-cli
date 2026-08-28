@@ -455,7 +455,6 @@ class TestReplanIdenticalSpec:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -501,7 +500,6 @@ class TestReplanIdenticalSpec:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             out_path=str(out_path),
         )
 
@@ -560,7 +558,6 @@ class TestReplanIdenticalSpec:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -627,7 +624,6 @@ class TestPlanPreservesNameCase:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -675,7 +671,6 @@ class TestPlanPreservesNameCase:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -835,7 +830,6 @@ class TestBatchFvAutoDerivedFeaturesPlanIntegration:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 

@@ -113,15 +113,6 @@ def test_apply_passes_from_target_and_plan_flags(mock_manager, runner, tmp_path)
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_apply_dev_flag(mock_manager, runner):
-    """``apply --dev`` propagates ``dev_mode=True`` to the manager."""
-    mock_manager.return_value.apply.return_value = {"status": "applied", "ops": []}
-    result = runner.invoke(["feature", "apply", "--dev"])
-    assert result.exit_code == 0, result.output
-    assert mock_manager.return_value.apply.call_args.kwargs["dev_mode"] is True
-
-
-@mock.patch(FEATURE_MANAGER)
 def test_apply_allow_recreate_flag(mock_manager, runner):
     """``apply --allow-recreate`` propagates ``allow_recreate=True``."""
     mock_manager.return_value.apply.return_value = {"status": "applied", "ops": []}
@@ -159,9 +150,9 @@ def test_apply_help_shows_dcm_strict_surface(mock_manager, runner):
 
     Acceptance #8 in the requirement file: ``--from``, ``--target``,
     and ``--variable`` appear on every relevant command's ``--help``.
-    The deleted flags (``--overwrite``, ``--config``, ``--dry``)
-    must NOT appear or a regression has slipped a legacy code path
-    back in.
+    The deleted flags (``--overwrite``, ``--config``, ``--dry``,
+    ``--dev``) must NOT appear or a regression has slipped a legacy
+    code path back in.
     """
     result = runner.invoke(["feature", "apply", "--help"])
     assert result.exit_code == 0, result.output
@@ -169,12 +160,12 @@ def test_apply_help_shows_dcm_strict_surface(mock_manager, runner):
     assert "--from" in output
     assert "--target" in output
     assert "--variable" in output
-    assert "--dev" in output
     assert "--allow-recreate" in output
     assert "--plan" in output
     assert "--dry" not in output
     assert "--overwrite" not in output
     assert "--config" not in output
+    assert "--dev" not in output
 
 
 # ---------------------------------------------------------------------------

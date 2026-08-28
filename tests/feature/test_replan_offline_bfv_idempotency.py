@@ -273,7 +273,6 @@ class TestOfflineBfvReplanIdempotency:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -317,7 +316,6 @@ class TestOfflineBfvReplanIdempotency:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             allow_recreate=False,
         )
 
@@ -344,7 +342,6 @@ class TestOfflineBfvReplanIdempotency:
             from_dir=tmp_path,
             target_name=None,
             variables=[],
-            dev_mode=False,
             out_path=str(out_path),
         )
 
