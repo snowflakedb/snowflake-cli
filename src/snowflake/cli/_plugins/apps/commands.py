@@ -1736,14 +1736,14 @@ def _ensure_cng_url_cert_ready(
         manager.issue_per_account_url_cert()
         message = (
             "This account does not yet have a per-account URL certificate, "
-            "which CNG (serverless) apps require. Provisioning has been started "
+            "which serverless apps require. Provisioning has been started "
             f"for you via {PER_ACCOUNT_CERT_ISSUE_FUNCTION}(). This can take up "
             "to 3 hours. Re-run 'snow app deploy' once provisioning completes."
         )
     else:
         message = (
             "This account does not yet have a per-account URL certificate, which "
-            "CNG (serverless) apps require. Start provisioning by running:\n"
+            "serverless apps require. Start provisioning by running:\n"
             f"  SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}();\n"
             "Provisioning can take up to 3 hours. Re-run 'snow app deploy' once "
             "it completes, or re-run with '--provision-certs' to start it "

@@ -77,6 +77,7 @@ from snowflake.cli.api.exceptions import (
     IncompatibleParametersError,
     UnmetParametersError,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -660,7 +661,8 @@ def app_deploy(
     provision_certs: bool = typer.Option(
         False,
         "--provision-certs",
-        help="(Snowflake App Runtime only) When deploying a CNG (serverless) app whose "
+        hidden=not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled(),
+        help="(Snowflake App Runtime only) When deploying a serverless app whose "
         "account has no per-account URL certificate yet, trigger certificate "
         "provisioning automatically instead of only printing the system-function "
         "command. Provisioning is asynchronous (up to ~3 hours); the deploy still "
