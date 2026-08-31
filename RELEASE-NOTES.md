@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Upgraded GitPython from 3.1.58 to 3.1.59.
 
 
 # v3.26.0
@@ -40,6 +41,7 @@
 * Snowflake App Runtime projects now use temporary code storage by default. `snow app setup` leaves `code_stage`/`code_workspace` out of `app.yml`, and `snow app deploy` provisions a temporary `<app>_CODE` stage (or a `<app>_CODE` workspace for personal databases, which don't support stages) just for the build and drops it once the build finishes. Because the name is derived from the app, `--build-only` can still find and drop what `--upload-only` created. Set `code_stage` or `code_workspace` in `app.yml` to keep a persisted stage/workspace instead.
 * Fixed `snow helpers check-version` failing with "Could not determine the latest Snowflake CLI version" when the local version cache file was corrupted. A corrupted or unreadable cache now falls back to a live network fetch instead of silently returning nothing.
 * The passive new-version banner no longer blocks CLI startup. The version cache is refreshed in a background thread while the command runs, and the banner is shown after the command completes (including on `--help`, `--version`, and `--info`).
+
 
 # v3.25.0
 
