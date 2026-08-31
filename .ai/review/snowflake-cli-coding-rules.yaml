@@ -1,6 +1,6 @@
 id: snowflake-cli-coding-rules
 friendly_name: "Snowflake CLI - Coding Rules"
-status: shadow
+status: enabled
 allowed_folders:
   - "src/"
 excluded_folders: []
@@ -87,7 +87,7 @@ rules:
       ```
 
   - id: snowflake-cli-securepath-for-file-io
-    status: shadow
+    status: enabled
     rule: |
       **OBJECTIVE**: Ensure all file reads and writes use `SecurePath`, which provides an audit trail
       (every operation is logged at INFO level) and restrictive permissions (0600) for created files.
@@ -192,6 +192,23 @@ rules:
       - Errors where the fix is self-evident (e.g. `"Value must not be empty"`)
       - Server-relayed errors where the fix is server-side and unknown to the CLI
       - Errors in test code
+      - Errors that interpolate a caught exception via `{e}`, `{exc}`, `{error}`, or `str(e)`
+        (e.g. from `except OSError as e:`) where the exception's **class name itself** already
+        names a recognizable failure category — a stdlib `OSError` subclass (`OSError`,
+        `IOError`, `PermissionError`, `FileNotFoundError`, etc.) or any exception, stdlib or
+        custom, whose name ends in a category term such as `PermissionError`/`PermissionDenied`,
+        `TimeoutError`, `ConnectionError`, `RateLimitError`/`QuotaExceeded`, or `NotFoundError`.
+        The class name already narrows the fix to a category (free disk space, fix permissions,
+        retry later, correct the path), so the raw exception text is not "unactionable": it
+        carries exactly the detail the exception provides. This does **not** extend to exceptions
+        with a generic or unrelated name (e.g. `AppError`, `ProcessingError`, `ValueError`) —
+        those give no category hint by name alone, so the message must supply the guidance
+        directly. Only flag if the message drops the exception text entirely and states a bare
+        fact with no cause attached.
+      - Errors whose root cause is not knowable at the raise site — the message reports a
+        lookup/resolution ambiguity or an internal/unexpected condition (contains phrases
+        like "could not be resolved", "unexpected", "internal error"). A comment demanding
+        a corrective hint the author cannot know is not actionable feedback either.
 
       **WHAT TO FLAG:**
       - `raise CliError(f"File {path} not found")` — no guidance on what to do
@@ -211,6 +228,31 @@ rules:
           f"Connection '{name}' does not exist. "
           "Run 'snow connection list' to see available connections."
       )
+      ```
+
+      **NOT FLAGGED** (exception class name implies the fix; root cause unknowable at the raise site):
+      ```python
+      try:
+          os.symlink(src, dest)
+      except OSError as e:
+          raise BundleFileError(f"Could not add '{src}' to the bundle as '{dest}': {e}") from e
+
+      try:
+          client.upload(payload)
+      except RateLimitError as exc:  # custom exception; name alone implies "retry later"
+          raise CliError(f"Upload failed: {exc}") from exc
+
+      raise CliError(
+          f"Declared in manifest.yml but could not be resolved from the shell environment: {name}."
+      )
+      ```
+
+      **STILL FLAGGED** (custom exception name gives no category hint, so the message must):
+      ```python
+      try:
+          client.upload(payload)
+      except AppError as exc:  # generic name — does not imply a fix category
+          raise CliError(f"Upload failed: {exc}")
       ```
 
   - id: snowflake-cli-logging-percent-style

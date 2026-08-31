@@ -37,3 +37,14 @@ class Deployer:
     def connect(self, host: str):
         if not host.startswith("https://"):
             raise CliConnectionError(f"Cannot connect to {host}")
+
+
+class AppError(Exception):
+    pass
+
+
+def upload_snapshot(client, payload: dict) -> None:
+    try:
+        client.upload(payload)
+    except AppError as exc:
+        raise CliError(f"Upload failed: {exc}")

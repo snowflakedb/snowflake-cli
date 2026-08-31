@@ -1,6 +1,6 @@
 id: snowflake-cli-testing-rules
 friendly_name: "Snowflake CLI - Testing Rules"
-status: shadow
+status: enabled
 allowed_folders:
   - "tests/"
   - "tests_integration/"
@@ -12,7 +12,7 @@ allowed_file_extensions:
   - ".py"
 rules:
   - id: snowflake-cli-use-with-feature-flags
-    status: shadow
+    status: enabled
     rule: |
       **OBJECTIVE**: Tests must toggle feature flags through the project's standard helper,
       not by directly manipulating environment variables.

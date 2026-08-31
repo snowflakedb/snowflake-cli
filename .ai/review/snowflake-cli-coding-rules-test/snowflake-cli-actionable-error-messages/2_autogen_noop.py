@@ -15,6 +15,14 @@ class AppConnectionError(CliConnectionError):
     pass
 
 
+class BundleFileError(CliError):
+    pass
+
+
+class RateLimitError(Exception):
+    pass
+
+
 class DeploymentManager:
     def __init__(self, config=None):
         self.config = config or {}
@@ -91,3 +99,54 @@ class ProjectManager:
             )
         self.proj_list = [p for p in self.proj_list if p.get("id") != pid]
         print("deleted %s" % pid)
+
+
+def add_file_to_bundle(src: str, dest: str) -> None:
+    try:
+        os.symlink(src, dest)
+    except OSError as e:
+        raise BundleFileError(
+            f"Could not add '{src}' to the bundle as '{dest}': {e}"
+        ) from e
+
+
+def copy_artifact(src: str, dest: str) -> None:
+    import shutil
+
+    try:
+        shutil.copy(src, dest)
+    except (IOError, PermissionError) as exc:
+        raise BundleFileError(f"Could not copy '{src}' to '{dest}': {exc}") from exc
+
+
+def read_manifest_field(path: str, field: str) -> str:
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data[field]
+    except OSError as error:
+        raise CliError(f"Could not read manifest at '{path}': {error}") from error
+
+
+def resolve_env_vars(declared: set, source_description: str) -> dict:
+    missing = {name for name in declared if name not in os.environ}
+    if missing:
+        raise CliError(
+            f"Declared in manifest.yml but could not be resolved from "
+            f"{source_description}: {', '.join(sorted(missing))}."
+        )
+    return {name: os.environ[name] for name in declared}
+
+
+def get_personal_database(manager) -> str:
+    db = manager.lookup_personal_database()
+    if db is None:
+        raise CliError("The personal database could not be resolved.")
+    return db
+
+
+def upload_snapshot(client, payload: dict) -> None:
+    try:
+        client.upload(payload)
+    except RateLimitError as exc:
+        raise CliError(f"Upload failed: {exc}") from exc
