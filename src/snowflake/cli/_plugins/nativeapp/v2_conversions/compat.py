@@ -15,12 +15,15 @@
 from __future__ import annotations
 
 import inspect
+import os
 from enum import Enum
 from functools import wraps
+from pathlib import Path
 from typing import Optional, Type, TypeVar
 
 import typer
 from click import ClickException
+from snowflake.cli._plugins.apps.app_yml import load_app_yml
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
@@ -55,6 +58,29 @@ class AppFlow(str, Enum):
 
 NATIVE_APP_ENTITY_TYPES = {"application", "application package"}
 SNOWFLAKE_APP_ENTITY_TYPES = {"snowflake-app"}
+
+
+def _detection_project_root() -> Path:
+    """Return the directory to look in for ``app.yml`` during flow routing.
+
+    Mirrors :class:`DefinitionManager`'s root resolution: the ``-p/--project``
+    path when provided, otherwise the current working directory. This keeps
+    ``app.yml`` detection consistent with where ``snowflake.yml`` would be
+    read from.
+    """
+    project_path_arg = get_cli_context_manager().project_path_arg
+    return Path(os.path.abspath(project_path_arg) if project_path_arg else os.getcwd())
+
+
+def project_uses_app_yml() -> bool:
+    """Return ``True`` when the project is driven by an ``app.yml`` (version 2).
+
+    Such a project is a Snowflake App Runtime project regardless of whether a
+    ``snowflake.yml`` is also present — ``app.yml`` takes precedence and
+    ``snowflake.yml`` is ignored for the SAR flow. A malformed ``app.yml``
+    raises (via :func:`load_app_yml`) rather than silently falling back.
+    """
+    return load_app_yml(_detection_project_root()) is not None
 
 
 def set_app_flow(flow: AppFlow) -> None:
@@ -427,6 +453,19 @@ def with_app_flow_routing(
         @wraps(func)
         def wrapper(*args, **kwargs):
             cli_context = get_cli_context()
+
+            # An ``app.yml`` (version 2) makes this a Snowflake App Runtime
+            # project and takes precedence over ``snowflake.yml``: route to the
+            # SNOWFLAKE_APP flow without requiring (or reading) ``snowflake.yml``.
+            # When both files exist, ``snowflake.yml`` is ignored for the SAR
+            # flow. Marking the project definition optional lets downstream code
+            # resolve ``project_root`` even when no ``snowflake.yml`` is present.
+            if project_uses_app_yml():
+                get_cli_context_manager().project_is_optional = True
+                set_app_flow(AppFlow.SNOWFLAKE_APP)
+                kwargs["app_flow"] = AppFlow.SNOWFLAKE_APP
+                return func(*args, **kwargs)
+
             original_pdf: Optional[ProjectDefinition] = cli_context.project_definition
             if not original_pdf:
                 raise ValueError(

@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
 from typing import Any, List, Optional
@@ -24,6 +25,11 @@ from typing import Any, List, Optional
 import click
 import typer
 import yaml
+from snowflake.cli._app.version_check import (
+    get_version_info,
+    record_version_check_displayed,
+    suppress_new_version_banner,
+)
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -31,10 +37,13 @@ from snowflake.cli.api.config import (
     ConnectionConfig,
     add_connection_to_proper_file,
     get_all_connections,
+    get_encoding_diagnostics,
+    get_file_io_encoding,
     set_config_value,
 )
 from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -106,7 +115,7 @@ def v1_to_v2(
     SecurePath("snowflake.yml").rename("snowflake_V1.yml")
     if has_local_yml:
         SecurePath("snowflake.local.yml").rename("snowflake_V1.local.yml")
-    with open("snowflake.yml", "w") as file:
+    with open("snowflake.yml", "w", encoding=get_file_io_encoding()) as file:
         yaml.dump(
             pd_v2.model_dump(
                 exclude_unset=True, exclude_none=True, mode="json", by_alias=True
@@ -468,3 +477,47 @@ def generate_project_schema(
         return ObjectResult(schema)
 
     return MessageResult(json.dumps(schema, indent=2, sort_keys=True))
+
+
+@app.command(name="check-version", requires_connection=False)
+def check_version(
+    refresh: bool = typer.Option(
+        False,
+        "--refresh",
+        help="Query PyPI and Homebrew for the latest version instead of using the local cache.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Check whether a newer version of the Snowflake CLI is available.
+
+    Reports the installed version alongside the latest published version and
+    whether an upgrade is available. This is the on-demand equivalent of the
+    upgrade banner shown automatically after commands, and always reports its
+    result regardless of the ``ignore_new_version_warning`` setting.
+    """
+    # This command is the explicit, on-demand version check, so mute the passive
+    # upgrade banner for this run to avoid duplicating its own output.
+    suppress_new_version_banner()
+    info = get_version_info(force_refresh=refresh)
+    if info.latest_version is None:
+        raise CliError(
+            "Could not determine the latest Snowflake CLI version. "
+            "Check your network connection and try again. "
+            "Re-run with --debug to see the underlying error."
+        )
+    record_version_check_displayed()
+    return ObjectResult(asdict(info))
+
+
+@app.command(name="detect-encoding", requires_connection=False)
+def detect_encoding(**options) -> CommandResult:
+    """
+    Show the encoding configuration for the current environment.
+
+    Displays the platform encoding settings and flags any discrepancies that
+    could cause file corruption when sharing projects across platforms.
+    Run this command after seeing an encoding warning to get the full details
+    and recommended remediation steps.
+    """
+    return MessageResult(get_encoding_diagnostics())

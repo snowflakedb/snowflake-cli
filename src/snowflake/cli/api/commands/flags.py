@@ -433,6 +433,16 @@ ClientStoreTemporaryCredentialOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+ServerSessionKeepAliveOption = typer.Option(
+    None,
+    "--server-session-keep-alive",
+    help="Keep the session active indefinitely, even if there is no activity from the user.",
+    callback=_connection_callback("server_session_keep_alive"),
+    is_flag=True,
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 SecondaryRolesOption = typer.Option(
     None,
     "--secondary-roles",
@@ -736,19 +746,28 @@ class SecretTypeParser(click.ParamType):
         return value
 
 
-class LocalDirectoryType(click.ParamType):
+class _LocalPathType(click.ParamType):
     """Click parameter type that converts a path string to SecurePath."""
 
     name = "PATH"
+    _noun = "path"
 
     def convert(
         self, value: str, param: click.Parameter | None, ctx: click.Context | None
     ) -> SecurePath:
         if is_stage_path(value):
             raise CliArgumentError(
-                "Stage paths are not supported. Please provide a local directory path."
+                f"Stage paths are not supported. Please provide a local {self._noun} path."
             )
         return SecurePath(value).resolve()
+
+
+class LocalDirectoryType(_LocalPathType):
+    _noun = "directory"
+
+
+class LocalFileType(_LocalPathType):
+    _noun = "file"
 
 
 def identifier_argument(

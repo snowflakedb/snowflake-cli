@@ -19,9 +19,13 @@ from unittest import mock
 
 import pytest
 import yaml
-
+from snowflake.cli._plugins.dbt.constants import (
+    DBT_PROJECTS_PROFILES_FILENAME,
+    ENV_FILENAME,
+    PROFILES_FILENAME,
+)
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+from snowflake.cli.api.utils.types import try_cast_to_bool
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session):
@@ -40,6 +44,17 @@ def _setup_dbt_profile(root_dir: Path, snowflake_session):
     (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
 
 
+def _write_dbt_projects_profile(profiles_dir: Path, override_schema: str):
+    """Write a dbt_projects_profiles.yml alongside profiles.yml in profiles_dir,
+    identical except its dev target points at override_schema. The schema a model
+    lands in then reveals which file the server used as the effective profiles.yml.
+    """
+    with open(profiles_dir / PROFILES_FILENAME, "r") as f:
+        profiles = yaml.safe_load(f)
+    profiles["dbt_integration_project"]["outputs"]["dev"]["schema"] = override_schema
+    (profiles_dir / DBT_PROJECTS_PROFILES_FILENAME).write_text(yaml.dump(profiles))
+
+
 def _assert_default_target(name, runner, default_target):
     result = runner.invoke_with_connection_json(["dbt", "list", "--like", name.upper()])
     assert result.exit_code == 0, result.output
@@ -48,6 +63,17 @@ def _assert_default_target(name, runner, default_target):
         assert result.json[0]["default_target"] is None
     else:
         assert result.json[0]["default_target"].lower() == default_target
+
+
+def _assert_default_environment(name, runner, default_environment):
+    result = runner.invoke_with_connection_json(["dbt", "list", "--like", name.upper()])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    row = result.json[0]
+    if default_environment is None:
+        assert row.get("default_environment") in (None, "")
+    else:
+        assert row["default_environment"].lower() == default_environment.lower()
 
 
 def _fetch_creation_date(name, runner) -> datetime.datetime:
@@ -84,6 +110,19 @@ def _assert_dbt_version(name, runner, dbt_version):
         assert result.json[0].get("dbt_version") is None
     else:
         assert result.json[0]["dbt_version"] == dbt_version
+
+
+def _assert_last_deployed_from(name, runner, expected_commit, expected_branch):
+    result = runner.invoke_with_connection_json(["dbt", "describe", name])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    ldf = result.json[0].get("last_deployed_from")
+    assert ldf is not None, "last_deployed_from should be populated"
+    assert ldf.get("git_commit") == expected_commit
+    assert ldf.get("git_branch") == expected_branch
+    assert ldf.get("user") is not None
+    assert ldf.get("timestamp") is not None
+    assert "stage_url" not in ldf
 
 
 def _setup_external_access_integration(runner, integration_name: str):
@@ -209,6 +248,140 @@ def test_deploy_and_execute(
         )
         assert len(result.json) == 1, result.json
         assert result.json[0]["COUNT"] == 1, result.json[0]
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_deploy_writeback_and_auto_compile(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Deploy sets DEFAULT_WRITEBACK / AUTO_COMPILE on CREATE, then flips them via
+    ALTER ... SET on redeploy; the values are read back through `dbt list`.
+
+    Marked qa_only because writeback and auto-compile must be enabled on the test
+    account. Remove the qa_only marker once the feature is GA.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_writeback_{ts}"
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # CREATE with both enabled -> properties inlined on CREATE DBT PROJECT
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-writeback", "--auto-compile"]
+        )
+        assert result.exit_code == 0, result.output
+        obj = _verify_dbt_project_exists(runner, name)
+        assert try_cast_to_bool(obj["default_writeback"]) is True, obj
+        assert try_cast_to_bool(obj["auto_compile"]) is True, obj
+
+        # Redeploy with the negations -> ALTER ... SET flips both off
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--no-default-writeback", "--no-auto-compile"]
+        )
+        assert result.exit_code == 0, result.output
+        obj = _verify_dbt_project_exists(runner, name)
+        assert try_cast_to_bool(obj["default_writeback"]) is False, obj
+        assert try_cast_to_bool(obj["auto_compile"]) is False, obj
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_execute_with_writeback(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Per-run --writeback emits the WRITEBACK clause on EXECUTE DBT PROJECT and the
+    run completes. (The writeback effect itself is applied server-side and is not
+    asserted here.)
+
+    Marked qa_only because writeback must be enabled on the test account. Remove the
+    qa_only marker once the feature is GA.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_execute_wb_{ts}"
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        # --writeback must be placed before the dbt command
+        result = runner.invoke_passthrough_with_connection(
+            args=["dbt", "execute", "--writeback"],
+            passthrough_args=[name, "run"],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_execute_with_imports(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --import against a real Snowflake DBT PROJECT.
+
+    Verifies that the IMPORTS clause the CLI builds for EXECUTE DBT PROJECT is
+    accepted end-to-end across all supported shapes: a bare stage path, a stage
+    path aliased to a target folder, a SYSTEM$ function (bare and aliased), and a
+    snow://dbt URL — the SYSTEM$ and snow:// grammars being the parts unit tests
+    can't confirm against the server. qa_only because it depends on the backend
+    IMPORTS support being enabled on the account.
+    """
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}"
+
+        # A stage whose contents are imported into the run.
+        import_stage = f"dbt_import_stage_{ts}"
+        snowflake_session.execute_string(f"CREATE STAGE {import_stage}")
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        def _execute_with_import(import_value: str):
+            return runner.invoke_passthrough_with_connection(
+                args=["dbt", "execute", "--import", import_value],
+                passthrough_args=[name, "run"],
+            )
+
+        # A bare stage path: IMPORTS=('@dbt_import_stage_.../')
+        result = _execute_with_import(f"@{import_stage}/")
+        assert result.exit_code == 0, result.output
+
+        # A stage path aliased to a target folder:
+        # IMPORTS=('@dbt_import_stage_.../' AS 'imported')
+        result = _execute_with_import(f"@{import_stage}/ as imported")
+        assert result.exit_code == 0, result.output
+
+        # SYSTEM$ function, bare: IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('...'))
+        result = _execute_with_import(f"SYSTEM$DBT_GET_LAST_RUN_TARGET('{name}')")
+        assert result.exit_code == 0, result.output
+
+        # SYSTEM$ function, aliased:
+        # IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('...') AS 'last_run')
+        result = _execute_with_import(
+            f"SYSTEM$DBT_GET_LAST_RUN_TARGET('{name}') as last_run"
+        )
+        assert result.exit_code == 0, result.output
+
+        # snow://dbt URL (the deployed project's live version), aliased:
+        # IMPORTS=('snow://dbt/<db>.<schema>.<project>/versions/live' AS 'prev')
+        snow_url = (
+            f"snow://dbt/{snowflake_session.database}."
+            f"{snowflake_session.schema}.{name}/versions/live"
+        )
+        result = _execute_with_import(f"{snow_url} as prev")
+        assert result.exit_code == 0, result.output
 
 
 @pytest.mark.integration
@@ -371,6 +544,174 @@ def test_deploy_with_default_target(
         )
         assert result.exit_code == 0, result.output
         _assert_default_target(name, runner, None)
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_default_environment(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --default-env / --unset-default-env lifecycle."""
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_default_env_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # Stage env.yml inside the project source so the server has something to
+        # match the DEFAULT_ENVIRONMENT against.
+        env_yml = {
+            "env_config": {
+                "default_environment": "dev",
+                "environments": [
+                    {"name": "dev", "env": {"DBT_FOO": "bar"}},
+                    {"name": "prod", "env": {"DBT_FOO": "baz"}},
+                ],
+            }
+        }
+        (root_dir / ENV_FILENAME).write_text(yaml.dump(env_yml))
+
+        # 1. CREATE path: deploy with --default-env=dev
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-env", "dev"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_environment(name, runner, "dev")
+
+        # 2. ALTER SET path: change the default environment on existing object
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-env", "prod"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_environment(name, runner, "prod")
+
+        # 3. ALTER UNSET path: clear the default environment
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--unset-default-env"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_environment(name, runner, None)
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_env_file_dir(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --env-file-dir injection."""
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_env_file_dir_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # env.yml lives outside the project source — analogous to --profiles-dir.
+        env_dir = Path(root_dir).parent / "envs"
+        env_dir.mkdir(parents=True, exist_ok=True)
+        env_yml = {
+            "env_config": {
+                "default_environment": "dev",
+                "environments": [
+                    {"name": "dev", "env": {"DBT_FOO": "bar"}},
+                ],
+            }
+        }
+        (env_dir / ENV_FILENAME).write_text(yaml.dump(env_yml))
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--env-file-dir",
+                str(env_dir.resolve()),
+                "--default-env",
+                "dev",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_environment(name, runner, "dev")
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_preserves_yaml_key_order(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+    tmp_path,
+):
+    """profiles.yml key order must be preserved after staging; env.yml must be staged verbatim."""
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_yaml_order_{ts}"
+
+        # Write profiles.yml with type/threads first — non-alphabetical
+        # (alphabetical: account < database < password < role < schema < threads < type < user < warehouse)
+        raw_profiles = (
+            f"dbt_integration_project:\n"
+            f"  target: dev\n"
+            f"  outputs:\n"
+            f"    dev:\n"
+            f"      type: snowflake\n"
+            f"      threads: 2\n"
+            f"      account: ''\n"
+            f"      user: ''\n"
+            f"      password: ''\n"
+            f"      role: {snowflake_session.role}\n"
+            f"      warehouse: {snowflake_session.warehouse}\n"
+            f"      database: {snowflake_session.database}\n"
+            f"      schema: {snowflake_session.schema}\n"
+        )
+        (root_dir / PROFILES_FILENAME).write_text(raw_profiles)
+
+        # Write env.yml with DBT_* keys in reverse-alphabetical order
+        # (alphabetical: ALPHA < BETA < GAMMA < ZETA)
+        raw_env = (
+            "env_config:\n"
+            "  default_environment: dev\n"
+            "  environments:\n"
+            "  - name: dev\n"
+            "    env:\n"
+            "      DBT_ZETA: z\n"
+            "      DBT_GAMMA: g\n"
+            "      DBT_ALPHA: a\n"
+            "      DBT_BETA: b\n"
+        )
+        (root_dir / ENV_FILENAME).write_text(raw_env)
+
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        db = snowflake_session.database
+        schema = snowflake_session.schema
+        stage_base = f"snow://dbt/{db}.{schema}.{name}/versions/version$1"
+
+        # Download staged profiles.yml and verify key order
+        result = runner.invoke_with_connection(
+            ["sql", "-q", f"GET {stage_base}/profiles.yml file://{tmp_path}/"]
+        )
+        assert result.exit_code == 0, result.output
+        profiles_text = (tmp_path / "profiles.yml").read_text()
+        assert profiles_text.index("type:") < profiles_text.index("account:")
+        assert profiles_text.index("threads:") < profiles_text.index("database:")
+
+        # Download staged env.yml and verify key order
+        result = runner.invoke_with_connection(
+            ["sql", "-q", f"GET {stage_base}/env.yml file://{tmp_path}/"]
+        )
+        assert result.exit_code == 0, result.output
+        env_text = (tmp_path / "env.yml").read_text()
+        assert env_text.index("DBT_ZETA") < env_text.index("DBT_GAMMA")
+        assert env_text.index("DBT_GAMMA") < env_text.index("DBT_ALPHA")
+        assert env_text.index("DBT_ALPHA") < env_text.index("DBT_BETA")
 
 
 @pytest.mark.integration
@@ -677,6 +1018,79 @@ def test_deploy_with_dbt_version(
 
 
 @pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_git_commit_and_branch(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_git_metadata_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--git-commit",
+                "abc123deadbeef",
+                "--git-branch",
+                "main",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "abc123deadbeef", "main")
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--git-commit",
+                "newcommithash",
+                "--git-branch",
+                "feature-x",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "newcommithash", "feature-x")
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_auto_detects_git_metadata_in_github_actions(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_gha_autodetect_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+
+        # Simulate a GitHub Actions push run. With no explicit flags, the commit and
+        # branch are auto-detected from GITHUB_SHA / GITHUB_REF_NAME.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "autodetectedsha123",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with mock.patch.dict(os.environ, gha_env):
+            result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+
+        assert result.exit_code == 0, result.output
+        _assert_last_deployed_from(name, runner, "autodetectedsha123", "main")
+
+
+@pytest.mark.integration
 def test_execute_with_dbt_version(
     runner,
     snowflake_session,
@@ -707,3 +1121,242 @@ def test_execute_with_dbt_version(
         assert result.exit_code == 0, result.output
         assert "Running with dbt=1.10.15" in result.output
         assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=2" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_execute_with_env_and_env_vars(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Exercise --env and --env-vars against a real Snowflake DBT PROJECT.
+
+    The fixture model reads DBT_FOO and DBT_BAR via dbt env_var() with a
+    "unset" default. env.yml defines two environments (dev, prod), each
+    setting both vars. We verify that:
+      * --env=dev applies the dev block
+      * --env=prod applies the prod block
+      * --env=prod --env-vars '{"DBT_FOO": "..."}' overrides DBT_FOO while
+        DBT_BAR still comes from env.yml
+      * --env=NO_ENV skips env.yml so env_var() falls back to the default
+    """
+    with project_directory("dbt_project_with_env_vars") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_env_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        def _run_and_fetch(extra_args: list[str]) -> dict:
+            run_result = runner.invoke_passthrough_with_connection(
+                args=["dbt", "execute", *extra_args],
+                passthrough_args=[name, "run"],
+            )
+            assert run_result.exit_code == 0, run_result.output
+
+            query_result = runner.invoke_with_connection_json(
+                ["sql", "-q", "select foo, bar from my_first_dbt_model;"]
+            )
+            assert query_result.exit_code == 0, query_result.output
+            assert len(query_result.json) == 1, query_result.json
+            return query_result.json[0]
+
+        # 1. --env=dev → dev block from env.yml
+        row = _run_and_fetch(["--env=dev"])
+        assert row["FOO"] == "dev_foo", row
+        assert row["BAR"] == "dev_bar", row
+
+        # 2. --env=prod → prod block from env.yml
+        row = _run_and_fetch(["--env=prod"])
+        assert row["FOO"] == "prod_foo", row
+        assert row["BAR"] == "prod_bar", row
+
+        # 3. --env-vars overrides one key from the prod block
+        row = _run_and_fetch(
+            ["--env=prod", "--env-vars", '{"DBT_FOO": "override_foo"}']
+        )
+        assert row["FOO"] == "override_foo", row
+        assert row["BAR"] == "prod_bar", row
+
+        # 4. --env=NO_ENV skips env.yml → env_var() default fires
+        row = _run_and_fetch(["--env=NO_ENV"])
+        assert row["FOO"] == "unset", row
+        assert row["BAR"] == "unset", row
+
+        # 5. --env-vars without --env still applies (and env.yml's
+        # default_environment 'dev' provides the un-overridden var)
+        row = _run_and_fetch(["--env-vars", '{"DBT_FOO": "only_foo"}'])
+        assert row["FOO"] == "only_foo", row
+        assert row["BAR"] == "dev_bar", row
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_execute_with_use_shell_env_vars(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+    monkeypatch,
+):
+    """Exercise --use-shell-env-vars against a real Snowflake DBT PROJECT.
+
+    Reuses the sibling's `dbt_project_with_env_vars` fixture project. The
+    integration runner uses an in-process CliRunner, so monkeypatch.setenv
+    is visible to os.environ inside the CLI code.
+
+    Verifies:
+      * shell DBT_FOO/DBT_BAR forwarded → overrides env.yml's prod block
+      * shell + --env-vars → explicit --env-vars wins on collision
+      * shell + --env=NO_ENV → shell vars apply, env.yml skipped
+      * DBT_ENV_SECRET_* in shell → silently dropped client-side
+      * empty shell + --use-shell-env-vars → env.yml provides values
+    """
+    # Strip any stray DBT_* leakage from the runner's env first.
+    for k in list(os.environ):
+        if k.startswith("DBT_"):
+            monkeypatch.delenv(k, raising=False)
+
+    with project_directory("dbt_project_with_env_vars") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_shell_env_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        def _run_and_fetch(extra_args: list[str]) -> dict:
+            run_result = runner.invoke_passthrough_with_connection(
+                args=["dbt", "execute", *extra_args],
+                passthrough_args=[name, "run"],
+            )
+            assert run_result.exit_code == 0, run_result.output
+
+            query_result = runner.invoke_with_connection_json(
+                ["sql", "-q", "select foo, bar from my_first_dbt_model;"]
+            )
+            assert query_result.exit_code == 0, query_result.output
+            assert len(query_result.json) == 1, query_result.json
+            return query_result.json[0]
+
+        # 1. shell vars forwarded; override env.yml's prod block.
+        monkeypatch.setenv("DBT_FOO", "shell_foo")
+        monkeypatch.setenv("DBT_BAR", "shell_bar")
+        row = _run_and_fetch(["--use-shell-env-vars", "--env=prod"])
+        assert row["FOO"] == "shell_foo", row
+        assert row["BAR"] == "shell_bar", row
+
+        # 2. --env-vars beats shell on collision; shell still provides BAR.
+        row = _run_and_fetch(
+            [
+                "--use-shell-env-vars",
+                "--env-vars",
+                '{"DBT_FOO": "explicit_foo"}',
+                "--env=prod",
+            ]
+        )
+        assert row["FOO"] == "explicit_foo", row
+        assert row["BAR"] == "shell_bar", row
+
+        # 3. --env=NO_ENV skips env.yml; shell still forwards.
+        monkeypatch.delenv("DBT_BAR", raising=False)
+        row = _run_and_fetch(["--use-shell-env-vars", "--env=NO_ENV"])
+        assert row["FOO"] == "shell_foo", row
+        assert row["BAR"] == "unset", row
+
+        # 4. DBT_ENV_SECRET_* dropped client-side; doesn't reach the server.
+        monkeypatch.setenv("DBT_ENV_SECRET_TOKEN", "should_not_appear")
+        run_result = runner.invoke_passthrough_with_connection(
+            args=["dbt", "execute", "--use-shell-env-vars", "--env=NO_ENV"],
+            passthrough_args=[name, "run"],
+        )
+        assert run_result.exit_code == 0, run_result.output
+        assert "should_not_appear" not in run_result.output
+        monkeypatch.delenv("DBT_ENV_SECRET_TOKEN", raising=False)
+
+        # 5. Empty shell + --use-shell-env-vars → env.yml provides values,
+        # pipeline succeeds with the empty-state info message.
+        monkeypatch.delenv("DBT_FOO", raising=False)
+        row = _run_and_fetch(["--use-shell-env-vars", "--env=prod"])
+        assert row["FOO"] == "prod_foo", row
+        assert row["BAR"] == "prod_bar", row
+
+
+@pytest.mark.integration
+def test_deploy_dbt_projects_profiles_precedence(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """
+    What: End to end, a dbt_projects_profiles.yml in --profiles-dir takes
+          precedence over profiles.yml, and the deployed project runs with it.
+    How: Put profiles.yml (dev target -> the session schema) and
+         dbt_projects_profiles.yml (dev target -> a distinct override schema) in a
+         separate --profiles-dir, then deploy and execute `run`.
+    Expected: the model materializes in the override schema, proving
+              dbt_projects_profiles.yml won over profiles.yml through the full
+              deploy + execute flow.
+
+    The server side of this feature (SNOW-3659937) is enabled by default, so no
+    account setup is needed.
+    """
+    ts = int(datetime.datetime.now().timestamp())
+    override_schema = f"{snowflake_session.schema}_DBTPROJ_{ts}"
+    snowflake_session.execute_string(
+        f"CREATE SCHEMA IF NOT EXISTS {snowflake_session.database}.{override_schema}"
+    )
+    try:
+        with project_directory("dbt_project") as root_dir:
+            name = f"dbt_projects_profiles_{ts}"
+
+            # profiles.yml -> the session schema
+            _setup_dbt_profile(root_dir, snowflake_session)
+
+            # Move profiles into a separate --profiles-dir and add the
+            # Snowflake-specific file (-> override schema), so the only profiles
+            # file the CLI stages is the one it resolves.
+            profiles_dir = Path(root_dir) / "profiles"
+            profiles_dir.mkdir(parents=True, exist_ok=True)
+            (root_dir / PROFILES_FILENAME).rename(profiles_dir / PROFILES_FILENAME)
+            _write_dbt_projects_profile(profiles_dir, override_schema)
+
+            result = runner.invoke_with_connection_json(
+                [
+                    "dbt",
+                    "deploy",
+                    name,
+                    "--profiles-dir",
+                    str(profiles_dir.resolve()),
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+            result = runner.invoke_passthrough_with_connection(
+                args=["dbt", "execute"],
+                passthrough_args=[name, "run"],
+            )
+            assert result.exit_code == 0, result.output
+            assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+
+            # The model landed in the override schema => dbt_projects_profiles.yml
+            # was used, not profiles.yml.
+            result = runner.invoke_with_connection_json(
+                [
+                    "sql",
+                    "-q",
+                    f"select count(*) as COUNT from "
+                    f"{snowflake_session.database}.{override_schema}.my_second_dbt_model;",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            assert len(result.json) == 1, result.json
+            assert result.json[0]["COUNT"] == 1, result.json[0]
+    finally:
+        snowflake_session.execute_string(
+            f"DROP SCHEMA IF EXISTS {snowflake_session.database}.{override_schema}"
+        )

@@ -14,12 +14,39 @@
 
 from __future__ import annotations
 
+import codecs
+import io
+import os
 import sys
 
 from snowflake.cli._app.cli_app import CliAppFactory
 
 
+def _apply_stdout_encoding_from_env() -> None:
+    """Apply stdout encoding from env var before config is loaded.
+
+    Config-file encoding is applied later in config_init, but that runs inside
+    the CLI invocation after some output may already have been written. Reading
+    the env var here ensures the very first bytes use the right codec.
+    """
+    enc = os.environ.get("SNOWFLAKE_CLI_ENCODING_STDOUT")
+    if not enc:
+        return
+    try:
+        codecs.lookup(enc)
+    except LookupError:
+        # Silently skip — the invalid value will be caught again by
+        # get_stdout_encoding() → _validate_encoding() during config_init,
+        # which raises a proper ClickException with context.
+        return
+    try:
+        sys.stdout.reconfigure(encoding=enc)  # type: ignore[attr-defined,union-attr]
+    except (AttributeError, io.UnsupportedOperation):
+        pass
+
+
 def main(*args):
+    _apply_stdout_encoding_from_env()
     app = CliAppFactory().create_or_get_app()
     app(*args)
 

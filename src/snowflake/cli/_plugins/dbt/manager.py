@@ -14,30 +14,187 @@
 
 from __future__ import annotations
 
+import json
+import os
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 
 import yaml
-from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+from snowflake.cli._plugins.dbt.constants import (
+    AUTO_COMPILE_PROPERTY,
+    DBT_PROJECTS_PROFILES_FILENAME,
+    DEFAULT_WRITEBACK_PROPERTY,
+    ENV_FILENAME,
+    PROFILES_FILENAME,
+    SUPPORTED_DBT_VERSIONS_QUERY,
+    WRITEBACK_CLAUSE,
+)
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliArgumentError, CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
+
+DBT_ENV_SECRET_PREFIX = "DBT_ENV_SECRET_"
+_ENV_VAR_KEY_PREFIX = "DBT_"
+_ENV_VAR_KEY_RE = re.compile(r"^[A-Za-z0-9_]+$")
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
+# Grammar for a single --import value (see _render_import). An entry is
+# "VALUE [as ALIAS]" where each token is a bareword (no spaces) or a
+# single-quoted literal (spaces allowed, internal quotes doubled). VALUE is a
+# stage path (@…), a snow URL (snow://…), or a SYSTEM$ function; ALIAS is a
+# folder name.
+#
+# A well-formed single-quoted SQL string literal (internal quotes doubled).
+_QUOTED_LITERAL = r"'(?:[^']|'')*'"
+# Valid folder-alias (mount name): the server requires an ASCII name of letters,
+# digits, underscores, and hyphens (GS DBT_IMPORTS_INVALID_MOUNT_NAME).
+_MOUNT_NAME_RE = re.compile(r"[A-Za-z0-9_-]+")
+# A SYSTEM$ scalar function call whose arguments (if any) are string literals
+# only. Any SYSTEM$ function name is accepted — the server validates whether the
+# function is supported in IMPORTS; the CLI only constrains the shape. The
+# string-literal-only argument rule mirrors the server, which accepts only
+# string-literal arguments in an IMPORTS function call. Restricting to literals
+# also means the value can be emitted into SQL verbatim safely. Matched
+# case-insensitively.
+_SYSTEM_FUNC = (
+    r"SYSTEM\$[A-Za-z_][A-Za-z0-9_]*"
+    r"\(\s*(?:'(?:[^']|'')*'(?:\s*,\s*'(?:[^']|'')*')*\s*)?\)"
+)
+# Optional trailing " as <folder>", folder being a quoted literal or a bareword.
+_IMPORT_ALIAS = r"(?:\s+[aA][sS]\s+(?P<alias>" + _QUOTED_LITERAL + r"|\S+))?"
+# A SYSTEM$ import: the function (raw) plus an optional alias.
+_SYSTEM_IMPORT_RE = re.compile(
+    r"^(?P<value>" + _SYSTEM_FUNC + r")" + _IMPORT_ALIAS + r"$", re.IGNORECASE
+)
+# A location import: a quoted literal, or a bare @/snow:// token (no spaces),
+# plus an optional alias. Case-insensitive so the snow:// scheme may be given in
+# any case (GS matches it with startsWithIgnoreCase).
+_LOCATION_IMPORT_RE = re.compile(
+    r"^(?P<value>" + _QUOTED_LITERAL + r"|@\S+|snow://\S+)" + _IMPORT_ALIAS + r"$",
+    re.IGNORECASE,
+)
+# Matches any Jinja expression ({{ ... }}). Used to skip local role validation for
+# templated values that GS resolves at CREATE/execute time.
+_JINJA_EXPR = re.compile(r"\{\{.*?\}\}", re.DOTALL)
+
+
+def _plural(count: int, singular: str, plural: str) -> str:
+    return singular if count == 1 else plural
+
+
+def _reject_control_chars(value: Optional[str], flag_name: str) -> Optional[str]:
+    if value is not None and _CONTROL_CHAR_RE.search(value):
+        raise CliError(
+            f"{flag_name} must not contain control characters "
+            f"(newlines, tabs, etc.)"
+        )
+    return value
+
+
+def _sql_bool(value: bool) -> str:
+    """Render a Python bool as the SQL literal expected by DBT PROJECT DDL."""
+    return "TRUE" if value else "FALSE"
+
+
+def _coerce_optional_bool(value) -> Optional[bool]:
+    """Coerce a value read back from DESCRIBE into Optional[bool].
+
+    DESCRIBE DBT PROJECT returns these columns as strings ('true'/'false'), and
+    the column may be absent entirely (e.g. auto_compile when its DESC column is
+    gated off, or older-type projects) -> None. Delegates the string parsing to
+    the shared try_cast_to_bool util and maps None/unparsable to None so a
+    subsequent ALTER only fires on an unambiguous change.
+    """
+    if value is None:
+        return None
+    try:
+        return try_cast_to_bool(value)
+    except ValueError:
+        return None
+
+
+def _collect_shell_env_vars() -> tuple[Dict[str, str], int, int]:
+    """Collect DBT_* environment variables from os.environ for --use-shell-env-vars.
+
+    Returns (forwarded vars sorted by key, count of dropped DBT_ENV_SECRET_*
+    keys, count of skipped malformed keys). Only fully-uppercase, DBT_-prefixed
+    keys with valid characters and control-char-free values are forwarded —
+    matching exactly what the server accepts in ENV_VARS=(), so a malformed
+    shell var never triggers a server-side rejection of the whole run.
+    Secret-prefixed keys are detected case-insensitively and dropped (never
+    sent), so a secret cannot leak into query history. Sorting makes the
+    resulting SQL text deterministic across shells.
+    """
+    forwarded: Dict[str, str] = {}
+    dropped_secret_count = 0
+    skipped_count = 0
+    for key, value in os.environ.items():
+        upper = key.upper()
+        if not upper.startswith(_ENV_VAR_KEY_PREFIX):
+            continue
+        if upper.startswith(DBT_ENV_SECRET_PREFIX):
+            dropped_secret_count += 1
+            continue
+        if (
+            key == upper
+            and _ENV_VAR_KEY_RE.match(key)
+            and not _CONTROL_CHAR_RE.search(value)
+        ):
+            forwarded[key] = value
+        else:
+            skipped_count += 1
+    return dict(sorted(forwarded.items())), dropped_secret_count, skipped_count
+
+
+class _NoDuplicatesSafeLoader(yaml.SafeLoader):
+    """yaml.SafeLoader that rejects duplicate mapping keys.
+
+    PyYAML's default behavior is silent last-wins, but the server-side SQL
+    parser rejects duplicates outright. Match that here so the user gets a
+    clear local error instead of a server round-trip.
+    """
+
+
+def _no_duplicates_constructor(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                None,
+                None,
+                f"duplicate key {key!r}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_NoDuplicatesSafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _no_duplicates_constructor,
+)
 
 
 class DBTObjectEditableAttributes(TypedDict):
     default_target: Optional[str]
+    default_env: Optional[str]
     external_access_integrations: Optional[List[str]]
     dbt_version: Optional[str]
+    default_writeback: Optional[bool]
+    auto_compile: Optional[bool]
 
 
 @dataclass
@@ -46,9 +203,17 @@ class DBTDeployAttributes:
 
     default_target: Optional[str] = None
     unset_default_target: bool = False
+    default_env: Optional[str] = None
+    unset_default_env: bool = False
     external_access_integrations: Optional[List[str]] = None
     install_local_deps: bool = False
     dbt_version: Optional[str] = None
+    # Tri-state: None leaves the persisted default unchanged; True/False set it.
+    default_writeback: Optional[bool] = None
+    # Tri-state: None uses the server default; True/False set it explicitly.
+    auto_compile: Optional[bool] = None
+    git_commit: Optional[str] = None
+    git_branch: Optional[str] = None
 
 
 class DBTManager(SqlExecutionMixin):
@@ -102,9 +267,46 @@ class DBTManager(SqlExecutionMixin):
 
         return DBTObjectEditableAttributes(
             default_target=row_dict.get("default_target"),
+            default_env=row_dict.get("default_environment"),
             external_access_integrations=external_access_integrations,
             dbt_version=row_dict.get("dbt_version"),
+            default_writeback=_coerce_optional_bool(row_dict.get("default_writeback")),
+            auto_compile=_coerce_optional_bool(row_dict.get("auto_compile")),
         )
+
+    def _get_supported_dbt_versions(self) -> List[str]:
+        try:
+            row = self.execute_query(SUPPORTED_DBT_VERSIONS_QUERY).fetchone()
+        except ProgrammingError as exc:
+            raise CliError(
+                "Could not fetch supported dbt versions from server. "
+                "Ensure your Snowflake account supports SYSTEM$SUPPORTED_DBT_VERSIONS()."
+            ) from exc
+        if row is None or row[0] is None:
+            raise CliError("Could not fetch supported dbt versions from server.")
+        try:
+            entries = json.loads(row[0])
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise CliError(
+                "Could not parse supported dbt versions from server."
+            ) from exc
+        try:
+            versions = [e["dbt_version"] for e in entries]
+        except (KeyError, TypeError) as exc:
+            raise CliError(
+                "Could not parse supported dbt versions from server."
+            ) from exc
+        if not versions:
+            raise CliError("Server returned no supported dbt versions.")
+        return versions
+
+    def _validate_dbt_version(self, dbt_version: str) -> None:
+        supported = self._get_supported_dbt_versions()
+        if dbt_version not in supported:
+            raise CliArgumentError(
+                f"Invalid value '{dbt_version}' for --dbt-version. "
+                f"Supported versions: {', '.join(supported)}."
+            )
 
     def deploy(
         self,
@@ -113,6 +315,7 @@ class DBTManager(SqlExecutionMixin):
         profiles_path: SecurePath,
         force: bool,
         attrs: DBTDeployAttributes,
+        env_file_path: Optional[SecurePath] = None,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -129,6 +332,24 @@ class DBTManager(SqlExecutionMixin):
 
         self._validate_profiles(profiles_path, profile, attrs.default_target)
 
+        if attrs.dbt_version:
+            self._validate_dbt_version(attrs.dbt_version)
+
+        # env.yml comes from --env-file-dir if given, else the source dir
+        # (env.yml is optional, so it may be absent in either case).
+        env_source_path = env_file_path if env_file_path is not None else path
+        env_file = env_source_path / ENV_FILENAME
+        if env_file_path is not None and not env_file.exists():
+            raise CliError(
+                f"{ENV_FILENAME} does not exist in directory {env_file_path.path.absolute()}."
+            )
+        # Parse/validate before any network call so duplicate keys / invalid
+        # YAML fail fast, whether env.yml came from --env-file-dir or the
+        # source directory.
+        env_yml_content = (
+            self._validate_and_parse_env_file(env_file) if env_file.exists() else None
+        )
+
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
             stage_fqn = FQN.from_resource(ObjectType.DBT_PROJECT, fqn, "STAGE")
@@ -139,7 +360,13 @@ class DBTManager(SqlExecutionMixin):
             with TemporaryDirectory() as tmp:
                 tmp_path = Path(tmp)
                 stage_manager.copy_to_tmp_dir(path.path, tmp_path)
-                self._prepare_profiles_file(profiles_path.path, tmp_path)
+                self._prepare_profiles_file(
+                    profiles_path,
+                    SecurePath(tmp_path),
+                    is_project_root=profiles_path.path.resolve() == path.path.resolve(),
+                )
+                if env_yml_content is not None:
+                    self._write_env_file(env_yml_content, tmp_path)
                 result_count = len(
                     list(
                         stage_manager.put_recursive(
@@ -180,12 +407,40 @@ class DBTManager(SqlExecutionMixin):
         ):
             set_properties.append(f"DEFAULT_TARGET='{attrs.default_target}'")
 
+        # Always issue SET/UNSET when the user asks; the server treats
+        # UNSET-on-null as a no-op.
+        if attrs.unset_default_env:
+            unset_properties.append("DEFAULT_ENVIRONMENT")
+        elif attrs.default_env:
+            set_properties.append(
+                f"DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
+            )
+
         # Comparing dbt_version to existing project's dbt_version might be ambiguous
         # if previously project was locked to just minor version and now user wants to
         # lock it to a patch as well. If target version is provided, it's better to just
         # apply it.
         if attrs.dbt_version:
-            set_properties.append(f"DBT_VERSION='{attrs.dbt_version}'")
+            set_properties.append(f"DBT_VERSION={to_string_literal(attrs.dbt_version)}")
+
+        # default_writeback and auto_compile are persisted properties on the DBT
+        # PROJECT object; only SET when the user asked (not None) and the requested
+        # value differs from the current one. Both are set via ALTER ... SET (not on
+        # ADD VERSION); auto_compile governs the base compile performed on the
+        # ADD VERSION that follows.
+        if attrs.default_writeback is not None:
+            current_default_writeback = dbt_object_attributes.get("default_writeback")
+            if current_default_writeback != attrs.default_writeback:
+                set_properties.append(
+                    f"{DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+                )
+
+        if attrs.auto_compile is not None:
+            current_auto_compile = dbt_object_attributes.get("auto_compile")
+            if current_auto_compile != attrs.auto_compile:
+                set_properties.append(
+                    f"{AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+                )
 
         current_external_access_integrations = dbt_object_attributes.get(
             "external_access_integrations"
@@ -208,6 +463,10 @@ class DBTManager(SqlExecutionMixin):
 
         query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
         query += f"\nFROM {stage_name}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         result = self.execute_query(query)
 
         return result
@@ -248,8 +507,20 @@ class DBTManager(SqlExecutionMixin):
         query += f"\nFROM {stage_name}"
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
+        if attrs.default_env:
+            query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
-            query += f" DBT_VERSION='{attrs.dbt_version}'"
+            query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
+        if attrs.default_writeback is not None:
+            query += (
+                f" {DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+            )
+        if attrs.auto_compile is not None:
+            query += f" {AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -279,12 +550,53 @@ class DBTManager(SqlExecutionMixin):
         query += f"\nFROM {stage_name}"
         if attrs.default_target:
             query += f" DEFAULT_TARGET='{attrs.default_target}'"
+        if attrs.default_env:
+            query += f" DEFAULT_ENVIRONMENT={to_string_literal(attrs.default_env)}"
         if attrs.dbt_version:
-            query += f" DBT_VERSION='{attrs.dbt_version}'"
+            query += f" DBT_VERSION={to_string_literal(attrs.dbt_version)}"
+        if attrs.default_writeback is not None:
+            query += (
+                f" {DEFAULT_WRITEBACK_PROPERTY}={_sql_bool(attrs.default_writeback)}"
+            )
+        if attrs.auto_compile is not None:
+            query += f" {AUTO_COMPILE_PROPERTY}={_sql_bool(attrs.auto_compile)}"
+        if attrs.git_commit:
+            query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
+        if attrs.git_branch:
+            query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
         return self.execute_query(query)
+
+    @staticmethod
+    def _candidate_profiles_filenames() -> tuple[str, ...]:
+        """Profiles filenames to look for, in precedence order.
+
+        A dbt_projects_profiles.yml in the profiles directory takes precedence
+        over profiles.yml and is staged under its own name (the server applies
+        the precedence at execution time).
+        """
+        return (DBT_PROJECTS_PROFILES_FILENAME, PROFILES_FILENAME)
+
+    @classmethod
+    def _resolve_profiles_filename(cls, profiles_path: SecurePath) -> Optional[str]:
+        """Return the highest-precedence profiles filename present in
+        profiles_path, or None if none of the candidates exist."""
+        for filename in cls._candidate_profiles_filenames():
+            if (profiles_path / filename).exists():
+                return filename
+        return None
+
+    @staticmethod
+    def _parse_profiles_yaml(fd, filename: str) -> Any:
+        """Parse an open profiles file, reporting malformed YAML as a CliError."""
+        try:
+            return yaml.safe_load(fd)
+        except yaml.constructor.ConstructorError as e:
+            raise CliError(f"Failed to parse {filename}: {e.problem}")
+        except yaml.YAMLError as e:
+            raise CliError(f"{filename} is not valid YAML: {e}")
 
     def _validate_profiles(
         self,
@@ -294,22 +606,25 @@ class DBTManager(SqlExecutionMixin):
     ) -> None:
         """
         Validates that:
-         * profiles.yml exists
-         * contain profile specified in dbt_project.yml
+         * a profiles file (dbt_projects_profiles.yml or profiles.yml) exists
+         * it contains the profile specified in dbt_project.yml
          * default_target (if specified) exists in the profile's outputs
         """
-        profiles_file = profiles_path / PROFILES_FILENAME
-        if not profiles_file.exists():
+        filename = self._resolve_profiles_filename(profiles_path)
+        if filename is None:
+            names = " or ".join(self._candidate_profiles_filenames())
             raise CliError(
-                f"{PROFILES_FILENAME} does not exist in directory {profiles_path.path.absolute()}."
+                f"{names} does not exist in directory {profiles_path.path.absolute()}."
             )
+        profiles_file = profiles_path / filename
         with profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-            profiles = yaml.safe_load(fd)
+            profiles = self._parse_profiles_yaml(fd, filename)
+        if not isinstance(profiles, dict):
+            # None (empty file) or non-mapping would raise a bare TypeError below.
+            raise CliError(f"{filename} does not contain any profiles.")
 
         if profile_name not in profiles:
-            raise CliError(
-                f"Profile {profile_name} is not defined in {PROFILES_FILENAME}."
-            )
+            raise CliError(f"Profile {profile_name} is not defined in {filename}.")
 
         errors = defaultdict(list)
         profile = profiles[profile_name]
@@ -328,7 +643,7 @@ class DBTManager(SqlExecutionMixin):
             )
 
         if errors:
-            message = f"Found following errors in {PROFILES_FILENAME}. Please fix them before proceeding:"
+            message = f"Found following errors in {filename}. Please fix them before proceeding:"
             for target, issues in errors.items():
                 message += f"\n{target}"
                 message += "\n * " + "\n * ".join(issues)
@@ -349,7 +664,7 @@ class DBTManager(SqlExecutionMixin):
                 f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
             )
         if role := target_details.get("role"):
-            if not self._validate_role(role_name=role):
+            if not _JINJA_EXPR.search(role) and not self._validate_role(role_name=role):
                 errors.append(f"Role '{role}' does not exist or is not accessible.")
         return errors
 
@@ -362,18 +677,116 @@ class DBTManager(SqlExecutionMixin):
             return False
 
     @staticmethod
-    def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):
-        # We need to copy profiles.yml file (not symlink) in order to redact
-        # any comments without changing original file. This can be achieved
-        # with pyyaml, which looses comments while reading a yaml file
-        source_profiles_file = SecurePath(profiles_path / PROFILES_FILENAME)
-        target_profiles_file = SecurePath(tmp_path / PROFILES_FILENAME)
+    def _warn_and_reconcile_profiles(
+        profiles_path: SecurePath,
+        tmp_path: SecurePath,
+        filename: str,
+        is_project_root: bool,
+    ) -> None:
+        """Warn when both profiles files are present and reconcile tmp_path.
+
+        Only relevant when dbt_projects_profiles.yml is the winner. Two cases:
+        - Project root: both files stay in the deployed object (server resolves
+          precedence); emit a warning so the user knows what to expect.
+        - Separate --profiles-dir: profiles.yml must not appear at the root of
+          the deployed object alongside the winner; remove it and warn.
+        When profiles.yml is the winner, this is a no-op.
+        """
+        if filename == PROFILES_FILENAME:
+            return
+        if (profiles_path / PROFILES_FILENAME).exists():
+            if is_project_root:
+                cli_console.warning(
+                    f"Both {DBT_PROJECTS_PROFILES_FILENAME} and "
+                    f"{PROFILES_FILENAME} found in the project root. "
+                    f"{DBT_PROJECTS_PROFILES_FILENAME} takes precedence "
+                    f"and will be used for deployment. Both files will be "
+                    f"present in the deployed object."
+                )
+            else:
+                cli_console.warning(
+                    f"Both {DBT_PROJECTS_PROFILES_FILENAME} and "
+                    f"{PROFILES_FILENAME} found in "
+                    f"{profiles_path.path.absolute()}. Snowflake CLI will "
+                    f"only copy {DBT_PROJECTS_PROFILES_FILENAME} to the "
+                    f"root of the deployed object — this file will be used "
+                    f"for deployment."
+                )
+        # When --profiles-dir is the project root, all candidate profiles files
+        # from the source are preserved in the deployed object. Otherwise only
+        # the winner should appear at the root — remove the rest.
+        if not is_project_root:
+            for candidate in DBTManager._candidate_profiles_filenames():
+                if candidate == filename:
+                    continue
+                displaced = tmp_path / candidate
+                if displaced.exists():
+                    displaced.unlink()
+
+    @staticmethod
+    def _prepare_profiles_file(
+        profiles_path: SecurePath,
+        tmp_path: SecurePath,
+        is_project_root: bool = False,
+    ):
+        # Redact all candidate profiles files that copy_to_tmp_dir placed in
+        # tmp_path before any are staged — comments may contain credentials.
+        # Validation runs later, only on the winner.
+        for candidate in DBTManager._candidate_profiles_filenames():
+            f = tmp_path / candidate
+            if f.exists():
+                with f.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+                    content = DBTManager._parse_profiles_yaml(fd, candidate)
+                f.unlink()
+                with f.open(mode="w") as tfd:
+                    yaml.safe_dump(content, tfd, sort_keys=False)
+
+        filename = DBTManager._resolve_profiles_filename(profiles_path)
+        if filename is None:
+            # _validate_profiles runs first and already errors when no profiles
+            # file exists; guard defensively in case this is called directly.
+            names = " or ".join(DBTManager._candidate_profiles_filenames())
+            raise CliError(
+                f"{names} does not exist in directory {profiles_path.path.absolute()}."
+            )
+        # Warn the user if needed and reconcile tmp_path so the deployed object
+        # is consistent with the winner. No-op when profiles.yml wins.
+        DBTManager._warn_and_reconcile_profiles(
+            profiles_path, tmp_path, filename, is_project_root
+        )
+
+        # Copy the winner from --profiles-dir into tmp_path (redacted).
+        # This overwrites whatever copy_to_tmp_dir placed there earlier.
+        source_profiles_file = profiles_path / filename
+        target_profiles_file = tmp_path / filename
+        with source_profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as sfd:
+            content = DBTManager._parse_profiles_yaml(sfd, filename)
         if target_profiles_file.exists():
             target_profiles_file.unlink()
-        with source_profiles_file.open(
-            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
-        ) as sfd, target_profiles_file.open(mode="w") as tfd:
-            yaml.safe_dump(yaml.safe_load(sfd), tfd)
+        with target_profiles_file.open(mode="w") as tfd:
+            yaml.safe_dump(content, tfd, sort_keys=False)
+
+    @staticmethod
+    def _validate_and_parse_env_file(env_file: SecurePath) -> str:
+        with env_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+            raw = fd.read()
+        # Parse only to validate; result is discarded. Raw bytes are returned
+        # verbatim so staging preserves key order and comments.
+        try:
+            yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
+        except yaml.constructor.ConstructorError as e:
+            raise CliError(f"Failed to parse {ENV_FILENAME}: {e.problem}")
+        except yaml.YAMLError as e:
+            raise CliError(f"{ENV_FILENAME} is not valid YAML: {e}")
+        return raw
+
+    @staticmethod
+    def _write_env_file(content: str, tmp_path: Path):
+        target_env_file = SecurePath(tmp_path / ENV_FILENAME)
+        if target_env_file.exists():
+            target_env_file.unlink()
+        with target_env_file.open(mode="w") as tfd:
+            tfd.write(content)
 
     def execute(
         self,
@@ -381,17 +794,218 @@ class DBTManager(SqlExecutionMixin):
         name: FQN,
         run_async: bool,
         dbt_version: Optional[str] = None,
+        environment: Optional[str] = None,
+        env_vars: Optional[str] = None,
         *dbt_cli_args,
+        use_shell_env_vars: bool = False,
+        writeback: Optional[bool] = None,
+        imports: Optional[List[str]] = None,
     ) -> SnowflakeCursor:
         if dbt_cli_args:
             processed_args = self._process_dbt_args(dbt_cli_args)
             dbt_command = f"{dbt_command} {processed_args}".strip()
-        dbt_command_escaped = dbt_command.replace("'", "\\'")
         query = f"EXECUTE DBT PROJECT {name}"
+        query += self._format_imports_clause(imports)
         if dbt_version:
-            query += f" dbt_version='{dbt_version}'"
-        query += f" args='{dbt_command_escaped}'"
+            query += f" dbt_version={to_string_literal(dbt_version)}"
+        if environment:
+            query += f" ENVIRONMENT={to_string_literal(environment)}"
+        if writeback is not None:
+            query += f" {WRITEBACK_CLAUSE}={_sql_bool(writeback)}"
+
+        merged: Dict[str, str] = {}
+        if use_shell_env_vars:
+            shell_vars, dropped_secret_count, skipped_count = _collect_shell_env_vars()
+            if dropped_secret_count:
+                cli_console.message(
+                    f"--use-shell-env-vars: dropped {dropped_secret_count} "
+                    f"{DBT_ENV_SECRET_PREFIX}* environment {_plural(dropped_secret_count, 'variable', 'variables')} from "
+                    "shell. To forward secrets, use the secrets: block in "
+                    "env.yml referencing a Snowflake SECRET object, or if "
+                    "those are not sensitive, pass them explicitly via "
+                    "--env-vars."
+                )
+            if skipped_count:
+                cli_console.message(
+                    f"--use-shell-env-vars: skipped {skipped_count} DBT_* shell "
+                    f"environment {_plural(skipped_count, 'variable', 'variables')} that can't be forwarded; keys "
+                    "must be uppercase and contain only letters, digits, and "
+                    "underscores (e.g. export DBT_FOO, not DBT_Foo)."
+                )
+            if shell_vars:
+                cli_console.warning(
+                    f"--use-shell-env-vars: forwarded {len(shell_vars)} shell "
+                    f"environment {_plural(len(shell_vars), 'variable', 'variables')} starting with DBT_* into query text. "
+                    "Never put credentials, tokens, passwords, or other "
+                    "confidential data in shell environment variables with "
+                    "the DBT_ prefix."
+                )
+            elif not dropped_secret_count and not skipped_count:
+                cli_console.message(
+                    "--use-shell-env-vars: no DBT_* environment variables "
+                    "found in the shell. Make sure the variables are exported "
+                    "(see your shell's documentation for how to export "
+                    "environment variables)."
+                )
+            merged.update(shell_vars)
+        if env_vars:
+            merged.update(self._parse_env_vars(env_vars))
+        env_vars_clause = self._format_env_vars_clause_from_dict(merged)
+        if env_vars_clause:
+            query += env_vars_clause
+        query += f" args={to_string_literal(dbt_command)}"
         return self.execute_query(query, _exec_async=run_async)
+
+    @staticmethod
+    def _format_imports_clause(imports: Optional[List[str]]) -> str:
+        if not imports:
+            return ""
+        rendered = ", ".join(DBTManager._render_import(entry) for entry in imports)
+        return f" IMPORTS=({rendered})"
+
+    @staticmethod
+    def _render_import(entry: str) -> str:
+        """Validate a single --import value and render its SQL form.
+
+        An entry is ``VALUE [as ALIAS]``. VALUE is a stage path (``@…``), a dbt
+        snow URL (``snow://dbt/…``), or a ``SYSTEM$`` function (any function
+        name — the server validates which are supported); ALIAS is a folder
+        name. Each of VALUE (stage/snow only) and ALIAS may be given as a
+        bareword (no spaces) or as a single-quoted literal (spaces allowed in
+        the value) — a value containing spaces must therefore be quoted. The
+        folder alias must not contain spaces (the server requires an ASCII
+        name), and a ``snow://`` URL must be of the ``dbt`` type.
+
+        Rendering: a bare stage/snow value or a bare alias is quoted with
+        ``to_string_literal``; a value or alias the caller already quoted is
+        passed through unchanged (the caller owns its escaping); a ``SYSTEM$``
+        function is emitted verbatim, never quoted. Anything that is not one of
+        these shapes is rejected rather than interpolated into SQL.
+        """
+        _reject_control_chars(entry, "--import")
+        value = entry.strip()
+        if not value:
+            raise CliError("--import value must not be empty.")
+        match = _SYSTEM_IMPORT_RE.match(value)
+        if match is not None:
+            rendered = match.group("value")  # SYSTEM$ function, emitted raw
+        else:
+            match = _LOCATION_IMPORT_RE.match(value)
+            if match is None:
+                raise CliError(DBTManager._invalid_import_message(value))
+            raw = match.group("value")
+            # For a quoted value, look past the opening quote at the content.
+            content = raw[1:] if raw.startswith("'") else raw
+            # snow:// scheme and dbt type are case-insensitive on the server.
+            lowered = content.lower()
+            if lowered.startswith("snow://") and not lowered.startswith("snow://dbt/"):
+                raise CliError(
+                    "--import snow URL must be a dbt project URL, e.g. "
+                    '"snow://dbt/my_db.my_schema.my_project/versions/live".'
+                )
+            if not (content.startswith("@") or lowered.startswith("snow://dbt/")):
+                raise CliError(DBTManager._invalid_import_message(value))
+            # Reject only a trailing (odd-count) backslash: it would escape the
+            # emitted closing quote and leave an unterminated literal. A
+            # backslash elsewhere is left to the server (matching SQL, which
+            # honors backslash escapes inside string literals).
+            inner = raw[1:-1] if raw.startswith("'") else raw
+            if (len(inner) - len(inner.rstrip("\\"))) % 2 == 1:
+                raise CliError(
+                    "--import value must not end with a backslash; it would "
+                    "escape the closing quote and produce invalid SQL."
+                )
+            rendered = raw if raw.startswith("'") else to_string_literal(raw)
+        alias = match.group("alias")
+        if alias:
+            folder = alias[1:-1] if alias.startswith("'") else alias
+            if not _MOUNT_NAME_RE.fullmatch(folder):
+                raise CliError(
+                    "--import folder alias must be an ASCII name using only "
+                    "letters, digits, underscores, and hyphens, e.g. "
+                    '"@stage/s1 as folder1".'
+                )
+            rendered += " AS " + (
+                alias if alias.startswith("'") else to_string_literal(alias)
+            )
+        return rendered
+
+    @staticmethod
+    def _invalid_import_message(value: str) -> str:
+        return (
+            f"--import value {value!r} is not valid. Provide a stage path "
+            "(@stage/s1), a dbt snow URL "
+            "(snow://dbt/my_db.my_schema.my_project/versions/live), or a "
+            'SYSTEM$ function, optionally followed by "as folder". Stage paths, '
+            "snow URLs, and folder names may be given with or without single "
+            "quotes, but a value containing spaces must be single-quoted "
+            "(e.g. '@\"my stage\"/dir'). Example: "
+            '--import "@stage/s1 as folder1".'
+        )
+
+    @staticmethod
+    def _format_env_vars_clause_from_dict(pairs: Dict[str, str]) -> str:
+        if not pairs:
+            return ""
+        secret_keys = [k for k in pairs if k.startswith(DBT_ENV_SECRET_PREFIX)]
+        if secret_keys:
+            cli_console.warning(
+                f"--env-vars contains key(s) with the {DBT_ENV_SECRET_PREFIX} prefix "
+                f"({', '.join(secret_keys)}); these values will appear in the SQL "
+                f"text and query history. To avoid that, use the secrets: block "
+                f"in env.yml referencing a Snowflake SECRET object."
+            )
+        items = ", ".join(
+            f"{to_string_literal(k)}={to_string_literal(v)}" for k, v in pairs.items()
+        )
+        return f" ENV_VARS=({items})"
+
+    @staticmethod
+    def _parse_env_vars(raw: str) -> Dict[str, str]:
+        try:
+            parsed = yaml.load(raw, Loader=_NoDuplicatesSafeLoader)
+        except yaml.constructor.ConstructorError as e:
+            raise CliError(f"Failed to parse --env-vars: {e.problem}")
+        except yaml.YAMLError as e:
+            raise CliError(f"--env-vars must be valid YAML/JSON: {e}")
+        if not isinstance(parsed, dict):
+            raise CliError(
+                "--env-vars must be a YAML/JSON object, " f"got {type(parsed).__name__}"
+            )
+        result: Dict[str, str] = {}
+        for k, v in parsed.items():
+            if not isinstance(k, str):
+                raise CliError(f"--env-vars key must be a string, got {k!r}")
+            if not k:
+                raise CliError("--env-vars key must not be empty")
+            if not _ENV_VAR_KEY_RE.match(k):
+                raise CliError(
+                    f"--env-vars key {k!r} must contain only ASCII letters, "
+                    f"digits, and underscores"
+                )
+            if not k.startswith(_ENV_VAR_KEY_PREFIX):
+                raise CliError(
+                    f"--env-vars key {k!r} must start with " f"{_ENV_VAR_KEY_PREFIX!r}"
+                )
+            if k != k.upper():
+                raise CliError(
+                    f"--env-vars key {k!r} must be uppercase (e.g. {k.upper()!r})"
+                )
+            if v is None:
+                raise CliError(f"--env-vars value for {k!r} must not be null")
+            if not isinstance(v, str):
+                raise CliError(
+                    f"--env-vars value for {k!r} must be a string, "
+                    f"got {type(v).__name__}; quote scalars in YAML/JSON "
+                    f"(e.g. '{k}: \"1\"' instead of '{k}: 1')"
+                )
+            if _CONTROL_CHAR_RE.search(v):
+                raise CliError(
+                    f"--env-vars value for {k!r} must not contain control "
+                    f"characters (newlines, tabs, etc.)"
+                )
+            result[k] = v
+        return result
 
     @staticmethod
     def _process_dbt_args(dbt_cli_args: tuple) -> str:

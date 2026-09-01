@@ -16,6 +16,10 @@
 
 # Adding Commands
 
+> **Interface-first plugins:** to declare a reviewable command surface separately
+> from its implementation (the two-phase contribution workflow used by teams
+> outside the CLI core), see [writing-a-plugin.md](writing-a-plugin.md).
+
 ## Design sign-off before writing code
 
 Before implementing any change to the user-facing interface — new commands,

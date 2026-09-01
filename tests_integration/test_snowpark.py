@@ -1736,6 +1736,11 @@ def test_using_external_packages_from_package_repository(
         )
 
         assert result.exit_code == 0, result.output
+        # The project has a requirements.txt, but packages of an entity using an
+        # artifact repository come from that repository only.
+        assert (
+            "Packages resolved from the Anaconda channel are not sent" in result.output
+        )
 
         result = runner.invoke_with_connection(
             [
@@ -1769,7 +1774,11 @@ def test_using_external_packages_from_package_repository(
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="mixins.snowpark_shared.artifact_repository_packages",
-            value=["dummy-pkg-for-tests", "dummy-pkg-for-tests-with-deps"],
+            value=[
+                "snowflake-snowpark-python",
+                "dummy-pkg-for-tests",
+                "dummy-pkg-for-tests-with-deps",
+            ],
         )
 
         result = runner.invoke_with_connection_json(

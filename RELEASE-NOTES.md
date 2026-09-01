@@ -21,12 +21,166 @@
 ## New additions
 
 ## Fixes and improvements
+* Upgraded GitPython from 3.1.58 to 3.1.59.
+
+
+# v3.26.0
+
+## Deprecations
+
+## New additions
+* `snow connection test --enable-diag` now appends [SnowCD](https://docs.snowflake.com/en/user-guide/snowcd)-style per-endpoint connectivity checks (health, latency, certificate info, and an effective network policy summary) to the existing `SnowflakeConnectionTestReport.txt`. Stdout is unchanged. Pass `--print-diag` with `--enable-diag` to print that same report to stdout. Replaces the end-of-life SnowCD tool.
+* `app.yml` (version 2) for Snowflake App Runtime projects is now generally available, and no longer needs a feature flag. `snow app setup` creates an `app.yml` for new projects. Existing `snowflake.yml` projects keep working as before.
+* Git metadata support for `snow dbt deploy` is now available. `--git-commit` and `--git-branch` record the source commit and branch in the project's `last_deployed_from` metadata. These values will also be auto-detected from GitHub Actions environments if no explicit flags are specified.
+
+## Fixes and improvements
+* `snow app deploy` for Snowflake App Runtime projects now explains a failure while preparing code storage in terms of the statement that actually failed. A missing database or schema is reported as such instead of as a missing privilege, a privilege error names only the grant that statement needs, and a rejected stage encryption type is named explicitly.
+* `snow app deploy` for Snowflake App Runtime projects no longer surfaces a raw connector traceback when uploading code fails. The error now names the stage or workspace being written to, how many files had already uploaded, and what to do next. Failed file transfers, which were previously not caught at all, are reported the same way.
+* `snow helpers detect-encoding` now detects when the Windows console isn't configured for UTF-8 output (independent of the CLI's own encoding settings) and points the user at the fix — `chcp.com 65001` for cmd.exe/Git Bash, or the docs for PowerShell 5.x. The CLI's startup encoding warning surfaces the same note, but only when it isn't already warning about a Python encoding mismatch — run `snow helpers detect-encoding` for the full picture.
+* `snow app deploy` for Snowflake App Runtime projects no longer needs OWNERSHIP on the code stage and CREATE STAGE on the schema to redeploy. The upload used to start by dropping the stage and creating it again, so a role holding only WRITE could deploy once and then never again — and a role allowed to drop the stage but not create one lost the stage entirely. The stage is now only dropped when the deploying role can also recreate it; otherwise its contents are cleared, with a warning that files deleted from the project since the last deploy may survive on the stage.
+* Snowflake App Runtime projects now use temporary code storage by default. `snow app setup` leaves `code_stage`/`code_workspace` out of `app.yml`, and `snow app deploy` provisions a temporary `<app>_CODE` stage (or a `<app>_CODE` workspace for personal databases, which don't support stages) just for the build and drops it once the build finishes. Because the name is derived from the app, `--build-only` can still find and drop what `--upload-only` created. Set `code_stage` or `code_workspace` in `app.yml` to keep a persisted stage/workspace instead.
+* Fixed `snow helpers check-version` failing with "Could not determine the latest Snowflake CLI version" when the local version cache file was corrupted. A corrupted or unreadable cache now falls back to a live network fetch instead of silently returning nothing.
+* The passive new-version banner no longer blocks CLI startup. The version cache is refreshed in a background thread while the command runs, and the banner is shown after the command completes (including on `--help`, `--version`, and `--info`).
+
+
+# v3.25.0
+
+## Deprecations
+
+## New additions
+* `snow connection add` now supports `--client-store-temporary-credential`, which writes `client_store_temporary_credential = true` to the new connection in `config.toml`.
+* `snow sql --local-only` default can now be set via the `SNOWFLAKE_CLI_SQL_LOCAL_ONLY` environment variable. When unset, the default remains `false`.
+* `snow app events` now accepts `--instance <N>` (Snowflake App Runtime only) to retrieve live container logs from a specific service instance. Useful when horizontal scaling is active and more than one instance is running. Defaults to instance 0 when the flag is omitted.
+* The `snow app` commands now support an `app.yml` (version 2) for Snowflake App Runtime projects; when present it drives the flow instead of `snowflake.yml` (the Native App flow is unchanged). Its `targets` block declares named per-environment deployments, and a new `--target` flag on `deploy`, `open`, `events`, `teardown`, and `validate` selects which one to use. `snow app deploy` runs an upload → build → deploy pipeline that can be limited to a single phase with `--upload-only`, `--build-only`, or `--promote-only`.
+* `dbt_projects_profiles.yml` support in `snow dbt deploy` is now generally available. When the profiles directory contains a `dbt_projects_profiles.yml`, it takes precedence over `profiles.yml` and is staged into the deployed project under its own name. The profiles directory is the one given by `--profiles-dir`, or the project root when that option is omitted, so projects that already contain a `dbt_projects_profiles.yml` alongside `profiles.yml` will now deploy with the former and emit a warning.
+
+## Fixes and improvements
+* A `snow app` command no longer fails because it could not clean up after itself. If a leftover file cannot be deleted — common on Windows, where an editor or antivirus can be holding it — the command still succeeds and warns which directory was left behind. When the bundle directory cannot be cleared before bundling, the command now stops with an explanation of what to do instead of a permissions error.
+* `snow app` commands no longer delete anything in a Snowflake App Runtime project's `output` directory apart from the bundle they created there. A project that keeps its own build results, exports or notebook output under `output` lost them to a command that only meant to bundle.
+* `snow app deploy` for Snowflake App Runtime projects now retries a file upload that fails while transferring to cloud storage, instead of failing the whole deploy on the first network blip. Errors the server returned about the statement itself, such as a missing stage or a missing privilege, are not retried.
+* `snow app deploy` with workspace-backed storage no longer fails with an "object already exists" error when the workspace already has a live version. That is the normal state on every deploy after the first, and only one of the two error codes the server can return for it was being tolerated.
+* `snow app events` for Snowflake App Runtime projects can now return more events by requesting a higher `--last` value.
+* `snow app deploy` with workspace-backed storage now builds from `versions/live/` (the current working state) instead of the last committed version. In the Workspaces editor, files auto-save to the live version continuously — reading `versions/last` during the build phase caused stale content to be deployed when running from a live workspace session.
+* DCM projects: the `snow dcm preview`, `snow dcm refresh`, and `snow dcm test`
+  commands are not yet generally available. They are now hidden from `--help`
+  unless the `enable_dcm_preview_features` CLI feature flag is enabled, so they no
+  longer appear in `snow dcm --help` without an explicit opt-in.
+* `snow dcm plan` now tracks the server's own progress, like `snow dcm deploy` already does: its `RENDER`, `COMPILE` and `PLAN` steps advance as the backend reports each phase. Previously `RENDER` and `COMPILE` completed instantly and the rest of the run showed as a single `PLAN` spinner.
+* `snow dcm deploy`, `snow dcm plan` and `snow dcm purge` no longer require an active warehouse. Progress tracking read the result with `RESULT_SCAN`, which requires a warehouse.
+* `snow dcm deploy`, `snow dcm plan` and `snow dcm purge` now wrap a change line too wide for the terminal, with its continuation aligned under the change instead of breaking back to the left margin. The file list shown while uploading uses the same tree guides as the changeset.
+* `snow streamlit deploy --replace`: fixed a crash when replacing a legacy `ROOT_LOCATION` Streamlit app with a versioned deployment.
+* `snow snowpark deploy` now sends only the packages an entity declares for its artifact repository in the object's `PACKAGES` clause. Packages that `snow snowpark build` resolved from the Anaconda channel were merged into the same clause, so a project using `artifact_repository` alongside a `requirements.txt` could fail to deploy with the same package requested at two versions, or ask the artifact repository for a package that only exists in Anaconda. The command now warns when it leaves those packages out. An entity using an artifact repository therefore has to declare every package it needs — `snowflake-snowpark-python` included — under its `artifact_repository_packages` or `packages`; a project that deployed only because the Anaconda-resolved packages were merged into the clause will fail until they are declared in `snowflake.yml`.
+* Upgraded `GitPython` from 3.1.57 to 3.1.58.
+* Upgraded the Python interpreter embedded in Linux binaries from 3.10.16 to 3.10.21.
+* Upgraded pip from 26.1.2 to 26.2.1.
+
+
+# v3.24.1
+
+## Fixes and improvements
+* DCM projects: the `--env-file`/`-e` option for sourcing declared
+  `templating.env_vars`/`templating.env_secrets` values from a `.env` file is
+  not yet generally available. It is now hidden from `--help` unless the
+  `enable_dcm_project_env_vars` CLI feature flag is enabled. This fixes a bug
+  introduced in v3.24.0, where the option was visible without requiring any
+  opt-in.
+
+
+# v3.24.0
+
+## Backward incompatibility
+* `snow app` commands for Snowflake App Runtime projects now always operate on `APPLICATION SERVICE` objects and no longer fall back to plain SPCS `SERVICE` objects. `snow app open --settings` always uses the `app-service` Snowsight URL segment, and `snow app teardown` always drops and verifies the app via `APPLICATION SERVICE`. Apps still deployed as legacy SPCS services are no longer supported by these commands.
+
+## Deprecations
+
+## New additions
+* Added optional `--validation-profile` to `snow spcs service remote-build` (e.g. `ML_JOB`, `NOTEBOOK`). The value is forwarded as `validation_profile` on `POST /api/v2/remote-build/execute` so the image builder can select a pre-baked validation ruleset. When omitted, no image validation is requested. Ignored for `--build-type app`.
+* Added `snow spcs service remote-build`, `remote-build-status`, and `remote-build-history` commands that submit and track SPCS image/app builds via the remote build REST API. These commands are hidden by default and gated by the `enable_spcs_remote_build` CLI feature flag.
+* `snow dcm plan` now supports the `--delta` flag for incremental deployments. This option enables processing only statements that have changed since the last deploy, plus statements potentially impacted by those changes.
+* `snow dcm` commands are now generally available (GA). DCM provides infrastructure-as-code capabilities for managing Snowflake objects through declarative SQL files. All DCM commands are now available without needing to enable the `enable_snowflake_projects` feature flag.
+* DCM projects: `snow dcm deploy`, `snow dcm plan`, and `snow dcm preview` now support environment variables and secrets declared in a project manifest's `templating.env_vars`/`templating.env_secrets` sections. Declared values are collected from the shell environment, or from a `.env` file passed via `--env-file`/`-e` (the shell always wins for a name declared in both), and forwarded to the server.
+* Added `snow helpers check-version`, which reports the installed Snowflake CLI version alongside the latest published version and whether an upgrade is available. Use `--refresh` to bypass the local cache and query PyPI/Homebrew directly. This is the on-demand equivalent of the automatic upgrade banner and always reports its result, even when `ignore_new_version_warning` is set.
+* Added `snow dbt copy`, which copies files between a local directory and a stage (or between stages) for a dbt project. It is an alias of `snow stage copy` and supports the same paths and options (`--recursive`, `--overwrite`, `--parallel`, `--auto-compress`, `--refresh`).
+* `snow app events` now surfaces app health telemetry for Snowflake App Runtime projects. `--type log|metric|lifecycle` selects the stream (default `log`); `--since` / `--until` accept relative shorthand (e.g. `30m`, `6h`, `2d`) or absolute UTC timestamps and switch logs to the historical event table, while `metric` and `lifecycle` are always historical and default to the last hour. `--metric cpu|memory|network` narrows metric output and `--raw` emits unconverted values (bytes, cores). The bare `snow app events` live log tail is unchanged.
+* `snow dcm deploy`, `snow dcm purge`, `snow dcm plan`, `snow dcm preview`, `snow dcm refresh`, and `snow dcm test` now show live, per-step progress as an interactive checklist instead of a single generic spinner.
+
+## Fixes and improvements
+* `snow dcm` commands now summarize the files being uploaded as a tree beneath the upload step, instead of listing every file on its own line.
+* Recursive stage uploads now upload directories concurrently instead of one at a time. This applies to every command that uploads a directory tree to a stage (e.g. `snow stage copy --recursive`, `snow dcm deploy`, `snow dcm plan`, `snow dbt deploy`, `snow spcs service build-image`). Upload wall-clock is dominated by per-PUT round-trip latency, so trees with many nested folders (e.g. one file per directory) see a large speedup. Total upload concurrency is bounded by the `SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS` setting (config key `cli.stage_upload_workers`, default 16; set to 1 to restore the previous serial behavior). For `snow stage copy` this budget is shared with `--parallel` rather than multiplied by it, so existing invocations do not spawn more threads than before.
+* `snow dcm plan`, `deploy`, and `purge` now render each altered object's changes as an indented tree, showing added, modified, and removed columns, constraints, grants, and other properties — with previous → new values — instead of only the object name. Long or multi-line values are collapsed to a single line.
+* A bare `USER$` database resolved from the active connection is now expanded to the caller's personal database (`USER$<username>`) when the connection specifies a username, so commands validate and report against the fully-qualified name.
+* `snow app` commands (`validate`, `open`, `events`, `deploy`, `teardown`) now resolve their database and schema from the active connection like other CLI commands, so a bare `USER$` database configured in `snowflake.yml` is expanded to the caller's personal database.
+* `snow app setup` now defaults to a workspace for code storage on all databases (previously regular databases used a stage). When the role cannot create a workspace it uses a stage instead, and `snow app deploy` also falls back to a stage if a workspace cannot be used.
+* Upgraded `GitPython` from 3.1.50 to 3.1.57.
+* `snow dcm` commands run with `--save-output` now write artifacts directly into the `out/` directory, with each command's response in `out/<command>_result.json`, instead of nesting them under a per-command subdirectory. The `out/` directory is recreated empty at the start of every such run.
+
+
+# v3.23.0
+
+## Deprecations
+
+## New additions
+* `snow spcs service events` is now generally available. This command returns service-level and service-instance-level platform events in addition to container-level events.
+* `snow app open` now accepts a `--watch` flag for Snowflake App Runtime projects. With `--watch`, the command no longer fails when the app service does not exist yet; it polls until the service is created and its endpoint is ready before opening (or printing) the URL.
+* `snow app --help` is now context-aware: when the current project's `snowflake.yml` unambiguously targets one app family (Native Apps or Snowflake App Runtime), the help listing hides the other family's commands. Detection is conservative — a mixed, missing, or unparsable project shows every command — and hidden commands remain fully runnable. Because the same filtering backs shell completion and Click's "did you mean" suggestions, the hidden family's commands also stop appearing in `snow app <TAB>` completion for such a project (they still run when invoked explicitly).
+
+## Fixes and improvements
+* `snow app deploy` now drops the code stage before recreating it only when the stage already exists. A first deploy has nothing to clear, so it no longer issues `DROP STAGE` unnecessarily, letting a role with only `CREATE STAGE` (and not `OWNERSHIP`) deploy successfully.
+* Upgraded `snowflake-connector-python` from 4.6.0 to 4.7.1.
+* Upgraded `snowflake-snowpark-python` from 1.41.0 to 1.53.0.
+
+
+# v3.22.1
+
+## Fixes and improvements
+* `snow streamlit deploy`: fix re-deploy incorrectly attempting to UNSET schema-inherited governance tags the deploying role has no APPLY privilege on. Omitting the `tags:` property from `snowflake.yml` now leaves directly-set tags untouched; use `tags: []` to explicitly clear all directly-set tags.
+
+
+# v3.22.0
+
+## Deprecations
+
+## New additions
+* Added `tags` field to Streamlit entity so that tags can be set with `snow streamlit deploy`.
+* `config.toml` and `connections.toml` files with `0644` permissions (readable by group or others) now emit a warning instead of a hard error when `SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true` or `SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true` is set, aligning with snowflake-connector-python behaviour. Files writable by group or others remain a hard error regardless of the env var.
+
+## Fixes and improvements
+* `snow app setup` now correctly preserves case-sensitive (double-quoted) identifiers in the generated `snowflake.yml`. Previously, values such as `"lower_db"` were silently stripped of their surrounding quotes by YAML, causing Snowflake to uppercase the identifier and fail to locate the object.
+* `snow app setup` no longer writes `build_compute_pool` / `service_compute_pool` to the generated `snowflake.yml`, and no longer reads the `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` / `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL` account parameters. Snowflake App Runtime services now always run on server-managed compute pools. Existing projects that set these fields in `snowflake.yml` continue to be honored by `snow app deploy`.
+* `snow app setup --dry-run` now exits with code 0 while still printing the same setup validation errors that a non-dry-run invocation surfaces.
+* `snow app deploy` now supports a separate `service_eai` field on `snowflake-app` entities for newly created application services. When `service_eai` is not set, deploy continues to fall back to `build_eai` for backward compatibility.
+* `snow dbt deploy` now preserves the customer's original key order in `profiles.yml` instead of silently reordering keys alphabetically.
+* `snow app setup` and `snow app deploy` resolve their Snowflake App Runtime defaults via the `SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()` system function, and automatically fall back to the previous `SHOW PARAMETERS` based resolution on accounts where that function is not yet available. The fallback is transitional and will be removed once the function has fully rolled out.
+* Fixed `snow app events` and `snow app setup --dry-run` crashing on Windows with an uncaught `UnicodeEncodeError` when their output contained non-ASCII characters (e.g. emoji, box-drawing, or accented text in application logs or the dry-run plan preview). The `snow app` commands now render output as UTF-8 instead of the platform default code page (cp1252/cp932 on Windows).
+
+
+# v3.21.0
+
+## Deprecations
+
+## New additions
+* Added `cli.encoding` config section (and matching `SNOWFLAKE_CLI_ENCODING_*` env vars) to control text encoding in three areas: `file_io` for reading and writing project files (e.g. SQL files, `snowflake.yml`), `subprocess` for decoding output of external processes (e.g. Docker, pip), and `stdout` for encoding CLI output written to stdout. Setting all three to `utf-8` ensures correct Unicode handling on Windows systems where the platform default encoding is not UTF-8.
+* Added `--no-prompt-exit-repl` option and configuration setting to skip the exit confirmation prompt in the SQL REPL.
+* Added `--server-session-keep-alive` global connection flag (plus matching `SNOWFLAKE_SERVER_SESSION_KEEP_ALIVE` env var and `server_session_keep_alive` config key) that prevents Snowflake from closing idle sessions. Useful for long-running operations or connections held open between multiple operations.
+
+## Fixes and improvements
+* Fixed REST API object operations (e.g. `snow object create`) crashing with `ModuleNotFoundError: No module named 'snowflake.connector.vendored'` when running against the Snowflake Universal Driver (connector-python v5). HTTP error handling now works on both connector v4.x and the Universal Driver v5.
+* The `snow app setup` `--compute-pool` option and the `build_compute_pool` / `service_compute_pool` fields of a `snowflake-app` entity are now hidden and undocumented (omitted from `--help` and the generated project-definition JSON schema). They remain fully functional: `snow app setup` and `snow app deploy` still honor the `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` / `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL` account parameters and any compute pools configured in `snowflake.yml`. The `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL` and `ENABLE_APPLICATION_SERVICE_MANAGED_COMPUTE_POOL_FALLBACK` parameter checks (and the related deploy-time warning) have been removed.
+* `snow streamlit deploy --replace` now uses `ALTER STREAMLIT ... SET` instead of `CREATE OR REPLACE STREAMLIT` when the app already exists, preserving existing grants and permissions on the object.
 * Fixed `snow app setup` incorrectly treating system-default parameter values as admin-configured values. After running `ALTER ACCOUNT UNSET` on `DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL` or `DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`, those fields no longer appear in the generated `snowflake.yml` or `--dry-run` output.
 * Upgraded `pip` from 26.1.1 to 26.1.2.
 * `snow app setup` and `snow app deploy` now default to a workspace (instead of a stage) for app code whenever the resolved destination is a personal database (`USER$<user>`), which do not support stages. An explicitly configured `code_stage` is still honored, with a warning when the destination is a personal database.
 * Fixed `snow app deploy` failing on Windows when uploading app code to a workspace (connector error `253006`, `ER_FILE_NOT_EXISTS`) due to a malformed local file URI.
+* Fixed `snow app deploy` failing with connector error `253006` when an app's files live under directories whose names contain glob metacharacters — for example Next.js dynamic-route directories such as `[id]` or `[...slug]`. The connector expands `PUT` sources as glob patterns, so the unescaped local path matched nothing (`File doesn't exist`) or a same-named sibling directory (`Not a file but a directory`). Local file paths are now escaped before being passed to `PUT`. This affected the workspace upload path used for personal-database destinations.
+* `snow app deploy` now uploads app code to a stage one file at a time (preserving the directory structure) instead of via a recursive `PUT <dir>/*`, and no longer deletes the local bundle during upload. The per-file form also avoids the directory-matching glob behind connector error `253006`.
 * The `build_eai` field of a `snowflake-app` entity can now be specified as a bare string (e.g. `build_eai: MY_EAI`) in addition to the existing `build_eai:\n  name: MY_EAI` object form.
 * `snow app setup` now honors the `--warehouse`, `--database`, and `--schema` connection options as explicit overrides for the generated `snowflake.yml`, taking precedence over account parameters and the connection defaults. This lets users target a warehouse, database, or schema other than the account defaults. When `--database` is specified, `--schema` must also be specified.
+* `snow dcm` commands now use the system temporary folder to bundle project files before uploading, rather than creating the `output` project directory and dropping it afterward
+* `snow dbt` no longer rejects valid `--dbt-version` values (e.g. `2.0.0-preview.175`) that don't match a hard-coded client-side regex. Versions are now validated against the server's supported list, with unsupported versions failing fast and listing the actual supported set.
+* Fixed `snow app` commands (e.g. `snow app deploy`, `snow app validate`) failing on Windows with a `UnicodeDecodeError` when `snowflake.yml` contained non-ASCII characters (e.g. a non-Latin app title or description). The `snow app` command group now defaults to reading and writing `snowflake.yml` as UTF-8 instead of falling back to the platform default code page (cp1252/cp932 on Windows). An explicit `cli.encoding.file_io` setting still takes precedence when configured; UTF-8 is only the default for `snow app` commands. Other commands continue to honor the `cli.encoding.file_io` setting / platform default when reading project files.
+* The `--deploy-only` flag of `snow app deploy` has been renamed to `--promote-only`. The previous `--deploy-only` name continues to work as a hidden alias for now, but this backward compatibility is temporary and will be removed soon.
+* `snow app deploy` now drops and recreates the code stage before uploading (instead of clearing it with `REMOVE`) so each deploy always starts from an empty stage. This prevents stale files from a previous deploy from being mixed into the build, which could produce incorrect or conflicting build artifacts.
+* `snow app deploy` now uploads app code files in parallel (up to 5 at a time) instead of one at a time, reducing upload time for apps with many files. This applies to both the stage and workspace upload paths.
 
 
 # v3.20.0

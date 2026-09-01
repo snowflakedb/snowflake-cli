@@ -114,6 +114,10 @@ class CLIMetricsSpan:
     START_TIME_KEY: ClassVar[str] = "start_time"
     EXECUTION_TIME_KEY: ClassVar[str] = "execution_time"
     ERROR_KEY: ClassVar[str] = "error"
+    # Snowflake error code (``ProgrammingError.errno``) of the span's error, when
+    # available. Lets telemetry distinguish otherwise-identical error types — e.g.
+    # a permissions failure (errno 3001) from any other ``ProgrammingError``.
+    ERROR_CODE_KEY: ClassVar[str] = "error_code"
     # total number of spans started under this span, inclusive of itself and its children's children (recursively)
     SPAN_COUNT_IN_SUBTREE_KEY: ClassVar[str] = "span_count_in_subtree"
     # the number of spans in the path between the current span and the topmost parent span, inclusive of both
@@ -191,6 +195,7 @@ class CLIMetricsSpan:
             ),
             self.EXECUTION_TIME_KEY: self.execution_time,
             self.ERROR_KEY: type(self.error).__name__ if self.error else None,
+            self.ERROR_CODE_KEY: getattr(self.error, "errno", None),
             self.SPAN_COUNT_IN_SUBTREE_KEY: self.span_count_in_subtree,
             self.SPAN_DEPTH_KEY: self.span_depth,
         }

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest import mock
 
@@ -23,7 +24,12 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
+from snowflake.cli.api.exceptions import CliArgumentError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
+
+from tests_common import IS_WINDOWS
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 class TestDBTList:
@@ -107,6 +113,26 @@ class TestDBTDescribe:
         )
 
 
+class TestDBTCopy:
+    def test_copy_command_alias(self, mock_connect, runner):
+        # `snow dbt copy` re-registers the `snow stage copy` command, so both must
+        # generate identical SQL for the same stage-to-stage copy.
+        result = runner.invoke(
+            ["stage", "copy", "@stage_a/path", "@stage_b/path2"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(
+            ["dbt", "copy", "@stage_a/path", "@stage_b/path2"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+
+        queries = mock_connect.mocked_ctx.get_queries()
+        assert len(queries) == 2
+        assert queries[0] == queries[1]
+
+
 class TestDBTDeploy:
     @pytest.fixture
     def mock_deploy(self):
@@ -136,6 +162,43 @@ class TestDBTDeploy:
         assert str(mock_deploy.call_args[0][0]) == "TEST_PIPELINE"
         assert call_kwargs["path"] == SecurePath(dbt_project_path)
         assert call_kwargs["attrs"].dbt_version is None
+        # New tri-state options default to None (leave unchanged / server default).
+        assert call_kwargs["attrs"].default_writeback is None
+        assert call_kwargs["attrs"].auto_compile is None
+
+    @pytest.mark.parametrize(
+        "flag,expected",
+        [
+            ("--default-writeback", True),
+            ("--no-default-writeback", False),
+        ],
+    )
+    def test_deploy_default_writeback_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy, flag, expected
+    ):
+        result = runner.invoke(
+            ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}", flag]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_deploy.call_args[1]["attrs"].default_writeback is expected
+
+    @pytest.mark.parametrize(
+        "flag,expected",
+        [
+            ("--auto-compile", True),
+            ("--no-auto-compile", False),
+        ],
+    )
+    def test_deploy_auto_compile_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy, flag, expected
+    ):
+        result = runner.invoke(
+            ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}", flag]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_deploy.call_args[1]["attrs"].auto_compile is expected
 
     def test_force_flag_uses_create_or_replace(self, runner, mock_deploy):
         result = runner.invoke(
@@ -192,6 +255,102 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert str(mock_deploy.call_args[0][0]) == "TEST_PIPELINE"
         assert call_kwargs["profiles_path"] == SecurePath(new_profiles_directory)
+
+    def test_dbt_deploy_with_env_file_dir(
+        self, runner, dbt_project_path, env_yml_dir, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                f"--env-file-dir={env_yml_dir}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["env_file_path"] == SecurePath(env_yml_dir)
+
+    def test_dbt_deploy_without_env_file_dir_passes_none(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["env_file_path"] is None
+
+    def test_deploy_with_default_environment_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-env=dev",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].default_env == "dev"
+        assert call_kwargs["attrs"].unset_default_env is False
+
+    def test_deploy_with_unset_default_environment_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--unset-default-env",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].default_env is None
+        assert call_kwargs["attrs"].unset_default_env is True
+
+    def test_deploy_with_both_default_environment_and_unset_default_environment_fails(
+        self,
+        mock_connect,
+        runner,
+        dbt_project_path,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-env=dev",
+                "--unset-default-env",
+            ]
+        )
+
+        assert result.exit_code == 2, result.output
+        # Box-rendered error wraps across lines; check the key parts.
+        assert "'--unset-default-env'" in result.output
+        assert "'--default-env'" in result.output
+        assert "incompatible" in result.output
 
     def test_deploy_with_default_target_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
@@ -346,23 +505,6 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "1.9.0"
 
-    def test_deploy_with_invalid_dbt_version_fails(
-        self, runner, dbt_project_path, mock_deploy
-    ):
-        result = runner.invoke(
-            [
-                "dbt",
-                "deploy",
-                "TEST_PIPELINE",
-                f"--source={dbt_project_path}",
-                "--dbt-version=1.9",
-            ]
-        )
-
-        assert result.exit_code == 2, result.output
-        assert "Invalid version format '1.9'" in result.output
-        mock_deploy.assert_not_called()
-
     def test_deploy_with_patch_version_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -399,6 +541,436 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].dbt_version == "2.0.0-preview"
 
+    def test_deploy_with_dotted_prerelease_version_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--dbt-version=2.0.0-preview.175",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].dbt_version == "2.0.0-preview.175"
+
+    def test_deploy_with_git_commit_and_branch_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=abc123",
+                        "--git-branch=main",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "abc123"
+        assert call_kwargs["attrs"].git_branch == "main"
+
+    def test_deploy_with_git_commit_only_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=abc123",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "abc123"
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_gha_auto_detect_suppressed_when_flag_off(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_SHA": "shouldbeignored",
+            "GITHUB_HEAD_REF": "shouldbeignored",
+            "GITHUB_REF_NAME": "shouldbeignored",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: False}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit is None
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_gha_push_auto_detects_commit_and_branch(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "deadbeef",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "deadbeef"
+        assert call_kwargs["attrs"].git_branch == "main"
+
+    def test_deploy_gha_auto_detect_emits_message(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "deadbeef",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        # The user is told when values were auto-detected (rather than passed).
+        assert result.exit_code == 0, result.output
+        assert "Auto-detected git metadata" in result.output
+
+    def test_deploy_no_auto_detect_message_when_flags_explicit(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "deadbeef",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=explicit",
+                        "--git-branch=explicit-branch",
+                    ]
+                )
+
+        # Nothing was auto-detected (flags supplied both) → no message.
+        assert result.exit_code == 0, result.output
+        assert "Auto-detected git metadata" not in result.output
+
+    def test_deploy_gha_pull_request_uses_head_sha_from_event_payload(
+        self, runner, dbt_project_path, mock_deploy, tmp_path
+    ):
+        event_file = tmp_path / "event.json"
+        event_file.write_text(
+            json.dumps({"pull_request": {"head": {"sha": "realheadsha"}}})
+        )
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": str(event_file),
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # On a pull_request event the recorded commit is the real PR head SHA,
+        # not the ephemeral GITHUB_SHA merge commit.
+        assert call_kwargs["attrs"].git_commit == "realheadsha"
+        assert call_kwargs["attrs"].git_branch == "my-feature"
+
+    def test_deploy_gha_pull_request_missing_payload_leaves_commit_null(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": "/nonexistent/event.json",
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Unreadable payload: the ephemeral merge commit (GITHUB_SHA) is never
+        # recorded; commit is left null. Branch is still known from GITHUB_HEAD_REF.
+        assert call_kwargs["attrs"].git_commit is None
+        assert call_kwargs["attrs"].git_branch == "my-feature"
+
+    def test_deploy_gha_pull_request_missing_payload_uses_explicit_commit(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": "/nonexistent/event.json",
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=manualsha",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Auto-detect couldn't resolve the commit → the explicit flag fills it in.
+        assert call_kwargs["attrs"].git_commit == "manualsha"
+        assert call_kwargs["attrs"].git_branch == "my-feature"
+
+    def test_deploy_gha_pull_request_target_uses_base_commit_and_branch(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        # pull_request_target runs in the base-branch context, so we record the base
+        # commit/branch (GITHUB_SHA/GITHUB_REF_NAME), not the PR feature head.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request_target",
+            "GITHUB_SHA": "basecommit",
+            "GITHUB_HEAD_REF": "feature-branch",
+            "GITHUB_REF_NAME": "main",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "basecommit"
+        assert call_kwargs["attrs"].git_branch == "main"
+
+    def test_deploy_gha_malformed_payload_is_best_effort(
+        self, runner, dbt_project_path, mock_deploy, tmp_path
+    ):
+        event_file = tmp_path / "event.json"
+        event_file.write_text("{ this is not valid json")
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": str(event_file),
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        # A malformed event payload must never fail the deploy — best-effort → no
+        # metadata is recorded (rather than crashing or guessing).
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit is None
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_no_git_metadata_outside_github_actions(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Not in GitHub Actions and no explicit flags → nothing auto-detected.
+        assert call_kwargs["attrs"].git_commit is None
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_both_flags_skip_auto_detect(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        # Both flags passed: auto-detection is skipped entirely, so even a
+        # malformed event payload never triggers the "could not auto-detect" warning.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_EVENT_PATH": "/nonexistent/event.json",
+            "GITHUB_SHA": "mergecommit",
+            "GITHUB_HEAD_REF": "my-feature",
+            "GITHUB_REF_NAME": "123/merge",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=explicitc",
+                        "--git-branch=explicitb",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        assert "Could not auto-detect" not in result.output
+        assert "Auto-detected git metadata" not in result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "explicitc"
+        assert call_kwargs["attrs"].git_branch == "explicitb"
+
+    def test_deploy_gha_tag_push_leaves_branch_unset(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        # Tag push: GITHUB_REF_NAME is the tag, not a branch. The commit is still
+        # correct (GITHUB_SHA), but the tag is not recorded as the branch.
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_REF_TYPE": "tag",
+            "GITHUB_SHA": "tagcommit",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "v1.2.3",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "tagcommit"
+        assert call_kwargs["attrs"].git_branch is None
+
+    def test_deploy_explicit_flags_win_over_gha_auto_detect(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "envcommit",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "env-branch",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=explicit",
+                        "--git-branch=explicit-branch",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Explicit flags take precedence over GitHub Actions auto-detection.
+        assert call_kwargs["attrs"].git_commit == "explicit"
+        assert call_kwargs["attrs"].git_branch == "explicit-branch"
+
+    @pytest.mark.parametrize("flag", ["--git-commit", "--git-branch"])
+    def test_deploy_git_flags_reject_control_chars(
+        self, runner, dbt_project_path, mock_deploy, flag
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        f"{flag}=abc\ndef",
+                    ]
+                )
+
+        assert result.exit_code != 0, result.output
+        assert "must not contain control characters" in result.output
+        mock_deploy.assert_not_called()
+
+    def test_deploy_with_invalid_dbt_version_returns_exit_code_2(
+        self, runner, dbt_project_path
+    ):
+        def raise_invalid_version(*args, **kwargs):
+            raise CliArgumentError(
+                "Invalid value '99.99.99' for --dbt-version. "
+                "Supported versions: 1.9.4."
+            )
+
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager._validate_dbt_version",
+            side_effect=raise_invalid_version,
+        ), mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager._validate_profiles",
+            return_value=None,
+        ):
+            result = runner.invoke(
+                [
+                    "dbt",
+                    "deploy",
+                    "TEST_PIPELINE",
+                    f"--source={dbt_project_path}",
+                    "--dbt-version=99.99.99",
+                    "--enhanced-exit-codes",
+                ]
+            )
+
+        assert result.exit_code == 2, result.output
+        assert "Invalid value '99.99.99'" in result.output
+
 
 class TestDBTExecute:
     @pytest.mark.parametrize(
@@ -428,7 +1000,7 @@ class TestDBTExecute:
             ),
             pytest.param(
                 ["dbt", "execute", "pipeline_name", "compile", "--vars '{foo:bar}'"],
-                "EXECUTE DBT PROJECT pipeline_name args='compile --vars \\'{foo:bar}\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='compile --vars ''{foo:bar}'''",
                 id="with-dbt-vars",
             ),
             pytest.param(
@@ -477,7 +1049,7 @@ class TestDBTExecute:
                     "--vars",
                     '{"key": "value"}',
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{\"key\": \"value\"}\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{\"key\": \"value\"}'''",
                 id="vars-json-format",
             ),
             pytest.param(
@@ -489,7 +1061,7 @@ class TestDBTExecute:
                     "--vars",
                     '{"key": "value", "date": 20180101}',
                 ],
-                'EXECUTE DBT PROJECT pipeline_name args=\'run --vars \\\'{"key": "value", "date": 20180101}\\\'\'',
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{\"key\": \"value\", \"date\": 20180101}'''",
                 id="vars-json-multiple-keys",
             ),
             pytest.param(
@@ -501,7 +1073,7 @@ class TestDBTExecute:
                     "--vars",
                     "{key: value, date: 20180101}",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{key: value, date: 20180101}\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{key: value, date: 20180101}'''",
                 id="vars-yaml-format",
             ),
             pytest.param(
@@ -513,7 +1085,7 @@ class TestDBTExecute:
                     "--vars",
                     "key: value",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'key: value\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''key: value'''",
                 id="vars-single-key-value",
             ),
             pytest.param(
@@ -525,7 +1097,7 @@ class TestDBTExecute:
                     "--vars",
                     "{foo: foobar}",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{foo: foobar}\\''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{foo: foobar}'''",
                 id="vars-yaml-with-braces",
             ),
             pytest.param(
@@ -539,7 +1111,7 @@ class TestDBTExecute:
                     "--select",
                     "my_model",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'start_date: 2016-06-01\\' --select my_model'",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''start_date: 2016-06-01'' --select my_model'",
                 id="vars-with-other-flags",
             ),
         ],
@@ -575,6 +1147,272 @@ class TestDBTExecute:
             mock_connect.mocked_ctx.get_query()
             == "EXECUTE DBT PROJECT pipeline_name args='compile'"
         )
+
+    @pytest.mark.parametrize(
+        "import_args,expected_query",
+        [
+            pytest.param(
+                ["--import", "@stage1/"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage1/') args='run'",
+                id="bare-stage-path",
+            ),
+            pytest.param(
+                ["--import", "@stage/s1 as folder1"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/s1' AS 'folder1') args='run'",
+                id="bare-alias-cli-quotes-it",
+            ),
+            pytest.param(
+                ["--import", "@stage/s1 AS folder1"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/s1' AS 'folder1') args='run'",
+                id="uppercase-as",
+            ),
+            pytest.param(
+                ["--import", "@stage/s1 as 'folder1'"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/s1' AS 'folder1') args='run'",
+                id="quoted-alias-passthrough",
+            ),
+            pytest.param(
+                ["--import", "snow://dbt/db.schema.proj/versions/live"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('snow://dbt/db.schema.proj/versions/live') args='run'",
+                id="bare-snow-url",
+            ),
+            pytest.param(
+                ["--import", "snow://dbt/db.schema.proj/versions/live as staging"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('snow://dbt/db.schema.proj/versions/live' AS 'staging') args='run'",
+                id="snow-url-with-alias",
+            ),
+            pytest.param(
+                ["--import", "SNOW://DBT/db.schema.proj/versions/live"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('SNOW://DBT/db.schema.proj/versions/live') args='run'",
+                id="snow-url-uppercase-scheme",
+            ),
+            pytest.param(
+                ["--import", "'@\"my stage\"/dir'"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@\"my stage\"/dir') args='run'",
+                id="quoted-value-with-space-passthrough",
+            ),
+            pytest.param(
+                # A non-trailing backslash is passed through (matches SQL, which
+                # honors backslash escapes inside string literals).
+                ["--import", "@stage/a\\b"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/a\\b') args='run'",
+                id="mid-backslash-passthrough",
+            ),
+            pytest.param(
+                ["--import", "'@\"my stage\"/dir' as folder1"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@\"my stage\"/dir' AS 'folder1') args='run'",
+                id="quoted-value-with-space-bare-alias",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')) args='run'",
+                id="system-func-raw",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('my project')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('my project')) args='run'",
+                id="system-func-space-in-arg",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj') as folder1"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('proj') AS 'folder1') args='run'",
+                id="system-func-with-alias",
+            ),
+            pytest.param(
+                ["--import", "system$dbt_get_last_run_target('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(system$dbt_get_last_run_target('proj')) args='run'",
+                id="system-func-lowercase",
+            ),
+            pytest.param(
+                # Any SYSTEM$ function name is accepted; the server decides which
+                # are actually supported in IMPORTS.
+                ["--import", "SYSTEM$SOME_OTHER_FUNCTION('proj')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$SOME_OTHER_FUNCTION('proj')) args='run'",
+                id="system-func-arbitrary-name",
+            ),
+            pytest.param(
+                ["--import", "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj', 'target')"],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_RUN_TARGET('proj', 'target')) args='run'",
+                id="system-func-multiple-args",
+            ),
+            pytest.param(
+                [
+                    "--import",
+                    "@stage1/",
+                    "--import",
+                    "snow://dbt/db.schema.proj/versions/live as staging",
+                    "--import",
+                    "SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage1/', 'snow://dbt/db.schema.proj/versions/live' AS 'staging', SYSTEM$DBT_GET_LAST_RUN_TARGET('proj')) args='run'",
+                id="multiple-mixed",
+            ),
+        ],
+    )
+    def test_dbt_execute_imports(
+        self, mock_connect, mock_cursor, runner, import_args, expected_query
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(["dbt", "execute", *import_args, "pipeline_name", "run"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.get_query() == expected_query
+
+    def test_dbt_execute_imports_async_forwards_clause(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--run-async",
+                "--import",
+                "@stage/s1 as folder1",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.kwargs[0]["_exec_async"] is True
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name IMPORTS=('@stage/s1' AS 'folder1') args='run'"
+        )
+
+    def test_dbt_execute_without_imports_omits_clause(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(["dbt", "execute", "pipeline_name", "run"])
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name args='run'"
+        )
+
+    @pytest.mark.parametrize(
+        "bad_value,expected_error",
+        [
+            pytest.param(
+                "@my stage/dir",
+                "is not valid",
+                id="unquoted-space-in-value",
+            ),
+            pytest.param(
+                "@stage /s1",
+                "is not valid",
+                id="internal-space-unquoted",
+            ),
+            pytest.param(
+                "'foo' as 'bar'",
+                "is not valid",
+                id="quoted-non-location",
+            ),
+            pytest.param(
+                "1);DROP/**/TABLE/**/x;--",
+                "is not valid",
+                id="comment-token-injection",
+            ),
+            pytest.param(
+                "'@s/')/**/args='deps'--",
+                "is not valid",
+                id="single-statement-injection",
+            ),
+            pytest.param(
+                "SYSTEM$FOO('a')/**/,current_user()",
+                "is not valid",
+                id="system-func-comment-injection",
+            ),
+            pytest.param(
+                "SYSTEM$FOO('a'); DROP TABLE x --",
+                "is not valid",
+                id="system-func-trailing-sql",
+            ),
+            pytest.param(
+                "SYSTEM$FOO(bar())",
+                "is not valid",
+                id="system-func-nested-parens",
+            ),
+            pytest.param(
+                # Non-string-literal args are rejected, mirroring the server
+                # (only string-literal arguments are accepted in IMPORTS).
+                "SYSTEM$FOO(1)",
+                "is not valid",
+                id="system-func-non-literal-arg",
+            ),
+            pytest.param(
+                "@stage/s1 as as folder1",
+                "is not valid",
+                id="double-as",
+            ),
+            pytest.param(
+                "@stage/s1 as 'my folder'",
+                "must be an ASCII name",
+                id="folder-alias-with-space",
+            ),
+            pytest.param(
+                "@stage/s1 as a.b",
+                "must be an ASCII name",
+                id="folder-alias-with-dot",
+            ),
+            pytest.param(
+                "@stage/s1 as 'a/b'",
+                "must be an ASCII name",
+                id="folder-alias-with-slash",
+            ),
+            pytest.param(
+                "snow://dataset/db.schema.obj/versions/live",
+                "must be a dbt project URL",
+                id="snow-url-non-dbt-type",
+            ),
+            pytest.param(
+                "'snow://dataset/x'",
+                "must be a dbt project URL",
+                id="snow-url-non-dbt-quoted",
+            ),
+            pytest.param(
+                "@s/x\\",
+                "must not end with a backslash",
+                id="value-trailing-backslash",
+            ),
+            pytest.param(
+                "'@s/x\\'",
+                "must not end with a backslash",
+                id="quoted-value-trailing-backslash",
+            ),
+            pytest.param(
+                "   ",
+                "must not be empty",
+                id="empty-value",
+            ),
+            pytest.param(
+                "@stage/s1\tfolder",
+                "must not contain control characters",
+                id="control-char",
+            ),
+        ],
+    )
+    def test_dbt_execute_imports_invalid_input(
+        self, mock_connect, runner, bad_value, expected_error
+    ):
+        result = runner.invoke(
+            ["dbt", "execute", "--import", bad_value, "pipeline_name", "run"]
+        )
+
+        assert result.exit_code != 0, result.output
+        assert expected_error in result.output
+        # Validation runs in the option callback, before any SQL is built.
+        assert mock_connect.mocked_ctx.get_query() == ""
 
     def test_dbt_execute_dbt_failure_returns_non_0_code(
         self, mock_connect, mock_cursor, runner
@@ -662,20 +1500,6 @@ class TestDBTExecute:
             == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0' args='run'"
         )
 
-    def test_dbt_execute_with_invalid_dbt_version_fails(self, mock_connect, runner):
-        result = runner.invoke(
-            [
-                "dbt",
-                "execute",
-                "--dbt-version=1.2.3.beta",
-                "pipeline_name",
-                "run",
-            ]
-        )
-
-        assert result.exit_code == 2, result.output
-        assert "Invalid version format '1.2.3.beta'" in result.output
-
     def test_dbt_execute_with_patch_version(self, mock_connect, mock_cursor, runner):
         cursor = mock_cursor(
             rows=[(True, "very detailed logs")],
@@ -722,4 +1546,662 @@ class TestDBTExecute:
         assert (
             mock_connect.mocked_ctx.get_query()
             == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0-preview' args='run'"
+        )
+
+    @pytest.mark.parametrize(
+        "args,expected_query",
+        [
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--env=dev",
+                    "pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name ENVIRONMENT='dev' args='run'",
+                id="environment-named",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--env=NO_ENV",
+                    "pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name ENVIRONMENT='NO_ENV' args='run'",
+                id="environment-no-env-sentinel",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--env-vars",
+                    '{"DBT_FOO": "1"}',
+                    "pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name ENV_VARS=('DBT_FOO'='1') args='run'",
+                id="env-vars-json-single",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--env-vars",
+                    '{"DBT_FOO": "1", "DBT_BAR": "2"}',
+                    "pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name "
+                "ENV_VARS=('DBT_FOO'='1', 'DBT_BAR'='2') args='run'",
+                id="env-vars-json-multi",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--env-vars",
+                    "{DBT_FOO: '1', DBT_BAR: '2'}",
+                    "pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name "
+                "ENV_VARS=('DBT_FOO'='1', 'DBT_BAR'='2') args='run'",
+                id="env-vars-yaml-quoted-strings",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--env-vars",
+                    '{"DBT_URL": "https://example.com/?a=b"}',
+                    "pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name "
+                "ENV_VARS=('DBT_URL'='https://example.com/?a=b') args='run'",
+                id="env-vars-value-with-equals",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--env-vars",
+                    'DBT_MSG: "it\'s"',
+                    "pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name "
+                "ENV_VARS=('DBT_MSG'='it''s') args='run'",
+                id="env-vars-value-with-single-quote-escaped",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--dbt-version=1.9.0",
+                    "--env=prod",
+                    "--env-vars",
+                    '{"DBT_FOO": "1"}',
+                    "pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name dbt_version='1.9.0' "
+                "ENVIRONMENT='prod' ENV_VARS=('DBT_FOO'='1') args='run'",
+                id="all-options-ordering",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--env=dev",
+                    "--env-vars",
+                    '{"DBT_OVERRIDE": "1"}',
+                    "pipeline_name",
+                    "run",
+                    "--vars",
+                    '{"key": "value"}',
+                ],
+                "EXECUTE DBT PROJECT pipeline_name ENVIRONMENT='dev' "
+                "ENV_VARS=('DBT_OVERRIDE'='1') args='run --vars ''{\"key\": \"value\"}'''",
+                id="env-vars-with-dbt-vars-flag",
+            ),
+        ],
+    )
+    def test_dbt_execute_env_var_options(
+        self, mock_connect, mock_cursor, runner, args, expected_query
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(args)
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.get_query() == expected_query
+
+    @pytest.mark.parametrize(
+        "raw_value,expected_error",
+        [
+            pytest.param(
+                '"just_a_string"',
+                "must be a YAML/JSON object",
+                id="non-mapping-string",
+            ),
+            pytest.param(
+                "[1, 2, 3]",
+                "must be a YAML/JSON object",
+                id="non-mapping-list",
+            ),
+            pytest.param(
+                '{"DBT_X": null}',
+                "must not be null",
+                id="null-value",
+            ),
+            pytest.param(
+                '{"DBT_X": 1}',
+                "must be a string",
+                id="int-value",
+            ),
+            pytest.param(
+                '{"DBT_X": 1.5}',
+                "must be a string",
+                id="float-value",
+            ),
+            pytest.param(
+                '{"DBT_X": true}',
+                "must be a string",
+                id="bool-value",
+            ),
+            pytest.param(
+                '{"DBT_X": {"nested": "1"}}',
+                "must be a string",
+                id="nested-object",
+            ),
+            pytest.param(
+                '{"DBT_X": ["1", "2"]}',
+                "must be a string",
+                id="nested-array",
+            ),
+            pytest.param(
+                "{not: valid: yaml: at: all",
+                "must be valid YAML/JSON",
+                id="malformed-yaml",
+            ),
+            pytest.param(
+                '{"DBT_FOO": "1", "DBT_FOO": "2"}',
+                "duplicate key",
+                id="duplicate-key",
+            ),
+            pytest.param(
+                '{"": "v"}',
+                "must not be empty",
+                id="empty-key",
+            ),
+            pytest.param(
+                '{"FOO": "1"}',
+                "must start with",
+                id="key-missing-dbt-prefix",
+            ),
+            pytest.param(
+                '{"DBT-FOO": "1"}',
+                "ASCII letters",
+                id="key-invalid-chars-hyphen",
+            ),
+            pytest.param(
+                '{"DBT FOO": "1"}',
+                "ASCII letters",
+                id="key-invalid-chars-space",
+            ),
+            pytest.param(
+                '{"DBT_FOO": "value\\nwith\\nnewlines"}',
+                "must not contain control characters",
+                id="value-control-char",
+            ),
+            pytest.param(
+                '{"DBT_foo": "1"}',
+                "must be uppercase",
+                id="key-not-uppercase-suffix",
+            ),
+            pytest.param(
+                '{"DBT_Foo": "1"}',
+                "must be uppercase",
+                id="key-not-uppercase-mixed",
+            ),
+        ],
+    )
+    def test_dbt_execute_env_vars_invalid_input(
+        self, mock_connect, runner, raw_value, expected_error
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--env-vars",
+                raw_value,
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 1
+        assert expected_error in result.output
+
+    def test_dbt_execute_env_with_control_char_rejected(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--env=dev\nprod",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 1
+        assert "must not contain control characters" in result.output
+
+    def test_dbt_execute_env_vars_secret_prefix_warns(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--env-vars",
+                '{"DBT_ENV_SECRET_TOKEN": "xyz"}',
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "DBT_ENV_SECRET_" in result.output
+        assert "DBT_ENV_SECRET_TOKEN" in result.output
+        assert (
+            mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
+            "ENV_VARS=('DBT_ENV_SECRET_TOKEN'='xyz') args='run'"
+        )
+
+    @pytest.mark.parametrize(
+        "flag,expected_clause",
+        [
+            ("--writeback", "WRITEBACK=TRUE "),
+            ("--no-writeback", "WRITEBACK=FALSE "),
+        ],
+    )
+    def test_dbt_execute_writeback(
+        self, mock_connect, mock_cursor, runner, flag, expected_clause
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        # --writeback must precede the project name / dbt command.
+        result = runner.invoke(
+            ["dbt", "execute", flag, "pipeline_name", "run"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == f"EXECUTE DBT PROJECT pipeline_name {expected_clause}args='run'"
+        )
+
+    def test_dbt_execute_env_vars_async(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--run-async",
+                "--env=dev",
+                "--env-vars",
+                '{"DBT_FOO": "1"}',
+                "pipeline_name",
+                "compile",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.kwargs[0]["_exec_async"] is True
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name ENVIRONMENT='dev' "
+            "ENV_VARS=('DBT_FOO'='1') args='compile'"
+        )
+
+    def test_use_shell_env_vars_basic(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_FOO", "1")
+        clean_dbt_env.setenv("DBT_BAR", "2")
+        clean_dbt_env.setenv("PATH_OVERRIDE", "should-not-appear")
+        clean_dbt_env.setenv("AWS_ACCESS_KEY", "should-not-appear")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
+            "ENV_VARS=('DBT_BAR'='2', 'DBT_FOO'='1') args='run'"
+        )
+        assert (
+            "forwarded 2 shell environment variables starting with DBT_*"
+            in result.output
+        )
+        assert "the DBT_ prefix" in result.output
+
+    def test_use_shell_env_vars_drops_secret_prefix(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_FOO", "1")
+        clean_dbt_env.setenv("DBT_ENV_SECRET_TOKEN", "should-not-appear")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        query = mock_connect.mocked_ctx.get_query()
+        assert query == (
+            "EXECUTE DBT PROJECT pipeline_name " "ENV_VARS=('DBT_FOO'='1') args='run'"
+        )
+        assert "should-not-appear" not in query
+        assert "should-not-appear" not in result.output
+        assert "dropped 1 DBT_ENV_SECRET_* environment variable from" in result.output
+
+    def test_use_shell_env_vars_only_secrets_present(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_ENV_SECRET_TOKEN", "should-not-appear")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        # No ENV_VARS=() clause emitted; nothing to forward.
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name args='run'"
+        )
+        assert "dropped 1 DBT_ENV_SECRET_* environment variable from" in result.output
+        # The dropped-secret message explains the empty result; the generic
+        # "no DBT_* found / how to export" hint must NOT fire (the user clearly
+        # knows how to export — they exported a secret).
+        assert "no DBT_* environment variables found" not in result.output
+        assert "forwarded" not in result.output
+
+    def test_use_shell_env_vars_empty_shell(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name args='run'"
+        )
+        assert "no DBT_* environment variables found in the shell" in result.output
+        assert "exported" in result.output
+        # Per-shell export table was intentionally dropped (maintainability).
+        assert "bash/zsh:" not in result.output
+        assert "PowerShell:" not in result.output
+
+    @pytest.mark.skipif(
+        IS_WINDOWS,
+        reason="os.environ is case-insensitive on Windows and normalizes names "
+        "to uppercase, so a non-uppercase DBT_ env var cannot exist there and "
+        "the skip path is unreachable.",
+    )
+    def test_use_shell_env_vars_skips_non_uppercase(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_FOO", "1")
+        clean_dbt_env.setenv("DBT_Bar", "mixed")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        # Only the uppercase key is forwarded; the mixed-case one is skipped.
+        assert (
+            mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
+            "ENV_VARS=('DBT_FOO'='1') args='run'"
+        )
+        assert "skipped 1 DBT_* shell environment variable that" in result.output
+        # Forwarding still happened, so the empty-state hint must not fire.
+        assert "no DBT_* environment variables found" not in result.output
+
+    def test_use_shell_env_vars_explicit_overrides_shell(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_FOO", "fromshell")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "--env-vars",
+                '{"DBT_FOO": "explicit"}',
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
+            "ENV_VARS=('DBT_FOO'='explicit') args='run'"
+        )
+
+    def test_use_shell_env_vars_merge_with_explicit(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_FOO", "fromshell")
+        clean_dbt_env.setenv("DBT_BAR", "fromshell")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "--env-vars",
+                '{"DBT_BAR": "explicit", "DBT_NEW": "new"}',
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        # Shell side sorted (DBT_BAR, DBT_FOO); --env-vars merges on top:
+        # DBT_BAR is overwritten in place; DBT_NEW appended at end.
+        assert (
+            mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
+            "ENV_VARS=('DBT_BAR'='explicit', 'DBT_FOO'='fromshell', "
+            "'DBT_NEW'='new') args='run'"
+        )
+
+    def test_use_shell_env_vars_with_no_env(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_FOO", "1")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--env=NO_ENV",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name ENVIRONMENT='NO_ENV' "
+            "ENV_VARS=('DBT_FOO'='1') args='run'"
+        )
+
+    def test_use_shell_env_vars_value_with_single_quote(
+        self, mock_connect, mock_cursor, runner, clean_dbt_env
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        clean_dbt_env.setenv("DBT_MSG", "it's")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
+            "ENV_VARS=('DBT_MSG'='it''s') args='run'"
+        )
+
+    def test_use_shell_env_vars_async(self, mock_connect, runner, clean_dbt_env):
+        clean_dbt_env.setenv("DBT_FOO", "1")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--run-async",
+                "--use-shell-env-vars",
+                "pipeline_name",
+                "compile",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.kwargs[0]["_exec_async"] is True
+        assert (
+            mock_connect.mocked_ctx.get_query() == "EXECUTE DBT PROJECT pipeline_name "
+            "ENV_VARS=('DBT_FOO'='1') args='compile'"
+        )
+
+    def test_dbt_execute_with_dotted_prerelease_version(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--dbt-version=2.0.0-preview.175",
+                "pipeline_name",
+                "run",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name dbt_version='2.0.0-preview.175' args='run'"
         )

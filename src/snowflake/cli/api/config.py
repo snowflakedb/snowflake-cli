@@ -14,8 +14,11 @@
 
 from __future__ import annotations
 
+import codecs
+import io
 import logging
 import os
+import sys
 import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
@@ -33,6 +36,10 @@ from typing import (
 import tomlkit
 from click import ClickException
 from snowflake.cli.api.constants import IS_WINDOWS
+from snowflake.cli.api.encoding_diagnostics import detect_encoding_environment
+from snowflake.cli.api.encoding_diagnostics import (
+    get_encoding_diagnostics as _get_encoding_diagnostics_impl,
+)
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
     InvalidConnectionConfigurationError,
@@ -42,7 +49,11 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.sanitizers import sanitize_source_error
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import (
+    file_is_readable_by_others,
+    file_is_writable_by_others,
     file_permissions_are_strict,
+    issue_unix_permissions_warning,
+    should_skip_permission_warning,
     windows_get_not_whitelisted_users_with_access,
 )
 from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
@@ -86,10 +97,12 @@ CONNECTIONS_SECTION = "connections"
 CLI_SECTION = "cli"
 LOGS_SECTION = "logs"
 PLUGINS_SECTION = "plugins"
+ENCODING_SECTION = "encoding"
 IGNORE_NEW_VERSION_WARNING_KEY = "ignore_new_version_warning"
 
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
+ENCODING_SECTION_PATH = [CLI_SECTION, ENCODING_SECTION]
 PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
@@ -136,6 +149,7 @@ class ConnectionConfig:
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
     secondary_roles: Optional[str] = None
+    server_session_keep_alive: Optional[bool] = None
 
     _other_settings: dict = field(default_factory=lambda: {})
 
@@ -198,6 +212,30 @@ def config_init(config_file: Optional[Path]):
         _initialise_config(config_manager.file_path)
     _read_config_file()
     create_initial_loggers()
+    apply_stdout_encoding(get_stdout_encoding())
+    if should_show_encoding_warnings():
+        detect_encoding_environment(
+            all_cli_encodings_configured=_all_cli_encodings_configured()
+        )
+
+
+def get_encoding_diagnostics() -> str:
+    """Return a detailed encoding diagnostics report for the current environment.
+
+    Used by ``snow helpers detect-encoding`` to give the user actionable detail
+    about the encoding setup.
+    """
+    return _get_encoding_diagnostics_impl(
+        all_cli_encodings_configured=_all_cli_encodings_configured()
+    )
+
+
+def _all_cli_encodings_configured() -> bool:
+    return (
+        get_file_io_encoding() is not None
+        and get_subprocess_encoding() is not None
+        and get_stdout_encoding() is not None
+    )
 
 
 def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig):
@@ -269,20 +307,6 @@ def _config_file():
         raise
 
 
-def _issue_unix_custom_permissions_warnings(config_path: Path) -> None:
-    """Issue a warning for custom config files with wide permissions (Unix only)."""
-    if file_permissions_are_strict(config_path):
-        return
-
-    warnings.warn(
-        f"Bad owner or permissions on {config_path}.\n"
-        f' * To change owner, run `chown $USER "{config_path}"`.\n'
-        f' * To restrict permissions, run `chmod 0600 "{config_path}"`.\n'
-        f" * In future versions of Snowflake CLI strict configuration file permissions will be mandatory. "
-        f"To test if your files have correct permissions set SNOWFLAKE_CLI_FEATURES_ENFORCE_STRICT_CONFIG_PERMISSIONS=1 and try again."
-    )
-
-
 def _read_config_file():
     from snowflake.cli.api.cli_global_context import get_cli_context_manager
 
@@ -322,7 +346,10 @@ def _issue_permission_warnings(
         return
 
     if is_custom_config and not enforce_strict:
-        _issue_unix_custom_permissions_warnings(config_path)
+        if file_is_writable_by_others(config_path) or file_is_readable_by_others(
+            config_path
+        ):
+            issue_unix_permissions_warning(config_path)
 
 
 def _issue_windows_permission_warnings(config_path: Path) -> None:
@@ -406,6 +433,68 @@ def get_plugins_config() -> dict:
         return get_config_section(*PLUGINS_SECTION_PATH)
     else:
         return {}
+
+
+def _validate_encoding(encoding: Optional[str], setting_name: str) -> Optional[str]:
+    if encoding is None:
+        return None
+    try:
+        codecs.lookup(encoding)
+    except LookupError:
+        raise ClickException(
+            f"Invalid encoding '{encoding}' configured for {setting_name}. "
+            f"Please use a valid Python codec name (e.g. 'utf-8', 'cp1252')."
+        )
+    return encoding
+
+
+def get_file_io_encoding() -> Optional[str]:
+    """
+    Get configured file I/O encoding, or None for platform default.
+
+    Returns None when not configured - this ensures Unix users with proper
+    locales experience NO behavior change (platform default is used).
+    """
+    value = get_config_value(*ENCODING_SECTION_PATH, key="file_io", default=None)
+    return _validate_encoding(value, "cli.encoding.file_io")
+
+
+def get_subprocess_encoding() -> Optional[str]:
+    """Get configured subprocess encoding, or None for platform default"""
+    value = get_config_value(*ENCODING_SECTION_PATH, key="subprocess", default=None)
+    return _validate_encoding(value, "cli.encoding.subprocess")
+
+
+def get_stdout_encoding() -> Optional[str]:
+    """Get configured stdout encoding, or None for platform default.
+
+    When set, sys.stdout is reconfigured so that redirected output
+    (e.g. ``snow sql ... > file.txt``) uses the specified encoding instead of
+    the default.  Set via config ``cli.encoding.stdout`` or the
+    ``SNOWFLAKE_CLI_ENCODING_STDOUT`` environment variable.
+    """
+    value = get_config_value(*ENCODING_SECTION_PATH, key="stdout", default=None)
+    return _validate_encoding(value, "cli.encoding.stdout")
+
+
+def apply_stdout_encoding(encoding: Optional[str]) -> None:
+    """Reconfigure sys.stdout with *encoding* when provided.
+
+    Safe to call unconditionally — a None encoding is a no-op.
+    """
+    if encoding is None:
+        return
+    try:
+        sys.stdout.reconfigure(encoding=encoding)  # type: ignore[attr-defined,union-attr]
+    except (AttributeError, io.UnsupportedOperation):
+        pass
+
+
+def should_show_encoding_warnings() -> bool:
+    """Whether to show encoding warnings"""
+    return get_config_bool_value(  # type: ignore
+        *ENCODING_SECTION_PATH, key="show_warnings", default=True
+    )
 
 
 def connection_exists(connection_name: str) -> bool:
@@ -550,19 +639,29 @@ def _dump_config(config_and_connections: Dict):
         else:
             config_toml_dict.pop("connections", None)
 
-    with SecurePath(get_config_manager().file_path).open("w+") as fh:
+    with SecurePath(get_config_manager().file_path).open(
+        "w+", use_file_io_encoding=False
+    ) as fh:
         dump(config_toml_dict, fh)
 
 
 def _check_default_config_files_permissions() -> None:
-    if not IS_WINDOWS:
-        connections_file = get_connections_file()
-        if connections_file.exists() and not file_permissions_are_strict(
-            connections_file
-        ):
-            raise ConfigFileTooWidePermissionsError(connections_file)
-        if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):
-            raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
+    # Default config files in SNOWFLAKE_HOME must be strict (0600). Writable-by-others
+    # always raises. Readable-by-others also raises, unless the user opts into relaxed
+    # enforcement via a connector skip env var (SPCS mounts config group-readable), in
+    # which case it is downgraded to a warning and the CLI proceeds.
+    if IS_WINDOWS:
+        return
+    for config_file in (get_connections_file(), CONFIG_FILE):
+        if not config_file.exists():
+            continue
+        if file_is_writable_by_others(config_file):
+            raise ConfigFileTooWidePermissionsError(config_file)
+        if file_is_readable_by_others(config_file):
+            if should_skip_permission_warning():
+                issue_unix_permissions_warning(config_file)
+            else:
+                raise ConfigFileTooWidePermissionsError(config_file)
 
 
 def _check_custom_config_permissions(config_file: Path) -> None:
@@ -579,12 +678,14 @@ def _check_custom_config_permissions(config_file: Path) -> None:
     if IS_WINDOWS:
         return
 
-    if (
-        _should_enforce_strict_config_permissions()
-        and config_file.exists()
-        and not file_permissions_are_strict(config_file)
-    ):
-        raise ConfigFileTooWidePermissionsError(config_file)
+    if _should_enforce_strict_config_permissions() and config_file.exists():
+        if file_is_writable_by_others(config_file):
+            raise ConfigFileTooWidePermissionsError(config_file)
+        if file_is_readable_by_others(config_file):
+            if should_skip_permission_warning():
+                issue_unix_permissions_warning(config_file)
+            else:
+                raise ConfigFileTooWidePermissionsError(config_file)
 
 
 def _should_enforce_strict_config_permissions() -> bool:
@@ -623,13 +724,24 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 
 
 def _read_config_file_toml() -> dict:
+    # config.toml is read by the connector (via read_config()) with platform
+    # default encoding, and _dump_config writes it with PLATFORM_DEFAULT_ENCODING
+    # for the same reason — keeping CLI read/write consistent with the connector.
     return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
 
 
 def _read_connections_toml() -> dict:
+    # connections.toml is a shared file: the snowflake-connector reads it via
+    # its own read_config() using read_text() with no explicit encoding
+    # (platform default). Applying a custom file_io encoding here would make
+    # the CLI and connector read the same file with different codecs, corrupting
+    # non-ASCII content for one of them. Use platform default to stay consistent
+    # with the connector.
     return tomlkit.loads(get_connections_file().read_text()).unwrap()
 
 
 def _update_connections_toml(connections: dict):
+    # Same rationale as _read_connections_toml: platform default keeps CLI
+    # writes consistent with the connector's reads.
     with open(get_connections_file(), "w") as f:
         f.write(tomlkit.dumps(connections))

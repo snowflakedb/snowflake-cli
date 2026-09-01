@@ -12,108 +12,70 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from textwrap import dedent
-from typing import Dict, Optional
-
-from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
+from typing import Dict, Optional, cast
 
 
-def _generate_snowflake_yml(
+def _yaml_str(v: str) -> str:
+    # YAML treats bare double quotes as string delimiters and strips them on
+    # round-trip, turning '"lower_db"' into 'lower_db' (then uppercased by
+    # Snowflake).  Wrapping in YAML single quotes preserves embedded double
+    # quotes as literal data.  Single quotes inside the value are escaped by
+    # doubling them, per the YAML 1.1 single-quoted scalar spec.
+    if '"' in v:
+        return "'" + v.replace("'", "''") + "'"
+    return v
+
+
+def _generate_app_yml(
     app_id: str,
     resolved: Dict[str, Optional[str]],
     *,
     use_workspace: bool,
 ) -> str:
-    """Generate snowflake.yml content from pre-resolved configuration values.
+    """Generate ``app.yml`` (Snowflake App Runtime v2) content.
 
-    Required keys: ``database``, ``schema``, ``warehouse``.
+    Emits the flat ``app.yml`` v2 manifest that the ``snow app`` commands read
+    instead of ``snowflake.yml``. Required keys: ``database``, ``schema``,
+    ``warehouse``. Optional key: ``build_eai`` (omitted when ``None``).
 
-    Optional keys: ``build_compute_pool``, ``service_compute_pool``,
-    ``build_eai``.  When omitted or ``None`` the corresponding block is left
-    out of the generated YAML.  ``build_compute_pool`` and
-    ``service_compute_pool`` should both be omitted when the backend opts
-    the account into managed compute pools (see
-    :data:`MANAGED_COMPUTE_POOL_PARAM`).  ``build_eai`` is omitted when no
-    external access integration is required by the builder service.
+    The manifest carries a single top-level *baseline* (no ``targets``), so
+    ``snow app deploy`` deploys it directly. ``package_name`` and
+    ``artifact_repo`` are omitted; they default to ``name`` and ``<name>_repo``
+    at deploy time. Code storage (``code_workspace`` / ``code_stage``) is also
+    omitted: ``snow app deploy`` picks the backend at deploy time — a workspace
+    when the destination is a personal database or the role can create one,
+    otherwise a ``<name>_CODE`` stage — so the manifest stays minimal and the
+    decision follows the role's actual privileges. The builder ``install`` /
+    ``build`` / ``run`` phases are likewise omitted; they default to the Node
+    conventions at deploy time.
 
-    The artifact repository is omitted from the generated YAML; the CLI
-    will default to ``<app-id>_REPO`` at deploy time.
-
-    When ``use_workspace`` is true (database resolved from the user's
-    personal database during ``snow app setup``), the generator emits
-    ``code_workspace`` as a fully-qualified identifier pointing at a shared
-    ``SNOWFLAKE_APPS`` workspace. Each app is uploaded into its own
-    subdirectory at deploy time, so a single workspace serves every app the
-    user owns.
-
-    Otherwise the generator emits ``code_stage`` as a bare stage name
-    resolved against the app's database and schema at deploy time.
+    ``use_workspace`` is accepted but unused — the code-storage backend is
+    resolved at deploy time rather than baked into ``app.yml``.
     """
-
-    database = resolved["database"]
-    schema = resolved["schema"]
-    warehouse = resolved["warehouse"]
-    build_compute_pool = resolved.get("build_compute_pool")
-    service_compute_pool = resolved.get("service_compute_pool")
+    database = cast(str, resolved["database"])
+    schema = cast(str, resolved["schema"])
+    warehouse = cast(str, resolved["warehouse"])
     build_eai = resolved.get("build_eai")
 
-    if use_workspace:
-        # Shared workspace: all of the user's apps live as subdirectories
-        # under a single ``SNOWFLAKE_APPS`` workspace in their personal DB.
-        # Fully-qualified so it does not implicitly depend on the resolved
-        # database/schema.
-        code_storage_block = (
-            f"\n            code_workspace: "
-            f"{database}.{schema}.{DEFAULT_PERSONAL_WORKSPACE_NAME}\n"
-        )
-    else:
-        code_storage_block = f"\n            code_stage: {app_id.upper()}_CODE\n"
-
-    build_compute_pool_block = (
-        f"\n            build_compute_pool:\n              name: {build_compute_pool}"
-        if build_compute_pool
-        else ""
-    )
-
-    service_compute_pool_block = (
-        f"\n            service_compute_pool:\n              name: {service_compute_pool}"
-        if service_compute_pool
-        else ""
-    )
-
-    build_eai_block = (
-        f"\n            build_eai:\n              name: {build_eai}"
-        if build_eai
-        else ""
-    )
-
-    raw = (
-        f"""\
-        definition_version: "2"
-
-        entities:
-          {app_id}:
-            type: snowflake-app
-            identifier:
-              name: {app_id.upper()}
-              database: {database}
-              schema: {schema}
-            artifacts:
-              - src: ./*
-                dest: ./
-                ignore:
-                  - node_modules
-                  - .env*
-                  - __pycache__
-                  - "*.pyc"
-                  - .next
-                  - .git
-                  - snowflake.log
-
-            query_warehouse: {warehouse}"""
-        + build_compute_pool_block
-        + service_compute_pool_block
-        + build_eai_block
-        + code_storage_block
-    )
-    return dedent(raw)
+    lines = [
+        "version: 2",
+        "",
+        f"name: {app_id.upper()}",
+        f"database: {_yaml_str(database)}",
+        f"schema: {_yaml_str(schema)}",
+        f"query_warehouse: {_yaml_str(warehouse)}",
+    ]
+    if build_eai:
+        lines.append(f"build_eai: {_yaml_str(build_eai)}")
+    lines += [
+        "",
+        "ignore:",
+        "  - node_modules",
+        "  - .env*",
+        "  - __pycache__",
+        '  - "*.pyc"',
+        "  - .next",
+        "  - .git",
+        "  - snowflake.log",
+    ]
+    return "\n".join(lines) + "\n"

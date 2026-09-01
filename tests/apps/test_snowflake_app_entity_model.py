@@ -37,6 +37,7 @@ class TestSnowflakeAppEntityModel:
         assert model.build_compute_pool is None
         assert model.service_compute_pool is None
         assert model.build_eai is None
+        assert model.service_eai is None
         assert model.artifact_repository is None
         assert model.code_stage is None
         assert model.meta is None
@@ -60,6 +61,7 @@ class TestSnowflakeAppEntityModel:
                 "database": "MY_DB",
             },
             build_eai={"name": "BUILD_EAI"},
+            service_eai={"name": "SERVICE_EAI"},
             artifact_repository={
                 "name": "ARTIFACT_REPO",
                 "schema": "MY_SCHEMA",
@@ -76,6 +78,7 @@ class TestSnowflakeAppEntityModel:
         assert model.service_compute_pool.schema_ == "MY_SCHEMA"
         assert model.service_compute_pool.database == "MY_DB"
         assert model.build_eai.name == "BUILD_EAI"
+        assert model.service_eai.name == "SERVICE_EAI"
         assert model.artifact_repository.name == "ARTIFACT_REPO"
         assert model.artifact_repository.schema_ == "MY_SCHEMA"
         assert model.artifact_repository.database == "MY_DB"
@@ -108,6 +111,15 @@ class TestSnowflakeAppEntityModel:
         )
         assert model.build_compute_pool.name == "MY_POOL"
 
+    def test_compute_pool_fields_hidden_from_json_schema(self):
+        """The compute-pool fields stay functional but are excluded from the
+        generated JSON schema (hidden/undocumented via SkipJsonSchema)."""
+        properties = SnowflakeAppEntityModel.model_json_schema()["properties"]
+        assert "build_compute_pool" not in properties
+        assert "service_compute_pool" not in properties
+        # Sibling fields remain documented.
+        assert "query_warehouse" in properties
+
     @pytest.mark.parametrize("value", [None, "null"])
     def test_eai_validator_none_values(self, value):
         """EAI validator accepts None and 'null' as None."""
@@ -116,8 +128,10 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=["app/*"],
             build_eai=value,
+            service_eai=value,
         )
         assert model.build_eai is None
+        assert model.service_eai is None
 
     def test_eai_validator_dict_value(self):
         """EAI validator passes through dict values."""
@@ -126,8 +140,10 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=["app/*"],
             build_eai={"name": "MY_EAI"},
+            service_eai={"name": "MY_SERVICE_EAI"},
         )
         assert model.build_eai.name == "MY_EAI"
+        assert model.service_eai.name == "MY_SERVICE_EAI"
 
     def test_eai_validator_bare_string(self):
         """``build_eai: MY_EAI`` (bare string) is treated as the integration
@@ -138,8 +154,10 @@ class TestSnowflakeAppEntityModel:
             identifier="my_app",
             artifacts=["app/*"],
             build_eai="MY_EAI",
+            service_eai="MY_SERVICE_EAI",
         )
         assert model.build_eai.name == "MY_EAI"
+        assert model.service_eai.name == "MY_SERVICE_EAI"
 
     def test_code_stage_defaults(self):
         """Code stage encryption_type defaults to SNOWFLAKE_SSE."""
@@ -247,6 +265,21 @@ class TestSnowflakeAppEntityModel:
                 code_workspace={"name": "MY_WORKSPACE"},
             )
 
+    @pytest.mark.parametrize(
+        "field", ["compute_resource", "url_prefix", "health_check"]
+    )
+    def test_cng_fields_are_rejected(self, field):
+        """CNG is an app.yml v2 feature only. The v1 entity model has no
+        ``compute_resource`` / ``url_prefix`` / ``health_check``, and
+        ``extra="forbid"`` means a snowflake.yml cannot smuggle them in."""
+        with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+            SnowflakeAppEntityModel(
+                type="snowflake-app",
+                identifier="my_app",
+                artifacts=["app/*"],
+                **{field: "SERVERLESS"},
+            )
+
 
 class TestSnowflakeAppInProjectDefinition:
     def test_snowflake_app_entity_in_project_definition(self):
@@ -332,6 +365,7 @@ class TestSnowflakeAppInProjectDefinition:
                         "database": "SVC_DB",
                     },
                     "build_eai": {"name": "BUILD_EAI"},
+                    "service_eai": {"name": "SERVICE_EAI"},
                     "artifact_repository": {
                         "name": "ARTIFACT_REPO",
                         "schema": "REPO_SCHEMA",
@@ -350,6 +384,7 @@ class TestSnowflakeAppInProjectDefinition:
         assert entity.service_compute_pool.schema_ == "SVC_SCHEMA"
         assert entity.service_compute_pool.database == "SVC_DB"
         assert entity.build_eai.name == "BUILD_EAI"
+        assert entity.service_eai.name == "SERVICE_EAI"
         assert entity.artifact_repository.name == "ARTIFACT_REPO"
         assert entity.artifact_repository.schema_ == "REPO_SCHEMA"
         assert entity.artifact_repository.database == "REPO_DB"

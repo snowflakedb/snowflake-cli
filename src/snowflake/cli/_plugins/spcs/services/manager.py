@@ -100,8 +100,7 @@ class ServiceManager(SqlExecutionMixin):
             query.append(f"COMMENT = {comment}")
 
         if tags:
-            tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
-            query.append(f"WITH TAG ({tag_list})")
+            query.append(Tag.to_sql_clause(tags))
 
         try:
             return self.execute_query(strip_empty_lines(query))
@@ -187,10 +186,7 @@ class ServiceManager(SqlExecutionMixin):
                 query.append(f"COMMENT = {comment}")
 
             if tags:
-                tag_list = ",".join(
-                    f"{t.name}={t.value_string_literal()}" for t in tags
-                )
-                query.append(f"WITH TAG ({tag_list})")
+                query.append(Tag.to_sql_clause(tags))
 
             try:
                 return self.execute_query(strip_empty_lines(query))
@@ -543,8 +539,8 @@ class ServiceManager(SqlExecutionMixin):
     def get_events(
         self,
         service_name: str,
-        instance_id: str,
-        container_name: str,
+        instance_id: str | None = None,
+        container_name: str | None = None,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
         first: Optional[int] = None,
@@ -571,7 +567,7 @@ class ServiceManager(SqlExecutionMixin):
                             {since_clause}
                             {until_clause}
                         )
-                        and record_type = 'LOG'
+                        and record_type = 'EVENT'
                         and scope['name'] = 'snow.spcs.platform'
                         order by timestamp desc
                         {last_clause}

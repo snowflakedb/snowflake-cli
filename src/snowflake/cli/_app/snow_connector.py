@@ -90,6 +90,7 @@ SUPPORTED_ENV_OVERRIDES = [
     "oauth_enable_single_use_refresh_tokens",
     "client_store_temporary_credential",
     "secondary_roles",
+    "server_session_keep_alive",
 ]
 
 # mapping of found key -> key to set
@@ -109,6 +110,7 @@ _BOOLEAN_ENV_OVERRIDE_KEYS = frozenset(
         "oauth_enable_refresh_tokens",
         "oauth_enable_single_use_refresh_tokens",
         "client_store_temporary_credential",
+        "server_session_keep_alive",
     }
 )
 
@@ -313,6 +315,15 @@ def _avoid_closing_the_connection_if_it_was_shared(
     using_session_token: bool, using_master_token: bool, connection_parameters: Dict
 ):
     if using_session_token and using_master_token:
+        if (
+            "server_session_keep_alive" in connection_parameters
+            and connection_parameters["server_session_keep_alive"] is False
+        ):
+            log.warning(
+                "Overriding server_session_keep_alive=False to True because "
+                "session/master token authentication requires keep-alive to prevent "
+                "the shared connection from being closed."
+            )
         connection_parameters["server_session_keep_alive"] = True
         connection_parameters["client_session_keep_alive"] = True
         # Workaround: the connector crashes with TypeError when

@@ -12,21 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import os
+import sys
+import warnings
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
+from click import ClickException
 from snowflake.cli.api.cli_global_context import fork_cli_context
 from snowflake.cli.api.config import (
     ConfigFileTooWidePermissionsError,
     ConnectionConfig,
+    apply_stdout_encoding,
     config_init,
     get_config_section,
     get_connection_dict,
     get_default_connection_dict,
+    get_encoding_diagnostics,
     get_env_variable_name,
+    get_file_io_encoding,
+    get_stdout_encoding,
+    get_subprocess_encoding,
     set_config_value,
 )
 from snowflake.cli.api.exceptions import (
@@ -431,31 +440,30 @@ def test_connections_toml_override_config_toml(
     }
 
 
-parametrize_chmod = pytest.mark.parametrize(
+parametrize_chmod_writable = pytest.mark.parametrize(
     "chmod",
     [
         0o777,
         0o770,
-        0o744,
-        0o740,
-        0o704,
         0o722,
         0o720,
         0o702,
-        0o711,
-        0o710,
-        0o701,
         0o677,
         0o670,
-        0o644,
-        0o640,
-        0o604,
         0o622,
         0o620,
         0o602,
-        0o611,
-        0o610,
-        0o601,
+    ],
+)
+parametrize_chmod_readable = pytest.mark.parametrize(
+    "chmod",
+    [
+        0o744,
+        0o740,
+        0o704,
+        0o644,
+        0o640,
+        0o604,
     ],
 )
 parametrize_icacls = pytest.mark.parametrize("permissions", ["F", "R", "RX", "M", "W"])
@@ -472,9 +480,9 @@ def _windows_grant_permissions(permissions: str, file: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-@parametrize_chmod
+@parametrize_chmod_writable
 @pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
-def test_too_wide_permissions_on_default_config_file_causes_error(
+def test_writable_permissions_on_default_config_file_causes_error(
     snowflake_home: Path, chmod
 ):
     config_path = snowflake_home / "config.toml"
@@ -483,6 +491,24 @@ def test_too_wide_permissions_on_default_config_file_causes_error(
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
+    assert "config.toml has too wide permissions" in error.value.message
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_readable_permissions_on_default_config_file_causes_error(
+    snowflake_home: Path, chmod
+):
+    """Readable-by-others default config raises when no skip env var is set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(chmod)
+
+    with mock.patch.dict("os.environ", {}) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+            config_init(None)
     assert "config.toml has too wide permissions" in error.value.message
 
 
@@ -568,9 +594,9 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permi
             clean_logging_handlers()
 
 
-@parametrize_chmod
+@parametrize_chmod_writable
 @pytest.mark.skipif(condition=IS_WINDOWS, reason="Unix-based permission system test")
-def test_too_wide_permissions_on_default_connections_file_causes_error(
+def test_writable_permissions_on_default_connections_file_causes_error(
     snowflake_home: Path, chmod
 ):
     config_path = snowflake_home / "config.toml"
@@ -581,6 +607,26 @@ def test_too_wide_permissions_on_default_connections_file_causes_error(
 
     with pytest.raises(ConfigFileTooWidePermissionsError) as error:
         config_init(None)
+    assert "connections.toml has too wide permissions" in error.value.message
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(condition=IS_WINDOWS, reason="Unix-based permission system test")
+def test_readable_permissions_on_default_connections_file_causes_error(
+    snowflake_home: Path, chmod
+):
+    """Readable-by-others connections.toml raises when no skip env var is set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(chmod)
+
+    with mock.patch.dict("os.environ", {}) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+            config_init(None)
     assert "connections.toml has too wide permissions" in error.value.message
 
 
@@ -616,11 +662,25 @@ def test_no_error_when_init_from_non_default_config(
 
 @pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
 @with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
-def test_strict_permissions_flag_enabled_rejects_wide_permissions(snowflake_home: Path):
-    """When ENFORCE_STRICT_CONFIG_PERMISSIONS is enabled, any group/other access causes error."""
+def test_strict_permissions_flag_readable_causes_error(snowflake_home: Path):
+    """With ENFORCE_STRICT_CONFIG_PERMISSIONS and no skip env var, readable-by-others raises."""
     with NamedTemporaryFile(suffix=".toml") as tmp:
         config_path = Path(tmp.name)
         config_path.chmod(0o644)  # Readable by group/others
+        with mock.patch.dict("os.environ", {}) as patched_env:
+            patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+            with pytest.raises(ConfigFileTooWidePermissionsError):
+                config_init(config_file=config_path)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_strict_permissions_flag_writable_causes_error(snowflake_home: Path):
+    """When ENFORCE_STRICT_CONFIG_PERMISSIONS is enabled, writable-by-others causes error."""
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(0o622)  # Writable by group/others
         with pytest.raises(ConfigFileTooWidePermissionsError) as error:
             config_init(config_file=config_path)
         assert "too wide permissions" in error.value.message
@@ -650,6 +710,228 @@ def test_invalid_strict_permissions_flag_defaults_to_false(
             config_path = Path(tmp.name)
             config_path.chmod(0o644)  # Wide permissions
             with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                config_init(config_file=config_path)
+
+
+# --- Permission relaxation via skip env vars ---
+#
+# By default a readable-by-others default config file raises. A connector skip
+# env var (public SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION or SPCS-injected
+# SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION) downgrades that error to a warning
+# and lets the CLI proceed. Writable-by-others always raises regardless.
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_skip_env_var_downgrades_readable_default_config_to_warning(
+    snowflake_home: Path, chmod
+):
+    """SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true downgrades the readable error to a warning."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ):
+        with pytest.warns(UserWarning, match="Bad owner or permissions"):
+            config_init(None)
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_spcs_env_var_downgrades_readable_default_config_to_warning(
+    snowflake_home: Path, chmod
+):
+    """SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=true (SPCS-injected) downgrades the readable error to a warning."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.warns(UserWarning, match="Bad owner or permissions"):
+            config_init(None)
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_skip_env_var_downgrades_readable_default_connections_to_warning(
+    snowflake_home: Path, chmod
+):
+    """Readable connections.toml is downgraded to a warning when the skip env var is set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ):
+        with pytest.warns(UserWarning, match="Bad owner or permissions"):
+            config_init(None)
+
+
+@parametrize_chmod_readable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_spcs_env_var_downgrades_readable_default_connections_to_warning(
+    snowflake_home: Path, chmod
+):
+    """Readable connections.toml is downgraded to a warning when the SPCS env var is set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.warns(UserWarning, match="Bad owner or permissions"):
+            config_init(None)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_skip_env_var_false_still_raises_on_readable_default_config(
+    snowflake_home: Path,
+):
+    """SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=false leaves the readable-by-others error in place."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o644)
+
+    with mock.patch.dict(
+        "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "false"}
+    ) as patched_env:
+        patched_env.pop("SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_spcs_env_var_false_still_raises_on_readable_default_config(
+    snowflake_home: Path,
+):
+    """SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION=false leaves the readable-by-others error in place."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o644)
+
+    with mock.patch.dict(
+        "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "false"}
+    ) as patched_env:
+        patched_env.pop("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", None)
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_primary_skip_env_var_takes_precedence_over_spcs(
+    snowflake_home: Path,
+):
+    """The public env var wins over the SPCS-injected one: primary=false raises even if SPCS=true."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(0o644)
+
+    with mock.patch.dict(
+        "os.environ",
+        {
+            "SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "false",
+            "SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true",
+        },
+    ):
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@parametrize_chmod_writable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_skip_env_var_does_not_bypass_writable_default_config(
+    snowflake_home: Path, chmod
+):
+    """Writable-by-others always raises, even with the skip env var set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ):
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@parametrize_chmod_writable
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_spcs_env_var_does_not_bypass_writable_default_connections(
+    snowflake_home: Path, chmod
+):
+    """Writable-by-others connections.toml always raises, even with the SPCS env var set."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    connections_path = snowflake_home / "connections.toml"
+    connections_path.touch()
+    connections_path.chmod(chmod)
+
+    with mock.patch.dict(
+        "os.environ", {"SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+    ):
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            config_init(None)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@pytest.mark.parametrize("mode", [0o711, 0o710, 0o701, 0o611, 0o610, 0o601])
+def test_execute_only_by_others_modes_cause_no_error_or_warning(
+    snowflake_home: Path,
+    mode: int,
+):
+    """Execute-only-by-others permissions are not flagged (matching connector behaviour)."""
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+    config_path.chmod(mode)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        config_init(None)  # No warning or error should be raised
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_custom_config_skip_env_var_downgrades_readable_to_warning_in_strict_mode(
+    snowflake_home: Path,
+):
+    """With ENFORCE strict + skip env var, a readable custom config is downgraded to a warning."""
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(0o644)
+
+        with mock.patch.dict(
+            "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+        ):
+            with pytest.warns(UserWarning, match="Bad owner or permissions"):
+                config_init(config_file=config_path)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_custom_config_env_var_does_not_suppress_writable_error(
+    snowflake_home: Path,
+):
+    """Writable-by-others still raises an error regardless of the skip env var."""
+    with NamedTemporaryFile(suffix=".toml") as tmp:
+        config_path = Path(tmp.name)
+        config_path.chmod(0o622)
+
+        with mock.patch.dict(
+            "os.environ", {"SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION": "true"}
+        ):
+            with pytest.raises(ConfigFileTooWidePermissionsError):
                 config_init(config_file=config_path)
 
 
@@ -691,6 +973,527 @@ def test_get_env_variable_name(path, key, expected):
     assert get_env_variable_name(*path, key=key) == expected
 
 
+@pytest.mark.parametrize("configured_encoding", [None, "utf-8", "cp1252"])
+def test_file_io_encoding_from_env(configured_encoding, monkeypatch):
+    """Test file I/O encoding respects environment variable configuration"""
+    if configured_encoding:
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", configured_encoding)
+    else:
+        monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+
+    encoding = get_file_io_encoding()
+    assert encoding == configured_encoding
+
+
+@pytest.mark.parametrize("configured_encoding", [None, "utf-8", "cp1252"])
+def test_subprocess_encoding_from_env(configured_encoding, monkeypatch):
+    """Test subprocess encoding respects environment variable configuration"""
+    if configured_encoding:
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", configured_encoding)
+    else:
+        monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+
+    encoding = get_subprocess_encoding()
+    assert encoding == configured_encoding
+
+
+def test_file_io_encoding_from_config_file(config_file):
+    """Test file I/O encoding can be configured in config.toml"""
+    config_content = """
+[cli.encoding]
+file_io = "cp1252"
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        encoding = get_file_io_encoding()
+        assert encoding == "cp1252"
+
+
+def test_subprocess_encoding_from_config_file(config_file):
+    """Test subprocess encoding can be configured in config.toml"""
+    config_content = """
+[cli.encoding]
+subprocess = "utf-8"
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        encoding = get_subprocess_encoding()
+        assert encoding == "utf-8"
+
+
+@pytest.mark.parametrize("configured_encoding", [None, "utf-8", "cp1252"])
+def test_stdout_encoding_from_env(configured_encoding, monkeypatch):
+    """Test stdout encoding respects environment variable configuration"""
+    if configured_encoding:
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", configured_encoding)
+    else:
+        monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
+
+    encoding = get_stdout_encoding()
+    assert encoding == configured_encoding
+
+
+def test_stdout_encoding_from_config_file(config_file, monkeypatch):
+    """Test stdout encoding can be configured in config.toml"""
+    # Monkeypatch sys.stdout so apply_stdout_encoding does not mutate the
+    # real stdout (which would corrupt subsequent tests on non-UTF-8 systems).
+    fake_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+    monkeypatch.setattr("sys.stdout", fake_stdout)
+
+    config_content = """
+[cli.encoding]
+stdout = "cp1252"
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        encoding = get_stdout_encoding()
+        assert encoding == "cp1252"
+
+
+def test_apply_stdout_encoding_reconfigures_stdout(monkeypatch):
+    """apply_stdout_encoding should call sys.stdout.reconfigure with the given encoding"""
+    mock_stdout = mock.MagicMock()
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+
+    apply_stdout_encoding("utf-8")
+
+    mock_stdout.reconfigure.assert_called_once_with(encoding="utf-8")
+
+
+def test_apply_stdout_encoding_none_is_noop(monkeypatch):
+    """apply_stdout_encoding(None) must not touch sys.stdout"""
+    mock_stdout = mock.MagicMock()
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+
+    apply_stdout_encoding(None)
+
+    mock_stdout.reconfigure.assert_not_called()
+
+
+def test_apply_stdout_encoding_survives_unsupported_operation(monkeypatch):
+    """apply_stdout_encoding must not crash when reconfigure raises UnsupportedOperation"""
+    mock_stdout = mock.MagicMock()
+    mock_stdout.reconfigure.side_effect = io.UnsupportedOperation("not writable")
+    monkeypatch.setattr("sys.stdout", mock_stdout)
+
+    apply_stdout_encoding("utf-8")  # should not raise
+
+
+def test_encoding_defaults_to_none(config_file):
+    """Test that encoding defaults to None (platform default) when not configured"""
+    config_content = ""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        assert get_file_io_encoding() is None
+        assert get_subprocess_encoding() is None
+        assert get_stdout_encoding() is None
+
+
+@pytest.mark.parametrize("show_warnings", [True, False, None])
+def test_should_show_encoding_warnings(config_file, show_warnings):
+    """Test should_show_encoding_warnings respects configuration"""
+    if show_warnings is None:
+        config_content = ""
+    else:
+        config_content = f"""
+[cli.encoding]
+show_warnings = {str(show_warnings).lower()}
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import should_show_encoding_warnings
+
+        result = should_show_encoding_warnings()
+        # Default is True when not configured
+        expected = True if show_warnings is None else show_warnings
+        assert result == expected
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Unix only")
+def test_unix_utf8_locale_no_warning(config_file, monkeypatch):
+    """Test that Unix users with UTF-8 locale see no encoding warnings"""
+
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            # Verify no warnings were issued
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert (
+                len(encoding_warnings) == 0
+            ), f"Unexpected encoding warnings: {[str(warning.message) for warning in encoding_warnings]}"
+
+        from snowflake.cli.api.config import get_file_io_encoding
+
+        # No configuration set - platform default will be used
+        encoding = get_file_io_encoding()
+        assert encoding is None
+
+
+def test_detect_encoding_mismatch_warning(config_file, monkeypatch):
+    """Test warning when different encodings are detected"""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with pytest.warns(UserWarning, match="Encoding mismatch detected"):
+            config_init(cfg)
+
+
+def test_detect_encoding_no_warning_when_configured(config_file, monkeypatch):
+    """Test no warning when both encodings are explicitly configured"""
+
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    # Pin this so the assertion below doesn't depend on the console this
+    # test happens to run in (e.g. a real Windows box with a non-UTF-8
+    # console codepage).
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: False,
+    )
+    # Monkeypatch sys.stdout so apply_stdout_encoding does not mutate the
+    # real stdout stream (which would corrupt subsequent tests on non-UTF-8 systems).
+    fake_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+    monkeypatch.setattr("sys.stdout", fake_stdout)
+
+    config_content = """
+[cli.encoding]
+file_io = "utf-8"
+subprocess = "utf-8"
+stdout = "utf-8"
+"""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            # Verify no encoding warnings were issued
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert (
+                len(encoding_warnings) == 0
+            ), f"Unexpected encoding warnings: {[str(warning.message) for warning in encoding_warnings]}"
+
+
+def test_detect_encoding_no_warning_when_warnings_disabled(config_file, monkeypatch):
+    """Test no warning when show_warnings is disabled"""
+
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+
+    config_content = """
+[cli.encoding]
+show_warnings = false
+"""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            # Verify no encoding warnings were issued
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert (
+                len(encoding_warnings) == 0
+            ), f"Unexpected encoding warnings: {[str(warning.message) for warning in encoding_warnings]}"
+
+
+def test_detect_encoding_non_utf8_warning(config_file, monkeypatch):
+    """Test warning when platform encoding is not UTF-8"""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with pytest.warns(UserWarning, match="Encoding mismatch detected"):
+            config_init(cfg)
+
+
+def test_detect_encoding_console_warning_when_platform_encoding_clean(
+    config_file, monkeypatch
+):
+    """When platform encodings already agree, a misconfigured console still
+    triggers its own warning pointing at the chcp.com fix and PS docs."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: True,
+    )
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with pytest.warns(UserWarning, match="Console is not configured"):
+            config_init(cfg)
+
+
+def test_detect_encoding_console_warning_when_cli_encoding_configured(
+    config_file, monkeypatch
+):
+    """A misconfigured console still warns even when all CLI encoding
+    options are explicitly configured."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: True,
+    )
+    fake_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+    monkeypatch.setattr("sys.stdout", fake_stdout)
+
+    config_content = """
+[cli.encoding]
+file_io = "utf-8"
+subprocess = "utf-8"
+stdout = "utf-8"
+"""
+    with config_file(config_content) as cfg:
+        with pytest.warns(UserWarning, match="Console is not configured"):
+            config_init(cfg)
+
+
+def test_detect_encoding_no_console_warning_when_console_configured(
+    config_file, monkeypatch
+):
+    """No console warning once the console itself is UTF-8."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: False,
+    )
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert (
+                len(encoding_warnings) == 0
+            ), f"Unexpected encoding warnings: {[str(warning.message) for warning in encoding_warnings]}"
+
+
+def test_detect_encoding_mismatch_warning_suppresses_console_warning(
+    config_file, monkeypatch
+):
+    """Only the mismatch warning fires when both conditions are true — the
+    console-specific warning is redundant once the general one already
+    points at 'snow helpers detect-encoding'."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: True,
+    )
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+            encoding_warnings = [
+                warning for warning in w if "encoding" in str(warning.message).lower()
+            ]
+            assert len(encoding_warnings) == 1
+            assert "Encoding mismatch detected" in str(encoding_warnings[0].message)
+
+
+@pytest.mark.parametrize(
+    "env_value,config_value,expected",
+    [
+        ("utf-8", None, "utf-8"),  # env takes precedence
+        (None, "cp1252", "cp1252"),  # config used when no env
+        ("utf-8", "cp1252", "utf-8"),  # env overrides config
+        (None, None, None),  # both unset
+    ],
+)
+def test_encoding_env_overrides_config(
+    config_file, monkeypatch, env_value, config_value, expected
+):
+    """Test environment variables override config file for encoding settings"""
+    if env_value:
+        monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", env_value)
+    else:
+        monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+
+    if config_value:
+        config_content = f"""
+[cli.encoding]
+file_io = "{config_value}"
+"""
+    else:
+        config_content = ""
+
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import get_file_io_encoding
+
+        assert get_file_io_encoding() == expected
+
+
+def test_invalid_encoding_from_env_raises_error(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "not-a-real-encoding")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "not-a-real-encoding")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "not-a-real-encoding")
+
+    with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
+        get_file_io_encoding()
+
+    with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
+        get_subprocess_encoding()
+
+    with pytest.raises(ClickException, match="Invalid encoding 'not-a-real-encoding'"):
+        get_stdout_encoding()
+
+
+def test_invalid_encoding_from_config_file_raises_error(
+    config_file,
+    monkeypatch,
+):
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
+
+    config_content = f"""
+[cli.encoding]
+file_io = "not-a-real-encoding"
+subprocess = "not-a-real-encoding"
+show_warnings = false
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        with pytest.raises(
+            ClickException, match="Invalid encoding 'not-a-real-encoding'"
+        ):
+            get_file_io_encoding()
+
+        with pytest.raises(
+            ClickException, match="Invalid encoding 'not-a-real-encoding'"
+        ):
+            get_subprocess_encoding()
+
+
+def test_invalid_stdout_encoding_from_config_file_raises_during_init(
+    config_file,
+    monkeypatch,
+):
+    """Invalid stdout encoding raises a ClickException during config_init (applied eagerly)."""
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
+
+    config_content = """
+[cli.encoding]
+stdout = "not-a-real-encoding"
+show_warnings = false
+"""
+    with config_file(config_content) as cfg:
+        with pytest.raises(
+            ClickException, match="Invalid encoding 'not-a-real-encoding'"
+        ):
+            config_init(cfg)
+
+
+def test_read_config_file_toml_uses_platform_default_encoding():
+    """_read_config_file_toml always uses platform default encoding regardless of file_io config."""
+    from snowflake.cli.api.config import _read_config_file_toml
+
+    mock_path = mock.MagicMock()
+    mock_path.read_text.return_value = ""
+    with mock.patch("snowflake.cli.api.config.get_config_manager") as mock_mgr:
+        mock_mgr.return_value.file_path = mock_path
+        _read_config_file_toml()
+        mock_path.read_text.assert_called_once_with()
+
+
+def test_read_connections_toml_uses_platform_default_encoding(monkeypatch, config_file):
+    """_read_connections_toml always uses platform default encoding regardless of file_io config."""
+    config_content = '[cli.encoding]\nfile_io = "cp1252"\n'
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _read_connections_toml
+
+        with mock.patch(
+            "snowflake.cli.api.config.get_connections_file"
+        ) as mock_conn_file:
+            mock_path = mock.MagicMock()
+            mock_path.read_text.return_value = ""
+            mock_conn_file.return_value = mock_path
+            _read_connections_toml()
+            mock_path.read_text.assert_called_once_with()
+
+
+def test_update_connections_toml_uses_platform_default_encoding(
+    monkeypatch, config_file
+):
+    """_update_connections_toml always uses platform default encoding regardless of file_io config."""
+    config_content = '[cli.encoding]\nfile_io = "cp1252"\n'
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        from snowflake.cli.api.config import _update_connections_toml
+
+        with mock.patch(
+            "snowflake.cli.api.config.get_connections_file"
+        ) as mock_conn_file, mock.patch("builtins.open") as mock_open:
+            mock_conn_file.return_value = mock.MagicMock()
+            mock_open.return_value.__enter__ = lambda s: s
+            mock_open.return_value.__exit__ = mock.Mock(return_value=False)
+            mock_open.return_value.write = mock.Mock()
+            _update_connections_toml({})
+            mock_open.assert_called_once_with(mock_conn_file.return_value, "w")
+
+
+def test_connections_toml_round_trip(monkeypatch, tmp_path, config_file):
+    """Write and read connections.toml; non-ASCII content survives the round trip."""
+    from snowflake.cli.api.config import (
+        _read_connections_toml,
+        _update_connections_toml,
+    )
+
+    connections_toml = tmp_path / "connections.toml"
+    connections_toml.write_text("")
+
+    with config_file("") as cfg:
+        config_init(cfg)
+        monkeypatch.setattr(
+            "snowflake.cli.api.config.get_connections_file", lambda: connections_toml
+        )
+
+        original = {"myconn": {"password": "pässwörð"}}
+        _update_connections_toml(original)
+        result = _read_connections_toml()
+
+    assert result == original
+
+
 @pytest.mark.parametrize("bad_value", ["just-a-string", 42, True, ["a", "b"]])
 def test_connection_config_from_dict_rejects_non_mapping(bad_value):
     with pytest.raises(InvalidConnectionConfigurationError) as exc_info:
@@ -717,3 +1520,117 @@ def test_connection_config_from_dict_preserves_known_and_other_settings():
         "user": "u",
         "custom_setting": "value",
     }
+
+
+@pytest.mark.parametrize(
+    "alias",
+    ["utf8", "UTF8", "UTF_8", "u8"],
+)
+def test_encoding_alias_no_false_mismatch_warning(config_file, monkeypatch, alias):
+    """Platforms reporting a utf-8 alias (e.g. 'utf8') must not trigger a mismatch
+    warning — they are equivalent to 'utf-8' after codecs.lookup normalisation."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: alias)
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: alias)
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: alias)
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+        encoding_warnings = [
+            warning for warning in w if "encoding" in str(warning.message).lower()
+        ]
+        assert len(encoding_warnings) == 0, (
+            f"Alias {alias!r} should normalise to 'utf-8' and produce no warning, "
+            f"got: {[str(x.message) for x in encoding_warnings]}"
+        )
+
+
+def test_encoding_mixed_aliases_no_false_mismatch_warning(config_file, monkeypatch):
+    """utf-8 and utf8 are the same codec; mixing aliases must not trigger a mismatch."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "UTF_8")
+
+    config_content = ""
+    with config_file(config_content) as cfg:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(cfg)
+
+        encoding_warnings = [
+            warning for warning in w if "encoding" in str(warning.message).lower()
+        ]
+        assert len(encoding_warnings) == 0, (
+            f"Mixed utf-8 aliases should produce no warning, "
+            f"got: {[str(x.message) for x in encoding_warnings]}"
+        )
+
+
+# ── get_encoding_diagnostics tests ───────────────────────────────────────────
+
+
+def test_encoding_diagnostics_clean_system(monkeypatch):
+    """All three platform encodings agree on utf-8 → no issues."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: False,
+    )
+
+    result = get_encoding_diagnostics()
+    assert result == "No encoding issues - your system is properly configured."
+
+
+def test_encoding_diagnostics_mismatch(monkeypatch):
+    """Different encodings across the three sources → mismatch report."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+
+    result = get_encoding_diagnostics()
+    assert "Encoding mismatch detected" in result
+    assert "cp1252" in result
+    assert "utf-8" in result
+    assert "utf-16" in result
+    assert "PYTHONUTF8" in result
+
+
+def test_encoding_diagnostics_non_utf8(monkeypatch):
+    """Single consistent non-utf-8 encoding → platform encoding report."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
+
+    result = get_encoding_diagnostics()
+    assert "cp1252" in result
+    assert "utf-8" in result
+    assert "PYTHONUTF8" in result
+    assert "No encoding issues" not in result
+
+
+def test_encoding_diagnostics_both_configured(monkeypatch):
+    """When all CLI encodings are explicitly configured → no issues reported."""
+    monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
+    monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
+    monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "utf-8")
+    monkeypatch.setattr(
+        "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
+        lambda: False,
+    )
+
+    result = get_encoding_diagnostics()
+    assert result == "No encoding issues - your system is properly configured."

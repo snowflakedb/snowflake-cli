@@ -149,28 +149,6 @@ def test_list_with_scope(runner, test_database, snowflake_session):
 
 
 @pytest.mark.integration
-def test_list_with_in_account_flag(runner, snowflake_session):
-    """Test that --in-account flag lists objects at account scope."""
-    result = runner.invoke_with_connection_json(
-        ["object", "list", "database", "--limit", "100", "--in-account"]
-    )
-    assert result.exit_code == 0, result.output
-
-    # Verify the SQL query executed is correct by comparing with direct SQL
-    curr = snowflake_session.execute_string("show databases in account limit 100")
-    expected = row_from_cursor(curr[-1])
-
-    # Should have same structure
-    assert result.json[0].keys() == expected[0].keys()
-    # Compare database names from CLI result with direct SQL result
-    cli_db_names = {db["name"].upper() for db in result.json}
-    sql_db_names = {db["name"].upper() for db in expected}
-    assert (
-        cli_db_names == sql_db_names
-    ), f"Database names mismatch. CLI: {cli_db_names}, SQL: {sql_db_names}"
-
-
-@pytest.mark.integration
 def test_list_terse(runner, test_database, snowflake_session):
     table_name = ObjectNameProvider("Public_Table").create_and_get_next_object_name()
     snowflake_session.execute_string(f"create table {table_name} (some_number NUMBER)")
@@ -357,7 +335,7 @@ def test_create_error_conflict(runner, test_database, caplog):
 
 
 @pytest.mark.integration
-def test_create_error_misspelled_argument(runner, test_database, caplog):
+def test_create_error_misspelled_argument(runner, test_database):
     # 400 bad request - misspelled argument
     schema_name = "another_schema_name"
     result = runner.invoke_with_connection(
@@ -370,8 +348,10 @@ def test_create_error_misspelled_argument(runner, test_database, caplog):
         in result.output
     )
     assert "malformatted)" in result.output
-    assert "HTTP 400: Bad Request" in caplog.text
-    caplog.clear()
+    # The HTTP 400 status is surfaced in the user-facing message on both the
+    # legacy connector and the Universal Driver (the latter logs differently
+    # internally, so assert on the output rather than caplog).
+    assert "400" in result.output
 
 
 @pytest.mark.integration

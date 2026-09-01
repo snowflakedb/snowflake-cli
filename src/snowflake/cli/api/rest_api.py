@@ -16,17 +16,22 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import parse_qsl, urlencode, urlparse
 
 from click import ClickException
 from snowflake.cli.api.constants import SF_REST_API_URL_PREFIX
 from snowflake.connector.connection import SnowflakeConnection
 
-if TYPE_CHECKING:
-    from snowflake.connector.network import SnowflakeRestful
-
 log = logging.getLogger(__name__)
+
+# HTTP header names and content type used for Snowflake REST API requests.
+# Defined natively so the CLI does not depend on connector internals
+# (``snowflake.connector.network``), which differ between connector versions.
+CONTENT_TYPE_APPLICATION_JSON = "application/json"
+HTTP_HEADER_CONTENT_TYPE = "Content-Type"
+HTTP_HEADER_ACCEPT = "accept"
+HTTP_HEADER_USER_AGENT = "User-Agent"
 
 
 def _pluralize_object_type(object_type: str) -> str:
@@ -42,38 +47,52 @@ def _pluralize_object_type(object_type: str) -> str:
 class RestApi:
     def __init__(self, connection: SnowflakeConnection):
         self.conn = connection
-        self.rest: "SnowflakeRestful" = connection.rest
+        self.rest = connection.rest
 
     def get_endpoint_exists(self, url: str) -> bool:
         """
         Check whether [get] endpoint exists under given URL.
         """
+        from snowflake.cli.api.connector_errors import (
+            HTTP_FAILURE_ERRORS,
+            get_http_status_code,
+        )
         from snowflake.connector.errors import BadRequest
-        from snowflake.connector.vendored.requests.exceptions import HTTPError  # noqa
 
         try:
             self.send_rest_request(url, method="get")
             return True
         except BadRequest:
             return True
-        except HTTPError as err:
-            if err.response.status_code == 404:
+        except HTTP_FAILURE_ERRORS as err:
+            code = get_http_status_code(err)
+            if code == 404:
                 return False
-            raise err
+            # 400 means the endpoint exists but the probe query was rejected
+            # (e.g. result set too large) -- treated as "exists", same as the
+            # connector-v4 BadRequest branch above.
+            if code == 400:
+                return True
+            raise
 
     def _fetch_endpoint_exists(self, url: str) -> bool:
+        from snowflake.cli.api.connector_errors import (
+            HTTP_FAILURE_ERRORS,
+            get_http_status_code,
+        )
         from snowflake.connector.errors import BadRequest
-        from snowflake.connector.vendored.requests.exceptions import HTTPError  # noqa
 
         try:
             result = self.send_rest_request(url, method="get")
             return bool(result)
         except BadRequest:
             return False
-        except HTTPError as err:
-            if err.response.status_code == 404:
+        except HTTP_FAILURE_ERRORS as err:
+            # 404 (not found) and 400 (bad request, see get_endpoint_exists)
+            # both map to the connector-v4 behaviour of returning False.
+            if get_http_status_code(err) in (404, 400):
                 return False
-            raise err
+            raise
 
     def send_rest_request(
         self, url: str, method: str, data: Optional[Dict[str, Any]] = None
@@ -83,21 +102,16 @@ class RestApi:
         """
         # SnowflakeRestful.request assumes that API response is always a dict,
         # which is not true in case of this API, so we need to do this workaround:
-        from snowflake.connector.network import (
-            CONTENT_TYPE_APPLICATION_JSON,
-            HTTP_HEADER_ACCEPT,
-            HTTP_HEADER_CONTENT_TYPE,
-            HTTP_HEADER_USER_AGENT,
-            PYTHON_CONNECTOR_USER_AGENT,
-        )
+        from snowflake.cli.api.connector_errors import get_user_agent
 
         log.debug("Sending %s request to %s", method, url)
         full_url = f"{self.rest.server_url}{url}"
         headers = {
             HTTP_HEADER_CONTENT_TYPE: CONTENT_TYPE_APPLICATION_JSON,
             HTTP_HEADER_ACCEPT: CONTENT_TYPE_APPLICATION_JSON,
-            HTTP_HEADER_USER_AGENT: PYTHON_CONNECTOR_USER_AGENT,
         }
+        if user_agent := get_user_agent(self.rest):
+            headers[HTTP_HEADER_USER_AGENT] = user_agent
         return self.rest.fetch(
             method=method,
             full_url=full_url,

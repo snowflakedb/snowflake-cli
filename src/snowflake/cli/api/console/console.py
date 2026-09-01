@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from typing import Optional
 
 from rich import get_console
+from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.style import Style
@@ -31,6 +32,8 @@ get_console().soft_wrap = True
 
 # Disable markup to avoid escaping errors
 get_console()._markup = False  # noqa: SLF001
+
+_stderr_console = Console(stderr=True, soft_wrap=True, markup=False)
 
 PHASE_STYLE: Style = Style(bold=True)
 SPINNER_STYLE: Style = Style(bold=True)
@@ -145,6 +148,13 @@ class CliConsole(AbstractConsole):
         This should be used to display important messages to the console."""
         text = self._format_message(message, Output.IMPORTANT)
         self._print(text)
+
+    def stderr_warning(self, message: str):
+        """Like ``warning``, but writes to stderr so structured stdout stays clean."""
+        if self.is_silent:
+            return
+        text = self._format_message(message, Output.IMPORTANT)
+        _stderr_console.print(text)
 
     def panel(self, message: str):
         """Displays a message in a panel."""

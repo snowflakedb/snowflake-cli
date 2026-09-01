@@ -101,6 +101,41 @@ class BaseSqlExecutor:
         *_, last_result = list(self.execute_string(query, **kwargs))
         return last_result
 
+    def _execute_query_with_params(
+        self,
+        query: str,
+        params: list | tuple | dict | None,
+        *,
+        is_async: bool,
+    ) -> SnowflakeCursor:
+        self._log.debug("Executing with params: %s", query)
+        cursor = self._conn.cursor()
+        execute = cursor.execute_async if is_async else cursor.execute
+        execute(query, params, _force_qmark_paramstyle=True)
+        return cursor
+
+    def execute_query_with_params(
+        self,
+        query: str,
+        params: list | tuple | dict | None = None,
+    ) -> SnowflakeCursor:
+        """Executes a single SQL query with bind parameters.
+
+        Unlike execute_query(), this calls cursor.execute() directly instead
+        of going through execute_stream() (which never forwards bind
+        params), and forces qmark paramstyle so a literal `?` in the query
+        text is bound server-side rather than client-side.
+        """
+        return self._execute_query_with_params(query, params, is_async=False)
+
+    def execute_query_with_params_async(
+        self,
+        query: str,
+        params: list | tuple | dict | None = None,
+    ) -> SnowflakeCursor:
+        """Same as execute_query_with_params(), but executes asynchronously."""
+        return self._execute_query_with_params(query, params, is_async=True)
+
     def execute_queries(self, queries: str, **kwargs):
         """Executes multiple SQL queries (passed as one string) and returns the results as a list"""
 

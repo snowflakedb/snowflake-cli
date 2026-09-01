@@ -16,13 +16,37 @@ from typing import List, Optional
 
 import typer
 from snowflake.cli._plugins.connection.util import get_account_identifier
+from snowflake.cli._plugins.dcm.env import resolve_declared_env_vars
 from snowflake.cli._plugins.dcm.exceptions import (
     InvalidManifestError,
     ManifestConfigurationError,
     ManifestNotFoundError,
 )
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
-from snowflake.cli._plugins.dcm.models import DCMManifest, DCMTarget, TargetContext
+from snowflake.cli._plugins.dcm.models import (
+    DCMAsset,
+    DCMManifest,
+    DCMTarget,
+    TargetContext,
+)
+from snowflake.cli._plugins.dcm.multistep_progress import (
+    MultiStepProgress,
+    StepDefinition,
+    progress_session,
+)
+from snowflake.cli._plugins.dcm.progress import (
+    ANALYZE,
+    COMPILE,
+    DEPLOY,
+    PLAN,
+    PREVIEW,
+    PURGE,
+    REFRESH,
+    RENDER,
+    TEST,
+    UPLOAD,
+    ServerPoll,
+)
 from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
     PlanReporter,
@@ -30,8 +54,10 @@ from snowflake.cli._plugins.dcm.reporters import (
     TestReporter,
 )
 from snowflake.cli._plugins.dcm.utils import (
-    clear_command_artifacts,
+    RAW_ANALYZE_COMMAND_NAME,
+    command_artifacts,
     mock_dcm_response,
+    output_stage,
 )
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -44,6 +70,7 @@ from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     InteractiveOption,
     LocalDirectoryType,
+    LocalFileType,
     identifier_argument,
     like_option,
     variables_option,
@@ -64,13 +91,13 @@ from snowflake.cli.api.project.util import same_identifiers
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
 app = SnowTyperFactory(
     name="dcm",
     help="Manages DCM Projects in Snowflake.",
-    is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS.is_disabled,
 )
 
 dcm_identifier = identifier_argument(sf_object="DCM Project", example="MY_PROJECT")
@@ -125,6 +152,18 @@ save_output_option = typer.Option(
     False,
     "--save-output",
     help="Save command response and artifacts to local 'out/' directory.",
+)
+
+env_file_option = typer.Option(
+    None,
+    "--env-file",
+    "-e",
+    help="Path to a KEY=VALUE file to load as environment variables. "
+    "Shell variables take precedence — file values are only used for "
+    "names not already set in the shell.",
+    show_default=False,
+    click_type=LocalFileType(),
+    hidden=not FeatureFlag.ENABLE_DCM_PROJECT_ENV_VARS.is_enabled(),
 )
 
 
@@ -257,6 +296,8 @@ def _resolve_target_context(
     return TargetContext(
         project_identifier=project_id,
         configuration=effective_target.templating_config,
+        declared_variable_names=manifest.templating.declared_variable_names,
+        assets=list(manifest.assets.values()),
     )
 
 
@@ -312,6 +353,39 @@ add_object_command_aliases(
 )
 
 
+def _upload_step(
+    progress: MultiStepProgress,
+    manager: DCMProjectManager,
+    project_id: FQN,
+    from_location: SecurePath,
+    assets: List[DCMAsset],
+) -> str:
+    return progress.run_step(
+        UPLOAD.key,
+        lambda step: manager.sync_local_files(
+            project_identifier=project_id,
+            source_directory=str(from_location.path),
+            progress=step,
+            assets=assets,
+        ),
+    )
+
+
+def _server_steps(steps: List[StepDefinition], skip_plan: bool) -> List[StepDefinition]:
+    if skip_plan:
+        return [step for step in steps if step != PLAN]
+    return steps
+
+
+def _run_server_poll(
+    manager: DCMProjectManager,
+    progress: MultiStepProgress,
+    server_steps: List[StepDefinition],
+    sfqid: str,
+) -> SnowflakeCursor:
+    return ServerPoll(manager.connection, progress, server_steps, sfqid).run()
+
+
 @app.command(requires_connection=True)
 def deploy(
     identifier: Optional[FQN] = optional_dcm_identifier,
@@ -320,6 +394,7 @@ def deploy(
     alias: Optional[str] = alias_option,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    env_file: Optional[SecurePath] = env_file_option,
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
@@ -331,32 +406,40 @@ def deploy(
     """
     Deploys local project changes to Snowflake by creating, altering, or dropping objects to match your definition files.
     """
-    clear_command_artifacts("deploy")
+    with command_artifacts(save_output):
 
-    context = _resolve_context_with_required_manifest(from_location, identifier, target)
-    project_id = context.project_identifier
-
-    manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
-
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Deploying dcm project {project_id}", total=None)
-        if skip_plan:
-            cli_console.warning("Skipping planning step")
-        result = manager.deploy(
-            project_identifier=project_id,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            alias=alias,
-            skip_plan=skip_plan,
+        context = _resolve_context_with_required_manifest(
+            from_location, identifier, target
         )
+        project_id = context.project_identifier
+        env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-    reporter = PlanReporter(save_output=save_output, command_name="deploy")
-    return reporter.process(result)
+        server_steps = _server_steps([RENDER, COMPILE, PLAN, DEPLOY], skip_plan)
+        progress = MultiStepProgress([UPLOAD, *server_steps])
+        with progress_session(progress):
+            if skip_plan:
+                cli_console.warning("Skipping planning step")
+
+            manager = DCMProjectManager()
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
+            sfqid = manager.deploy_async(
+                project_identifier=project_id,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                alias=alias,
+                skip_plan=skip_plan,
+                env_vars=env_vars,
+            )
+            result = _run_server_poll(manager, progress, server_steps, sfqid)
+
+        reporter = PlanReporter(
+            save_output=save_output,
+            command_name="deploy",
+        )
+        return reporter.process(result)
 
 
 _PURGE_CONFIRM_COMMAND = "PURGE"
@@ -410,30 +493,39 @@ def purge(
     """
     Drops all the objects managed by the DCM Project, but does not drop the project itself.
     """
-    clear_command_artifacts("purge")
+    with command_artifacts(save_output):
 
-    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
-    project_id = context.project_identifier
-
-    if not force and not interactive:
-        raise CliError(
-            "Cannot purge the DCM project non-interactively without --force."
+        context = _resolve_context_with_optional_manifest(
+            from_location, identifier, target
         )
-    if not force:
-        _confirm_purge(project_id)
+        project_id = context.project_identifier
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Purging dcm project {project_id}", total=None)
-        if skip_plan:
-            cli_console.warning("Skipping planning step")
-        result = DCMProjectManager().purge(
-            project_identifier=project_id,
-            alias=alias,
-            skip_plan=skip_plan,
+        if not force and not interactive:
+            raise CliError(
+                "Cannot purge the DCM project non-interactively without --force."
+            )
+        if not force:
+            _confirm_purge(project_id)
+
+        server_steps = _server_steps([PLAN, PURGE], skip_plan)
+        progress = MultiStepProgress(server_steps)
+        with progress_session(progress):
+            if skip_plan:
+                cli_console.warning("Skipping planning step")
+
+            manager = DCMProjectManager()
+            sfqid = manager.purge_async(
+                project_identifier=project_id,
+                alias=alias,
+                skip_plan=skip_plan,
+            )
+            result = _run_server_poll(manager, progress, server_steps, sfqid)
+
+        reporter = PlanReporter(
+            save_output=save_output,
+            command_name="purge",
         )
-
-    reporter = PlanReporter(save_output=save_output, command_name="purge")
-    return reporter.process(result)
+        return reporter.process(result)
 
 
 @app.command(requires_connection=True)
@@ -444,41 +536,50 @@ def plan(
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    env_file: Optional[SecurePath] = env_file_option,
     delta: bool = typer.Option(
         False,
         "--delta",
         help="Process only statements changed since the last `deploy`, plus statements potentially impacted by those changes.",
-        hidden=not FeatureFlag.ENABLE_DCM_EARLY_ACCESS.is_enabled(),
     ),
     **options,
 ):
     """
     Shows what objects would be created, altered, or dropped by the `deploy` command, without applying any changes.
     """
-    clear_command_artifacts("plan")
-
-    context = _resolve_context_with_required_manifest(from_location, identifier, target)
-    project_id = context.project_identifier
-
-    manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
-
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Planning dcm project {project_id}", total=None)
-        result = manager.plan(
-            project_identifier=project_id,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            save_output=save_output,
-            delta=delta,
+    with command_artifacts(save_output):
+        context = _resolve_context_with_required_manifest(
+            from_location, identifier, target
         )
+        project_id = context.project_identifier
+        env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-    reporter = PlanReporter(save_output=save_output, command_name="plan")
-    return reporter.process(result)
+        server_steps = [RENDER, COMPILE, PLAN]
+        progress = MultiStepProgress([UPLOAD, *server_steps])
+        with progress_session(progress):
+            manager = DCMProjectManager()
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
+            with output_stage(
+                project_id, command_name="plan", save_output=save_output
+            ) as output_path:
+                sfqid = manager.plan_async(
+                    project_identifier=project_id,
+                    configuration=context.configuration,
+                    from_stage=effective_stage,
+                    variables=variables,
+                    delta=delta,
+                    output_path=output_path,
+                    env_vars=env_vars,
+                )
+                result = _run_server_poll(manager, progress, server_steps, sfqid)
+
+        reporter = PlanReporter(
+            save_output=save_output,
+            command_name="plan",
+        )
+        return reporter.process(result)
 
 
 @app.command(requires_connection=True, hidden=True)
@@ -488,32 +589,43 @@ def raw_analyze(
     variables: Optional[List[str]] = variables_flag,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
+    env_file: Optional[SecurePath] = env_file_option,
     **options,
 ):
     """Analyzes a DCM Project."""
-    clear_command_artifacts("raw-analyze")
+    with command_artifacts(save_output):
 
-    context = _resolve_context_with_required_manifest(from_location, identifier, target)
-    project_id = context.project_identifier
-
-    manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
-
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Analyzing dcm project {project_id}", total=None)
-        result = manager.raw_analyze(
-            project_identifier=project_id,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            save_output=save_output,
+        context = _resolve_context_with_required_manifest(
+            from_location, identifier, target
         )
+        project_id = context.project_identifier
+        env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-    reporter = AnalyzeReporter(save_output=save_output)
-    return reporter.process(result)
+        progress = MultiStepProgress([UPLOAD, ANALYZE])
+        with progress_session(progress):
+            manager = DCMProjectManager()
+            effective_stage = _upload_step(
+                progress, manager, project_id, from_location, assets=context.assets
+            )
+            with output_stage(
+                project_id,
+                command_name=RAW_ANALYZE_COMMAND_NAME,
+                save_output=save_output,
+            ) as output_path:
+                result = progress.run_step(
+                    ANALYZE.key,
+                    lambda step: manager.raw_analyze(
+                        project_identifier=project_id,
+                        configuration=context.configuration,
+                        from_stage=effective_stage,
+                        variables=variables,
+                        output_path=output_path,
+                        env_vars=env_vars,
+                    ),
+                )
+
+        reporter = AnalyzeReporter(save_output=save_output)
+        return reporter.process(result)
 
 
 @app.command(requires_connection=True)
@@ -660,7 +772,10 @@ def drop_deployment(
     )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 def preview(
     identifier: Optional[FQN] = optional_dcm_identifier,
     object_identifier: FQN = typer.Option(
@@ -679,6 +794,7 @@ def preview(
         show_default=False,
     ),
     target: Optional[str] = target_option,
+    env_file: Optional[SecurePath] = env_file_option,
     **options,
 ):
     """
@@ -686,31 +802,34 @@ def preview(
     """
     context = _resolve_context_with_required_manifest(from_location, identifier, target)
     project_id = context.project_identifier
+    env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-    manager = DCMProjectManager()
-    effective_stage = manager.sync_local_files(
-        project_identifier=project_id,
-        source_directory=str(from_location.path),
-    )
-
-    with cli_console.spinner() as spinner:
-        spinner.add_task(
-            description=f"Previewing {object_identifier}.",
-            total=None,
+    progress = MultiStepProgress([UPLOAD, PREVIEW])
+    with progress_session(progress):
+        manager = DCMProjectManager()
+        effective_stage = _upload_step(
+            progress, manager, project_id, from_location, assets=context.assets
         )
-        result = manager.preview(
-            project_identifier=project_id,
-            object_identifier=object_identifier,
-            configuration=context.configuration,
-            from_stage=effective_stage,
-            variables=variables,
-            limit=limit,
+        result = progress.run_step(
+            PREVIEW.key,
+            lambda step: manager.preview(
+                project_identifier=project_id,
+                object_identifier=object_identifier,
+                configuration=context.configuration,
+                from_stage=effective_stage,
+                variables=variables,
+                limit=limit,
+                env_vars=env_vars,
+            ),
         )
 
     return QueryResult(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 @mock_dcm_response("refresh")
 def refresh(
     identifier: Optional[FQN] = optional_dcm_identifier,
@@ -722,20 +841,29 @@ def refresh(
     """
     Refreshes dynamic tables defined in DCM project. It applies only to deployed objects.
     """
-    clear_command_artifacts("refresh")
+    with command_artifacts(save_output):
 
-    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
-    project_id = context.project_identifier
+        context = _resolve_context_with_optional_manifest(
+            from_location, identifier, target
+        )
+        project_id = context.project_identifier
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Refreshing dcm project {project_id}", total=None)
-        result = DCMProjectManager().refresh(project_identifier=project_id)
+        progress = MultiStepProgress([REFRESH])
+        with progress_session(progress):
+            manager = DCMProjectManager()
+            result = progress.run_step(
+                REFRESH.key,
+                lambda step: manager.refresh(project_identifier=project_id),
+            )
 
-    reporter = RefreshReporter(save_output=save_output)
-    return reporter.process(result)
+        reporter = RefreshReporter(save_output=save_output)
+        return reporter.process(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+)
 @mock_dcm_response("test")
 def test(
     identifier: Optional[FQN] = optional_dcm_identifier,
@@ -747,14 +875,20 @@ def test(
     """
     Tests all expectations defined in DCM project. It applies only to deployed objects.
     """
-    clear_command_artifacts("test")
+    with command_artifacts(save_output):
 
-    context = _resolve_context_with_optional_manifest(from_location, identifier, target)
-    project_id = context.project_identifier
+        context = _resolve_context_with_optional_manifest(
+            from_location, identifier, target
+        )
+        project_id = context.project_identifier
 
-    with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Testing dcm project {project_id}", total=None)
-        result = DCMProjectManager().test(project_identifier=project_id)
+        progress = MultiStepProgress([TEST])
+        with progress_session(progress):
+            manager = DCMProjectManager()
+            result = progress.run_step(
+                TEST.key,
+                lambda step: manager.test(project_identifier=project_id),
+            )
 
-    reporter = TestReporter(save_output=save_output)
-    return reporter.process(result)
+        reporter = TestReporter(save_output=save_output)
+        return reporter.process(result)

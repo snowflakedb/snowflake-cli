@@ -2,7 +2,12 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
+from snowflake.cli._plugins.object.common import Tag
+from snowflake.cli._plugins.streamlit.streamlit_entity import (
+    StreamlitEntity,
+    _is_live_version_already_exists_error,
+    _TagRef,
+)
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
     StreamlitEntityModel,
@@ -12,7 +17,9 @@ from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.connector.errors import ProgrammingError
 
+from tests.conftest import MockCursor
 from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
 
 CONNECTOR = "snowflake.connector.connect"
@@ -744,6 +751,217 @@ class TestStreamlitEntity(StreamlitTestClass):
             for call in workspace_context.console.warning.call_args_list
         )
 
+    def _setup_versioned_replace_mocks(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        workspace_context,
+        *,
+        existing_is_legacy: bool,
+        live_uri: str | None = None,
+        describe_side_effect=None,
+        describe_return=None,
+    ):
+        """Shared wiring for versioned --replace deploy tests.
+
+        Returns ``(entity, mock_stage_manager, live_uri)``.
+        """
+        live_uri = live_uri or (
+            f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        )
+        mock_object_exists.return_value = True
+        mock_is_legacy.return_value = existing_is_legacy
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+        if describe_side_effect is not None:
+            self.mock_describe.side_effect = describe_side_effect
+        elif describe_return is not None:
+            self.mock_describe.return_value = describe_return
+
+        mock_stage_manager = mock_stage_manager_cls.return_value
+        mock_stage_manager.stage_path_parts_from_str.return_value = mock.Mock()
+
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            query_warehouse="test_warehouse",
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+        return entity, mock_stage_manager, live_uri
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_replace_legacy_recreates_as_versioned(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """Replacing a legacy ROOT_LOCATION app recreates it as versioned.
+
+        CREATE OR REPLACE (no ROOT_LOCATION) then ADD LIVE VERSION, rather than
+        ALTER + ADD LIVE VERSION on an object that still has ROOT_LOCATION.
+        """
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        legacy_describe = mock.Mock()
+        legacy_describe.fetchone.return_value = {
+            "live_version_location_uri": None,
+            "query_warehouse": "test_warehouse",
+        }
+        versioned_describe = mock.Mock()
+        versioned_describe.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+        }
+        # call 1: pre-conversion DESCRIBE (legacy, no URI);
+        # call 2: post-ADD-LIVE DESCRIBE inside _ensure_live_version_location_uri
+        entity, mock_stage_manager, live_uri = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=True,
+            live_uri=live_uri,
+            describe_side_effect=[legacy_describe, versioned_describe],
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        create_or_replace_calls = [
+            c
+            for c in self.mock_execute.call_args_list
+            if "CREATE OR REPLACE STREAMLIT" in str(c)
+        ]
+        assert len(create_or_replace_calls) == 1
+        assert "ROOT_LOCATION" not in str(create_or_replace_calls[0])
+        alter_calls = [
+            c for c in self.mock_execute.call_args_list if "ALTER STREAMLIT" in str(c)
+        ]
+        # Only ADD LIVE VERSION ALTER — no property ALTER on the legacy object
+        assert all("ADD LIVE VERSION" in str(c) for c in alter_calls)
+        add_live_calls = [
+            c for c in self.mock_execute.call_args_list if "ADD LIVE VERSION" in str(c)
+        ]
+        assert len(add_live_calls) == 1
+        mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
+        mock_sync.assert_called_once()
+        assert mock_sync.call_args.kwargs["force_overwrite"] is True
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_replace_existing_versioned_skips_add_live_version(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """Existing versioned apps already have a live version; do not re-add."""
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+        }
+        entity, mock_stage_manager, live_uri = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        add_live_calls = [
+            c for c in self.mock_execute.call_args_list if "ADD LIVE VERSION" in str(c)
+        ]
+        assert add_live_calls == []
+        mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
+
+    def test_is_live_version_already_exists_error_matches_errno(self):
+        errno_exc = ProgrammingError(errno=99106, msg="duplicate")
+        assert _is_live_version_already_exists_error(errno_exc) is True
+
+        sqlstate_exc = ProgrammingError(msg="099106 ... 42710")
+        assert _is_live_version_already_exists_error(sqlstate_exc) is True
+
+        message_exc = ProgrammingError(msg="There is already a live version")
+        assert _is_live_version_already_exists_error(message_exc) is True
+
+        other = ProgrammingError(errno=1234, msg="something else")
+        assert _is_live_version_already_exists_error(other) is False
+
+    def test_ensure_live_version_raises_when_describe_returns_no_row(
+        self, workspace_context
+    ):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+        empty = mock.Mock()
+        empty.fetchone.return_value = None
+        self.mock_describe.return_value = empty
+
+        with pytest.raises(CliError) as e:
+            entity._ensure_live_version_location_uri()  # noqa: SLF001
+
+        message = str(e.value)
+        assert "did not report a versioned stage location" in message
+        # Keep the error actionable: name a workaround and the field to check.
+        assert "--legacy" in message
+        assert "live_version_location_uri" in message
+
     @pytest.mark.parametrize(
         "field,payload",
         [
@@ -785,3 +1003,270 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert f"= '{payload}'" not in sql
         # Confirm quote-doubling is present (each ' in payload becomes '')
         assert "''" in sql
+
+    def test_get_deploy_sql_with_tags(self, workspace_context):
+        """Test that get_deploy_sql includes WITH TAG (...) when tags are set."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("cost_center", "engineering"), Tag("owner", "team_a")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert "WITH TAG (cost_center='engineering',owner='team_a')" in sql
+
+    def test_get_deploy_sql_tags_escape_single_quotes(self, workspace_context):
+        """Tag values containing single quotes must be properly escaped."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("env", "it's prod")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert "WITH TAG (env='it''s prod')" in sql
+        assert "WITH TAG (env='it's prod')" not in sql
+
+    def test_get_set_tag_sql_with_tags(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("cost_center", "engineering"), Tag("owner", "team_a")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_set_tag_sql()
+
+        assert (
+            sql
+            == "ALTER STREAMLIT IDENTIFIER('test_streamlit') SET TAG cost_center='engineering',owner='team_a';"
+        )
+
+    def test_get_set_tag_sql_no_tags(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        assert entity.get_set_tag_sql() is None
+
+    def test_get_set_tag_sql_escapes_single_quotes(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("env", "it's prod")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_set_tag_sql()
+
+        assert "SET TAG env='it''s prod'" in sql
+        assert "SET TAG env='it's prod'" not in sql
+
+    def test_get_unset_tag_sql(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_unset_tag_sql(["MYDB.PUBLIC.COST_CENTER", "MYDB.PUBLIC.OWNER"])
+
+        assert (
+            sql
+            == "ALTER STREAMLIT IDENTIFIER('test_streamlit') UNSET TAG MYDB.PUBLIC.COST_CENTER,MYDB.PUBLIC.OWNER;"
+        )
+
+    def test_sync_tags_unsets_removed_and_sets_desired(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[Tag("new_tag", "v")],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(
+                entity,
+                "_get_current_tags",
+                return_value=[_TagRef("OLD_TAG", "MYDB.MYSCHEMA.OLD_TAG")],
+            ),
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        calls = [str(c.args[0]) for c in mock_exec.call_args_list]
+        assert any("UNSET TAG MYDB.MYSCHEMA.OLD_TAG" in c for c in calls)
+        assert any("SET TAG new_tag='v'" in c for c in calls)
+
+    def test_sync_tags_unsets_all_when_no_desired_tags(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(
+                entity,
+                "_get_current_tags",
+                return_value=[
+                    _TagRef("TAG_A", "MYDB.MYSCHEMA.TAG_A"),
+                    _TagRef("TAG_B", "MYDB.MYSCHEMA.TAG_B"),
+                ],
+            ),
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        assert mock_exec.call_count == 1
+        unset_sql = mock_exec.call_args.args[0]
+        assert "UNSET TAG" in unset_sql
+        assert " SET TAG " not in unset_sql
+
+    def test_sync_tags_skips_when_tags_property_absent(self, workspace_context):
+        """When tags is not set in snowflake.yml (None), _sync_tags must be a no-op.
+        Neither _get_current_tags nor any query should be issued."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(entity, "_get_current_tags") as mock_get,
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        mock_get.assert_not_called()
+        mock_exec.assert_not_called()
+
+    def test_sync_tags_unsets_all_when_tags_explicitly_empty(self, workspace_context):
+        """tags: [] explicitly means 'manage tags and remove all' — unset everything currently set."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(entity, "_get_current_tags", return_value=[]),
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        mock_exec.assert_not_called()
+
+    def test_get_current_tags_qualifies_information_schema_with_database(
+        self, workspace_context
+    ):
+        """information_schema must be qualified with the resolved database so the query
+        works when no default database is active in the session."""
+        self.mock_conn.database = "MYDB"
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        self.mock_execute.return_value = MockCursor.from_input(
+            [("MYDB", "MYSCHEMA", "MY_TAG")], ["TAG_DATABASE", "TAG_SCHEMA", "TAG_NAME"]
+        )
+
+        result = entity._get_current_tags()  # noqa: SLF001
+
+        issued_sql = self.mock_execute.call_args.args[0]
+        assert "MYDB.information_schema.tag_references" in issued_sql
+        assert "WHERE LEVEL = 'STREAMLIT'" in issued_sql
+        assert result == [_TagRef("MY_TAG", "MYDB.MYSCHEMA.MY_TAG")]
+
+    def test_get_current_tags_falls_back_to_unqualified_when_no_database(
+        self, workspace_context
+    ):
+        """When neither the model nor the connection has a database, information_schema
+        is left unqualified (matching the pre-existing behaviour)."""
+        self.mock_conn.database = None
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        self.mock_execute.return_value = MockCursor.from_input([], [])
+
+        entity._get_current_tags()  # noqa: SLF001
+
+        issued_sql = self.mock_execute.call_args.args[0]
+        assert issued_sql.startswith(
+            "SELECT TAG_DATABASE, TAG_SCHEMA, TAG_NAME FROM TABLE(information_schema"
+        )
+
+    def test_sync_tags_uses_fqn_for_unset(self, workspace_context):
+        """UNSET TAG must use FQN so it resolves correctly outside the tag's schema."""
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            tags=[],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with (
+            mock.patch.object(
+                entity,
+                "_get_current_tags",
+                return_value=[_TagRef("GOV_TAG", "GOV_DB.GOV_SCHEMA.GOV_TAG")],
+            ),
+            mock.patch.object(entity, "_execute_query") as mock_exec,
+        ):
+            entity._sync_tags()  # noqa: SLF001
+
+        unset_sql = mock_exec.call_args.args[0]
+        assert "GOV_DB.GOV_SCHEMA.GOV_TAG" in unset_sql
+        assert "UNSET TAG GOV_DB.GOV_SCHEMA.GOV_TAG" in unset_sql

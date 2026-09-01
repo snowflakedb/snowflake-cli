@@ -77,8 +77,17 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
             "command_ci_integration_version"
         ]  # to avoid side effect from CI
         del usage_command_event["message"][
+            "command_ci_auth_type"
+        ]  # to avoid side effect from CI
+        del usage_command_event["message"][
+            "command_auth_type"
+        ]  # to avoid side effect from resolved connection authenticator
+        del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
+        del usage_command_event["message"][
+            "command_agent_session_id"
+        ]  # to avoid side effect from CORTEX_SESSION_ID
         assert usage_command_event == {
             "message": {
                 "driver_type": "PythonConnector",
@@ -147,8 +156,17 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
             "command_ci_integration_version"
         ]  # to avoid side effect from CI
         del usage_command_event["message"][
+            "command_ci_auth_type"
+        ]  # to avoid side effect from CI
+        del usage_command_event["message"][
+            "command_auth_type"
+        ]  # to avoid side effect from resolved connection authenticator
+        del usage_command_event["message"][
             "command_agent_environment"
         ]  # to avoid side effect from agent environment
+        del usage_command_event["message"][
+            "command_agent_session_id"
+        ]  # to avoid side effect from CORTEX_SESSION_ID
 
         # Verify common fields
         message = usage_command_event["message"]
@@ -286,6 +304,92 @@ def test_detect_agent_environment_returns_correct_agent(
 
     with mock.patch.dict(os.environ, {env_var: env_value}, clear=True):
         assert _detect_agent_environment() == expected_agent
+
+
+@pytest.mark.parametrize(
+    "env, expected",
+    [
+        ({"CORTEX_SESSION_ID": "abc123"}, "abc123"),
+        ({"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "claude-sess"}, "claude-sess"),
+        ({}, ""),
+        ({"CLAUDECODE": "1"}, ""),
+        ({"CLAUDE_CODE_SESSION_ID": "orphan"}, ""),
+        ({"CORTEX_SESSION_ID": "  abc123  "}, "abc123"),
+        (
+            {"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "  claude-sess  "},
+            "claude-sess",
+        ),
+        (
+            {
+                "CORTEX_SESSION_ID": "cortex-id",
+                "CLAUDECODE": "1",
+                "CLAUDE_CODE_SESSION_ID": "claude-id",
+            },
+            "cortex-id",
+        ),
+    ],
+)
+def test_get_agent_session_id(env, expected):
+    """Session id follows the detected agent; Cortex wins when both are set."""
+    from snowflake.cli._app.telemetry import _get_agent_session_id
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        assert _get_agent_session_id() == expected
+
+
+@pytest.mark.parametrize(
+    "env, expected_agent, expected_session_id",
+    [
+        ({"CORTEX_SESSION_ID": "abc123"}, "CORTEX", "abc123"),
+        (
+            {"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "claude-sess"},
+            "CLAUDE_CODE",
+            "claude-sess",
+        ),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_session_id_appears_in_telemetry(
+    _, mock_conn, runner, env, expected_agent, expected_session_id
+):
+    """The detected agent's session ID is included in the telemetry payload."""
+    with mock.patch.dict(os.environ, env, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_agent_environment"] == expected_agent
+    assert (
+        usage_command_event["message"]["command_agent_session_id"]
+        == expected_session_id
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_session_id_empty_in_telemetry_when_unset(_, mock_conn, runner):
+    """command_agent_session_id is present and empty when no agent session."""
+    with mock.patch.dict(os.environ, {}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_agent_session_id"] == ""
 
 
 def test_agent_context_non_tty_with_agent_detected():
@@ -497,8 +601,7 @@ class TestAppFlowTelemetryAttribution:
     def test_snowflake_app_setup(self, mock_conn, mock_manager, runner):
         """setup is Snowflake-Apps-only; must stamp snowflake_app directly."""
         mock_mgr = mock_manager.return_value
-        mock_mgr.fetch_snow_apps_parameters.return_value = {}
-        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.fetch_app_service_defaults.return_value = {}
         mock_mgr.get_personal_database.return_value = None
 
         runner.invoke(
@@ -611,6 +714,111 @@ def test_ci_integration_version_appears_in_telemetry(_, mock_conn, runner):
         usage_command_event["message"]["command_ci_environment"] == "SF_GITHUB_ACTION"
     )
     assert usage_command_event["message"]["command_ci_integration_version"] == "v2.0.2"
+
+
+def test_get_ci_auth_type_returns_value_when_set():
+    """Test that the auth type is returned when the env var is set."""
+    from snowflake.cli._app.telemetry import _get_ci_auth_type
+
+    with mock.patch.dict(os.environ, {"SF_CICD_AUTH_TYPE": "oidc"}, clear=True):
+        assert _get_ci_auth_type() == "oidc"
+
+
+def test_get_ci_auth_type_returns_empty_when_unset():
+    """Test that empty string is returned when the env var is not set."""
+    from snowflake.cli._app.telemetry import _get_ci_auth_type
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        assert _get_ci_auth_type() == ""
+
+
+def test_get_ci_auth_type_is_normalized():
+    """Test that the auth type is lower-cased and trimmed so integrations can
+    emit any casing without fragmenting the telemetry value."""
+    from snowflake.cli._app.telemetry import _get_ci_auth_type
+
+    with mock.patch.dict(os.environ, {"SF_CICD_AUTH_TYPE": "  OIDC  "}, clear=True):
+        assert _get_ci_auth_type() == "oidc"
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_ci_auth_type_appears_in_telemetry(_, mock_conn, runner):
+    """Test that the auth type is included in the telemetry payload."""
+    with mock.patch.dict(
+        os.environ,
+        {"SF_GITHUB_ACTION": "true", "SF_CICD_AUTH_TYPE": "oidc"},
+        clear=True,
+    ):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert (
+        usage_command_event["message"]["command_ci_environment"] == "SF_GITHUB_ACTION"
+    )
+    assert usage_command_event["message"]["command_ci_auth_type"] == "oidc"
+
+
+@pytest.mark.parametrize(
+    "authenticator, expected",
+    [
+        # Default password auth: the connector reports the DEFAULT_AUTHENTICATOR
+        # token "SNOWFLAKE" even when the user configured nothing.
+        ("SNOWFLAKE", "password"),
+        ("snowflake", "password"),  # be defensive about casing
+        ("SNOWFLAKE_JWT", "key_pair"),
+        ("EXTERNALBROWSER", "externalbrowser"),
+        ("OAUTH", "oauth"),
+        ("OAUTH_AUTHORIZATION_CODE", "oauth"),
+        ("OAUTH_CLIENT_CREDENTIALS", "oauth"),
+        ("USERNAME_PASSWORD_MFA", "username_password_mfa"),
+        ("PROGRAMMATIC_ACCESS_TOKEN", "programmatic_access_token"),
+        ("PAT_WITH_EXTERNAL_SESSION", "programmatic_access_token"),
+        ("WORKLOAD_IDENTITY", "workload_identity"),
+        ("  SNOWFLAKE_JWT  ", "key_pair"),  # surrounding whitespace is trimmed
+        # The Okta authenticator's token is the customer's Okta URL; it must be
+        # collapsed so the endpoint never reaches telemetry.
+        ("https://example.okta.com", "okta"),
+        # Open vocabulary: an unknown token is recorded (lower-cased), not dropped.
+        ("SOME_FUTURE_AUTH", "some_future_auth"),
+        ("", ""),
+        ("   ", ""),
+    ],
+)
+def test_normalize_auth_type(authenticator, expected):
+    """The resolved connector authenticator maps to a stable, URL-free token."""
+    from snowflake.cli._app.telemetry import _normalize_auth_type
+
+    assert _normalize_auth_type(authenticator) == expected
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_auth_type_appears_in_telemetry(_, mock_conn, runner):
+    """The auth type resolved on the live connection is recorded for any command,
+    independent of the CI/CD environment."""
+    mock_conn.return_value._authenticator = "SNOWFLAKE_JWT"  # noqa: SLF001
+    with mock.patch.dict(os.environ, {}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_auth_type"] == "key_pair"
 
 
 def test_sf_gitlab_component_takes_priority_over_gitlab_ci():

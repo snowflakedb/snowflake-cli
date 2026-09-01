@@ -324,3 +324,27 @@ def enable_snowpark_glob_support_feature_flag():
 def global_setup(monkeypatch):
     width = 81 if IS_WINDOWS else 80
     monkeypatch.setenv("COLUMNS", str(width))
+
+
+# This fixture intentionally lives in root conftest rather than in
+# tests_using_container_services/conftest.py. A session-scoped autouse fixture
+# in a subdirectory conftest only fires before the first test *in that
+# directory*, which could be an SPCS test itself — giving zero warmup time.
+# Placing it at root means it fires at real session start, so the pool has more time
+# to warmup before any SPCS test needs it.
+# The IS_QA guard makes this a no-op everywhere except the QA Jenkins environment.
+@pytest.fixture(scope="session", autouse=True)
+def _warm_up_spcs_compute_pool(request):
+    if not IS_QA:
+        return
+    snowflake_session = request.getfixturevalue("snowflake_session")
+    from tests_integration.tests_using_container_services.spcs.testing_utils.spcs_services_utils import (
+        SnowparkServicesTestSteps,
+    )
+
+    try:
+        snowflake_session.execute_string(
+            f"ALTER COMPUTE POOL {SnowparkServicesTestSteps.compute_pool} RESUME"
+        )
+    except Exception:
+        pass  # Already ACTIVE or RESUMING — harmless

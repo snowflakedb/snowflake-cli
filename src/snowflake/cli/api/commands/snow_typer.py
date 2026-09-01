@@ -59,7 +59,7 @@ class SortedTyperGroup(TyperGroup):
 
 
 class SnowTyper(typer.Typer):
-    def __init__(self, /, **kwargs):
+    def __init__(self, /, group_class: type[TyperGroup] = SortedTyperGroup, **kwargs):
         self._sanitize_kwargs(kwargs)
         super().__init__(
             **kwargs,
@@ -68,7 +68,7 @@ class SnowTyper(typer.Typer):
             no_args_is_help=True,
             add_completion=True,
             rich_markup_mode="markdown",
-            cls=SortedTyperGroup,
+            cls=group_class,
         )
 
     @staticmethod
@@ -242,6 +242,7 @@ class SnowTyperFactory:
         deprecated: bool = False,
         preview: bool = False,
         subcommand_metavar: Optional[str] = None,
+        group_class: type[TyperGroup] = SortedTyperGroup,
     ):
         self.name = name
         self.help = help
@@ -250,9 +251,10 @@ class SnowTyperFactory:
         self.deprecated = deprecated
         self.preview = preview
         self.commands_to_register: List[SnowTyperCommandData] = []
-        self.subapps_to_register: List[SnowTyperFactory] = []
+        self.subapps_to_register: List[Tuple["SnowTyperFactory", Dict[str, Any]]] = []
         self.callbacks_to_register: List[Callable] = []
         self.subcommand_metavar = subcommand_metavar
+        self.group_class = group_class
 
     def create_instance(self) -> SnowTyper:
         help_text = self.help
@@ -267,6 +269,7 @@ class SnowTyperFactory:
             hidden=self.is_hidden() if self.is_hidden else False,
             deprecated=self.deprecated,
             subcommand_metavar=self.subcommand_metavar,
+            group_class=self.group_class,
         )
         # register commands
         for command in self.commands_to_register:
@@ -277,8 +280,8 @@ class SnowTyperFactory:
         for callback in self.callbacks_to_register:
             app.callback()(callback)
         # add subgroups
-        for subapp in self.subapps_to_register:
-            app.add_typer(subapp.create_instance())
+        for subapp, subapp_kwargs in self.subapps_to_register:
+            app.add_typer(subapp.create_instance(), **subapp_kwargs)
         return app
 
     def command(self, *args, **kwargs):
@@ -290,8 +293,8 @@ class SnowTyperFactory:
 
         return decorator
 
-    def add_typer(self, snow_typer: SnowTyperFactory) -> None:
-        self.subapps_to_register.append(snow_typer)
+    def add_typer(self, snow_typer: SnowTyperFactory, **kwargs) -> None:
+        self.subapps_to_register.append((snow_typer, kwargs))
 
     def callback(self):
         def decorator(callback):

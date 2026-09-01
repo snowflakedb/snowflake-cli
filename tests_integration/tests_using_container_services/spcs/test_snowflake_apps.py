@@ -19,12 +19,12 @@ from __future__ import annotations
 
 import os
 import uuid
+import warnings
 from pathlib import Path
 
 import pytest
 import yaml
 
-COMPUTE_POOL = "snowcli_compute_pool"
 DATABASE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI_DB")
 IMAGE_REPO_NAME = "SNOW_APPS_DEFAULT_IMAGE_REPOSITORY"
 
@@ -45,9 +45,9 @@ def snowflake_apps_setup(snowflake_session):
     """
     uid = uuid.uuid4().hex[:8]
     schema_name = f"SNOW_APP_TEST_{uid}"
-    service_name = f"TEST_APP"
-    build_job_name = f"TEST_APP_BUILD_JOB"
-    stage_name = f"TEST_APP_CODE"
+    service_name = "TEST_APP"
+    build_job_name = "TEST_APP_BUILD_JOB"
+    stage_name = "TEST_APP_CODE"
 
     # Pre-create schema and image repo so deploy can find them.
     snowflake_session.execute_string(
@@ -62,16 +62,18 @@ def snowflake_apps_setup(snowflake_session):
 
     # ── Teardown: best-effort cleanup ──────────────────────────────────
     for stmt in [
-        f"DROP SERVICE IF EXISTS {DATABASE}.{schema_name}.{service_name}",
+        f"DROP APPLICATION SERVICE IF EXISTS {DATABASE}.{schema_name}.{service_name}",
         f"DROP SERVICE IF EXISTS {DATABASE}.{schema_name}.{build_job_name}",
         f"DROP STAGE IF EXISTS {DATABASE}.{schema_name}.{stage_name}",
         f"DROP IMAGE REPOSITORY IF EXISTS {DATABASE}.{schema_name}.{IMAGE_REPO_NAME}",
-        f"DROP SCHEMA IF EXISTS {DATABASE}.{schema_name}",
+        f"DROP SCHEMA IF EXISTS {DATABASE}.{schema_name} CASCADE",
     ]:
         try:
             snowflake_session.execute_string(stmt)
-        except Exception:
-            pass  # best-effort cleanup
+        except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+            # Warn rather than print: a leaked object is worth seeing in CI,
+            # and a teardown failure must not fail an otherwise passing test.
+            warnings.warn(f"{stmt} failed: {exc}", UserWarning, stacklevel=1)
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +89,12 @@ def test_snowflake_apps_setup_and_deploy(
     alter_snowflake_yml,
     snowflake_apps_setup,
 ):
-    """End-to-end: init a project, patch it, deploy, verify the service exists."""
+    """End-to-end: init a project, patch it, deploy, verify the service exists.
+
+    Compute pools are left unset so the server allocates managed compute pools.
+    The backend ignores ``build_compute_pool`` / ``service_compute_pool`` unless
+    a specific account parameter enables user-supplied pools.
+    """
 
     schema_name, uid = snowflake_apps_setup
 
@@ -98,22 +105,14 @@ def test_snowflake_apps_setup_and_deploy(
         alter_snowflake_yml(
             yml_path, "entities.test_app.identifier.schema", schema_name
         )
-        alter_snowflake_yml(
-            yml_path,
-            "entities.test_app.build_compute_pool.name",
-            COMPUTE_POOL,
-        )
-        alter_snowflake_yml(
-            yml_path,
-            "entities.test_app.service_compute_pool.name",
-            COMPUTE_POOL,
-        )
 
         # Verify the YAML is valid after patching
         with open(yml_path) as fh:
             patched = yaml.safe_load(fh)
         assert patched["entities"]["test_app"]["identifier"]["database"] == DATABASE
         assert patched["entities"]["test_app"]["identifier"]["schema"] == schema_name
+        assert "build_compute_pool" not in patched["entities"]["test_app"]
+        assert "service_compute_pool" not in patched["entities"]["test_app"]
 
         # ── Deploy ────────────────────────────────────────────────────
         result = runner.invoke_with_connection(
@@ -126,20 +125,20 @@ def test_snowflake_apps_setup_and_deploy(
 
         # ── Verify service exists via SQL ─────────────────────────────
         rows = snowflake_session.execute_string(
-            f"SHOW SERVICES IN SCHEMA {DATABASE}.{schema_name}"
+            f"SHOW APPLICATION SERVICES IN SCHEMA {DATABASE}.{schema_name}"
         )
         service_names = [row[1] for row in rows[-1]]  # "name" is second column
         assert (
             "TEST_APP" in service_names
-        ), f"Expected TEST_APP in services, got: {service_names}"
+        ), f"Expected TEST_APP in application services, got: {service_names}"
 
 
 @pytest.mark.integration
-def test_snowflake_apps_setup_creates_valid_yml(
+def test_snowflake_apps_setup_creates_valid_manifest(
     runner,
     temporary_working_directory,
 ):
-    """``snow app setup`` should produce a valid snowflake.yml."""
+    """``snow app setup`` should produce a valid app.yml."""
 
     result = runner.invoke_with_connection(
         ["app", "setup", "--app-name", "my_test_app"]
@@ -147,12 +146,13 @@ def test_snowflake_apps_setup_creates_valid_yml(
     assert result.exit_code == 0, result.output
     assert "Initialized Snowflake App Runtime project" in result.output
 
-    yml_path = Path(temporary_working_directory) / "snowflake.yml"
-    assert yml_path.exists(), "snowflake.yml was not created"
+    yml_path = Path(temporary_working_directory) / "app.yml"
+    assert yml_path.exists(), "app.yml was not created"
 
     with open(yml_path) as fh:
         content = yaml.safe_load(fh)
 
-    assert content["definition_version"] == "2"
-    assert "my_test_app" in content["entities"]
-    assert content["entities"]["my_test_app"]["type"] == "snowflake-app"
+    assert content["version"] == 2
+    assert content["name"] == "MY_TEST_APP"
+    assert "build_compute_pool" not in content
+    assert "service_compute_pool" not in content

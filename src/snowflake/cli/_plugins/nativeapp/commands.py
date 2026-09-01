@@ -21,8 +21,10 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
+import click
 import typer
 from click import ClickException
+from snowflake.cli._plugins.apps.app_yml import load_app_yml
 from snowflake.cli._plugins.apps.commands import (
     snowflake_app_bundle,
     snowflake_app_deploy,
@@ -46,6 +48,8 @@ from snowflake.cli._plugins.nativeapp.release_directive.commands import (
 )
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
+    NATIVE_APP_ENTITY_TYPES,
+    SNOWFLAKE_APP_ENTITY_TYPES,
     AppFlow,
     find_entity,
     force_project_definition_v2,
@@ -55,7 +59,10 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -63,28 +70,122 @@ from snowflake.cli.api.commands.flags import (
     ForceOption,
     InteractiveOption,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory, SortedTyperGroup
+from snowflake.cli.api.config import get_file_io_encoding
 from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.exceptions import (
     IncompatibleParametersError,
     UnmetParametersError,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     ObjectResult,
     StreamResult,
 )
+from snowflake.cli.api.project.definition import _get_merged_definitions
+from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.util import same_identifiers
 from typing_extensions import Annotated
+
+log = logging.getLogger(__name__)
+
+# Help panels used to group ``snow app`` subcommands. They double as the
+# filter key for SmartAppGroup: when a project's app family is unambiguous,
+# the panel that belongs to the other family is hidden from help.
+NATIVE_APP_PANEL = "Native App commands"
+SNOWFLAKE_APP_PANEL = "Snowflake App Runtime commands"
+COMMON_PANEL = "Common commands"
+
+
+def _detect_app_family(cwd: str) -> Optional[AppFlow]:
+    """Best-effort, side-effect-free detection of a project's app family.
+
+    Reads the raw (un-templated, un-validated) ``snowflake.yml`` merged with
+    ``snowflake.local.yml`` and returns ``AppFlow.NATIVE_APP``,
+    ``AppFlow.SNOWFLAKE_APP``, or ``None``. Only reports a concrete family when
+    the project unambiguously belongs to it; anything else (no project, parse
+    error, or a mix of both families) yields ``None`` so help falls back to
+    showing every command.
+    """
+    try:
+        # An app.yml (version 2) marks a Snowflake App Runtime project and
+        # takes precedence over snowflake.yml, so detect it first (it may be the
+        # only manifest present).
+        if load_app_yml(Path(cwd)) is not None:
+            return AppFlow.SNOWFLAKE_APP
+
+        root = DefinitionManager.find_project_root(Path(cwd))
+        if root is None:
+            return None
+        paths = DefinitionManager(str(root)).project_config_paths
+        raw = (
+            _get_merged_definitions(paths, encoding=get_file_io_encoding() or "utf-8")
+            or {}
+        )
+
+        # v1 definitions are always Native App -- they use the top-level
+        # ``native_app`` key rather than typed entities.
+        if raw.get("native_app") is not None:
+            return AppFlow.NATIVE_APP
+
+        entities = raw.get("entities") or {}
+        types = {
+            str(entity.get("type", "")).strip().lower()
+            for entity in entities.values()
+            if isinstance(entity, dict)
+        }
+        has_native = bool(types & NATIVE_APP_ENTITY_TYPES)
+        has_snowflake = bool(types & SNOWFLAKE_APP_ENTITY_TYPES)
+        if has_native and not has_snowflake:
+            return AppFlow.NATIVE_APP
+        if has_snowflake and not has_native:
+            return AppFlow.SNOWFLAKE_APP
+        return None
+    except Exception:  # noqa: BLE001 - help must never crash on a bad manifest
+        log.debug("Could not detect app family for smart help", exc_info=True)
+        return None
+
+
+class SmartAppGroup(SortedTyperGroup):
+    """``snow app`` group that hides the irrelevant family's commands from help.
+
+    Filtering only affects the help listing (``list_commands``). Hidden
+    commands remain fully runnable via ``get_command`` -- they simply don't
+    clutter the help output for a project that clearly belongs to one family.
+    """
+
+    # The panel to hide for each unambiguous family (the *other* family's panel).
+    _PANEL_TO_HIDE = {
+        AppFlow.NATIVE_APP: SNOWFLAKE_APP_PANEL,
+        AppFlow.SNOWFLAKE_APP: NATIVE_APP_PANEL,
+    }
+
+    def list_commands(self, ctx: click.Context) -> List[str]:
+        # Detection runs on every help render (not cached): it is cheap and the
+        # result depends on the current working directory, which can change
+        # between invocations within a single process (e.g. tests, REPLs).
+        names = super().list_commands(ctx)
+        hidden_panel = self._PANEL_TO_HIDE.get(_detect_app_family(str(Path.cwd())))
+        if hidden_panel is None:
+            return names
+        return [
+            name
+            for name in names
+            if getattr(self.get_command(ctx, name), "rich_help_panel", None)
+            != hidden_panel
+        ]
+
 
 app = SnowTyperFactory(
     name="app",
     help="Manages Snowflake Native Apps and Snowflake App Runtime.",
+    group_class=SmartAppGroup,
 )
-app.add_typer(versions_app)
-app.add_typer(release_directives_app)
-app.add_typer(release_channels_app)
+app.add_typer(versions_app, rich_help_panel=NATIVE_APP_PANEL)
+app.add_typer(release_directives_app, rich_help_panel=NATIVE_APP_PANEL)
+app.add_typer(release_channels_app, rich_help_panel=NATIVE_APP_PANEL)
 
 
 @app.callback()
@@ -102,17 +203,25 @@ def _app_group_callback() -> None:
     We no longer set a default here. The ``app_flow`` field will be absent on
     ``executing_command`` events (matching the documented contract in
     telemetry.py) and present with the correct value on result/error events.
+
+    We do, however, default the project-definition encoding to UTF-8 for the
+    whole ``snow app`` command group. ``snowflake.yml`` is a CLI-owned manifest
+    that is written as UTF-8, so reading it as UTF-8 keeps app commands working
+    with non-ASCII content (e.g. a non-Latin app title) regardless of the host's
+    default code page (cp1252/cp932 on Windows). An explicit
+    ``cli.encoding.file_io`` setting still takes precedence when the user has
+    configured one; UTF-8 is only the default. Other command groups are
+    unaffected and keep honoring ``cli.encoding.file_io`` / the platform default.
     """
-    pass
-
-
-log = logging.getLogger(__name__)
+    get_cli_context_manager().project_definition_encoding = (
+        get_file_io_encoding() or "utf-8"
+    )
 
 
 # Sentinel used on events --last to tell "user didn't pass --last" apart
 # from "user explicitly asked for 0". The merged command shares --last across
 # both flows, which have different defaults when the user doesn't set it
-# (Native App: -1, Snowflake App Runtime: 500).
+# (Native App: -1, Snowflake App Runtime: the server-side inline record cap).
 _EVENTS_LAST_UNSET = -1
 
 # Native-App polling interval default when ``--follow`` is used. The
@@ -120,6 +229,24 @@ _EVENTS_LAST_UNSET = -1
 # tell an explicit ``--follow-interval 10`` apart from "user didn't pass
 # the flag" when rejecting wrong-flow options in the Snowflake App Runtime flow.
 _DEFAULT_FOLLOW_INTERVAL_SECONDS = 10
+
+
+def _snowflake_app_target_option(action: str) -> typer.Option:
+    """Build the shared ``--target`` option for a Snowflake App Runtime command.
+
+    The target selects which ``app.yml`` environment (from the ``targets``
+    block, version 2+) the command operates on; it has no meaning for the
+    ``snowflake.yml`` / Native App flows and is rejected there.
+    """
+    return typer.Option(
+        None,
+        "--target",
+        help=(
+            "(Snowflake App Runtime only) Name of the target (environment) to "
+            f"{action}, as declared in the 'targets' block of app.yml (version 2 "
+            "or higher). Defaults to 'targets.default'."
+        ),
+    )
 
 
 def _reject_native_app_options(command: str, **options: object) -> None:
@@ -153,7 +280,7 @@ def _reject_snowflake_app_options(command: str, **options: object) -> None:
         )
 
 
-@app.command("setup", requires_connection=True)
+@app.command("setup", requires_connection=True, rich_help_panel=SNOWFLAKE_APP_PANEL)
 def app_setup(
     app_name: Optional[str] = typer.Option(
         None,
@@ -163,12 +290,13 @@ def app_setup(
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
-        help="Only print the resolved configuration values without writing snowflake.yml.",
+        help="Only print the resolved configuration values without writing app.yml.",
     ),
     compute_pool: Optional[str] = typer.Option(
         None,
         "--compute-pool",
         help="Compute pool for building and running the app.",
+        hidden=True,
     ),
     build_eai: Optional[str] = typer.Option(
         None,
@@ -178,17 +306,18 @@ def app_setup(
     **options,
 ) -> CommandResult:
     """
-    (Snowflake App Runtime only) Initializes a snowflake.yml for a Snowflake App Runtime project.
+    (Snowflake App Runtime only) Initializes an app.yml for a Snowflake App Runtime project.
 
-    Creates a ``snowflake.yml`` in the current directory with a
-    ``snowflake-app`` entity preconfigured from account parameters and the
-    current connection. This command does not apply to Native App projects.
+    Creates an ``app.yml`` in the current directory: a flat ``version: 2``
+    manifest whose ``name``, ``database``, ``schema``, and ``query_warehouse``
+    are preconfigured from account parameters and the current connection.
+    This command does not apply to Native App projects.
     """
     set_app_flow(AppFlow.SNOWFLAKE_APP)
     return snowflake_app_setup(app_name, dry_run, compute_pool, build_eai)
 
 
-@app.command("bundle")
+@app.command("bundle", rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing()
 def app_bundle(
@@ -222,7 +351,9 @@ def app_bundle(
     return MessageResult(f"Bundle generated at {ws.project_root / package.deploy_root}")
 
 
-@app.command("diff", requires_connection=True, hidden=True)
+@app.command(
+    "diff", requires_connection=True, hidden=True, rich_help_panel=NATIVE_APP_PANEL
+)
 @with_project_definition()
 @native_app_only("diff")
 @force_project_definition_v2()
@@ -249,7 +380,7 @@ def app_diff(
     return None
 
 
-@app.command("run", requires_connection=True)
+@app.command("run", requires_connection=True, rich_help_panel=NATIVE_APP_PANEL)
 @with_project_definition()
 @native_app_only("run")
 @force_project_definition_v2(app_required=True)
@@ -314,7 +445,7 @@ def app_run(
     )
 
 
-@app.command("open", requires_connection=True)
+@app.command("open", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing(app_required=True)
 def app_open(
@@ -328,6 +459,12 @@ def app_open(
         "--settings",
         help="(Snowflake App Runtime only) Open the app settings page in Snowsight instead of the app itself.",
     ),
+    watch: bool = typer.Option(
+        False,
+        "--watch",
+        help="(Snowflake App Runtime only) Do not fail if the app service does not exist yet; poll until its endpoint is ready.",
+    ),
+    target: Optional[str] = _snowflake_app_target_option("open"),
     **options,
 ) -> CommandResult:
     """
@@ -339,12 +476,17 @@ def app_open(
     For Snowflake App Runtime projects (snowflake-app entities):
       Resolves the service endpoint URL and launches the browser. Use
       ``--print-only`` to print the URL, or ``--settings`` to open the
-      Snowsight app-settings page instead.
+      Snowsight app-settings page instead. Use ``--watch`` to wait for the
+      app service to be created and become ready instead of failing.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
         return snowflake_app_open(
-            options.get("entity_id") or None, print_only, settings
+            options.get("entity_id") or None,
+            print_only,
+            settings,
+            watch,
+            target=target,
         )
 
     _reject_snowflake_app_options(
@@ -352,6 +494,8 @@ def app_open(
         **{
             "--print-only": True if print_only else None,
             "--settings": True if settings else None,
+            "--watch": True if watch else None,
+            "--target": target,
         },
     )
 
@@ -371,7 +515,7 @@ def app_open(
         )
 
 
-@app.command("teardown", requires_connection=True)
+@app.command("teardown", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing(single_app_and_package=False)
 def app_teardown(
@@ -382,6 +526,7 @@ def app_teardown(
         show_default=False,
     ),
     interactive: bool = InteractiveOption,
+    target: Optional[str] = _snowflake_app_target_option("tear down"),
     **options,
 ) -> CommandResult:
     """
@@ -405,7 +550,11 @@ def app_teardown(
                 "--cascade": cascade,
             },
         )
-        return snowflake_app_teardown(options.get("entity_id") or None, bool(force))
+        return snowflake_app_teardown(
+            options.get("entity_id") or None, bool(force), target=target
+        )
+
+    _reject_snowflake_app_options("teardown", **{"--target": target})
 
     cli_context = get_cli_context()
     project = cli_context.project_definition
@@ -457,7 +606,7 @@ def app_teardown(
     return MessageResult(f"Teardown is now complete.")
 
 
-@app.command("deploy", requires_connection=True)
+@app.command("deploy", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing()
 def app_deploy(
@@ -497,12 +646,29 @@ def app_deploy(
         help="(Snowflake App Runtime only) Run only the build phase (assumes artifacts have already been uploaded). "
         "Skips the upload and deploy phases.",
     ),
-    deploy_only: bool = typer.Option(
+    promote_only: bool = typer.Option(
         False,
-        "--deploy-only",
+        "--promote-only",
         help="(Snowflake App Runtime only) Run only the deploy phase (assumes a previous build phase has already completed). "
         "Skips the upload and build phases.",
     ),
+    deploy_only: bool = typer.Option(
+        False,
+        "--deploy-only",
+        hidden=True,
+        help="Deprecated alias for --promote-only.",
+    ),
+    provision_certs: bool = typer.Option(
+        False,
+        "--provision-certs",
+        hidden=not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled(),
+        help="(Snowflake App Runtime only) When deploying a serverless app whose "
+        "account has no per-account URL certificate yet, trigger certificate "
+        "provisioning automatically instead of only printing the system-function "
+        "command. Provisioning is asynchronous (up to ~3 hours); the deploy still "
+        "stops so it can be re-run once provisioning completes.",
+    ),
+    target: Optional[str] = _snowflake_app_target_option("deploy"),
     **options,
 ) -> CommandResult:
     """
@@ -518,7 +684,7 @@ def app_deploy(
       Uploads bundled source artifacts, runs the server-side artifact repository
       build, then deploys the application service. The pipeline has three phases
       (upload, build, deploy). By default all three run in sequence; use
-      ``--upload-only`` / ``--build-only`` / ``--deploy-only`` to run a single
+      ``--upload-only`` / ``--build-only`` / ``--promote-only`` to run a single
       phase.
     """
     app_flow: AppFlow = options["app_flow"]
@@ -535,8 +701,10 @@ def app_deploy(
             options.get("entity_id") or None,
             upload_only,
             build_only,
-            deploy_only,
+            promote_only or deploy_only,
             interactive=interactive,
+            provision_certs=provision_certs,
+            target=target,
         )
 
     _reject_snowflake_app_options(
@@ -544,7 +712,9 @@ def app_deploy(
         **{
             "--upload-only": True if upload_only else None,
             "--build-only": True if build_only else None,
-            "--deploy-only": True if deploy_only else None,
+            "--promote-only": True if (promote_only or deploy_only) else None,
+            "--provision-certs": True if provision_certs else None,
+            "--target": target,
         },
     )
 
@@ -582,10 +752,11 @@ def app_deploy(
     )
 
 
-@app.command("validate", requires_connection=True)
+@app.command("validate", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing()
 def app_validate(
+    target: Optional[str] = _snowflake_app_target_option("validate"),
     **options,
 ):
     """
@@ -600,7 +771,9 @@ def app_validate(
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
-        return snowflake_app_validate(options.get("entity_id") or None)
+        return snowflake_app_validate(options.get("entity_id") or None, target=target)
+
+    _reject_snowflake_app_options("validate", **{"--target": target})
 
     cli_context = get_cli_context()
     ws = WorkspaceManager(
@@ -634,29 +807,61 @@ class RecordType(Enum):
     SPAN_EVENT = "span_event"
 
 
+class EventType(Enum):
+    """Accepted ``--type`` values across both app flows.
+
+    The option is shared between Native App (``log``/``span``/``span_event``)
+    and Snowflake App Runtime (``log``/``metric``/``lifecycle``). Declaring the
+    union here lets Click reject genuinely unknown values (e.g. ``foo``) at
+    parse time, while each flow rejects the values that don't apply to it.
+    """
+
+    LOG = "log"
+    SPAN = "span"
+    SPAN_EVENT = "span_event"
+    METRIC = "metric"
+    LIFECYCLE = "lifecycle"
+
+
 # The default number of lines to print before streaming when running
 # snow app events --follow
 DEFAULT_EVENT_FOLLOW_LAST = 20
 
 
-@app.command("events", requires_connection=True)
+@app.command("events", requires_connection=True, rich_help_panel=COMMON_PANEL)
 @with_project_definition()
 @with_app_flow_routing(app_required=True)
 def app_events(
     since: str = typer.Option(
         default="",
-        help="(Native App only) Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+        help=(
+            "Fetch events newer than this time. "
+            "Native App: a time ago in Snowflake interval syntax. "
+            "Snowflake App Runtime: relative shorthand (30m, 6h, 2d) or an "
+            "absolute UTC timestamp (e.g. '2026-07-16 18:00:00'). Supplying "
+            "a window switches logs to the historical event table."
+        ),
     ),
     until: str = typer.Option(
         default="",
-        help="(Native App only) Fetch events that are older than this time ago, in Snowflake interval syntax.",
+        help=(
+            "Fetch events older than this time. "
+            "Native App: a time ago in Snowflake interval syntax. "
+            "Snowflake App Runtime: relative shorthand (30m, 6h, 2d) or an "
+            "absolute UTC timestamp (e.g. '2026-07-16 23:59:59')."
+        ),
     ),
     record_types: Annotated[
-        list[RecordType], typer.Option(case_sensitive=False)
+        List[EventType], typer.Option(case_sensitive=False)
     ] = typer.Option(
         [],
         "--type",
-        help="(Native App only) Restrict results to specific record type. Can be specified multiple times.",
+        help=(
+            "Restrict results to specific record type(s). "
+            "Native App: one or more of log, span, span_event (repeatable). "
+            "Snowflake App Runtime: which telemetry stream to return — "
+            "log (default), metric, or lifecycle."
+        ),
     ),
     scopes: Annotated[list[str], typer.Option()] = typer.Option(
         [],
@@ -685,7 +890,10 @@ def app_events(
         help=(
             "Maximum number of events to fetch. "
             "Native App: cannot be used with --first. "
-            "Snowflake App Runtime: number of log lines to retrieve (default: 500, capped at 100KB)."
+            "Snowflake App Runtime: maximum records to return, newest first. "
+            "Sizes the live log tail (capped at 100KB); for metric, lifecycle, "
+            "and windowed log streams a value above the server's inline "
+            "record cap transparently pages the event table past it."
         ),
     ),
     follow: bool = typer.Option(
@@ -705,6 +913,34 @@ def app_events(
             f"--follow flag. Default: {_DEFAULT_FOLLOW_INTERVAL_SECONDS}."
         ),
     ),
+    metric: Optional[str] = typer.Option(
+        None,
+        "--metric",
+        show_default=False,
+        help=(
+            "(Snowflake App Runtime only) With --type metric, return only this "
+            "metric subset: cpu, memory, or network. Omit to return all metrics."
+        ),
+    ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help=(
+            "(Snowflake App Runtime only) With --type metric, emit raw metric "
+            "values (bytes, cores) instead of human-readable conversions."
+        ),
+    ),
+    instance: Optional[int] = typer.Option(
+        None,
+        "--instance",
+        show_default=False,
+        help=(
+            "(Snowflake App Runtime only) Zero-based index of the service instance "
+            "to retrieve logs from. Only valid with --type log and no --since/--until. "
+            "Defaults to instance 0."
+        ),
+    ),
+    target: Optional[str] = _snowflake_app_target_option("query events for"),
     **options,
 ):
     """
@@ -720,17 +956,27 @@ def app_events(
       https://docs.snowflake.com/en/developer-guide/native-apps/setting-up-logging-and-events
 
     For Snowflake App Runtime projects (snowflake-app entities):
-      Fetches recent log lines from the deployed application service.
-      Output is capped at 100KB regardless of the number of lines requested.
+      Returns one of three observability streams for the application service,
+      selected with --type:
+
+        - log (default): live container log tail, sized with --last (defaults to
+          the server default when not provided, capped at 100KB). Supplying
+          --since / --until switches to
+          historical logs read from the service's event table (works over
+          history and after suspend, with a short ingestion lag).
+        - metric: CPU / memory / network telemetry from the event table. Narrow
+          with --metric cpu|memory|network and use --raw for unconverted values.
+        - lifecycle: service / container status changes from the event table.
+
+      --since / --until accept relative shorthand (30m, 6h, 2d) or an absolute
+      UTC timestamp. metric and lifecycle are always historical and default to
+      the last hour when no window is given.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
         _reject_native_app_options(
             "events",
             **{
-                "--since": since or None,
-                "--until": until or None,
-                "--type": record_types if record_types else None,
                 "--scope": scopes if scopes else None,
                 "--consumer-org": consumer_org or None,
                 "--consumer-account": consumer_account or None,
@@ -740,8 +986,30 @@ def app_events(
                 "--follow-interval": follow_interval,
             },
         )
+        if len(record_types) > 1:
+            raise IncompatibleParametersError(["--type", "--type"])
         effective_last = last if last != _EVENTS_LAST_UNSET else None
-        return snowflake_app_events(options.get("entity_id") or None, effective_last)
+        return snowflake_app_events(
+            options.get("entity_id") or None,
+            effective_last,
+            event_type=record_types[0].value if record_types else None,
+            since=since or None,
+            until=until or None,
+            metric=metric or None,
+            raw=raw,
+            target=target,
+            instance=instance,
+        )
+
+    _reject_snowflake_app_options(
+        "events",
+        **{
+            "--metric": metric or None,
+            "--raw": True if raw else None,
+            "--target": target,
+            "--instance": instance,
+        },
+    )
 
     # The Native App flow already treats -1 as "not set", which is exactly
     # the value of _EVENTS_LAST_UNSET, so forward the CLI value unchanged.
@@ -768,7 +1036,16 @@ def app_events(
     )
     app_id = options["app_entity_id"]
 
-    record_type_names = [r.name for r in record_types]
+    record_type_names = []
+    for record_type in record_types:
+        try:
+            record_type_names.append(RecordType(record_type.value).name)
+        except ValueError:
+            valid = ", ".join(rt.value for rt in RecordType)
+            raise ClickException(
+                f"'--type {record_type.value}' is not supported for Native App "
+                f"projects. Valid values are: {valid}."
+            )
 
     if follow and native_last == -1 and not since:
         # If we don't have a value for --last or --since, assume a value
@@ -818,7 +1095,7 @@ class EventResult(ObjectResult, MessageResult):
         return self._element
 
 
-@app.command("publish", requires_connection=True)
+@app.command("publish", requires_connection=True, rich_help_panel=NATIVE_APP_PANEL)
 @with_project_definition()
 @native_app_only("publish")
 @force_project_definition_v2()

@@ -1,3 +1,9 @@
+# The cookiecutter scaffold under plugin-template/ contains Jinja placeholders
+# (e.g. {{ cookiecutter.* }} in file paths, .py, and .toml) that are not valid
+# Python/TOML, so black/ruff/check-ast and the other hooks cannot process them.
+# Exclude the whole directory from every hook.
+exclude: '^plugin-template/'
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -24,6 +30,10 @@ repos:
     rev: v1.18.2
     hooks:
       - id: mypy
+        # The eval harness under .github/scripts/eval is loaded dynamically
+        # (importlib + sys.path, non-package case dirs), so it is not statically
+        # type-checkable; ruff/black/pytest still cover it.
+        exclude: '^(\.github/scripts/eval/|tests/eval/|\.ai/)'
         additional_dependencies: [types-pkg-resources==0.1.3, types-all==1.0.0]
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.4
@@ -135,9 +145,12 @@ repos:
           - --fuzzy-match-generates-todo
       - id: insert-license
         name: Add license for all Markdown files
+        # Skills under .claude/ require YAML frontmatter at the very top of
+        # SKILL.md, which is incompatible with a leading license-header comment.
         exclude: |
           (?x)
           ^\.github/|
+          ^\.claude/|
           tests/test_data/projects/.*|
           tests_integration/test_data/projects/.*
         files: \.md$

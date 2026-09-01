@@ -42,6 +42,7 @@ from snowflake.cli.api.constants import (
     ObjectType,
 )
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -103,17 +104,31 @@ class SnowparkObjectManager(SqlExecutionMixin):
                 "You cannot specify both artifact_repository_packages and packages.",
             )
 
-        packages_list = snowflake_dependencies.copy()
-        if entity.artifact_repository and (
-            entity.artifact_repository_packages or entity.packages
-        ):
-            if entity.artifact_repository_packages:
-                packages_list.extend(entity.artifact_repository_packages)
-            else:
-                packages_list.extend(entity.packages)
+        declared_packages = entity.artifact_repository_packages or entity.packages
+        if entity.artifact_repository and declared_packages:
+            # Snowflake resolves these packages from the artifact repository, so
+            # Anaconda packages picked up during build must not be mixed in: they
+            # may not exist in that repository, and a version pinned by Anaconda
+            # can collide with the same package declared for the repository.
+            if snowflake_dependencies:
+                cli_console.warning(
+                    f"Packages resolved from the Anaconda channel are not sent for "
+                    f"{sanitize_for_terminal(entity.entity_id)}: ARTIFACT_REPOSITORY "
+                    f"applies to the whole PACKAGES clause, so everything the entity "
+                    f"needs, snowflake-snowpark-python included, has to be declared in "
+                    f"its artifact_repository_packages or packages, and come from "
+                    f"artifact repository "
+                    f"{sanitize_for_terminal(entity.artifact_repository)}. If no entity "
+                    f"in the project needs the Anaconda channel, drop requirements.txt, "
+                    f"and delete the requirements.snowflake.txt and dependencies.zip "
+                    f"left by an earlier build, which deploy still reads."
+                )
+            packages_list = list(declared_packages)
             query.append(
                 f"ARTIFACT_REPOSITORY= {entity.artifact_repository}",
             )
+        else:
+            packages_list = snowflake_dependencies.copy()
         packages = [f"'{item}'" for item in packages_list]
         query.append(f"packages=({','.join(packages)})")
 

@@ -15,6 +15,18 @@
 RESULT_COLUMN_NAME = "SUCCESS"
 OUTPUT_COLUMN_NAME = "STDOUT"
 PROFILES_FILENAME = "profiles.yml"
+# Higher-precedence profiles file. If present in --profiles-dir, this file is
+# staged in preference to profiles.yml, under its own name. Mirrors the
+# server-side DBT_PROJECTS_PROFILES_FILENAME default.
+DBT_PROJECTS_PROFILES_FILENAME = "dbt_projects_profiles.yml"
+SUPPORTED_DBT_VERSIONS_QUERY = "SELECT SYSTEM$SUPPORTED_DBT_VERSIONS()"
+ENV_FILENAME = "env.yml"
+
+# Server-side SQL keywords for the writeback / auto-compile properties and the
+# per-run writeback clause on CREATE / ALTER / EXECUTE DBT PROJECT.
+DEFAULT_WRITEBACK_PROPERTY = "DEFAULT_WRITEBACK"
+AUTO_COMPILE_PROPERTY = "AUTO_COMPILE"
+WRITEBACK_CLAUSE = "WRITEBACK"
 
 DBT_COMMANDS = [
     "build",

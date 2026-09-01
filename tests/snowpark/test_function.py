@@ -84,6 +84,58 @@ def test_deploy_function(
     ]
 
 
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_with_artifact_repository_sends_only_declared_packages(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """Packages resolved from Anaconda during build must not leak into the
+    PACKAGES clause of an entity that uses an artifact repository."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with project_directory("snowpark_artifact_repository") as project_dir:
+        result = runner.invoke(
+            [
+                "snowpark",
+                "deploy",
+            ],
+            catch_exceptions=False,
+        )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == [
+        "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
+        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
+        f" auto_compress=false parallel=4 overwrite=True",
+        dedent(
+            """\
+            create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string)
+            copy grants
+            returns string
+            language python
+            runtime_version=3.10
+            imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
+            handler='app.func1_handler'
+            ARTIFACT_REPOSITORY= db.schema.nexus_repo
+            packages=('pandas==2.2.0','scikit-learn')
+            """
+        ).strip(),
+    ]
+    assert "not sent for func1" in result.output
+    # The warning has to say what to declare, and that build leftovers still count.
+    assert "snowflake-snowpark-python included" in result.output
+    assert "artifact_repository_packages or packages" in result.output
+    assert "delete the requirements.snowflake.txt and dependencies.zip" in result.output
+
+
 @pytest.mark.parametrize(
     "project_name",
     ["snowpark_function_external_access", "snowpark_function_external_access_v2"],

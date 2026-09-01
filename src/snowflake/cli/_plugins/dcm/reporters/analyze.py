@@ -16,6 +16,7 @@ from typing import Any, Dict, Iterator, List
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
+from snowflake.cli._plugins.dcm.utils import RAW_ANALYZE_COMMAND_NAME
 from snowflake.cli.api.exceptions import CliError
 
 log = logging.getLogger(__name__)
@@ -26,8 +27,8 @@ class AnalyzeReporter(Reporter[Dict[str, Any]]):
 
     def __init__(self, save_output: bool = False):
         super().__init__(save_output=save_output)
-        self.command_name = "raw-analyze"
-        self._error_count = 0
+        self.command_name = RAW_ANALYZE_COMMAND_NAME
+        self._issue_count = 0
 
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         files = result_json.get(self._FILES_KEY, [])
@@ -36,26 +37,30 @@ class AnalyzeReporter(Reporter[Dict[str, Any]]):
                 'Unexpected response format. Expected "files" to be a list: %s', files
             )
             raise CliError("Could not process response.")
+        self._issue_count = self._count_issues(result_json, files)
         return files
 
-    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
-        for file_entry in data:
-            self._error_count += len(file_entry.get("errors", []))
+    @staticmethod
+    def _count_issues(result_json: Dict[str, Any], files: List[Dict[str, Any]]) -> int:
+        count = len(result_json.get("issues", []))
+        for file_entry in files:
+            count += len(file_entry.get("issues", []))
             for definition in file_entry.get("definitions", []):
-                self._error_count += len(definition.get("errors", []))
-            yield file_entry
+                count += len(definition.get("issues", []))
+        return count
+
+    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[Dict[str, Any]]:
+        return iter(data)
 
     def print_renderables(self, data: Iterator[Dict[str, Any]]) -> None:
-        for _ in data:
-            pass
         if self.result_raw_data is not None:
             cli_console.styled_message(self.result_raw_data)
             cli_console.styled_message("\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
-        if self._error_count == 0:
+        if self._issue_count == 0:
             return [Text("Analysis completed successfully.")]
-        return [Text(f"Analysis found {self._error_count} error(s).")]
+        return [Text(f"Analysis found {self._issue_count} error(s).")]
 
     def _is_success(self) -> bool:
-        return self._error_count == 0
+        return self._issue_count == 0

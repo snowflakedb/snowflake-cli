@@ -20,6 +20,8 @@
 
 - **Adding commands**: [docs/contributing/adding-commands.md](docs/contributing/adding-commands.md)
   — design sign-off, plugin structure, registration, return types, destructive commands
+- **Writing a plugin (interface-first)**: [docs/contributing/writing-a-plugin.md](docs/contributing/writing-a-plugin.md)
+  — two-phase contribution workflow, interface/handler split, cookiecutter template
 - **Command lifecycle and feature flags**: [docs/contributing/lifecycle.md](docs/contributing/lifecycle.md)
   — PrPr/PuPr/GA rules, feature flag mechanics, release notes format
 - **Code conventions**: [docs/contributing/conventions.md](docs/contributing/conventions.md)

@@ -17,6 +17,7 @@ flow-detection helper used by the shared ``snow app`` subcommands."""
 
 import ast
 from pathlib import Path
+from unittest import mock
 from unittest.mock import Mock
 
 import pytest
@@ -285,6 +286,16 @@ class TestCrossFlowOptionValidation:
         assert "Snowflake App Runtime entity" in result.output
         assert "--follow" in result.output
 
+    def test_native_app_rejects_snowflake_app_events_options(self, runner, tmp_path):
+        self._write_yml(tmp_path, _NATIVE_APP_YML)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "events", "--metric", "cpu"])
+
+        assert result.exit_code != 0
+        assert "Native App entity" in result.output
+        assert "--metric" in result.output
+
     def test_snowflake_app_rejects_explicit_native_app_follow_interval(
         self, runner, tmp_path
     ):
@@ -508,3 +519,36 @@ class TestForceProjectDefinitionV2Callers:
             f"Expected callers no longer present: {sorted(missing)}. "
             f"Update EXPECTED_CALLERS to remove them."
         )
+
+
+class TestAppGroupDefinitionEncoding:
+    """The ``snow app`` group callback defaults the project-definition encoding
+    to UTF-8, but lets an explicit ``cli.encoding.file_io`` setting win."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_encoding(self):
+        get_cli_context_manager().project_definition_encoding = None
+        yield
+        get_cli_context_manager().project_definition_encoding = None
+
+    def test_defaults_to_utf8_when_file_io_unset(self):
+        from snowflake.cli._plugins.nativeapp.commands import _app_group_callback
+
+        with mock.patch(
+            "snowflake.cli._plugins.nativeapp.commands.get_file_io_encoding",
+            return_value=None,
+        ):
+            _app_group_callback()
+
+        assert get_cli_context_manager().project_definition_encoding == "utf-8"
+
+    def test_file_io_setting_takes_precedence(self):
+        from snowflake.cli._plugins.nativeapp.commands import _app_group_callback
+
+        with mock.patch(
+            "snowflake.cli._plugins.nativeapp.commands.get_file_io_encoding",
+            return_value="cp1252",
+        ):
+            _app_group_callback()
+
+        assert get_cli_context_manager().project_definition_encoding == "cp1252"
