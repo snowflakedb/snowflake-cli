@@ -34,7 +34,7 @@ from snowflake.cli.api.constants import (
 )
 from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import MessageResult, QueryResult
+from snowflake.cli.api.output.types import MessageResult, ObjectResult, QueryResult
 from snowflake.cli.api.project.util import is_valid_identifier
 
 app = SnowTyperFactory(
@@ -216,9 +216,20 @@ DESCRIBE_SUPPORTED_TYPES_MSG = f"\n\nSupported types: {', '.join(obj for obj in 
 def describe(
     object_type: str = ObjectArgument, object_name: FQN = NameArgument, **options
 ):
-    return QueryResult(
-        ObjectManager().describe(object_type=object_type, fqn=object_name)
-    )
+    cursor = ObjectManager().describe(object_type=object_type, fqn=object_name)
+    
+    # Convert cursor results to a dictionary for vertical display
+    result_dict = {}
+    for row in cursor:
+        # Assuming describe returns rows with property name and value pairs
+        # The exact structure may vary by object type, but typically has columns like:
+        # property, value, default, etc.
+        if len(row) >= 2:
+            property_name = row[0] if row[0] is not None else ""
+            property_value = row[1] if row[1] is not None else ""
+            result_dict[str(property_name)] = str(property_value)
+    
+    return ObjectResult(result_dict)
 
 
 @app.command(name="create", requires_connection=True)
