@@ -257,17 +257,39 @@ def get_snowsight_host(conn: SnowflakeConnection) -> str:
         return "https://app.snowflake.com"
 
 
+SNOWSIGHT_DEFAULT_HOST = "https://app.snowflake.com"
+
+
 def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:
     """
     Returns a URL on the correct Snowsight instance for the connected account.
     The path that is passed in must already be properly URL-encoded, and
     can optionally contain a hash/fragment (e.g. #).
 
+    If the deployment or account cannot be resolved (for example, on
+    accounts whose host does not match the 6-part
+    ``<account>.<x>.<y>.<z>.snowflakecomputing.com`` shape that
+    ``get_host_region`` recognizes — which includes many Azure accounts
+    with 5-part hosts like ``<account>.<region>.azure.snowflakecomputing.com``),
+    falls back to the generic Snowsight root URL instead of raising.
+    The caller already has a working connection at this point, so failing
+    a downstream command purely because we cannot build a precise URL is
+    a worse outcome than returning a usable generic link.
+
     See also identifier_for_url.
     """
-    snowsight_host = get_snowsight_host(conn)
-    deployment = get_context(conn)
-    account = get_account(conn)
+    try:
+        snowsight_host = get_snowsight_host(conn)
+        deployment = get_context(conn)
+        account = get_account(conn)
+    except (MissingConnectionRegionError, MissingConnectionAccountError) as e:
+        log.warning(
+            "Could not resolve Snowsight URL for this connection; "
+            "falling back to %s. Reason: %s",
+            SNOWSIGHT_DEFAULT_HOST,
+            e,
+        )
+        return SNOWSIGHT_DEFAULT_HOST
     path_with_slash = path if path.startswith("/") else f"/{path}"
     return f"{snowsight_host}/{deployment}/{account}{path_with_slash}"
 
