@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Typer commands for 'snow feature' (manifest-driven, Phase 3+4).
+"""Typer commands for 'snow feature' (manifest-driven).
 
-The CLI surface mirrors DCM (D3): every command takes a
-``--from <dir>`` flag (default cwd) and a ``--target <name>`` flag
-(default = the manifest's ``default_target``).  ``--variable
-key=value`` is the only template-variable mechanism (D5: the legacy
-``--config`` flag is removed).  Apply consumes plan files only —
-neither ``apply`` nor ``plan`` accepts positional spec paths or the
-``./...`` recursive marker (D1).
+Every command takes a ``--from <dir>`` flag (default cwd) and a
+``--target <name>`` flag (default = the manifest's
+``default_target``).  ``--variable key=value`` is the only
+template-variable mechanism.  Apply consumes plan files only —
+neither ``apply`` nor ``plan`` accepts positional spec paths.
 """
 
 from __future__ import annotations
@@ -42,6 +40,7 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.feature.manager import FeatureManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -50,33 +49,53 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
 )
 
+# The ``snow feature`` plugin delegates every operation to the
+# ``snowflake-ml-python[feature_store]`` library.  ``_SNOWML_IMPORT_ERROR``
+# captures whether that library is importable so the group callback can
+# surface a single actionable error before any command runs, instead of
+# letting an opaque ``ModuleNotFoundError`` escape.
+#
 # ``FeatureStoreNotInitializedError`` is the declarative-layer wrapper
-# raised by :func:`decl_api.assert_feature_store_initialized` when a
-# command runs against a schema that has not been bootstrapped via
-# ``snow feature init``.  Imported at the module top so the wrapping
-# decorator (:func:`_surface_init_required_as_click_exception`) can
-# catch it for every command — see Phase 6 of
-# ``plans/remove_duplicate_entity_tag_prefix_ec78aade.plan.md``.
+# raised when a command runs against a schema that has not been
+# bootstrapped via ``snow feature init``.  It is imported here so the
+# wrapping decorator (:func:`_surface_init_required_as_click_exception`)
+# can catch it for every command.
 try:
     from snowflake.ml.feature_store.decl.errors import (
         FeatureStoreNotInitializedError,
     )
 
-    _HAS_FS_NOT_INIT_ERROR = True
-except ImportError:  # pragma: no cover — wheel-isolation fallback
+    _SNOWML_IMPORT_ERROR: Optional[ImportError] = None
+except ImportError as _exc:
 
     class FeatureStoreNotInitializedError(Exception):  # type: ignore[no-redef]
-        """Fallback stub when the snowml decl wheel is too old to ship
-        :class:`FeatureStoreNotInitializedError`.
+        """Placeholder used only when ``snowflake-ml-python`` is absent.
 
-        Older decl wheels never raise this exception, so the
-        ``except`` clause in
-        :func:`_surface_init_required_as_click_exception` is effectively
-        a no-op.  The stub exists only so the import does not fail
-        on those wheels.
+        The group callback raises an actionable error before any command
+        executes, so this stub is never actually raised — it exists only
+        so the module still imports (and the plugin still registers) when
+        the feature-store library is not installed.
         """
 
-    _HAS_FS_NOT_INIT_ERROR = False
+    _SNOWML_IMPORT_ERROR = _exc
+
+
+_MISSING_SNOWML_MESSAGE = (
+    "Error: 'snow feature' requires the snowflake-ml-python[feature_store] library"
+)
+
+
+def _require_snowflake_ml() -> None:
+    """Fail with an actionable error when the feature-store library is missing.
+
+    ``snow feature`` is a thin adapter over
+    ``snowflake-ml-python[feature_store]``; without it every subcommand
+    would raise an opaque ``ModuleNotFoundError``.  Invoked from the group
+    callback so the check runs once before any subcommand (including
+    ``--help``) executes.
+    """
+    if _SNOWML_IMPORT_ERROR is not None:
+        raise ClickException(_MISSING_SNOWML_MESSAGE)
 
 
 _F = TypeVar("_F", bound=Callable[..., Any])
@@ -86,8 +105,8 @@ def _surface_init_required_as_click_exception(fn: _F) -> _F:
     """Wrap a Typer command so :class:`FeatureStoreNotInitializedError`
     becomes a top-level :class:`ClickException`.
 
-    Pin NT6 from the plan: every ``snow feature`` subcommand except
-    ``init`` must convert the snowml-layer init-required error into
+    Every ``snow feature`` subcommand except
+    ``init`` must convert the library's init-required error into
     an actionable CLI error.  The message produced by
     ``FeatureStoreNotInitializedError.__str__`` already contains the
     operator-facing remediation
@@ -118,31 +137,38 @@ app = SnowTyperFactory(
     name="feature",
     help="Manages declarative feature-store objects in Snowflake.",
     preview=True,
+    is_hidden=FeatureFlag.ENABLE_FEATURE_STORE.is_disabled,
 )
 
 log = logging.getLogger(__name__)
 
 
-_PRE_RELEASE_WARNING = (
-    "WARNING: 'snow feature' is a pre-release tool. Breaking changes "
-    "may occur in future releases. Do not rely on its current API "
-    "surface for production workflows."
-)
-_ANSI_BOLD_RED = "\x1b[1;31m"
+_PREVIEW_WARNING = "WARNING: 'snow feature' is in public preview."
+_ANSI_YELLOW = "\x1b[33m"
 _ANSI_RESET = "\x1b[0m"
 
 
 @app.callback()
-def _emit_pre_release_warning() -> None:
-    """Emit the red pre-release warning before every `snow feature` invocation.
+def _feature_group_callback() -> None:
+    """Group callback run before every `snow feature` invocation.
+
+    Guards the required ``snowflake-ml-python[feature_store]`` dependency
+    and emits the public-preview banner.
+    """
+    _require_snowflake_ml()
+    _emit_preview_warning()
+
+
+def _emit_preview_warning() -> None:
+    """Emit the yellow public-preview warning on stderr.
 
     Writes directly to ``sys.stderr`` so the banner never corrupts
     structured (JSON / CSV) output that subcommands send to stdout.
     """
     use_color = sys.stderr.isatty() and os.environ.get("NO_COLOR") is None
-    prefix = _ANSI_BOLD_RED if use_color else ""
+    prefix = _ANSI_YELLOW if use_color else ""
     suffix = _ANSI_RESET if use_color else ""
-    sys.stderr.write(f"{prefix}{_PRE_RELEASE_WARNING}{suffix}\n")
+    sys.stderr.write(f"{prefix}{_PREVIEW_WARNING}{suffix}\n")
     sys.stderr.flush()
 
 
@@ -1127,7 +1153,7 @@ def query(
         "--version",
         help=(
             "Feature view version (e.g. 'V1').  Required because "
-            "snowml-core's online lookup is keyed on (name, version) — "
+            "the online lookup is keyed on (name, version) — "
             "there is no 'latest' fallback for a bare name."
         ),
         show_default=False,

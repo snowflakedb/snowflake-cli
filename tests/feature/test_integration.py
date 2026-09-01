@@ -17,10 +17,10 @@
 The Snowflake connection (``execute_query`` / ``_build_session``) is
 mocked; every call to the declarative library
 (:mod:`snowflake.ml.feature_store.decl.api`) runs against the real
-implementation installed from the ``snowflake_ml_feature_store_decl``
-wheel.
+implementation provided by the ``snowflake-ml-python[feature_store]``
+library.
 
-The CLI surface is the Phase 3+4 manifest-driven shape:
+The CLI surface is the manifest-driven shape:
 
 * ``--from <dir>`` locates ``manifest.yml`` (default: cwd).
 * ``--target <name>`` selects the target (default:
@@ -103,7 +103,7 @@ _FV_YAML = textwrap.dedent(
 
 
 def _write_minimal_project(project_root: Path) -> Path:
-    """Lay out a Phase 3+4 manifest project under *project_root*.
+    """Lay out a manifest project under *project_root*.
 
     Tree::
 
@@ -137,7 +137,7 @@ def _write_minimal_plan_json(
 ) -> None:
     """Write a minimal valid ``PlanFile`` JSON envelope for wet-run apply tests.
 
-    Wet-run ``apply`` is a *pure plan-file consumer* (Phase 3+4 D1):
+    Wet-run ``apply`` is a *pure plan-file consumer*:
     it deserializes the on-disk envelope and hands it to
     ``decl_api.execute_plan``.  These integration tests exercise the
     real ``deserialize_plan`` against a minimally-valid envelope while
@@ -183,13 +183,12 @@ def bypass_init_first_guard():
     These tests intentionally exercise the real ``decl_api`` (not the
     ``mock_decl`` fixture used in ``test_manager.py``), but they still
     don't have a live Snowflake connection — ``mock_execute_query``
-    only stubs ``FeatureManager.execute_query``, not the snowml-core
+    only stubs ``FeatureManager.execute_query``, not the library's
     ``FeatureStore`` constructor that
     ``decl_api.assert_feature_store_initialized`` reaches into.
-    Without these patches the manager's new
-    ``_assert_initialized`` call (Phase 8 init-first guard) and the
-    ``_fetch_entity_rows`` → ``decl_api.fetch_entity_rows`` →
-    ``imperative_executor.assert_feature_store_initialized`` chain
+    Without these patches the manager's
+    ``_assert_initialized`` init-first guard and the
+    ``_fetch_entity_rows`` → ``decl_api.fetch_entity_rows`` chain
     would both raise ``FeatureStoreNotInitializedError`` against the
     mock session before the real plan/list/describe code under test
     ever runs.
@@ -199,18 +198,13 @@ def bypass_init_first_guard():
     1. ``decl_api.assert_feature_store_initialized`` — covers
        ``_assert_initialized`` + ``_get_feature_store``.
     2. ``decl_api.fetch_entity_rows`` — covers the entity read path,
-       which calls ``imperative_executor.assert_feature_store_initialized``
-       via the same-module reference (so the first patch does not
-       intercept it).
+       which runs the library's own init check (so the first patch
+       does not intercept it).
     3. ``decl_api.fetch_feature_view_rows`` — covers the offline-FV
-       enumeration path added by
-       ``plans/offline_bfv_state_fix_b9da0006.plan.md``; same
-       reasoning as #2 (it goes through
-       ``imperative_executor.assert_feature_store_initialized``
-       via a same-module reference).
+       enumeration path; same reasoning as #2 (it runs the library's
+       own init check).
     4. ``decl_api.fetch_feature_group_rows`` — covers the FeatureGroup
-       enumeration path added by the declarative FG plan (Phase 5);
-       same reasoning as #2 / #3.
+       enumeration path; same reasoning as #2 / #3.
 
     Tests that want to exercise the negative path explicitly assign
     ``side_effect=FeatureStoreNotInitializedError(...)`` to the
@@ -360,7 +354,7 @@ class TestApplyExecuteIntegration:
 
 class TestListSpecsIntegration:
     """``list_specs`` always reads from Snowflake under the
-    Phase 3+4 manifest-driven surface (D1 deletes the file-positional
+    manifest-driven surface (there is no file-positional
     surface).  The result envelope's ``source`` field is always
     ``"snowflake"`` — the legacy file-mode listings live on as
     ``snow feature export`` instead.
@@ -530,9 +524,9 @@ class TestApplySqlUsesConnectionContext:
     """Connection ``warehouse`` must reach ``execute_plan`` while
     ``database`` / ``schema`` come from the *plan file's*
     ``target_database`` / ``target_schema`` (which were sourced from
-    the manifest target when the plan was written).  Bug C: plan
+    the manifest target when the plan was written).  Plan
     files are warehouse-agnostic — the warehouse is always pulled
-    from the active connection at apply time (D2 / D4).
+    from the active connection at apply time.
     """
 
     def test_execute_plan_receives_connection_context(
@@ -639,7 +633,7 @@ class TestWritePlanIntegration:
         manifest target — NOT from the active connection.  This is
         what lets ``apply`` later refuse a ``target_mismatch`` if
         the plan was written against a different target than the
-        operator now requests (L6 / D4)."""
+        operator now requests."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         out_path = tmp_path / "plan.json"

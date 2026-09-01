@@ -88,9 +88,9 @@ def _make_not_initialized_error() -> Exception:
     :class:`FeatureStoreNotInitializedError` instance the manager
     should surface.
 
-    Imported lazily because the exception lives in the snowml wheel,
-    which is installed but not on the typing import path for the
-    test runner's static check.
+    Imported lazily because the exception lives in the
+    ``snowflake-ml-python`` library, which is installed but not on the
+    typing import path for the test runner's static check.
     """
     from snowflake.ml.feature_store.decl.errors import (
         FeatureStoreNotInitializedError,

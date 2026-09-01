@@ -14,11 +14,44 @@
 
 """Tests for plugin registration of the feature command group."""
 
+from snowflake.cli.api.feature_flags import FeatureFlag
+
+from tests_common.feature_flag_utils import with_feature_flags
+
+
+def _lists_feature_group(output: str) -> bool:
+    """True when the root ``--help`` output lists the ``feature`` group.
+
+    Root help renders commands inside a Rich box, so each row is prefixed
+    with the ``|`` border; strip it before matching the command name.
+    """
+    return any(line.lstrip("| ").startswith("feature") for line in output.splitlines())
+
 
 def test_feature_group_is_registered(runner):
-    """The 'snow feature' command group should be discoverable via --help."""
+    """The 'snow feature' command group should be invokable via --help.
+
+    The group is hidden from the root help by default (public-preview
+    lifecycle), but it stays registered and directly invokable so
+    opted-in users and tests can still reach it.
+    """
     result = runner.invoke(["feature", "--help"])
     assert result.exit_code == 0, result.output
+
+
+def test_feature_group_hidden_from_root_help_by_default(runner):
+    """Without the feature flag, ``snow --help`` must not list ``feature``."""
+    result = runner.invoke(["--help"])
+    assert result.exit_code == 0, result.output
+    assert not _lists_feature_group(result.output), result.output
+
+
+@with_feature_flags({FeatureFlag.ENABLE_FEATURE_STORE: True})
+def test_feature_group_visible_in_root_help_when_flag_enabled(runner):
+    """With ENABLE_FEATURE_STORE on, ``snow --help`` lists ``feature``."""
+    result = runner.invoke(["--help"])
+    assert result.exit_code == 0, result.output
+    assert _lists_feature_group(result.output), result.output
 
 
 def test_feature_group_help_lists_all_commands(runner):

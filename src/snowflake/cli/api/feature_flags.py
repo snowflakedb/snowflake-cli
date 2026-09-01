@@ -88,3 +88,4 @@ class FeatureFlag(FeatureFlagMixin):
     )
     ENABLE_DCM_PROJECT_ENV_VARS = BooleanFlag("ENABLE_DCM_PROJECT_ENV_VARS", False)
     ENABLE_DCM_PREVIEW_FEATURES = BooleanFlag("ENABLE_DCM_PREVIEW_FEATURES", False)
+    ENABLE_FEATURE_STORE = BooleanFlag("ENABLE_FEATURE_STORE", False)

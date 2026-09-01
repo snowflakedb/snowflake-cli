@@ -16,18 +16,17 @@
 
 The five terminal ``ApplyResult.status`` tokens — ``applied``,
 ``partial_failure``, ``refused``, ``target_mismatch``, ``no_plan`` —
-are the complete surface for the apply path.  Phase 3+4 widens
-``target_mismatch`` to fire on **either** of:
+are the complete surface for the apply path.  ``target_mismatch``
+fires on **either** of:
 
 * the active connection's ``account_identifier`` ≠ the manifest
-  target's ``account_identifier`` (D4 / L6-extension), or
+  target's ``account_identifier``, or
 * a ``--plan <file>`` whose envelope ``target_name`` ≠ the requested
-  ``--target`` (D4-ext / L6 widened).
+  ``--target``.
 
-The plan-file lifecycle now lives under
-``<project_root>/out/plan/`` (D8 relocated from
-``<cwd>/.snowflake/plans/``); the discovery branch that produces
-``status="no_plan"`` walks the new directory.
+The plan-file lifecycle lives under
+``<project_root>/out/plan/``; the discovery branch that produces
+``status="no_plan"`` walks that directory.
 """
 
 from __future__ import annotations
@@ -53,8 +52,8 @@ from tests.feature.test_manager import (  # noqa: F401
 )
 
 # The full set of terminal ``ApplyResult.status`` tokens the apply path
-# can surface.  See ``docs/ARCHITECTURE.md`` § "Apply Lifecycle (L1–L7)"
-# + "Apply-time --allow-recreate gate".
+# can surface across the apply lifecycle and the apply-time
+# ``--allow-recreate`` gate.
 APPLY_STATUSES = (
     "applied",
     "partial_failure",
@@ -113,7 +112,7 @@ def _make_plan_json(
     target_schema: str = "TEST_SCHEMA",
     target_name: str = "DEFAULT",
 ) -> str:
-    """Return a minimal valid PlanFile JSON envelope (D4-ext shape)."""
+    """Return a minimal valid PlanFile JSON envelope."""
     return json.dumps(
         {
             "version": "1",
@@ -129,7 +128,7 @@ def _make_plan_json(
 
 
 def _make_plans_dir(project_root: Path) -> Path:
-    """Create ``<project_root>/out/plan/`` (D8 relocated)."""
+    """Create ``<project_root>/out/plan/``."""
     plans_dir = project_root / "out" / "plan"
     plans_dir.mkdir(parents=True, exist_ok=True)
     return plans_dir
@@ -162,8 +161,8 @@ def _make_apply_result(status, *, ops=None, warnings=None, errors=None):
 class TestFeatureManagerApplyStatusSet:
     """``FeatureManager.apply`` must surface every member of
     ``APPLY_STATUSES``.  Three statuses come from ``execute_plan``;
-    two are manager-level shortcuts (``no_plan`` from L1,
-    ``target_mismatch`` from L6 / D4-ext)."""
+    two are manager-level shortcuts (``no_plan`` and
+    ``target_mismatch``)."""
 
     @pytest.mark.parametrize("status", ("applied", "partial_failure", "refused"))
     def test_execute_plan_status_threaded_through_apply(
@@ -188,7 +187,7 @@ class TestFeatureManagerApplyStatusSet:
     def test_no_plan_status_when_out_plan_directory_empty(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """L1 + D8: empty ``<project_root>/out/plan/`` → ``status='no_plan'``."""
+        """L1: empty ``<project_root>/out/plan/`` → ``status='no_plan'``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         _write_manifest(tmp_path)
@@ -208,7 +207,7 @@ class TestFeatureManagerApplyStatusSet:
         mock_account_identifier,
         tmp_path,
     ):
-        """L6 / D4: connection account ≠ manifest target.account_identifier
+        """L6: connection account ≠ manifest target.account_identifier
         → ``status='target_mismatch'`` *before* execute_plan runs."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.cli.api.identifiers import AccountIdentifier
@@ -233,7 +232,7 @@ class TestFeatureManagerApplyStatusSet:
     def test_target_mismatch_status_when_plan_target_name_disagrees(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """D4-ext: plan envelope ``target_name`` ≠ requested ``--target``
+        """Plan envelope ``target_name`` ≠ requested ``--target``
         → ``status='target_mismatch'``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -255,7 +254,7 @@ class TestFeatureManagerApplyStatusSet:
         self, mock_execute_query, mock_decl, mock_account_identifier, tmp_path
     ):
         """The five status tokens enumerated above are the complete contract.
-        Adding a sixth without updating ``verify_bug_bash.sh`` would silently
+        Adding a sixth without keeping the status set in sync would silently
         regress to a "missing output" TODO again."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.cli.api.identifiers import AccountIdentifier
@@ -370,33 +369,6 @@ class TestPrintStatusHeader:
         _print_status_header({"status": "", "ops": []})
         captured = capsys.readouterr()
         assert captured.err == ""
-
-
-# ---------------------------------------------------------------------------
-# Documentation contract
-# ---------------------------------------------------------------------------
-
-
-def test_apply_statuses_matches_architecture_doc():
-    """``docs/ARCHITECTURE.md`` enumerates the apply statuses; every
-    ``APPLY_STATUSES`` member must be mentioned at least once."""
-    here = Path(__file__).resolve()
-    doc_path = None
-    for parent in [here, *here.parents][:10]:
-        candidate = parent / "docs" / "ARCHITECTURE.md"
-        if candidate.exists():
-            doc_path = candidate
-            break
-    if doc_path is None:
-        pytest.skip("docs/ARCHITECTURE.md not reachable from test file")
-
-    text = doc_path.read_text()
-    missing = [
-        s for s in APPLY_STATUSES if f'"{s}"' not in text and f"`{s}`" not in text
-    ]
-    assert not missing, (
-        f"APPLY_STATUSES members not mentioned in docs/ARCHITECTURE.md: " f"{missing!r}"
-    )
 
 
 def test_status_line_regex_matches_canonical_format():

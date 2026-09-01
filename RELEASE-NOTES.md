@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow feature` is now available in preview. This command group manages declarative feature-store objects in Snowflake (`init`, `sync`, `plan`, `apply`, `list`, `describe`, `online-service`, `ingest`, `query`). It is hidden by default; enable it with the `ENABLE_FEATURE_STORE` feature flag (`SNOWFLAKE_CLI_FEATURES_ENABLE_FEATURE_STORE=true` or `[cli.features] enable_feature_store = true` in `config.toml`). It requires the `snowflake-ml-python[feature_store]` library.
 
 ## Fixes and improvements
 * Upgraded GitPython from 3.1.58 to 3.1.59.

@@ -12,34 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for FeatureManager — new manifest-driven shape (Phase 3+4).
+"""Tests for FeatureManager — manifest-driven shape.
 
-The CLI surface is DCM-strict (D3): every Snowflake-bound command takes
+Every Snowflake-bound command takes
 ``from_dir=<dir>`` (default cwd) and ``target_name=<name>`` (default =
 manifest's ``default_target``). The manager resolves the on-disk project
 via :func:`decl_api.discover_project` / :func:`decl_api.load_manifest`
 / :func:`decl_api.resolve_target`, asserts the active connection's
-account matches the target's ``account_identifier`` (D4), and then
+account matches the target's ``account_identifier``, and then
 delegates state SQL / plan generation / execution to ``decl_api``.
 
 Tests cover:
 
-* :class:`TestResolveProject` — the private resolver (D4 account match,
+* :class:`TestResolveProject` — the private resolver (account match,
   manifest discovery, default-target resolution).
 * :class:`TestFeatureManagerInit` — manifest scaffolding + ``init-exist``
-  fail-fast (D6).
+  fail-fast.
 * :class:`TestFeatureManagerPlan` — read-only validate + plan against
   the manifest target (no SQL strings in the manager).
 * :class:`TestWritePlan` — plan persistence under
-  ``<project_root>/out/plan/`` (D8, relocated).
-* :class:`TestApplyCommand` — L1–L7 plan-file lifecycle (preserved,
-  relocated to ``out/plan/``).  L6 widened to cover both account and
-  ``target_name`` mismatch (D4 + D4-ext).
+  ``<project_root>/out/plan/``.
+* :class:`TestApplyCommand` — the plan-file lifecycle, covering both
+  account and ``target_name`` mismatch.
 * :class:`TestFeatureManagerListSpecs` / :class:`TestFeatureManagerDescribe`
   / :class:`TestFeatureManagerExportSpecs` — every Snowflake-bound
   command runs through the manifest resolver.
 * :class:`TestFeatureManagerIngest` / :class:`TestFeatureManagerQuery`
-  — preserved snowml-core delegation contract (unchanged by Phase 3+4).
+  — the library delegation contract.
 * :class:`TestSurfaceDeletions` — the deleted helpers
   (``_expand_with_datasources``, ``_is_full_sync``) MUST stay gone.
 """
@@ -176,8 +175,8 @@ def mock_decl():
         m.export_specs.return_value = _export_result
         m.export_specs_as_python.return_value = _export_result
 
-        # ``assert_feature_store_initialized`` is the init-first guard
-        # (docs/DEVELOPMENT_STANDARDS.md rule #11).  ``MagicMock``
+        # ``assert_feature_store_initialized`` is the init-first guard.
+        # ``MagicMock``
         # special-cases any attribute that starts with ``assert_``
         # (treats it as one of mock's built-in assertion helpers,
         # which raises ``AttributeError`` when called), so we must
@@ -270,7 +269,7 @@ def _make_plan_json(
 
 
 def _make_plans_dir(project_root: Path) -> Path:
-    """Create ``<project_root>/out/plan/`` and return the Path (D8 relocated)."""
+    """Create ``<project_root>/out/plan/`` and return the Path."""
     plans_dir = project_root / "out" / "plan"
     plans_dir.mkdir(parents=True, exist_ok=True)
     return plans_dir
@@ -285,8 +284,7 @@ class TestResolveProject:
     """``FeatureManager._resolve_project(from_dir, target_name)`` walks
     up from ``from_dir`` to find ``manifest.yml``, loads it, resolves
     the named target (or ``default_target``), and asserts the active
-    connection's account_identifier matches the target's (D4 /
-    L6-extension)."""
+    connection's account_identifier matches the target's."""
 
     def test_resolve_project_returns_paths_manifest_target_triple(
         self, mock_execute_query, mock_decl, tmp_path
@@ -370,7 +368,7 @@ class TestResolveProject:
         mock_account_identifier,
         tmp_path,
     ):
-        """L6-extension: account mismatch → ``CliError`` naming both sides."""
+        """Account mismatch → ``CliError`` naming both sides."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.cli.api.exceptions import CliError
         from snowflake.cli.api.identifiers import AccountIdentifier
@@ -420,7 +418,7 @@ class TestResolveProject:
 
 
 # ===========================================================================
-# init — manifest scaffolding (D6 + init-exist)
+# init — manifest scaffolding + init-exist fail-fast
 # ===========================================================================
 
 
@@ -540,7 +538,7 @@ class TestFeatureManagerInit:
     def test_init_does_not_write_warehouse_field(
         self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
     ):
-        """D2: ``warehouse`` MUST NOT appear in the generated manifest."""
+        """``warehouse`` MUST NOT appear in the generated manifest."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         fs_patch, cm_patch = self._patch_feature_store()
@@ -1248,7 +1246,7 @@ class TestFeatureManagerPlan:
     def test_plan_target_info_uses_manifest_db_schema_and_connection_warehouse(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """D2 + D4: db/schema from manifest target; warehouse from connection."""
+        """db/schema from manifest target; warehouse from connection."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         _write_manifest(
@@ -1317,11 +1315,10 @@ class TestFeatureManagerPlan:
             )
 
     # ------------------------------------------------------------------
-    # W-G.4 — manager fetches SHOW DYNAMIC TABLES and threads the resulting
+    # The manager fetches SHOW DYNAMIC TABLES and threads the resulting
     # ``dt_text_map`` into ``fetch_applied_state`` so that the planner can
     # recover the offline source-table binding for BatchFVs that lose it
-    # in the ``DESCRIBE … TYPE = SPECIFICATION`` round-trip.  See
-    # docs/BATCH_FV_BUG_BASH.md §6–§8 and the W-G(A) plan.
+    # in the ``DESCRIBE … TYPE = SPECIFICATION`` round-trip.
     # ------------------------------------------------------------------
 
     def test_plan_executes_show_dynamic_tables_query(
@@ -1424,7 +1421,6 @@ class TestFeatureManagerPlan:
         ``MISSING_SOURCE`` validation on every re-plan after a
         ``snow feature init`` round-trip.
 
-        Plan ref: .cursor/plans/bfv_source-name_recovery_82070393.plan.md
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -1619,21 +1615,20 @@ class TestFeatureManagerPlan:
 
 
 # ===========================================================================
-# init export — applied-state unification (Bug A wide-scope fix).
+# init export — applied-state unification.
 #
-# ``snow feature init`` previously fed the raw ``DESCRIBE … TYPE =
+# ``snow feature init`` must not feed the raw ``DESCRIBE … TYPE =
 # SPECIFICATION`` JSON straight through ``decl_api.export_specs``.
 # That JSON always returns ``spec.sources: []`` for BatchFeatureView
-# (snowml-core's FROM SPECIFICATION serializer encodes the source
+# (the FROM SPECIFICATION serializer encodes the source
 # binding into the offline Dynamic Table's ``SELECT … FROM …`` body,
-# not the spec payload).  The exported YAML therefore drifted from
-# the deployed runtime and a follow-up ``snow feature plan`` spuriously
-# emitted ``RECREATE_FV`` — apply then crashed with "no resolvable
-# source".  The fix routes the init export through the same
+# not the spec payload).  The exported YAML would then drift from
+# the deployed runtime and a follow-up ``snow feature plan`` would
+# spuriously emit ``RECREATE_FV`` — apply then crashing with "no
+# resolvable source".  Routing the init export through the same
 # ``fetch_applied_state`` path the plan / write_plan codepaths use
-# (so BatchFV ``sources``, advanced BFV fields, offline-only BFVs,
-# and FG source mappings all round-trip cleanly).  See
-# .cursor/plans/init_export_applied-state_unification_*.plan.md.
+# keeps BatchFV ``sources``, advanced BFV fields, offline-only BFVs,
+# and FG source mappings round-tripping cleanly.
 # ===========================================================================
 
 
@@ -1717,7 +1712,7 @@ class TestFeatureManagerInitDtTextRecovery:
             "name": "USER_CLICKS_FG_DECL$V1",
             "text": (
                 "CREATE DYNAMIC TABLE USER_CLICKS_FG_DECL$V1 TARGET_LAG = '300 seconds' "
-                "AS SELECT * FROM JKEW_DB.JKEW_SCHEMA.RAW_EVENTS"
+                "AS SELECT * FROM TEST_DB.TEST_SCHEMA.RAW_EVENTS"
             ),
         }
 
@@ -1757,7 +1752,6 @@ class TestFeatureManagerInitDtTextRecovery:
         returns an empty map; the lookup is still threaded so the
         contract stays uniform across plan / write_plan / init.
 
-        Plan ref: .cursor/plans/bfv_source-name_recovery_82070393.plan.md
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -1827,8 +1821,7 @@ class TestFeatureManagerInitDtTextRecovery:
 
         Without this, ``init`` re-exports only the OFT-visible subset
         and offline-only BFVs silently disappear from the local tree —
-        a regression of the offline-BFV idempotency contract pinned in
-        ``test_replan_offline_bfv_idempotency.py``.
+        a regression of the offline-BFV idempotency contract.
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -1869,14 +1862,14 @@ class TestFeatureManagerInitDtTextRecovery:
 
 class TestWritePlan:
     """``write_plan`` persists a plan JSON under
-    ``<project_root>/out/plan/feature_plan_<UTC ts>.json`` (D8 relocated)
-    with ``target_name`` round-tripped (D4-ext)."""
+    ``<project_root>/out/plan/feature_plan_<UTC ts>.json``
+    with ``target_name`` round-tripped."""
 
     def test_write_plan_default_path_under_out_plan(
         self, mock_execute_query, mock_decl, tmp_path
     ):
         """When ``out_path`` is omitted, the plan lands under
-        ``<project_root>/out/plan/feature_plan_<ts>.json`` (D8)."""
+        ``<project_root>/out/plan/feature_plan_<ts>.json``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         _write_manifest(tmp_path)
@@ -1889,7 +1882,7 @@ class TestWritePlan:
 
         result = Path(result_path)
         # Plan must land under <project_root>/out/plan/, not under
-        # <cwd>/.snowflake/plans/ (D1 hard-break).
+        # <cwd>/.snowflake/plans/.
         assert result.parent == (tmp_path / "out" / "plan").resolve()
         assert result.name.startswith("feature_plan_")
         assert result.name.endswith(".json")
@@ -1946,7 +1939,7 @@ class TestWritePlan:
     def test_write_plan_writes_target_name_into_envelope(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """D4-ext: serialise_plan must receive ``target_name`` so apply
+        """serialise_plan must receive ``target_name`` so apply
         can later reject mismatched plans."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -1995,7 +1988,7 @@ class TestApplyCommand:
         self, mock_execute_query, mock_decl, tmp_path
     ):
         """L1: no unapplied plan under ``<project_root>/out/plan/`` →
-        ``status='no_plan'`` whose error names ``out/plan/`` (D8)."""
+        ``status='no_plan'`` whose error names ``out/plan/``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         _write_manifest(tmp_path)
@@ -2192,7 +2185,7 @@ class TestApplyCommand:
     def test_apply_target_name_mismatch_returns_target_mismatch_status(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """L6 / D4-ext: ``--target X`` against a plan with
+        """L6: ``--target X`` against a plan with
         ``target_name=Y`` → ``status='target_mismatch'``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -2258,7 +2251,7 @@ class TestApplyCommand:
     def test_apply_plan_file_with_no_target_kwarg_works_for_legacy_plans(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """L7: a plan with empty ``target_name`` (legacy / pre-D4-ext)
+        """L7: a plan with empty ``target_name`` (legacy)
         applies cleanly without ``--target``."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -2278,7 +2271,7 @@ class TestApplyCommand:
     def test_apply_forwards_warehouse_from_connection_to_execute_plan(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """D2 / Bug C: ``warehouse`` always comes from the active connection."""
+        """``warehouse`` always comes from the active connection."""
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
         _write_manifest(tmp_path)
@@ -2352,16 +2345,11 @@ class TestFeatureManagerListSpecs:
     def test_no_alter_session_priming_is_issued(
         self, mock_execute_query, mock_decl, tmp_path
     ):
-        """Pins the post-May-22 architecture:
+        """Pins the read-path architecture:
         ``ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION`` is enabled
         by default at the account level, so the declarative client
-        MUST NOT issue an ``ALTER SESSION`` on any read path.  See
-        ``declarative_feature_store/ARCHITECTURE.md`` ("DESCRIBE …
-        TYPE = SPECIFICATION is enabled by default at the account
-        level — the declarative client no longer issues an ALTER
-        SESSION to flip the flag") and
-        ``snowml/snowflake/ml/feature_store/decl/DESIGN.md`` ("no
-        client-side session priming is issued").
+        MUST NOT issue an ``ALTER SESSION`` on any read path (no
+        client-side session priming is issued).
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
 
@@ -2553,14 +2541,14 @@ class TestFeatureManagerExportSpecsRemoved:
 
 
 # ===========================================================================
-# Surface deletions — D1 hard-break
+# Surface deletions
 # ===========================================================================
 
 
 class TestSurfaceDeletions:
     """The legacy CLI surface (positional ``INPUT_FILES``,
     ``--config``, ``--overwrite``, ``./...``, ``_is_full_sync``,
-    ``_expand_with_datasources``) is gone (D1)."""
+    ``_expand_with_datasources``) is gone."""
 
     def test_expand_with_datasources_no_longer_present(self):
         from snowflake.cli._plugins.feature import manager
@@ -2583,7 +2571,7 @@ class TestSurfaceDeletions:
         assert "input_files" not in sig.parameters
 
     def test_config_flag_no_longer_present_on_plan(self):
-        """``snow feature plan`` no longer accepts ``--config`` (D5)."""
+        """``snow feature plan`` no longer accepts ``--config``."""
         import inspect
 
         from snowflake.cli._plugins.feature import commands
@@ -2592,7 +2580,7 @@ class TestSurfaceDeletions:
         assert "config" not in sig.parameters
 
     def test_overwrite_flag_no_longer_present_on_apply(self):
-        """``snow feature apply`` no longer accepts ``--overwrite`` (D1)."""
+        """``snow feature apply`` no longer accepts ``--overwrite``."""
         import inspect
 
         from snowflake.cli._plugins.feature import commands
@@ -2635,9 +2623,9 @@ class TestManagerBoundary:
 
 
 # ===========================================================================
-# Ingest / Query — preserved snowml-core delegation contract.
-# Phase 3+4 changes the surface (from_dir / target_name kwargs added),
-# but the underlying snowml-core delegation is unchanged.
+# Ingest / Query — the library delegation contract.  The command surface
+# takes from_dir / target_name kwargs; the underlying library delegation
+# is unchanged.
 # ===========================================================================
 
 
@@ -3001,11 +2989,11 @@ class TestOnlineServiceManagerResolvesTarget:
 
 
 # ===========================================================================
-# Wave 3B — stream-source applied-state read path
+# Stream-source applied-state read path
 #
 # ``FeatureManager._fetch_stream_source_rows`` is the CLI's seam onto
-# ``decl_api.fetch_stream_source_rows`` (added in snowml commit
-# 995a628d1).  It mirrors the ``_fetch_entity_rows`` / ``_fetch_feature_view_rows``
+# ``decl_api.fetch_stream_source_rows``.  It mirrors the
+# ``_fetch_entity_rows`` / ``_fetch_feature_view_rows``
 # / ``_fetch_feature_group_rows`` graceful-degrade contract: a
 # ``FeatureStoreNotInitializedError`` propagates (so the CLI rewraps it
 # with the actionable ``snow feature init`` message), every other
@@ -3017,7 +3005,7 @@ class TestOnlineServiceManagerResolvesTarget:
 # call sites so the planner sees runtime-authoritative ``Datasource``
 # AppliedObjects and emits the correct ``CREATE_SOURCE`` /
 # ``UPDATE_SOURCE`` / ``RECREATE_SOURCE`` / ``DROP_SOURCE`` /
-# ``NO_CHANGE`` decision per ``plans/stream_source_contract.md`` §§7–8.
+# ``NO_CHANGE`` decision.
 # ===========================================================================
 
 
@@ -3041,16 +3029,15 @@ class TestFetchEntityRowsResilience:
     ``_fetch_entity_rows`` is load-bearing for planner correctness: an
     empty applied-state entity set makes ``validate_specs`` emit
     ``MISSING_ENTITY`` for every FV that references an entity only
-    present in applied state.  The old ``except Exception: return []``
-    turned the ``list_entities()`` / warehouse-auto-suspend race
-    (``plans/bug_cleanup_sweep_list_entities_warehouse_suspend_race.md``)
+    present in applied state.  An ``except Exception: return []``
+    would turn the ``list_entities()`` / warehouse-auto-suspend race
     into a spurious ``validation_failed`` on an otherwise-valid project.
     A post-retry backend failure MUST surface as a clear error instead
     (``FeatureStoreNotInitializedError`` still stays first-class).
     """
 
     _SUSPEND_ERR = (
-        "090109 (22000): Warehouse 'JKEW_WH' was suspended while SQL was "
+        "090109 (22000): Warehouse 'TEST_WH' was suspended while SQL was "
         "waiting to be scheduled. SQL execution canceled."
     )
 
@@ -3273,8 +3260,7 @@ class TestFeatureManagerSync:
         self, mock_execute_query, mock_decl, tmp_path
     ):
         """When ``name_filter`` is given and the exporter returns no files,
-        ``sync`` must raise ``CliError`` with the missing name in the message
-        (L7 from SYNC_BUG_BASH.md).
+        ``sync`` must raise ``CliError`` with the missing name in the message.
         """
         from snowflake.cli._plugins.feature.manager import FeatureManager
         from snowflake.cli.api.exceptions import CliError
@@ -3653,8 +3639,8 @@ class TestCumulativeProgress:
         progress, handle = self._make_handle()
         task = progress.tasks[0]
 
-        # Phase 1: entities — an in-flight phase reserves +1 until its count
-        # is known, so the bar never reads 0/0 ("done") during the collect.
+        # First phase (entities) — an in-flight phase reserves +1 until its
+        # count is known, so the bar never reads 0/0 ("done") during collect.
         handle.begin_phase("Loading entities")
         assert task.completed == 0
         assert task.total == 1  # in-flight reserve (+1), not a spinner

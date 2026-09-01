@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for ``snow feature`` Typer commands (Phase 3+4 manifest-driven surface).
+"""Tests for ``snow feature`` Typer commands (manifest-driven surface).
 
-The CLI surface mirrors DCM (D3 / D5 / D8 in
-``MANIFEST_YML_LAYOUT_DECISIONS.md``):
+The CLI surface:
 
 * Every state-driving command takes ``--from <dir>`` (default cwd)
   to locate ``manifest.yml`` and ``--target <name>`` (default
@@ -32,6 +31,7 @@ The CLI surface mirrors DCM (D3 / D5 / D8 in
   fail-fast on a pre-existing ``manifest.yml`` (no ``--force``).
 """
 
+import io
 import json
 from pathlib import Path
 from unittest import mock
@@ -66,8 +66,8 @@ def test_apply_no_positional_args_runs_with_defaults(mock_manager, runner):
 
     The legacy contract was the opposite: ``apply`` required at
     least one ``INPUT_FILE`` positional and exited with usage code 2
-    otherwise.  Phase 3+4 deletes the positional surface entirely
-    (D1) so re-running the bare command must succeed and delegate
+    otherwise.  The positional surface is deleted entirely,
+    so re-running the bare command must succeed and delegate
     to the manager — confirming the positional argument really is
     gone, not just optional.
     """
@@ -123,7 +123,7 @@ def test_apply_allow_recreate_flag(mock_manager, runner):
 
 @mock.patch(FEATURE_MANAGER)
 def test_apply_rejects_overwrite_flag(mock_manager, runner):
-    """``--overwrite`` was removed in Phase 3+4 (D1).
+    """``--overwrite`` is not part of the command surface.
 
     Rolling back to the legacy "wipe + reapply" semantics is no longer
     possible from the CLI — operators must drop / reapply explicitly.
@@ -137,7 +137,7 @@ def test_apply_rejects_overwrite_flag(mock_manager, runner):
 
 @mock.patch(FEATURE_MANAGER)
 def test_apply_rejects_config_flag(mock_manager, runner):
-    """``--config`` was removed in Phase 3+4 (D5) — ``-D key=value``
+    """``--config`` is not part of the command surface — ``-D key=value``
     is the only template-variable surface now."""
     result = runner.invoke(["feature", "apply", "--config", "vars.yaml"])
     assert result.exit_code != 0, result.output
@@ -172,8 +172,9 @@ def test_apply_help_shows_dcm_strict_surface(mock_manager, runner):
 # Status: header (apply / plan)
 # ---------------------------------------------------------------------------
 #
-# These tests pin the behaviour added when fixing the bug-bash step-6
-# TODO: ``apply succeeded (rc=0) but output missing 'Status: success'``.
+# These tests pin the behaviour that guarantees a parseable status line:
+# ``apply succeeded (rc=0) but output missing 'Status: success'`` must not
+# recur.
 
 
 def test_print_status_header_emits_status_and_counts(capsys):
@@ -200,9 +201,8 @@ def test_print_status_header_emits_status_and_counts(capsys):
 
 
 def test_print_status_header_empty_ops_still_emits_status(capsys):
-    """Empty ops list still emits the header — this is the explicit
-    counterpart to the bug-bash TODO: even ``no_plan`` must surface
-    a parseable status line on stderr."""
+    """Empty ops list still emits the header — even ``no_plan`` must
+    surface a parseable status line on stderr."""
     from snowflake.cli._plugins.feature.commands import _print_status_header
 
     _print_status_header({"status": "no_plan", "ops": [], "executed": 0})
@@ -246,9 +246,9 @@ def test_print_status_header_silent_when_status_missing(capsys):
 
 def test_print_target_header_includes_target_name_when_present(capsys):
     """``_print_target_header`` includes the resolved ``target_name``
-    in the rendered header — the target-name surface introduced in
-    Phase 3+4 (D3) is what lets operators distinguish multiple
-    manifest profiles in a single shell scrollback.
+    in the rendered header — the target-name surface is what lets
+    operators distinguish multiple manifest profiles in a single
+    shell scrollback.
     """
     from snowflake.cli._plugins.feature.commands import _print_target_header
 
@@ -284,7 +284,7 @@ def test_print_target_header_falls_back_when_no_target_name(capsys):
 @mock.patch(FEATURE_MANAGER)
 def test_apply_calls_print_status_header_on_success(mock_manager, runner):
     """``snow feature apply`` calls ``_print_status_header`` on a
-    successful CREATE_FV — the bug-bash step-6 finding.
+    successful CREATE_FV.
     """
     mock_manager.return_value.apply.return_value = {
         "status": "applied",
@@ -513,8 +513,8 @@ def test_project_ops_columns_tolerates_missing_type():
 
 @mock.patch(FEATURE_MANAGER)
 def test_plan_no_positional_args_runs_with_defaults(mock_manager, runner):
-    """``plan`` accepts zero positional arguments — D1 deletes the
-    legacy ``INPUT_FILES`` surface.  Bare ``snow feature plan`` runs
+    """``plan`` accepts zero positional arguments — the legacy
+    ``INPUT_FILES`` surface is gone.  Bare ``snow feature plan`` runs
     against the project rooted at the current working directory.
     """
     mock_manager.return_value.plan.return_value = {"status": "ready", "ops": []}
@@ -579,7 +579,7 @@ def test_plan_writes_plan_file_on_success(mock_manager, runner, tmp_path):
 @mock.patch(FEATURE_MANAGER)
 def test_plan_passes_variables_via_dash_d_flag(mock_manager, runner):
     """``-D key=value`` (and the long form ``--variable``) are the
-    only template-variable surface (D5).  The list of values is
+    only template-variable surface.  The list of values is
     forwarded verbatim to the manager so the underlying
     ``decl_api.parse_variables`` sees the same string the operator
     typed.
@@ -659,7 +659,7 @@ def test_list_passes_from_and_target(mock_manager, runner, tmp_path):
 
 @mock.patch(FEATURE_MANAGER)
 def test_list_rejects_positional_arguments(mock_manager, runner):
-    """``list`` no longer accepts positional spec paths (D1)."""
+    """``list`` no longer accepts positional spec paths."""
     result = runner.invoke(["feature", "list", "my_specs.yaml"])
     assert result.exit_code != 0, result.output
 
@@ -713,11 +713,11 @@ def test_listing_scope_uniform_rows_returns_single_value_pair():
     from snowflake.cli._plugins.feature.commands import _listing_scope
 
     rows = [
-        {"name": "a", "database_name": "JKEW_DB", "schema_name": "JKEW_SCHEMA"},
-        {"name": "b", "database_name": "JKEW_DB", "schema_name": "JKEW_SCHEMA"},
-        {"name": "c", "database_name": "JKEW_DB", "schema_name": "JKEW_SCHEMA"},
+        {"name": "a", "database_name": "TEST_DB", "schema_name": "TEST_SCHEMA"},
+        {"name": "b", "database_name": "TEST_DB", "schema_name": "TEST_SCHEMA"},
+        {"name": "c", "database_name": "TEST_DB", "schema_name": "TEST_SCHEMA"},
     ]
-    assert _listing_scope(rows) == ("JKEW_DB", "JKEW_SCHEMA")
+    assert _listing_scope(rows) == ("TEST_DB", "TEST_SCHEMA")
 
 
 def test_listing_scope_mixed_rows_returns_multiple_marker():
@@ -1072,8 +1072,8 @@ _DESCRIBE_ENVELOPE = {
     "name": "user_clicks",
     "feature_view": "user_clicks",
     "version": "v1",
-    "database": "JKEW_DB",
-    "schema": "JKEW_SCHEMA",
+    "database": "TEST_DB",
+    "schema": "TEST_SCHEMA",
     "oft_name": "USER_CLICKS$V1$ONLINE",
     "entities": ["USER_ID"],
     "rows": [
@@ -1349,9 +1349,9 @@ def test_online_service_json_returns_nested_status(mock_manager, runner):
         "compute_pool": {"status": "ACTIVE", "name": "POOL"},
         "postgres": {"status": "READY", "name": "PG"},
         "service": {"status": "RUNNING", "name": "SVC"},
-        "_user": "jkew",
-        "_database": "JKEW_DB",
-        "_schema": "JKEW_SCHEMA",
+        "_user": "test_user",
+        "_database": "TEST_DB",
+        "_schema": "TEST_SCHEMA",
     }
     result = runner.invoke(["feature", "online-service", "--format", "json"])
     assert result.exit_code == 0, result.output
@@ -1381,9 +1381,9 @@ def test_online_service_csv_suppresses_banner(mock_manager, runner):
         "compute_pool": {"status": "ACTIVE", "name": "POOL"},
         "postgres": {"status": "READY", "name": "PG"},
         "service": {"status": "RUNNING", "name": "SVC"},
-        "_user": "jkew",
-        "_database": "JKEW_DB",
-        "_schema": "JKEW_SCHEMA",
+        "_user": "test_user",
+        "_database": "TEST_DB",
+        "_schema": "TEST_SCHEMA",
     }
     result = runner.invoke(["feature", "online-service", "--format", "csv"])
     assert result.exit_code == 0, result.output
@@ -1644,7 +1644,7 @@ def test_query_requires_keys(mock_manager, runner):
 def test_query_requires_version(mock_manager, runner):
     """query without --version should exit with usage error (code 2).
 
-    snowml-core's ``FeatureStore.get_feature_view(name, version)``
+    The library's ``FeatureStore.get_feature_view(name, version)``
     requires both args, so the CLI mirrors that surface — there is
     no "latest version" fallback for a bare name.
     """
@@ -2190,3 +2190,119 @@ def test_apply_prints_diagnostics_when_errors_present(
     assert result.exit_code == 0, result.output
     assert "Errors (1):" in result.output
     assert "--allow-recreate" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Public-preview warning banner
+# ---------------------------------------------------------------------------
+#
+# The banner is emitted by the group callback before every ``snow
+# feature`` invocation.  These tests pin the exact copy, the yellow-only
+# coloring, and the stderr-only surface so structured stdout stays clean.
+
+
+class _FakeStderr(io.StringIO):
+    """A StringIO that can pretend to be (or not be) a TTY."""
+
+    def __init__(self, isatty: bool):
+        super().__init__()
+        self._isatty = isatty
+
+    def isatty(self) -> bool:  # noqa: D401 - trivial shim
+        return self._isatty
+
+
+_PREVIEW_TEXT = "WARNING: 'snow feature' is in public preview."
+_YELLOW = "\x1b[33m"
+
+
+def test_preview_warning_exact_text_no_color_when_not_tty(monkeypatch):
+    """Non-TTY stderr gets the exact banner text with no ANSI color."""
+    from snowflake.cli._plugins.feature.commands import _emit_preview_warning
+
+    fake = _FakeStderr(isatty=False)
+    monkeypatch.setattr("sys.stderr", fake)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    _emit_preview_warning()
+
+    assert fake.getvalue() == _PREVIEW_TEXT + "\n"
+
+
+def test_preview_warning_is_yellow_on_a_color_tty(monkeypatch):
+    """A color-capable TTY wraps the banner in the yellow ANSI code."""
+    from snowflake.cli._plugins.feature.commands import _emit_preview_warning
+
+    fake = _FakeStderr(isatty=True)
+    monkeypatch.setattr("sys.stderr", fake)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    _emit_preview_warning()
+
+    out = fake.getvalue()
+    assert out.startswith(_YELLOW)
+    assert _PREVIEW_TEXT in out
+    assert out.endswith("\x1b[0m\n")
+
+
+def test_preview_warning_respects_no_color_on_tty(monkeypatch):
+    """``NO_COLOR`` suppresses the ANSI color even on a TTY."""
+    from snowflake.cli._plugins.feature.commands import _emit_preview_warning
+
+    fake = _FakeStderr(isatty=True)
+    monkeypatch.setattr("sys.stderr", fake)
+    monkeypatch.setenv("NO_COLOR", "1")
+
+    _emit_preview_warning()
+
+    assert fake.getvalue() == _PREVIEW_TEXT + "\n"
+
+
+@mock.patch(FEATURE_MANAGER)
+def test_preview_warning_kept_off_structured_stdout(mock_manager, runner):
+    """The banner rides on stderr; ``--format json`` stdout stays parseable."""
+    mock_manager.return_value.apply.return_value = {
+        "status": "applied",
+        "ops": [],
+        "executed": 0,
+    }
+    result = runner.invoke(["feature", "apply", "--format", "json"])
+    assert result.exit_code == 0, result.output
+    assert _PREVIEW_TEXT in result.output
+    # The JSON payload must still be recoverable despite the stderr preamble.
+    assert _json_from_output(result.output) is not None
+
+
+# ---------------------------------------------------------------------------
+# Missing snowflake-ml-python[feature_store] dependency guard
+# ---------------------------------------------------------------------------
+
+
+_MISSING_SNOWML_TEXT = (
+    "Error: 'snow feature' requires the snowflake-ml-python[feature_store] library"
+)
+
+
+def test_feature_command_errors_when_snowml_missing(runner, monkeypatch):
+    """A subcommand fails with the exact message when the library is absent."""
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.feature.commands._SNOWML_IMPORT_ERROR",
+        ImportError("No module named 'snowflake.ml.feature_store'"),
+    )
+    result = runner.invoke(["feature", "apply"])
+    assert result.exit_code != 0
+    # The error renders inside a Rich box that wraps the message across
+    # lines; strip the box borders and collapse whitespace before matching
+    # the exact copy.
+    normalized = " ".join(result.output.replace("|", " ").split())
+    assert _MISSING_SNOWML_TEXT in normalized
+
+
+def test_require_snowflake_ml_is_noop_when_present(monkeypatch):
+    """The guard does nothing when the import succeeded (error is ``None``)."""
+    from snowflake.cli._plugins.feature.commands import _require_snowflake_ml
+
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.feature.commands._SNOWML_IMPORT_ERROR", None
+    )
+    _require_snowflake_ml()  # must not raise

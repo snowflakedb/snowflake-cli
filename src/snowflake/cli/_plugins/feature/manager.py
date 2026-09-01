@@ -14,25 +14,20 @@
 
 """FeatureManager — thin CLI adapter delegating all logic to decl_api.
 
-Phase 3+4 manifest-driven shape (see
-``plans/manifest_layout/phase3_4_cli_and_manager.md`` and
-``plans/MANIFEST_YML_LAYOUT_DECISIONS.md``):
+Manifest-driven shape:
 
 * Every Snowflake-bound entry-point takes ``from_dir`` (project root
   start) and ``target_name`` (manifest target name; ``None`` resolves
   to ``default_target``).  The manifest is the source of truth for
   ``database`` / ``schema`` / ``role`` / ``account_identifier``.
 * ``warehouse`` is **never** read from the manifest — it always comes
-  from the active connection (D2).
-* Plan-file lifecycle (L1–L7) lives under
-  ``<project_root>/out/plan/`` (D8).  See the apply-lifecycle
-  section of ``DESIGN.md`` for the L1–L7 invariants.
+  from the active connection.
+* The plan-file lifecycle lives under ``<project_root>/out/plan/``.
+  See the apply-lifecycle section of ``DESIGN.md`` for its invariants.
 * ``init`` writes the manifest auto-derived from the active
-  connection (D6) and fails fast when ``manifest.yml`` is already
-  present (init-exist locked decision).
-* The boundary rule from ``docs/DEVELOPMENT_STANDARDS.md`` still
-  holds: this module contains no SQL strings — every state query is
-  built by ``decl_api`` and executed via ``self.execute_query``.
+  connection and fails fast when ``manifest.yml`` is already present.
+* This module contains no SQL strings — every state query is built by
+  ``decl_api`` and executed via ``self.execute_query``.
 """
 
 from __future__ import annotations
@@ -51,27 +46,28 @@ from snowflake.cli.api.identifiers import AccountIdentifier
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor
 
-# Manifest helpers are dataclasses + a YAML loader — no SQL, no
-# session, no Snowflake imports.  We import them directly (rather
-# than through ``decl_api``) because the test suite mocks
-# ``decl_api`` to assert the manager's SQL/business-logic seam, not
-# the manifest-loading seam.  The DCM plugin follows the same
-# pattern (``DCMManifest.load(...)`` is called directly from
-# commands.py).
-from snowflake.ml.feature_store.decl.manifest import (
-    FSManifest,
-    FSTarget,
-    ManifestNotFoundError,
-)
-from snowflake.ml.feature_store.decl.project_paths import FSProjectPaths
-
+# The manifest / project-path helpers and ``decl_api`` are provided by
+# the ``snowflake-ml-python[feature_store]`` library.  They are imported
+# here so the test suite can mock ``decl_api`` to assert the manager's
+# SQL/business-logic seam.  The whole block is wrapped in ``try/except``
+# so the plugin module still imports (and registers) when the library is
+# absent — the ``snow feature`` group callback surfaces a single
+# actionable error before any command runs (see
+# :func:`snowflake.cli._plugins.feature.commands._require_snowflake_ml`).
 try:
     from snowflake.ml.feature_store.decl import api as decl_api
-
-    _HAS_DECL_API = True
+    from snowflake.ml.feature_store.decl.manifest import (
+        FSManifest,
+        FSTarget,
+        ManifestNotFoundError,
+    )
+    from snowflake.ml.feature_store.decl.project_paths import FSProjectPaths
 except ImportError:
     decl_api = None  # type: ignore[assignment]
-    _HAS_DECL_API = False
+    FSManifest = None  # type: ignore[assignment,misc]
+    FSTarget = None  # type: ignore[assignment,misc]
+    ManifestNotFoundError = None  # type: ignore[assignment,misc]
+    FSProjectPaths = None  # type: ignore[assignment,misc]
 
 log = logging.getLogger(__name__)
 
@@ -252,10 +248,10 @@ def _to_positional_keys(
     keys: list[dict[str, Any]],
     join_key_order: list[str],
 ) -> list[list[Any]]:
-    """Translate the CLI's dict-shaped key payload to snowml-core's
+    """Translate the CLI's dict-shaped key payload to the library's
     positional list-of-list shape.
 
-    snowml-core's ``FeatureStore.read_feature_view`` accepts ``keys``
+    ``FeatureStore.read_feature_view`` accepts ``keys``
     as a list of value-lists, one per row, with positional ordering
     matching the FeatureView's declared join-key sequence.
 
@@ -322,7 +318,7 @@ def _render_default_manifest(
 ) -> str:
     """Render the default ``manifest.yml`` body from connection fields.
 
-    The result intentionally omits ``warehouse`` (D2) — the active
+    The result intentionally omits ``warehouse`` — the active
     connection is the sole source of truth for warehouse selection.
     """
     role_line = f"    role: {role}\n" if role else ""
@@ -339,7 +335,7 @@ class FeatureManager(SqlExecutionMixin):
     """Thin CLI adapter — delegates all business logic to decl_api."""
 
     # ------------------------------------------------------------------
-    # _resolve_project — manifest discovery + account match (D4)
+    # _resolve_project — manifest discovery + account match
     # ------------------------------------------------------------------
 
     def _resolve_project(
@@ -348,7 +344,7 @@ class FeatureManager(SqlExecutionMixin):
         target_name: Optional[str],
     ) -> Tuple[FSProjectPaths, FSManifest, FSTarget]:
         """Walk up from *from_dir* to the project root, load the manifest,
-        resolve the requested target, and assert account match (D4).
+        resolve the requested target, and assert account match.
 
         Args:
             from_dir: Starting directory (or file) for manifest
@@ -357,7 +353,7 @@ class FeatureManager(SqlExecutionMixin):
                 filesystem root).
             target_name: Optional explicit target name.  When ``None``
                 the manifest's ``default_target`` is used (auto-derived
-                for single-target manifests, per Phase 1A).
+                for single-target manifests).
 
         Returns:
             ``(FSProjectPaths, FSManifest, FSTarget)`` triple — every
@@ -369,8 +365,7 @@ class FeatureManager(SqlExecutionMixin):
             CliError: When ``manifest.yml`` is not found, the requested
                 target is not declared, the manifest is malformed, OR
                 the active connection's account identifier does not
-                match the resolved target's ``account_identifier``
-                (D4 / L6-extension).
+                match the resolved target's ``account_identifier``.
         """
         try:
             paths = FSProjectPaths.discover(from_dir)
@@ -395,7 +390,7 @@ class FeatureManager(SqlExecutionMixin):
         except Exception as exc:
             raise CliError(str(exc)) from exc
 
-        # L6-extension / D4: refuse to operate when the active
+        # Account-match guard: refuse to operate when the active
         # connection's account ≠ the manifest target's
         # ``account_identifier``.  This check lives in the manager
         # (not the manifest loader) because account identity is a
@@ -423,7 +418,7 @@ class FeatureManager(SqlExecutionMixin):
         """Return ``{target_database, target_schema, target_warehouse,
         target_name}`` for result envelopes.
 
-        Per D2: ``database`` / ``schema`` come from the manifest
+        ``database`` / ``schema`` come from the manifest
         target; ``warehouse`` always comes from the active connection
         (the manifest has no ``warehouse`` field).
         """
@@ -519,8 +514,8 @@ class FeatureManager(SqlExecutionMixin):
         manifest_path = project_root / "manifest.yml"
         manifest_existed = manifest_path.exists()
 
-        # Lazy-import snowml-core to keep the heavy deps off the
-        # import path of users who never call init.
+        # Lazy-import the feature-store library to keep the heavy deps
+        # off the import path of users who never call init.
         from snowflake.ml.feature_store.feature_store import (
             CreationMode,
             FeatureStore,
@@ -654,32 +649,29 @@ class FeatureManager(SqlExecutionMixin):
         kwarg, so:
 
         * BatchFV ``spec.sources[0].table`` (which the raw ``DESCRIBE
-          … TYPE = SPECIFICATION`` JSON drops because snowml-core
-          encodes the source binding in the offline Dynamic Table's
+          … TYPE = SPECIFICATION`` JSON drops because the source
+          binding is encoded in the offline Dynamic Table's
           ``SELECT … FROM …`` body, not the spec payload) is
-          recovered from DT text by
-          :func:`state._inject_batch_fv_source_from_dt_text` BEFORE
+          recovered from DT text by the library BEFORE
           the YAML is written — closing the cascade where a
-          ``snow feature init`` round-trip emitted
-          ``RECREATE_FV USER_CLICKS_FG_DECL`` on the next plan and
+          ``snow feature init`` round-trip emitted a spurious
+          ``RECREATE_FV`` on the next plan and
           then crashed with ``no resolvable source`` on apply.
         * Advanced BFV authoring knobs (``cluster_by`` /
           ``refresh_mode`` / ``initialize`` / ``storage_config`` /
-          ``aggregation_secondary_keys``) recovered by
-          :func:`state._inject_advanced_bfv_fields_from_dt_text` also
+          ``aggregation_secondary_keys``) recovered from DT text also
           land in the YAML.
         * Offline-only ``BatchFeatureView`` deployments (visible only
           via the imperative ``list_feature_views()`` facade, not
-          ``SHOW ONLINE FEATURE TABLES``) are surfaced through
-          :func:`state._build_offline_fv_object` and synthesised into
+          ``SHOW ONLINE FEATURE TABLES``) are surfaced by the library
+          and synthesised into
           show-rows inside ``export_specs`` so they reach the
           YAML-emission loop.
 
         Plan/init parity is the load-bearing invariant: every code path
         that needs to reason about deployed state goes through
-        ``fetch_applied_state`` (R3 from
-        ``docs/DEVELOPMENT_STANDARDS.md``: "the deployed runtime, the
-        exporter, the loader, and the planner agree on every hash").
+        ``fetch_applied_state`` so the deployed runtime, the exporter,
+        the loader, and the planner agree on every hash.
 
         Args:
             project_root: Project-root directory.  Spec files are
@@ -878,8 +870,7 @@ class FeatureManager(SqlExecutionMixin):
             # Explicit account mismatch → return as a structured
             # ``target_mismatch`` status so ``snow feature apply`` does
             # not exit the process abruptly (operators script around
-            # the status string per ``docs/ARCHITECTURE.md`` Apply
-            # Lifecycle table).
+            # the status string).
             ctx = get_cli_context()
             try:
                 current_account = get_account_identifier(ctx.connection)
@@ -1000,12 +991,12 @@ class FeatureManager(SqlExecutionMixin):
           plan file to ``<name>.applied``.
         - **L5 (Mark-Failed-Stays-Unapplied):** on execution failure,
           leave the plan file at its original name.
-        - **L6 (Target-Match):** widened in Phase 3+4 (D4-ext): refuses
+        - **L6 (Target-Match):** refuses
           a plan when ``plan.target_name`` ≠ the requested
           ``--target`` (the account-mismatch branch is checked one
           layer up by ``_resolve_project``).
 
-        Per D2, the connection's warehouse is forwarded to
+        The connection's warehouse is forwarded to
         ``execute_plan`` (plan files are warehouse-agnostic).
 
         Args:
@@ -1033,9 +1024,9 @@ class FeatureManager(SqlExecutionMixin):
 
         ctx = get_cli_context()
 
-        # L6 (Target-Match) — D4-ext: plan envelope ``target_name``
+        # L6 (Target-Match): plan envelope ``target_name``
         # must match the requested ``--target`` (case-insensitive).
-        # An empty plan ``target_name`` means "legacy / pre-D4-ext"
+        # An empty plan ``target_name`` means "legacy"
         # and is accepted unconditionally (apply --plan stays a usable
         # escape hatch for older plan files).
         if plan_target_name:
@@ -1094,7 +1085,7 @@ class FeatureManager(SqlExecutionMixin):
         )
 
         session = self._build_session()
-        # D2 / Bug C: warehouse comes from the *active connection*,
+        # Warehouse comes from the *active connection*,
         # not the plan file (plan files are warehouse-agnostic).
         result = decl_api.execute_plan(
             plan,
@@ -1289,9 +1280,9 @@ class FeatureManager(SqlExecutionMixin):
         """Generate a plan and write it as JSON.
 
         When *out_path* is ``None`` the plan lands under
-        ``<project_root>/out/plan/feature_plan_<UTC ts>.json`` (D8
-        relocated).  The serialised envelope carries ``target_name``
-        so apply can later reject mismatched plans (D4-ext).
+        ``<project_root>/out/plan/feature_plan_<UTC ts>.json``.  The
+        serialised envelope carries ``target_name``
+        so apply can later reject mismatched plans.
 
         Args:
             from_dir: Project-root start.
@@ -1668,14 +1659,14 @@ class FeatureManager(SqlExecutionMixin):
         return Session.builder.configs({"connection": self._conn}).create()
 
     def _get_feature_store(self, target: FSTarget) -> Any:
-        """Return a snowml-core ``FeatureStore`` bound to the active connection.
+        """Return a ``FeatureStore`` bound to the active connection.
 
         Constructs the ``FeatureStore`` via
         :func:`decl_api.assert_feature_store_initialized`, so the
-        target schema must already carry the SnowML bootstrap tags
-        (``SNOWML_FEATURE_STORE_OBJECT`` /
+        target schema must already carry the feature-store bootstrap
+        tags (``SNOWML_FEATURE_STORE_OBJECT`` /
         ``SNOWML_FEATURE_VIEW_METADATA``).  When the tags are missing,
-        the helper rewraps the snowml-core ``NOT_FOUND`` as
+        the helper rewraps the library's ``NOT_FOUND`` as
         :class:`decl_api.FeatureStoreNotInitializedError`, which the
         command-layer wrapper in ``commands.py`` converts into a
         ``ClickException`` directing the operator at
@@ -1702,8 +1693,8 @@ class FeatureManager(SqlExecutionMixin):
         command-layer wrapper converts to a top-level
         ``ClickException`` carrying the "run ``snow feature init``"
         message.  On a healthy schema the call is a single
-        ``SHOW TAGS`` round-trip (per snowml-core's
-        ``_check_internal_objects_exist_or_throw``).
+        ``SHOW TAGS`` round-trip that the library performs to confirm
+        the internal feature-store objects exist.
 
         Args:
             target: Resolved manifest target.  Database / schema /
@@ -1974,9 +1965,7 @@ class FeatureManager(SqlExecutionMixin):
         name (matching ``oft_row['name']``) and threaded into
         :func:`decl_api.fetch_applied_state` so the planner sees a
         non-lossy BatchFV ``sources[0].table`` and can produce
-        ``UPDATE_FV`` / ``RECREATE_FV`` correctly (see W-G(A) in the
-        ``apply_lifecycle_resilience`` plan and docs/BATCH_FV_BUG_BASH.md
-        §6–§8).
+        ``UPDATE_FV`` / ``RECREATE_FV`` correctly.
 
         Args:
             state_sqls: Output of :func:`decl_api.state_queries` for the
@@ -1985,7 +1974,7 @@ class FeatureManager(SqlExecutionMixin):
         Returns:
             ``{dt_name: ddl_text}`` for every row returned by the
             ``show_dynamic_tables`` SQL with a non-empty ``name`` and
-            ``text``.  Empty when the SQL is absent (older snowml-decl
+            ``text``.  Empty when the SQL is absent (older library
             builds) or the query yields no rows.
         """
         sql = state_sqls.get("show_dynamic_tables")
@@ -2018,11 +2007,10 @@ class FeatureManager(SqlExecutionMixin):
         entity set makes ``validate_specs`` emit ``MISSING_ENTITY`` for
         every FV that references an entity present only in applied
         state.  Swallowing the ``list_entities()`` /
-        warehouse-auto-suspend race (already retried at the imperative
-        layer in ``imperative_executor.fetch_entity_rows``) into ``[]``
+        warehouse-auto-suspend race (already retried inside the
+        library) into ``[]``
         turned that transient failure into a spurious
-        ``validation_failed`` on an otherwise-valid, unchanged project
-        (see ``plans/bug_cleanup_sweep_list_entities_warehouse_suspend_race.md``).
+        ``validation_failed`` on an otherwise-valid, unchanged project.
         A failure that survives the retry therefore surfaces as a clear
         ``CliError`` — "unknown" must never be reported as "no
         entities."
@@ -2095,11 +2083,10 @@ class FeatureManager(SqlExecutionMixin):
         path surfaces offline-only ``BatchFeatureView``s that
         ``SHOW ONLINE FEATURE TABLES`` cannot enumerate; without it
         the planner re-emits a spurious ``CREATE_FV`` after a
-        successful offline-only apply.  See
-        ``plans/offline_bfv_state_fix_b9da0006.plan.md``.
+        successful offline-only apply.
 
         Returns:
-            A list of FV row dicts in the Phase-1 contract shape.
+            A list of FV row dicts in the library's contract shape.
             Soft-fails with ``[]`` on any non-init-required error so
             ``snow feature plan`` does not regress on accounts that
             lack ``list_feature_views`` privileges.
@@ -2146,7 +2133,7 @@ class FeatureManager(SqlExecutionMixin):
         plain re-plan of an unchanged YAML re-emits a spurious
         ``CREATE_SOURCE`` (and any subsequent ``CREATE_FV`` that
         consumes it re-issues a defensive ``register_stream_source``
-        ``UserWarning``).  See ``plans/stream_source_contract.md`` §8.
+        ``UserWarning``).
 
         Returns:
             A list of stream-source row dicts in the shape produced
@@ -2455,8 +2442,8 @@ class FeatureManager(SqlExecutionMixin):
         """Stream records into a source via ``FeatureStore.stream_ingest``.
 
         Delegates the wire path (URL resolution, PAT auth,
-        partial-success reporting) to snowml-core, but runs a
-        client-side per-record schema preflight first.
+        partial-success reporting) to the feature-store library, but
+        runs a client-side per-record schema preflight first.
 
         Args:
             from_dir: Project-root start.
@@ -2509,7 +2496,7 @@ class FeatureManager(SqlExecutionMixin):
     ) -> dict[str, Any]:
         """Online-lookup features via ``FeatureStore.read_feature_view``.
 
-        ``version`` is required because snowml-core's
+        ``version`` is required because
         ``FeatureStore.get_feature_view(name, version)`` requires both
         when the feature view is referenced by string.
 
