@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import typer
 from snowflake.cli._plugins.connection.util import get_account_identifier
@@ -38,6 +38,7 @@ from snowflake.cli._plugins.dcm.progress import (
     ANALYZE,
     COMPILE,
     DEPLOY,
+    EXPECTATIONS,
     PLAN,
     PREVIEW,
     PURGE,
@@ -51,7 +52,9 @@ from snowflake.cli._plugins.dcm.reporters import (
     AnalyzeReporter,
     PlanReporter,
     RefreshReporter,
+    Reporter,
     TestReporter,
+    UnitTestReporter,
 )
 from snowflake.cli._plugins.dcm.utils import (
     RAW_ANALYZE_COMMAND_NAME,
@@ -83,9 +86,14 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    EmptyResult,
     MessageResult,
     QueryResult,
+    RespectingColumnTypesRowMapper,
 )
 from snowflake.cli.api.project.util import same_identifiers
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -164,6 +172,37 @@ env_file_option = typer.Option(
     show_default=False,
     click_type=LocalFileType(),
     hidden=not FeatureFlag.ENABLE_DCM_PROJECT_ENV_VARS.is_enabled(),
+)
+
+
+scripts_option = typer.Option(
+    None,
+    "--script",
+    help="Name of a specific test script to run, as it appears under "
+    "sources/tests (without the .sql extension). Matched case-sensitively, "
+    "exactly as written. Repeat the flag to run multiple, in the order "
+    "given. Use --all-scripts instead to run every discovered test script; "
+    "the two flags cannot be combined.",
+    show_default=False,
+    hidden=not FeatureFlag.ENABLE_DCM_UNIT_TEST_FEATURES.is_enabled(),
+)
+
+all_scripts_option = typer.Option(
+    False,
+    "--all-scripts",
+    help="Deploys the DCM project to a fresh, isolated environment and runs "
+    "all discovered test scripts against it. The live project and its "
+    "deployed objects are never touched. Cannot be combined with --script.",
+    hidden=not FeatureFlag.ENABLE_DCM_UNIT_TEST_FEATURES.is_enabled(),
+)
+
+expectations_option = typer.Option(
+    False,
+    "--expectations",
+    help="Checks expectations defined in the DCM project against its "
+    "already-deployed objects. This is the default when neither --script "
+    "nor --all-scripts is given, and may be combined with either to also "
+    "run this check.",
 )
 
 
@@ -860,6 +899,39 @@ def refresh(
         return reporter.process(result)
 
 
+def _process_test_outcomes(
+    outcomes: List[Tuple[Reporter, SnowflakeCursor]],
+    execution_failures: List[str],
+) -> CommandResult:
+    """Runs every reporter to completion, then merges or surfaces their results.
+
+    Every reporter runs even if an earlier one raises, so a combined
+    --expectations + --script run always reports both halves' failures
+    instead of aborting after the first. `execution_failures` carries
+    failures from steps that raised before a reporter/cursor even existed
+    (e.g. a SQL compilation error), for the same reason.
+    """
+    failures: List[str] = list(execution_failures)
+    result: CommandResult = EmptyResult()
+    for reporter, cursor in outcomes:
+        try:
+            result = reporter.process(cursor)
+        except CliError as e:
+            failures.append(str(e))
+    if failures:
+        raise CliError("\n".join(failures))
+    if len(outcomes) == 1 or get_cli_context().output_format == OutputFormat.TABLE:
+        return result
+    combined_row = {}
+    for reporter, cursor in outcomes:
+        combined_row.update(
+            RespectingColumnTypesRowMapper(cursor.description).map_row(
+                {reporter.command_name: reporter.result_raw_data}
+            )
+        )
+    return CollectionResult([combined_row])
+
+
 @app.command(
     requires_connection=True,
     hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
@@ -868,27 +940,123 @@ def refresh(
 def test(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    expectations: bool = expectations_option,
+    scripts: Optional[List[str]] = scripts_option,
+    all_scripts: bool = all_scripts_option,
     target: Optional[str] = target_option,
+    env_file: Optional[SecurePath] = env_file_option,
     save_output: bool = save_output_option,
     **options,
 ):
     """
-    Tests all expectations defined in DCM project. It applies only to deployed objects.
+    Tests a DCM project: checks expectations (default/--expectations),
+    runs test scripts in an isolated environment (--script/--all-scripts),
+    or both.
     """
-    with command_artifacts(save_output):
+    if scripts and all_scripts:
+        raise CliError("--script and --all-scripts cannot be used together.")
 
-        context = _resolve_context_with_optional_manifest(
-            from_location, identifier, target
-        )
+    use_scripts = bool(scripts) or all_scripts
+    use_expectations = expectations or not use_scripts
+
+    with command_artifacts(save_output):
+        if use_scripts:
+            try:
+                context = _resolve_context_with_required_manifest(
+                    from_location, identifier, target
+                )
+            except CliError as e:
+                raise CliError(
+                    "--script and --all-scripts deploy the project to a fresh "
+                    f"data branch before testing it, so they require a manifest.yml. {e}"
+                )
+        else:
+            context = _resolve_context_with_optional_manifest(
+                from_location, identifier, target
+            )
         project_id = context.project_identifier
 
-        progress = MultiStepProgress([TEST])
+        # Keep the pre-existing "TEST" label for a bare, old-style-only run so
+        # today's default behavior stays byte-for-byte backward compatible.
+        # Once script-based testing is in play (its own step already claims
+        # "TEST") or is merely reachable (feature flag on), relabel to
+        # "EXPECTATIONS" so the two styles are never ambiguous on screen.
+        # Collapses to always "EXPECTATIONS" once the flag is GA — see SNOW-4036713.
+        expectations_step = StepDefinition(
+            EXPECTATIONS.key,
+            "EXPECTATIONS"
+            if use_scripts or FeatureFlag.ENABLE_DCM_UNIT_TEST_FEATURES.is_enabled()
+            else "TEST",
+        )
+        steps = ([UPLOAD, TEST] if use_scripts else []) + (
+            [expectations_step] if use_expectations else []
+        )
+        progress = MultiStepProgress(steps)
+        outcomes: List[Tuple[Reporter, SnowflakeCursor]] = []
+        execution_failures: List[str] = []
+        # Only combined runs defer a step's exception to let the other style
+        # still run; a solo run has nothing else to defer to, so it keeps
+        # today's behavior of letting the raw exception propagate as-is.
+        combined = use_scripts and use_expectations
+
         with progress_session(progress):
             manager = DCMProjectManager()
-            result = progress.run_step(
-                TEST.key,
-                lambda step: manager.test(project_identifier=project_id),
-            )
 
-        reporter = TestReporter(save_output=save_output)
-        return reporter.process(result)
+            if use_scripts:
+                env_vars = resolve_declared_env_vars(
+                    context.declared_variable_names, env_file
+                )
+                try:
+                    effective_stage = _upload_step(
+                        progress,
+                        manager,
+                        project_id,
+                        from_location,
+                        assets=context.assets,
+                    )
+                    unit_test_result = progress.run_step(
+                        TEST.key,
+                        lambda step: manager.unit_test(
+                            project_identifier=project_id,
+                            from_stage=effective_stage,
+                            configuration=context.configuration,
+                            variables=variables,
+                            scripts=scripts,
+                            env_vars=env_vars,
+                        ),
+                    )
+                except Exception as e:
+                    if not combined:
+                        raise
+                    execution_failures.append(str(e))
+                    progress.refresh()
+                else:
+                    outcomes.append(
+                        (UnitTestReporter(save_output=save_output), unit_test_result)
+                    )
+
+            if use_expectations:
+                if FeatureFlag.ENABLE_DCM_UNIT_TEST_FEATURES.is_enabled():
+                    cli_console.warning(
+                        "⚠️  This checks expectations against already-deployed "
+                        "objects. The newer --script/--all-scripts option runs "
+                        "test scripts against a fresh, isolated data branch "
+                        "instead, and will eventually replace this check."
+                    )
+                try:
+                    expectations_result = progress.run_step(
+                        EXPECTATIONS.key,
+                        lambda step: manager.test(project_identifier=project_id),
+                    )
+                except Exception as e:
+                    if not combined:
+                        raise
+                    execution_failures.append(str(e))
+                    progress.refresh()
+                else:
+                    outcomes.append(
+                        (TestReporter(save_output=save_output), expectations_result)
+                    )
+
+        return _process_test_outcomes(outcomes, execution_failures)

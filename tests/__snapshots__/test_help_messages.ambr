@@ -10853,8 +10853,8 @@
                                                                                   
    Usage: root dcm test [OPTIONS] [IDENTIFIER]                                    
                                                                                   
-   Tests all expectations defined in DCM project. It applies only to deployed     
-   objects.                                                                       
+   Tests a DCM project: checks expectations (default/--expectations), runs test   
+   scripts in an isolated environment (--script/--all-scripts), or both.          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
@@ -10865,13 +10865,20 @@
   |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                 PATH  Local directory path containing DCM project     |
-  |                              files. Omit to use current directory.           |
-  | --target               TEXT  Target profile from manifest.yml to use. Uses   |
-  |                              default_target if not specified.                |
-  | --save-output                Save command response and artifacts to local    |
-  |                              'out/' directory.                               |
-  | --help         -h            Show this message and exit.                     |
+  | --from                  PATH  Local directory path containing DCM project    |
+  |                               files. Omit to use current directory.          |
+  | --variable      -D      TEXT  Variables for the execution context; for       |
+  |                               example: -D "<key>=<value>".                   |
+  | --expectations                Checks expectations defined in the DCM project |
+  |                               against its already-deployed objects. This is  |
+  |                               the default when neither --script nor          |
+  |                               --all-scripts is given, and may be combined    |
+  |                               with either to also run this check.            |
+  | --target                TEXT  Target profile from manifest.yml to use. Uses  |
+  |                               default_target if not specified.               |
+  | --save-output                 Save command response and artifacts to local   |
+  |                               'out/' directory.                              |
+  | --help          -h            Show this message and exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

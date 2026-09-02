@@ -12,8 +12,11 @@ from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
 from snowflake.cli._plugins.dcm.models import DCMAsset, DCMManifest, DCMTarget
 from snowflake.cli._plugins.dcm.multistep_progress import MultiStepProgress
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.utils.path_utils import change_directory
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 TEST_SFQID = "af72f4cc-107c-4f1b-b8a9-7a9811203bc5"
 
@@ -3246,6 +3249,9 @@ class TestDCMRefresh:
 
 
 class TestDCMTest:
+    """Covers `dcm test`: the default/--expectations legacy check, the
+    --script/--all-scripts script-based check, and their combination."""
+
     def test_test_all_passing(self, mock_dcm_manager, runner, mock_cursor, snapshot):
         test_result = {
             "expectations": [
@@ -3401,6 +3407,650 @@ class TestDCMTest:
         assert result.exit_code == 0, result.output
         payload = json.loads(result.output)
         _assert_format_result(payload, test_result, format_name)
+
+    def test_test_with_expectations_flag_behaves_like_default(
+        self, mock_dcm_manager, runner, mock_cursor
+    ):
+        test_result = {"expectations": []}
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project", "--expectations"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+        mock_dcm_manager().unit_test.assert_not_called()
+
+    def test_all_scripts_basic(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        unit_test_result = {
+            "status": "SUCCESSFUL",
+            "scripts": [{"script_name": "check_customers", "passed": True}],
+        }
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "my_project", "--all-scripts"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().unit_test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            from_stage="TMP_STAGE",
+            configuration=None,
+            variables=None,
+            scripts=None,
+            env_vars={},
+        )
+        mock_dcm_manager().test.assert_not_called()
+
+    def test_all_scripts_wires_up_expected_progress_steps(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_multistep_progress,
+    ):
+        unit_test_result = {"status": "SUCCESSFUL", "scripts": []}
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "my_project", "--all-scripts"])
+
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == ["UPLOAD", "TEST"]
+
+    @pytest.mark.parametrize(
+        "cli_args,expected_scripts",
+        [
+            (["--all-scripts"], None),
+            (["--script", "check_customers"], ["check_customers"]),
+            (
+                # Repeating the flag is the only way to pass multiple scripts;
+                # order is preserved exactly as given, all the way to the SQL
+                # sent to the backend (see test_get_scripts_query).
+                [
+                    "--script",
+                    "check_orders",
+                    "--script",
+                    "check_customers",
+                    "--script",
+                    "check_products",
+                ],
+                ["check_orders", "check_customers", "check_products"],
+            ),
+            (
+                # A comma is a literal character in a script name, never a
+                # separator - the CLI never splits on it.
+                ["--script", "check_customers,check_orders"],
+                ["check_customers,check_orders"],
+            ),
+            (
+                # Script names are identifiers: never folded to upper/lower
+                # case by the CLI. Exact casing is preserved end-to-end so it
+                # can be matched against the (typically lowercase) on-disk
+                # filename once double-quoted in the SQL sent to the backend.
+                ["--script", "CheckCustomers"],
+                ["CheckCustomers"],
+            ),
+        ],
+    )
+    def test_script_option_parsing(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        cli_args,
+        expected_scripts,
+    ):
+        unit_test_result = {"status": "SUCCESSFUL", "scripts": []}
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "my_project"] + cli_args)
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().unit_test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            from_stage="TMP_STAGE",
+            configuration=None,
+            variables=None,
+            scripts=expected_scripts,
+            env_vars={},
+        )
+
+    def test_whitespace_only_script_name_is_not_silently_dropped(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        """A blank/whitespace --script value must not be silently filtered
+        down to an empty list - that would flip use_scripts to False and
+        silently run the old expectations-only check instead of the script
+        test the user asked for. It reaches the server as a literal (if odd)
+        script name and fails loudly there, the same way any other
+        nonexistent script does."""
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_dcm_manager().unit_test.side_effect = CliError(
+            "SQL compilation error: Script file not found"
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "my_project", "--script", " "])
+
+        assert result.exit_code != 0, result.output
+        mock_dcm_manager().unit_test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            from_stage="TMP_STAGE",
+            configuration=None,
+            variables=None,
+            scripts=[" "],
+            env_vars={},
+        )
+        mock_dcm_manager().test.assert_not_called()
+
+    def test_all_scripts_with_failures(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        unit_test_result = {
+            "status": "FAILED",
+            "scripts": [
+                {
+                    "script_name": "check_orders",
+                    "passed": False,
+                    "error_message": "expected 10 rows, got 3",
+                }
+            ],
+        }
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "my_project", "--all-scripts"])
+
+        assert result.exit_code == 1, result.output
+        assert "check_orders" in result.output
+        assert "expected 10 rows, got 3" in result.output
+
+    def test_all_scripts_with_save_output(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        unit_test_result = {
+            "status": "SUCCESSFUL",
+            "scripts": [{"script_name": "check_customers", "passed": True}],
+        }
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project") as project_dir:
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--save-output"]
+            )
+
+            assert result.exit_code == 0, result.output
+            _assert_json_dumped("unit_test", unit_test_result, project_dir)
+
+    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
+    def test_all_scripts_with_json_formats_returns_response(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        format_name,
+    ):
+        unit_test_result = {
+            "status": "SUCCESSFUL",
+            "scripts": [{"script_name": "check_customers", "passed": True}],
+        }
+        mock_dcm_manager().unit_test.return_value = _mock_cursor_for_format(
+            mock_cursor, unit_test_result, format_name
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--format", format_name]
+            )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        _assert_format_result(payload, unit_test_result, format_name)
+
+    def test_script_and_all_scripts_together_is_error(self, mock_dcm_manager, runner):
+        result = runner.invoke(
+            ["dcm", "test", "my_project", "--script", "foo", "--all-scripts"]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "--script and --all-scripts cannot be used together." in result.output
+        mock_dcm_manager().unit_test.assert_not_called()
+        mock_dcm_manager().test.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "extra_args", [["--all-scripts"], ["--script", "check_customers"]]
+    )
+    def test_scripts_without_manifest_raises_clear_error(
+        self, mock_dcm_manager, runner, tmp_path, extra_args
+    ):
+        with change_directory(tmp_path):
+            result = runner.invoke(["dcm", "test", "my_project"] + extra_args)
+
+        assert result.exit_code == 1, result.output
+        assert "--script and --all-scripts" in result.output
+        assert "manifest.yml" in result.output
+        mock_dcm_manager().unit_test.assert_not_called()
+
+    def test_combined_runs_scripts_then_expectations(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_multistep_progress,
+    ):
+        unit_test_result = {"status": "SUCCESSFUL", "scripts": []}
+        test_result = {"expectations": []}
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--expectations"]
+            )
+
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == ["UPLOAD", "TEST", "EXPECTATIONS"]
+
+        called_names = [call[0] for call in mock_dcm_manager.return_value.method_calls]
+        assert called_names.index("unit_test") < called_names.index("test")
+
+    def test_combined_failure_in_scripts_still_runs_expectations_and_surfaces_both(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        unit_test_result = {
+            "status": "FAILED",
+            "scripts": [
+                {
+                    "script_name": "check_orders",
+                    "passed": False,
+                    "error_message": "expected 10 rows, got 3",
+                }
+            ],
+        }
+        test_result = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.ORDERS",
+                    "expectation_name": "NULL_CHECK",
+                    "expectation_violated": True,
+                    "expectation_expression": "= 0",
+                    "metric_name": "null_count",
+                    "value": 15,
+                }
+            ]
+        }
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--expectations"]
+            )
+
+        assert result.exit_code == 1, result.output
+        assert "check_orders" in result.output
+        assert "expected 10 rows, got 3" in result.output
+        assert "DB.SCHEMA.ORDERS" in result.output
+        mock_dcm_manager().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    def test_combined_hard_exception_in_scripts_still_runs_expectations(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        """A raw exception from the script-based half (e.g. a failed upload)
+        must not prevent the expectations half from running, and the overall
+        command must still fail since one of the two requested checks never
+        completed."""
+        test_result = {"expectations": []}
+        mock_dcm_manager().sync_local_files.side_effect = Exception(
+            "stage upload timed out"
+        )
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--expectations"]
+            )
+
+        assert result.exit_code != 0, result.output
+        assert "stage upload timed out" in result.output
+        mock_dcm_manager().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    def test_combined_hard_exception_in_expectations_still_reports_scripts_outcome(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        """Regression test for a bug found via manual testing: a raw exception
+        (e.g. a SQL compilation error) from the expectations half used to
+        propagate straight out of the whole command, bypassing
+        _process_test_outcomes entirely and silently discarding the
+        already-completed script-based half's result instead of reporting
+        both."""
+        unit_test_result = {
+            "status": "SUCCESSFUL",
+            "scripts": [{"script_name": "check_customers", "passed": True}],
+        }
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_dcm_manager().test.side_effect = Exception(
+            "SQL compilation error: Object does not exist"
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--expectations"]
+            )
+
+        assert result.exit_code != 0, result.output
+        assert "check_customers" in result.output
+        assert "SQL compilation error: Object does not exist" in result.output
+
+    def test_combined_hard_exception_in_both_scripts_and_expectations_surfaces_both(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_connect,
+    ):
+        """When BOTH halves of a combined run hard-crash - not just one -
+        both exception messages must appear together in the final error.
+        Neither should be silently dropped just because the other also
+        failed."""
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_dcm_manager().unit_test.side_effect = Exception(
+            "SQL compilation error: Script file not found"
+        )
+        mock_dcm_manager().test.side_effect = Exception(
+            "SQL compilation error: Object does not exist"
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--expectations"]
+            )
+
+        assert result.exit_code != 0, result.output
+        assert "SQL compilation error: Script file not found" in result.output
+        assert "SQL compilation error: Object does not exist" in result.output
+        mock_dcm_manager().unit_test.assert_called_once()
+        mock_dcm_manager().test.assert_called_once()
+
+    def test_solo_scripts_hard_exception_does_not_run_expectations(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_connect,
+    ):
+        """Solo --all-scripts has no other half to defer to, so a hard
+        exception must propagate exactly as before -- and must not spuriously
+        run the expectations check, which was never requested."""
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_dcm_manager().unit_test.side_effect = CliError(
+            "SQL compilation error: Script file not found"
+        )
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "my_project", "--all-scripts"])
+
+        assert result.exit_code != 0, result.output
+        assert "SQL compilation error: Script file not found" in result.output
+        mock_dcm_manager().test.assert_not_called()
+
+    def test_solo_expectations_hard_exception_propagates_unchanged(
+        self, mock_dcm_manager, runner
+    ):
+        """Bare `test` (expectations only) has no other half either -- confirms
+        the combined-mode deferral introduced above does not change this
+        path."""
+        mock_dcm_manager().test.side_effect = CliError(
+            "SQL compilation error: Object does not exist"
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code != 0, result.output
+        assert "SQL compilation error: Object does not exist" in result.output
+
+    @pytest.mark.parametrize("format_name", ["json", "json_ext"])
+    def test_combined_json_format_returns_both_payloads(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        format_name,
+    ):
+        unit_test_result = {
+            "status": "SUCCESSFUL",
+            "scripts": [{"script_name": "check_customers", "passed": True}],
+        }
+        test_result = {"expectations": []}
+        mock_dcm_manager().unit_test.return_value = _mock_cursor_for_format(
+            mock_cursor, unit_test_result, format_name
+        )
+        mock_dcm_manager().test.return_value = _mock_cursor_for_format(
+            mock_cursor, test_result, format_name
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "test",
+                    "my_project",
+                    "--all-scripts",
+                    "--expectations",
+                    "--format",
+                    format_name,
+                ]
+            )
+
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        if format_name == "json":
+            assert payload == [
+                {
+                    "unit_test": json.dumps(unit_test_result),
+                    "test": json.dumps(test_result),
+                }
+            ]
+        else:
+            assert payload == [
+                {
+                    "unit_test": unit_test_result,
+                    "test": test_result,
+                }
+            ]
+
+    def test_obsolescence_warning_shown_when_flag_enabled(
+        self, mock_dcm_manager, runner, mock_cursor
+    ):
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps({"expectations": []}),)], columns=("result",)
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_DCM_UNIT_TEST_FEATURES: True}):
+            result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert "newer --script/--all-scripts option" in result.output
+
+    def test_obsolescence_warning_absent_when_flag_disabled(
+        self, mock_dcm_manager, runner, mock_cursor
+    ):
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps({"expectations": []}),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert "newer --script/--all-scripts option" not in result.output
+
+    def test_obsolescence_warning_absent_when_only_scripts_runs(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps({"status": "SUCCESSFUL", "scripts": []}),)],
+            columns=("result",),
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with with_feature_flags({FeatureFlag.ENABLE_DCM_UNIT_TEST_FEATURES: True}):
+            with project_directory("dcm_project"):
+                result = runner.invoke(["dcm", "test", "my_project", "--all-scripts"])
+
+        assert result.exit_code == 0, result.output
+        assert "newer --script/--all-scripts option" not in result.output
+
+    def test_bare_invocation_keeps_test_label_when_flag_disabled(
+        self, mock_dcm_manager, runner, mock_cursor, mock_multistep_progress
+    ):
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps({"expectations": []}),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == ["TEST"]
+
+    def test_bare_invocation_relabels_to_expectations_when_flag_enabled(
+        self, mock_dcm_manager, runner, mock_cursor, mock_multistep_progress
+    ):
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps({"expectations": []}),)], columns=("result",)
+        )
+
+        with with_feature_flags({FeatureFlag.ENABLE_DCM_UNIT_TEST_FEATURES: True}):
+            result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == ["EXPECTATIONS"]
 
 
 class TestAccountIdentifierValidationForCommands:

@@ -592,6 +592,109 @@ def test_test_project(mock_execute_query):
     )
 
 
+@mock.patch(execute_queries)
+def test_unit_test_project_basic(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.unit_test(project_identifier=TEST_PROJECT, from_stage="@test_stage")
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') TEST FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+@pytest.mark.parametrize(
+    "configuration,variables,scripts,expected_suffix",
+    [
+        (
+            "dev",
+            ["key=value"],
+            None,
+            " USING CONFIGURATION dev (key=>value) FROM @test_stage",
+        ),
+        (
+            None,
+            None,
+            ["script_one"],
+            ' FROM @test_stage SCRIPTS ("script_one")',
+        ),
+        (
+            None,
+            None,
+            ["script_one", "ScriptTwo"],
+            ' FROM @test_stage SCRIPTS ("script_one", "ScriptTwo")',
+        ),
+        (
+            "dev",
+            ["key=value"],
+            ["script_one"],
+            ' USING CONFIGURATION dev (key=>value) FROM @test_stage SCRIPTS ("script_one")',
+        ),
+        (
+            None,
+            None,
+            None,
+            " FROM @test_stage",
+        ),
+    ],
+)
+def test_unit_test_project_with_various_options(
+    mock_execute_query, configuration, variables, scripts, expected_suffix
+):
+    mgr = DCMProjectManager()
+    mgr.unit_test(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration=configuration,
+        variables=variables,
+        scripts=scripts,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') TEST" + expected_suffix
+    )
+
+
+@mock.patch(execute_queries)
+@mock.patch(execute_query_with_params)
+def test_unit_test_project_with_env_vars(mock_execute_with_params, mock_execute_query):
+    mgr = DCMProjectManager()
+    env_vars = {"WH_SIZE": "XLARGE"}
+
+    mgr.unit_test(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        scripts=["script_one"],
+        env_vars=env_vars,
+    )
+
+    mock_execute_with_params.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') TEST ENVIRONMENT (?)"
+        ' FROM @test_stage SCRIPTS ("script_one")',
+        params=[json.dumps(env_vars)],
+    )
+    mock_execute_query.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "scripts,expected",
+    [
+        (None, ""),
+        ([], ""),
+        (["script_one"], ' SCRIPTS ("script_one")'),
+        (["script_one", "ScriptTwo"], ' SCRIPTS ("script_one", "ScriptTwo")'),
+        (['a") ; drop table t; --'], ' SCRIPTS ("a"") ; drop table t; --")'),
+    ],
+)
+def test_get_scripts_query(scripts, expected):
+    # Names are always double-quoted, so they are matched as case-sensitive
+    # identifiers exactly as given -- never folded to uppercase the way an
+    # unquoted identifier would be. Embedded double quotes are doubled
+    # ("" ) rather than passed through, so a script name can never close
+    # the identifier early and inject additional SQL.
+    assert DCMProjectManager._get_scripts_query(scripts) == expected  # noqa: SLF001
+
+
 @pytest.mark.parametrize(
     "alias,expected_alias",
     [

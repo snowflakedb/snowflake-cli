@@ -350,6 +350,30 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} TEST ALL"
         return self.execute_query(query=query)
 
+    def unit_test(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+        scripts: List[str] | None = None,
+        env_vars: dict[str, str] | None = None,
+    ) -> SnowflakeCursor:
+        log.info(
+            "Running DCM unit_test manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, scripts_count=%d).",
+            project_identifier,
+            bool(configuration),
+            len(variables or []),
+            len(scripts or []),
+        )
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} TEST"
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        if env_vars:
+            query += " ENVIRONMENT (?)"
+        query += self._get_from_stage_query(from_stage)
+        query += self._get_scripts_query(scripts)
+        return self._execute_with_optional_env_vars(query, env_vars)
+
     def _execute_with_optional_env_vars(
         self, query: str, env_vars: dict[str, str] | None
     ) -> SnowflakeCursor:
@@ -384,6 +408,15 @@ class DCMProjectManager(SqlExecutionMixin):
                 parse_key_value_variables(variables)
             ).removeprefix(" using")
         return query
+
+    @staticmethod
+    def _get_scripts_query(scripts: List[str] | None) -> str:
+        if not scripts:
+            return ""
+        quoted_names = ", ".join(
+            '"{}"'.format(name.replace('"', '""')) for name in scripts
+        )
+        return f" SCRIPTS ({quoted_names})"
 
     @staticmethod
     def sync_local_files(
