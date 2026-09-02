@@ -252,7 +252,7 @@ def _load_debug_data(command_name: str, file_number: int):
         data = json.load(f)
 
     if isinstance(data, list) and len(data) > 0:
-        if command_name in ("test", "refresh", "analyze"):
+        if command_name in ("test", "refresh", "analyze", "unit_test"):
             data = data[0]
 
     return data
@@ -267,31 +267,48 @@ def mock_dcm_response(command_name: str):
             if file_number is None:
                 return func(*args, **kwargs)
 
-            actual_command = "plan" if command_name == "deploy" else command_name
-            try:
-                data = _load_debug_data(actual_command, file_number)
-            except Exception:
-                return func(*args, **kwargs)
-
-            if data is None:
-                return func(*args, **kwargs)
-
             # Lazy imports to avoid circular dependency with reporters.
             from snowflake.cli._plugins.dcm.reporters import (
                 PlanReporter,
                 RefreshReporter,
                 TestReporter,
+                UnitTestReporter,
             )
 
-            cursor = FakeCursor(data)
             reporter_mapping = {
                 "refresh": RefreshReporter,
                 "test": TestReporter,
                 "plan": PlanReporter,
+                "unit_test": UnitTestReporter,
             }
 
-            reporter = reporter_mapping[command_name]()
-            reporter.process(cursor)
+            if command_name == "test":
+                # `test` covers both the legacy expectations check and the
+                # newer script-based test, run individually or combined -
+                # mirror the real command's flag-driven branching instead of
+                # assuming a single fixture/reporter.
+                new_style = bool(kwargs.get("scripts")) or bool(
+                    kwargs.get("all_scripts")
+                )
+                names = (["unit_test"] if new_style else []) + (
+                    ["test"] if kwargs.get("expectations") or not new_style else []
+                )
+            else:
+                names = ["plan" if command_name == "deploy" else command_name]
+
+            processed = False
+            for name in names:
+                try:
+                    data = _load_debug_data(name, file_number)
+                except Exception:
+                    continue
+                if data is None:
+                    continue
+                reporter_mapping[name]().process(FakeCursor(data))
+                processed = True
+
+            if not processed:
+                return func(*args, **kwargs)
             return EmptyResult()
 
         return wrapper
