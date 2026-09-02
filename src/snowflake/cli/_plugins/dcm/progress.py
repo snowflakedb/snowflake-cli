@@ -62,6 +62,7 @@ REFRESH = StepDefinition("REFRESH", "REFRESH")
 # SYSTEM$GET_DCM_PROJECT_PROGRESS, so the key must match that string.
 PURGE = StepDefinition("DEPLOY", "PURGE")
 TEST = StepDefinition("TEST", "TEST")
+EXPECTATIONS = StepDefinition("EXPECTATIONS", "EXPECTATIONS")
 ANALYZE = StepDefinition("ANALYZE", "ANALYZE")
 
 

@@ -79,7 +79,8 @@ class StepState(str, Enum):
         return self._terminal
 
 
-_LABEL_COL_WIDTH = 10
+_LABEL_COL_PADDING = 3
+_MIN_LABEL_COL_WIDTH = 10
 _BAR_WIDTH = 40
 _ACTIVE_COLOR = "bright_blue"
 _DONE_SYMBOL = "✓"
@@ -141,8 +142,9 @@ class _ChecklistProgress(Progress):
     independent and its spacing exact.
     """
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, label_col_width: int, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self._label_col_width = label_col_width
         self._bar = BarColumn(
             bar_width=_BAR_WIDTH,
             complete_style=_ACTIVE_COLOR,
@@ -169,7 +171,7 @@ class _ChecklistProgress(Progress):
     def _render_row(self, task: Task) -> Table:
         state = task.fields.get("state", StepState.PENDING)
         style = _LABEL_STYLE_BY_STATE[state]
-        label = f"{task.fields['label']:<{_LABEL_COL_WIDTH}}"
+        label = f"{task.fields['label']:<{self._label_col_width}}"
         cells = [Text(label, style=style)]
 
         if state == StepState.DONE:
@@ -210,7 +212,14 @@ class MultiStepProgress:
     """
 
     def __init__(self, steps: Iterable[StepDefinition]) -> None:
-        self._progress = _ChecklistProgress(console=get_console())
+        steps = list(steps)
+        label_col_width = max(
+            _MIN_LABEL_COL_WIDTH,
+            max((len(step.label) for step in steps), default=0) + _LABEL_COL_PADDING,
+        )
+        self._progress = _ChecklistProgress(
+            console=get_console(), label_col_width=label_col_width
+        )
         self._steps: Dict[str, _TrackedStep] = {}
         self._display_open = False
         self._is_tty = False
