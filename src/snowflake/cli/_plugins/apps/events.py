@@ -20,6 +20,10 @@ of its event table via the ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``
 system function. That function returns a VARCHAR holding a JSON array of
 positional tuples whose layout depends on the requested ``event_type``.
 
+Do not use this function for serverless (CNG) apps. That backend does not
+support it. The ``snow app events`` command rejects metric, lifecycle, and
+windowed-log requests for those apps.
+
 This module keeps the pure logic — client-side time-window resolution and
 decoding the positional tuples into named, human-readable records — separate
 from the command wiring so it can be unit-tested without a Snowflake
