@@ -772,9 +772,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f8
 
 [[packages]]
 name = "tomlkit"
-version = "0.13.3"
-sdist = { url = "https://files.pythonhosted.org/packages/cc/18/0bbf3884e9eaa38819ebe46a7bd25dcd56b67434402b66a58c4b8e552575/tomlkit-0.13.3.tar.gz", upload-time = 2025-06-05T07:13:44Z, size = 185207, hashes = { sha256 = "430cf247ee57df2b94ee3fbe588e71d362a941ebb545dec29b53961d61add2a1" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/bd/75/8539d011f6be8e29f339c42e633aae3cb73bffa95dd0f9adec09b9c58e85/tomlkit-0.13.3-py3-none-any.whl", upload-time = 2025-06-05T07:13:43Z, size = 38901, hashes = { sha256 = "c89c649d79ee40629a9fda55f8ace8c6a1b42deb912b2a8fd8d942ddadb606b0" } }]
+version = "0.15.1"
+sdist = { url = "https://files.pythonhosted.org/packages/94/96/e07752635b98536177fa1f37671c8f3cdde2e724c6bcf6034b2cfb571565/tomlkit-0.15.1.tar.gz", upload-time = 2026-07-17T01:48:04Z, size = 180129, hashes = { sha256 = "e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/13/bc/8c13eb66537dce1d2bd3a57132902f38d0e7f5bb46fa9f4daed9fe9d76ee/tomlkit-0.15.1-py3-none-any.whl", upload-time = 2026-07-17T01:48:05Z, size = 49449, hashes = { sha256 = "177a05aece5a8ca5266fd3c448abb47b8d352f09d477d3ca8332db4d89b24304" } }]
 
 [[packages]]
 name = "typer"

@@ -45,7 +45,7 @@ dependencies = [
   "snowflake-connector-python[secure-local-storage]==4.7.1",
   'snowflake-snowpark-python==1.53.0',
   "snowflake.core==1.10.0",
-  "tomlkit==0.13.3",
+  "tomlkit==0.15.1",
   "typer==0.17.3",
   "urllib3>=2.6.3,<3",
   "websocket-client>=1.6.0,<2",
