@@ -136,6 +136,16 @@ _TARGET_REQUIRES_APP_YML = (
     "define deployment targets in app.yml (version 2)."
 )
 
+# Raised when ``snow app events`` would call
+# ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA`` for a serverless (CNG)
+# app. That function is not supported on the CNG backend.
+_CNG_HEALTH_MONITORING_UNSUPPORTED = (
+    "Health monitoring is not available for serverless apps. "
+    "The SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA function is not "
+    "supported. Use snow app events to get live logs. Do not use "
+    "--type metric, --type lifecycle, --since, or --until."
+)
+
 
 def _load_app_yml_for_command(target: Optional[str]) -> Optional[AppYmlDefinition]:
     """Return the ``app.yml`` that drives this project, or ``None``.
@@ -1531,6 +1541,10 @@ def snowflake_app_events(
     are always sourced from the event table and default to the last hour when no
     window is given.
 
+    Event-table health monitoring is not available for serverless (CNG) apps:
+    ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA`` is not supported on
+    that backend. Live logs still work.
+
     The application service is resolved from ``app.yml`` (the ``--target``
     target) when present, otherwise from the ``snowflake.yml`` entity.
     """
@@ -1560,6 +1574,7 @@ def snowflake_app_events(
         until=until,
         raw=raw,
         instance=instance,
+        compute_resource=svc.compute_resource,
     )
 
 
@@ -1574,12 +1589,22 @@ def _emit_app_events(
     until: Optional[str],
     raw: bool,
     instance: Optional[int] = None,
+    compute_resource: Optional[str] = None,
 ) -> CommandResult:
     """Fetch and render one observability stream for an application service.
 
     Shared by the ``app.yml`` and ``snowflake.yml`` event flows once the
     service FQN has been resolved.
+
+    Serverless (CNG) apps cannot use the event-table function, so metric,
+    lifecycle, and windowed-log requests raise :class:`CliError`. The live
+    log tail does not use that function and still works.
     """
+    if _requests_event_table_health_monitoring(
+        stream, since, until
+    ) and _is_cng_compute_resource(compute_resource):
+        raise CliError(_CNG_HEALTH_MONITORING_UNSUPPORTED)
+
     metrics = get_cli_context().metrics
 
     # Logs with no window keep the legacy live-container tail.
@@ -1684,6 +1709,33 @@ def _log_service_logs(manager: SnowflakeAppManager, service_fqn: FQN) -> None:
 def _is_cng_compute_resource(compute_resource: Optional[str]) -> bool:
     """Return ``True`` for the CNG (serverless) app-service backend."""
     return (compute_resource or "").upper() == SERVERLESS_COMPUTE_RESOURCE
+
+
+def _honoured_compute_resource(compute_resource: Optional[str]) -> Optional[str]:
+    """Return *compute_resource* when the CNG feature flag is on.
+
+    CNG is not ready yet, so ``SERVERLESS`` is only honoured while the flag
+    is on. When the flag is off this returns ``None`` and the server uses
+    the default backend.
+    """
+    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
+        return None
+    return compute_resource
+
+
+def _requests_event_table_health_monitoring(
+    stream: EventStream,
+    since: Optional[str],
+    until: Optional[str],
+) -> bool:
+    """Return ``True`` when the request uses the event-table system function.
+
+    The live log tail (``--type log`` and no time window) uses
+    ``SYSTEM$GET_APPLICATION_SERVICE_LOGS``. Metric, lifecycle, and
+    windowed logs use ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``,
+    which is not supported for serverless apps.
+    """
+    return stream is not EventStream.LOG or bool(since) or bool(until)
 
 
 def _ensure_cng_url_cert_ready(
@@ -1986,6 +2038,10 @@ class _ResolvedService(NamedTuple):
     The common result of resolving a command's target from either ``app.yml``
     (the ``--target`` target) or the ``snowflake.yml`` entity, so ``open`` and
     ``events`` share one resolution path instead of each re-deriving it.
+
+    ``compute_resource`` is the honoured backend (``SERVERLESS`` or
+    ``MANAGED_COMPUTE_POOL``) from the ``app.yml`` target, or ``None`` when
+    the CNG feature flag is off or the project uses ``snowflake.yml``.
     """
 
     manager: SnowflakeAppManager
@@ -1993,6 +2049,7 @@ class _ResolvedService(NamedTuple):
     database: Optional[str]
     schema: Optional[str]
     name: str
+    compute_resource: Optional[str] = None
 
 
 def _resolve_command_service(
@@ -2013,7 +2070,12 @@ def _resolve_command_service(
     if app_def is not None:
         dep = _resolve_app_yml_target(app_def, target, manager=manager)
         return _ResolvedService(
-            manager, dep.service_fqn, dep.database, dep.schema, dep.service_name
+            manager,
+            dep.service_fqn,
+            dep.database,
+            dep.schema,
+            dep.service_name,
+            _honoured_compute_resource(dep.target.compute_resource),
         )
 
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -2306,9 +2368,7 @@ def _deploy_from_app_yml(
     # ``compute_resource`` selects the CNG (serverless) or SPCS backend and is
     # write-once. CNG is not ready yet, so it is only honoured while the feature
     # flag is on; when off it is ignored and the server defaults the backend.
-    compute_resource: Optional[str] = None
-    if FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
-        compute_resource = tgt.compute_resource
+    compute_resource = _honoured_compute_resource(tgt.compute_resource)
 
     # Probe for the per-account URL certificate up front (see
     # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is

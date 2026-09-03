@@ -114,6 +114,50 @@ _APP_YML_PERSONAL_DB = dedent(
 # A regular-database project with no code-storage configured. At deploy time
 # the CLI provisions a temporary ``<name>_CODE`` stage it owns end to end,
 # building from it and dropping it once the build has consumed it.
+_CNG_APP_YML = dedent(
+    """\
+    version: 2
+    name: CNG_APP
+    database: SNOWFLAKE_APPS
+    schema: PUBLIC
+    query_warehouse: WH
+    package_name: CNG_APP
+    code_stage: SNOWFLAKE_APPS.PUBLIC.CNG_CODE
+    artifact_repo: SNOWFLAKE_APPS.PUBLIC.CNG_REPO
+    targets:
+      prod:
+        database: SNOWFLAKE_APPS
+        schema: PUBLIC
+        name: CNG_APP
+        query_warehouse: WH
+        compute_resource: SERVERLESS
+        url_prefix: CNG_APP
+        health_check: /healthz
+    """
+)
+
+
+_SPCS_COMPUTE_POOL_APP_YML = dedent(
+    """\
+    version: 2
+    name: SPCS_APP
+    database: SNOWFLAKE_APPS
+    schema: PUBLIC
+    query_warehouse: WH
+    package_name: SPCS_APP
+    code_stage: SNOWFLAKE_APPS.PUBLIC.SPCS_CODE
+    artifact_repo: SNOWFLAKE_APPS.PUBLIC.SPCS_REPO
+    targets:
+      prod:
+        database: SNOWFLAKE_APPS
+        schema: PUBLIC
+        name: SPCS_APP
+        query_warehouse: WH
+        compute_resource: MANAGED_COMPUTE_POOL
+    """
+)
+
+
 _APP_YML_REGULAR_DB_NO_CODE_STORAGE = dedent(
     """\
     version: 2
@@ -1657,28 +1701,6 @@ class TestDeployFromAppYml:
         assert build_kwargs.get("stage_fqn") == stage_fqn
         mgr.drop_stage_if_exists.assert_called_once_with(stage_fqn)
 
-    _CNG_APP_YML = dedent(
-        """\
-        version: 2
-        name: CNG_APP
-        database: SNOWFLAKE_APPS
-        schema: PUBLIC
-        query_warehouse: WH
-        package_name: CNG_APP
-        code_stage: SNOWFLAKE_APPS.PUBLIC.CNG_CODE
-        artifact_repo: SNOWFLAKE_APPS.PUBLIC.CNG_REPO
-        targets:
-          prod:
-            database: SNOWFLAKE_APPS
-            schema: PUBLIC
-            name: CNG_APP
-            query_warehouse: WH
-            compute_resource: SERVERLESS
-            url_prefix: CNG_APP
-            health_check: /healthz
-        """
-    )
-
     @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
     @patch(f"{_COMMANDS}._poll_until")
     @patch(f"{_COMMANDS}.perform_bundle")
@@ -1691,7 +1713,7 @@ class TestDeployFromAppYml:
         forwards COMPUTE_RESOURCE to CREATE OR ALTER."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
 
-        (tmp_path / APP_YML_FILENAME).write_text(self._CNG_APP_YML)
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
         mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
@@ -1736,7 +1758,7 @@ class TestDeployFromAppYml:
         is not honoured, so there is no cert precheck and no COMPUTE_RESOURCE."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
 
-        (tmp_path / APP_YML_FILENAME).write_text(self._CNG_APP_YML)
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
         mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
@@ -2114,3 +2136,117 @@ class TestSharedCommandsFromAppYml:
         _make_manager_mock(mock_mgr_cls)
         with pytest.raises(CliError, match="--target is only supported"):
             call()
+
+
+class TestCngHealthMonitoringDisabled:
+    """Event-table health monitoring is not available for serverless apps."""
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"event_type": "metric"},
+            {"event_type": "lifecycle"},
+            {"since": "1h"},
+            {"until": "1h"},
+            {"event_type": "log", "since": "30m"},
+        ],
+    )
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_event_table_paths_rejected_for_serverless(
+        self, mock_ctx, mock_mgr_cls, kwargs, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+
+        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
+            with pytest.raises(
+                CliError,
+                match="Health monitoring is not available for serverless apps",
+            ):
+                snowflake_app_events(None, None, target="prod", **kwargs)
+
+        mgr.get_event_table_data.assert_not_called()
+        mgr.get_service_logs.assert_not_called()
+
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_live_logs_still_work_for_serverless(
+        self, mock_ctx, mock_mgr_cls, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_service_logs.return_value = "cng-live-log"
+
+        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
+            result = snowflake_app_events(None, None, target="prod")
+
+        mgr.get_service_logs.assert_called_once()
+        mgr.get_event_table_data.assert_not_called()
+        assert result.message == "cng-live-log"
+
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_explicit_log_type_still_works_for_serverless(
+        self, mock_ctx, mock_mgr_cls, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_service_logs.return_value = "cng-live-log"
+
+        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
+            result = snowflake_app_events(None, None, event_type="log", target="prod")
+
+        mgr.get_service_logs.assert_called_once()
+        mgr.get_event_table_data.assert_not_called()
+        assert result.message == "cng-live-log"
+
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_event_table_allowed_when_cng_flag_off(
+        self, mock_ctx, mock_mgr_cls, tmp_path
+    ):
+        # Flag off: SERVERLESS in app.yml is not honoured, so the app is not
+        # treated as CNG and health monitoring stays available.
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.return_value = "[]"
+
+        result = snowflake_app_events(None, None, event_type="metric", target="prod")
+
+        mgr.get_event_table_data.assert_called_once()
+        mgr.get_service_logs.assert_not_called()
+        assert list(result.result) == []
+
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_event_table_allowed_for_managed_compute_pool(
+        self, mock_ctx, mock_mgr_cls, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+
+        (tmp_path / APP_YML_FILENAME).write_text(_SPCS_COMPUTE_POOL_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.return_value = "[]"
+
+        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
+            result = snowflake_app_events(
+                None, None, event_type="lifecycle", target="prod"
+            )
+
+        mgr.get_event_table_data.assert_called_once()
+        mgr.get_service_logs.assert_not_called()
+        assert list(result.result) == []
