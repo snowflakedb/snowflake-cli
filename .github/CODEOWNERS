@@ -5,8 +5,6 @@
 /tests/apps/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
 /tests_integration/apps/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
 /tests_integration/test_data/projects/snowflake_apps/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
-/tests/__snapshots__/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
-/tests_integration/__snapshots__/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
 
 # Nativeapp plugin
 /src/snowflake/cli/_plugins/nativeapp/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps
@@ -20,5 +18,13 @@
 /tests_integration/test_data/projects/dcm_project/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/dev-platform-dcm-waw
 /tests_integration/test_data/projects/dcm_project_multiple_configurations/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/dev-platform-dcm-waw
 
-# Release notes
+# Common
+## Release notes
 /RELEASE-NOTES.md @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps @snowflake-eng/dev-platform-dcm-waw
+
+## test snapshots
+/tests/__snapshots__/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps @snowflake-eng/dev-platform-dcm-waw
+/tests_integration/__snapshots__/ @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps @snowflake-eng/dev-platform-dcm-waw
+
+## feature flags
+/src/snowflake/cli/api/feature_flags.py @snowflake-eng/snowcli @snowflake-eng/client-side-interfaces @snowflake-eng/native-apps @snowflake-eng/dev-platform-dcm-waw
