@@ -15,6 +15,11 @@
  -->
 # Unreleased version
 ## Backward incompatibility
+* `snow streamlit deploy` now rejects a `runtime_name` in `snowflake.yml` that the CLI does not recognize, rather than dropping it from the DDL and deploying onto whichever runtime the account defaults to. Supported values are `SYSTEM$ST_CONTAINER_RUNTIME_PY3_11` and `SYSTEM$WAREHOUSE_RUNTIME`, matched ignoring case and surrounding whitespace.
+* An empty or whitespace-only `runtime_name` or `compute_pool` is now an error, where both were previously treated as unset and deployed. Omit the key entirely instead.
+* Because the accepted runtime values are a fixed list, a runtime released after your CLI version is rejected until you upgrade.
+* A `runtime_name` that was previously accepted and ignored now takes effect, including on apps that already exist. If a deployed app runs on a different runtime than `snowflake.yml` specifies, the next `snow streamlit deploy` issues `ALTER STREAMLIT ... SET RUNTIME_NAME` and moves it, so review `runtime_name` in existing project files before upgrading.
+* An app moved onto `SYSTEM$WAREHOUSE_RUNTIME` keeps whatever compute pool it had, since there is no way to detach one, but Snowflake ignores the property for that runtime so the leftover has no effect.
 
 ## Deprecations
 
@@ -23,6 +28,11 @@
 
 ## Fixes and improvements
 * Upgraded tomlkit from 0.13.3 to 0.15.1, which fixes ~O(n^2) parsing of `config.toml`/`connections.toml`. Large config files were parsed in seconds and re-parsed several times per command, adding noticeable startup latency to every `snow` invocation; parsing is now effectively instant regardless of file size.
+* `snow streamlit deploy` now includes `runtime_name` from `snowflake.yml` in the generated `CREATE STREAMLIT` DDL; previously only `SYSTEM$ST_CONTAINER_RUNTIME_PY3_11` reached it and every other value was dropped without a warning. This matters now that BCR-2342 makes the container runtime the default, since an app requesting the warehouse runtime was created on the container runtime instead.
+* `snow streamlit deploy` matches a recognized `runtime_name` ignoring case and surrounding whitespace, then emits it in canonical form, so project-file formatting no longer reaches the DDL. `compute_pool` is trimmed the same way.
+* `snow streamlit deploy` now accepts `SYSTEM$ST_CONTAINER_RUNTIME_PY3_11` without a `compute_pool`, since Snowflake supplies a default pool, and accepts `compute_pool` without a `runtime_name` by inferring the container runtime. Both were previously rejected.
+* `snow streamlit deploy` omits `COMPUTE_POOL` when `runtime_name` is `SYSTEM$WAREHOUSE_RUNTIME`, which does not run on a pool, and warns that the pool is ignored.
+* `snow streamlit deploy` now warns rather than staying silent when `--legacy` or a `ROOT_LOCATION` deployment cannot carry the requested `runtime_name`, and when a redeploy moves a running app onto a different runtime.
 * Upgraded GitPython from 3.1.58 to 3.1.59.
 * Upgraded snowflake-connector-python from 4.7.1 to 4.7.3.
 
