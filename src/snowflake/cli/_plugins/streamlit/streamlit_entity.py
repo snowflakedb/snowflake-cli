@@ -11,6 +11,7 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
+    WAREHOUSE_RUNTIME_NAME,
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
@@ -25,6 +26,7 @@ from snowflake.cli.api.project.util import (
     to_identifier,
     to_string_literal,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -143,10 +145,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
         )
 
-    def _is_spcs_runtime_v2_mode(self) -> bool:
-        """Check if SPCS runtime v2 mode is enabled."""
+    def _compute_pool_applies(self) -> bool:
+        """Whether COMPUTE_POOL is meaningful for the configured runtime.
+
+        Snowflake ignores COMPUTE_POOL when RUNTIME_NAME is the warehouse runtime,
+        so the clause is left out rather than sent and discarded.
+        """
         return (
-            self.model.runtime_name == SPCS_RUNTIME_V2_NAME and self.model.compute_pool
+            bool(self.model.compute_pool)
+            and self.model.runtime_name != WAREHOUSE_RUNTIME_NAME
         )
 
     def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
@@ -193,11 +200,32 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
 
-        if legacy and self._is_spcs_runtime_v2_mode():
+        if legacy and self.model.runtime_name == SPCS_RUNTIME_V2_NAME:
+            # A legacy ROOT_LOCATION deployment cannot carry RUNTIME_NAME at all, so
+            # this would silently produce a warehouse-backed app. That is a materially
+            # different app from the one requested, hence an error rather than a warning.
             raise CliError(
-                "runtime_name and compute_pool are not compatible with --legacy flag. "
-                "Please remove the --legacy flag to use versioned deployment, or remove "
-                "runtime_name and compute_pool from your snowflake.yml to use legacy deployment."
+                f"runtime_name {SPCS_RUNTIME_V2_NAME} is not compatible with the "
+                "--legacy flag, which cannot set RUNTIME_NAME. Remove --legacy to use "
+                "versioned deployment, or remove runtime_name and compute_pool from "
+                "your snowflake.yml to use legacy deployment."
+            )
+        elif legacy and self.model.runtime_name:
+            # Dropping the warehouse runtime is closer to a no-op, since a legacy app
+            # is warehouse-backed anyway, so this warns instead of failing. Staying
+            # silent is the failure this deploy path is otherwise fixing.
+            console.warning(
+                f"runtime_name {self.model.runtime_name} is ignored for --legacy "
+                "deployments, which cannot set RUNTIME_NAME. Remove --legacy to deploy "
+                "on the requested runtime."
+            )
+
+        if self.model.compute_pool and not self._compute_pool_applies():
+            console.warning(
+                f"compute_pool {sanitize_for_terminal(self.model.compute_pool)} is "
+                f"ignored because runtime_name is {self.model.runtime_name}, which does "
+                "not run on a compute pool. Remove compute_pool, or set runtime_name "
+                f"to {SPCS_RUNTIME_V2_NAME}."
             )
 
         # Warn if replacing with a different deployment style
@@ -323,15 +351,32 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             if desired_secrets and (not current or cur_secrets != desired_secrets):
                 clauses.append(self.model.get_secrets_sql())
 
-        if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
-            if not current or _id(cur.get("runtime_name")) != _id(
-                self.model.runtime_name
-            ):
+        if not from_stage_name and not legacy:
+            runtime_changing = bool(self.model.runtime_name) and (
+                not current
+                or _id(cur.get("runtime_name")) != _id(self.model.runtime_name)
+            )
+            if runtime_changing:
                 clauses.append(
                     f"RUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
                 )
-            if not current or _id(cur.get("compute_pool")) != _id(
-                self.model.compute_pool
+                live_runtime = cur.get("runtime_name")
+                if live_runtime:
+                    # Moving a running app between runtimes changes how it executes,
+                    # which is a bigger deal than the rest of this property diff. Name
+                    # it when it happens; the release note is not in front of the user
+                    # at the moment of the deploy.
+                    self._workspace_ctx.console.warning(
+                        f"Moving Streamlit {self.model.fqn.sql_identifier} from runtime "
+                        f"{sanitize_for_terminal(str(live_runtime))} to "
+                        f"{self.model.runtime_name}. This changes how the app runs."
+                    )
+            # A pool left attached to an app moved onto the warehouse runtime needs no
+            # handling here: there is no UNSET path for COMPUTE_POOL, but Snowflake
+            # ignores the property for that runtime, so the leftover is inert.
+            if self._compute_pool_applies() and (
+                not current
+                or _id(cur.get("compute_pool")) != _id(self.model.compute_pool)
             ):
                 clauses.append(
                     f"COMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
@@ -445,11 +490,18 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if self.model.secrets:
             query += "\n" + self.model.get_secrets_sql()
 
-        # SPCS runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
+        # Runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
         # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
-        if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
-            query += f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
-            query += f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
+        # Each field is gated on itself so neither can be dropped because of the other.
+        if not from_stage_name and not legacy:
+            if self.model.runtime_name:
+                query += (
+                    f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
+                )
+            if self._compute_pool_applies():
+                query += (
+                    f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
+                )
 
         if self.model.tags:
             query += f"\n{Tag.to_sql_clause(self.model.tags)}"
