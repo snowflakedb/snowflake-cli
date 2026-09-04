@@ -339,7 +339,8 @@ def build(
     """
     Builds artifacts required for the Snowpark project. The artifacts can be used by `deploy` command.
     For each directory in artifacts a .zip file is created. All non-anaconda dependencies are packaged in
-    dependencies.zip file.
+    dependencies.zip file. Dependencies are collected from requirements.txt, or from [project] dependencies
+    in pyproject.toml if there is no requirements.txt.
     """
     cli_context = get_cli_context()
     pd = _get_v2_project_definition(cli_context)
@@ -354,21 +355,24 @@ def build(
     project_paths.remove_up_bundle_root()
 
     # Resolve dependencies
-    if project_paths.requirements.exists():
+    requirements_source = package_utils.resolve_requirements_source(
+        requirements_file=project_paths.requirements,
+        pyproject_file=project_paths.pyproject,
+    )
+    if requirements_source:
         with (
-            cli_console.phase("Resolving dependencies from requirements.txt"),
+            cli_console.phase(
+                f"Resolving dependencies from {requirements_source.file_name}"
+            ),
             SecurePath.temporary_directory() as temp_deps_dir,
         ):
-            requirements = package_utils.parse_requirements(
-                requirements_file=project_paths.requirements,
-            )
             anaconda_packages = (
                 AnacondaPackages.empty()
                 if ignore_anaconda
                 else anaconda_packages_manager.find_packages_available_in_snowflake_anaconda()
             )
             download_result = package_utils.download_unavailable_packages(
-                requirements=requirements,
+                requirements=requirements_source.requirements,
                 target_dir=temp_deps_dir,
                 anaconda_packages=anaconda_packages,
                 skip_version_check=skip_version_check,

@@ -14546,7 +14546,9 @@
                                                                                   
    Builds artifacts required for the Snowpark project. The artifacts can be used  
    by deploy command. For each directory in artifacts a .zip file is created. All 
-   non-anaconda dependencies are packaged in dependencies.zip file.               
+   non-anaconda dependencies are packaged in dependencies.zip file. Dependencies  
+   are collected from requirements.txt, or from [project] dependencies in         
+   pyproject.toml if there is no requirements.txt.                                
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --ignore-anaconda                       Does not lookup packages on          |
@@ -16030,7 +16032,9 @@
   | build      Builds artifacts required for the Snowpark project. The artifacts |
   |            can be used by deploy command. For each directory in artifacts a  |
   |            .zip file is created. All non-anaconda dependencies are packaged  |
-  |            in dependencies.zip file.                                         |
+  |            in dependencies.zip file. Dependencies are collected from         |
+  |            requirements.txt, or from [project] dependencies in               |
+  |            pyproject.toml if there is no requirements.txt.                   |
   | deploy     Deploys procedures and functions defined in project. Deploying    |
   |            the project alters all objects defined in it. By default, if any  |
   |            of the objects exist already the commands will fail unless        |
@@ -27050,7 +27054,9 @@
   | build      Builds artifacts required for the Snowpark project. The artifacts |
   |            can be used by deploy command. For each directory in artifacts a  |
   |            .zip file is created. All non-anaconda dependencies are packaged  |
-  |            in dependencies.zip file.                                         |
+  |            in dependencies.zip file. Dependencies are collected from         |
+  |            requirements.txt, or from [project] dependencies in               |
+  |            pyproject.toml if there is no requirements.txt.                   |
   | deploy     Deploys procedures and functions defined in project. Deploying    |
   |            the project alters all objects defined in it. By default, if any  |
   |            of the objects exist already the commands will fail unless        |

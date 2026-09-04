@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow snowpark build` now collects a project's dependencies from `pyproject.toml` when the project has no `requirements.txt`, so `snow snowpark deploy` picks them up as before. The `dependencies` key of the PEP 621 `[project]` table is read; optional dependencies (extras) are not. A project that has a `requirements.txt` still builds from it, and `pyproject.toml` is then ignored; the build says so when `pyproject.toml` also declares `[project]` dependencies. Dependencies declared as dynamic metadata (`dynamic = ["dependencies"]`) cannot be resolved and are reported as such.
 
 ## Fixes and improvements
 * Upgraded tomlkit from 0.13.3 to 0.15.1, which fixes ~O(n^2) parsing of `config.toml`/`connections.toml`. Large config files were parsed in seconds and re-parsed several times per command, adding noticeable startup latency to every `snow` invocation; parsing is now effectively instant regardless of file size.

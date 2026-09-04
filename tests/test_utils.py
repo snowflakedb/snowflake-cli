@@ -33,6 +33,8 @@ from snowflake.cli._plugins.connection.util import (
     make_snowsight_url,
 )
 from snowflake.cli._plugins.snowpark import package_utils
+from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.exceptions import CliArgumentError, FileTooLargeError
 from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
 from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
@@ -146,6 +148,313 @@ def test_parse_requirements(correct_requirements_txt: str):
     assert result[2].name == "snowflake_sqlalchemy"
     assert result[2].specifier is True
     assert result[2].specs == [(">=", "3.2.1")]
+
+
+def _write(directory: str, file_name: str, contents: str) -> SecurePath:
+    path = Path(directory) / file_name
+    path.write_text(contents)
+    return SecurePath(path)
+
+
+def test_parse_pyproject_dependencies(temporary_directory):
+    pyproject = _write(
+        temporary_directory,
+        "pyproject.toml",
+        """
+        [project]
+        name = "my_project"
+        dependencies = [
+            "pytest==1.0.0",
+            "snowflake-connector-python<3.3.3",
+            "httpx[http2]>=0.28",
+            'pandas; python_version < "3.12"',
+        ]
+
+        [project.optional-dependencies]
+        dev = ["ruff"]
+        """,
+    )
+
+    result = package_utils.parse_pyproject_dependencies(pyproject)
+
+    assert result.are_dynamic is False
+    assert [req.name for req in result.requirements] == [
+        "pytest",
+        "snowflake_connector_python",
+        "httpx",
+        "pandas",
+    ]
+    assert result.requirements[0].specs == [("==", "1.0.0")]
+    assert result.requirements[1].specs == [("<", "3.3.3")]
+    assert result.requirements[2].extras == ["http2"]
+
+
+def test_parse_pyproject_dependencies_with_nonexistent_file(temporary_directory):
+    path = os.path.join(temporary_directory, "non_existent.toml")
+    result = package_utils.parse_pyproject_dependencies(SecurePath(path))
+
+    assert result.requirements == []
+    assert result.are_dynamic is False
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        pytest.param("[tool.ruff]\nline-length = 88\n", id="no project table"),
+        pytest.param('[project]\nname = "my_project"\n', id="no dependencies"),
+        pytest.param('[project]\nname = "x"\ndependencies = []\n', id="empty list"),
+    ],
+)
+def test_parse_pyproject_dependencies_without_declared_dependencies(
+    temporary_directory, contents
+):
+    pyproject = _write(temporary_directory, "pyproject.toml", contents)
+
+    result = package_utils.parse_pyproject_dependencies(pyproject)
+
+    assert result.requirements == []
+    assert result.are_dynamic is False
+
+
+def test_parse_pyproject_dependencies_with_dynamic_dependencies(temporary_directory):
+    pyproject = _write(
+        temporary_directory,
+        "pyproject.toml",
+        '[project]\nname = "x"\ndynamic = ["version", "dependencies"]\n',
+    )
+
+    result = package_utils.parse_pyproject_dependencies(pyproject)
+
+    assert result.requirements == []
+    assert result.are_dynamic is True
+
+
+@pytest.mark.parametrize(
+    "contents, expected_error",
+    [
+        pytest.param("this is not toml ===", "Cannot parse", id="malformed toml"),
+        pytest.param(
+            '[project]\nname = "x"\ndependencies = "pytest"\n',
+            "should be a list of strings",
+            id="dependencies not a list",
+        ),
+        pytest.param(
+            '[project]\nname = "x"\ndependencies = ["pytest", 42]\n',
+            "should be a list of strings",
+            id="dependency not a string",
+        ),
+        pytest.param(
+            '[project]\nname = "x"\ndependencies = false\n',
+            "should be a list of strings",
+            id="dependencies falsy but not a list",
+        ),
+        pytest.param(
+            "project = false\n",
+            "should be a table",
+            id="project falsy but not a table",
+        ),
+    ],
+)
+def test_parse_pyproject_dependencies_with_invalid_file(
+    temporary_directory, contents, expected_error
+):
+    pyproject = _write(temporary_directory, "pyproject.toml", contents)
+
+    with pytest.raises(CliArgumentError) as err:
+        package_utils.parse_pyproject_dependencies(pyproject)
+
+    assert expected_error in err.value.message
+
+
+def test_resolve_requirements_source_prefers_requirements_txt(temporary_directory):
+    requirements = _write(temporary_directory, "requirements.txt", "pytest\n")
+    pyproject = _write(
+        temporary_directory,
+        "pyproject.toml",
+        '[project]\nname = "x"\ndependencies = ["ruff"]\n',
+    )
+
+    source = package_utils.resolve_requirements_source(
+        requirements_file=requirements, pyproject_file=pyproject
+    )
+
+    assert source is not None
+    assert source.file_name == "requirements.txt"
+    assert [req.name for req in source.requirements] == ["pytest"]
+
+
+@pytest.mark.parametrize(
+    "requirements_contents",
+    [
+        pytest.param("pytest\n", id="requirements.txt declares dependencies"),
+        pytest.param("", id="requirements.txt empty"),
+        pytest.param("# only a comment\n", id="requirements.txt comment only"),
+    ],
+)
+def test_resolve_requirements_source_warns_that_pyproject_is_ignored(
+    temporary_directory, requirements_contents
+):
+    """The warning describes existence-based precedence, not what each file declares.
+
+    An empty or comment-only requirements.txt still wins, so the message must not claim
+    both files declare dependencies.
+    """
+    requirements = _write(
+        temporary_directory, "requirements.txt", requirements_contents
+    )
+    pyproject = _write(
+        temporary_directory,
+        "pyproject.toml",
+        '[project]\nname = "x"\ndependencies = ["ruff"]\n',
+    )
+
+    with patch.object(cli_console, "warning") as mock_warning:
+        source = package_utils.resolve_requirements_source(
+            requirements_file=requirements, pyproject_file=pyproject
+        )
+
+    assert source is not None
+    assert source.file_name == "requirements.txt"
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args.args[0]
+    assert "requirements.txt exists" in message
+    assert "pyproject.toml are ignored" in message
+    assert "only used when requirements.txt is absent" in message
+
+
+def test_resolve_requirements_source_does_not_warn_for_pyproject_without_dependencies(
+    temporary_directory,
+):
+    """A pyproject.toml holding only tool config is not worth a message."""
+    requirements = _write(temporary_directory, "requirements.txt", "pytest\n")
+    pyproject = _write(temporary_directory, "pyproject.toml", "[tool.ruff]\n")
+
+    with patch.object(cli_console, "warning") as mock_warning:
+        source = package_utils.resolve_requirements_source(
+            requirements_file=requirements, pyproject_file=pyproject
+        )
+
+    assert source is not None
+    assert source.file_name == "requirements.txt"
+    mock_warning.assert_not_called()
+
+
+def test_resolve_requirements_source_ignores_invalid_pyproject(temporary_directory):
+    """A requirements.txt to build from makes an unreadable pyproject.toml irrelevant."""
+    requirements = _write(temporary_directory, "requirements.txt", "pytest\n")
+    pyproject = _write(temporary_directory, "pyproject.toml", "this is not toml ===")
+
+    source = package_utils.resolve_requirements_source(
+        requirements_file=requirements, pyproject_file=pyproject
+    )
+
+    assert source is not None
+    assert source.file_name == "requirements.txt"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        pytest.param(OSError("disk went away"), id="os error"),
+        pytest.param(
+            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
+            id="undecodable bytes",
+        ),
+        pytest.param(FileTooLargeError(Path("pyproject.toml"), 1), id="file too large"),
+    ],
+)
+def test_resolve_requirements_source_ignores_unreadable_pyproject(
+    temporary_directory, error
+):
+    """Reading pyproject.toml must never fail a build that has a requirements.txt.
+
+    parse_pyproject_dependencies() raises CliArgumentError, but read_text() underneath
+    it can fail in ways that are not CliArgumentError.
+    """
+    requirements = _write(temporary_directory, "requirements.txt", "pytest\n")
+    pyproject = _write(temporary_directory, "pyproject.toml", '[project]\nname = "x"\n')
+
+    with patch.object(package_utils, "parse_pyproject_dependencies", side_effect=error):
+        source = package_utils.resolve_requirements_source(
+            requirements_file=requirements, pyproject_file=pyproject
+        )
+
+    assert source is not None
+    assert source.file_name == "requirements.txt"
+
+
+def test_resolve_requirements_source_ignores_pyproject_that_is_a_directory(
+    temporary_directory,
+):
+    """An existing-but-unreadable pyproject.toml is not a reason to fail the build."""
+    requirements = _write(temporary_directory, "requirements.txt", "pytest\n")
+    pyproject_dir = Path(temporary_directory) / "pyproject.toml"
+    pyproject_dir.mkdir()
+
+    source = package_utils.resolve_requirements_source(
+        requirements_file=requirements, pyproject_file=SecurePath(pyproject_dir)
+    )
+
+    assert source is not None
+    assert source.file_name == "requirements.txt"
+
+
+def test_resolve_requirements_source_falls_back_to_pyproject(temporary_directory):
+    pyproject = _write(
+        temporary_directory,
+        "pyproject.toml",
+        '[project]\nname = "x"\ndependencies = ["ruff", "pytest==1.0.0"]\n',
+    )
+
+    source = package_utils.resolve_requirements_source(
+        requirements_file=SecurePath(Path(temporary_directory) / "requirements.txt"),
+        pyproject_file=pyproject,
+    )
+
+    assert source is not None
+    assert source.file_name == "pyproject.toml"
+    assert [req.name for req in source.requirements] == ["ruff", "pytest"]
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        pytest.param({}, id="no files"),
+        pytest.param({"pyproject.toml": "[tool.ruff]\n"}, id="pyproject without deps"),
+    ],
+)
+def test_resolve_requirements_source_without_dependencies(temporary_directory, files):
+    for file_name, contents in files.items():
+        _write(temporary_directory, file_name, contents)
+
+    source = package_utils.resolve_requirements_source(
+        requirements_file=SecurePath(Path(temporary_directory) / "requirements.txt"),
+        pyproject_file=SecurePath(Path(temporary_directory) / "pyproject.toml"),
+    )
+
+    assert source is None
+
+
+def test_resolve_requirements_source_warns_about_dynamic_dependencies(
+    temporary_directory,
+):
+    pyproject = _write(
+        temporary_directory,
+        "pyproject.toml",
+        '[project]\nname = "x"\ndynamic = ["dependencies"]\n',
+    )
+
+    with patch.object(cli_console, "warning") as mock_warning:
+        source = package_utils.resolve_requirements_source(
+            requirements_file=SecurePath(
+                Path(temporary_directory) / "requirements.txt"
+            ),
+            pyproject_file=pyproject,
+        )
+
+    assert source is None
+    mock_warning.assert_called_once()
+    assert "dynamic metadata" in mock_warning.call_args.args[0]
 
 
 @patch("platform.system")

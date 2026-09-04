@@ -9,6 +9,7 @@ from snowflake.cli._plugins.snowpark.common import (
     map_path_mapping_to_artifact,
     zip_and_copy_artifacts_to_deploy,
 )
+from snowflake.cli._plugins.snowpark.models import Requirement
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
@@ -118,11 +119,15 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             SecurePath(output_dir).mkdir(parents=True)
 
         # 1 Check if requirements exits
-        if (self.root / "requirements.txt").exists():
-            download_results = self._process_requirements(
+        requirements_source = package_utils.resolve_requirements_source(
+            requirements_file=project_paths.requirements,
+            pyproject_file=project_paths.pyproject,
+        )
+        if requirements_source:
+            self._process_requirements(
                 bundle_dir=output_dir,  # type: ignore
                 archive_name="dependencies.zip",
-                requirements_file=SecurePath(self.root / "requirements.txt"),
+                requirements=requirements_source.requirements,
                 ignore_anaconda=ignore_anaconda,
                 skip_version_check=skip_version_check,
                 index_url=index_url,
@@ -204,20 +209,19 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         self,
         bundle_dir: Path,
         archive_name: str,  # TODO: not the best name, think of something else
-        requirements_file: Optional[SecurePath],
+        requirements: List[Requirement],
         ignore_anaconda: bool,
         skip_version_check: bool = False,
         index_url: Optional[str] = None,
         allow_shared_libraries: bool = False,
     ) -> DownloadUnavailablePackagesResult:
         """
-        Processes the requirements file and downloads the dependencies
+        Processes the project requirements and downloads the dependencies
         Parameters:
 
         """
         anaconda_packages_manager = AnacondaPackagesManager()
         with SecurePath.temporary_directory() as tmp_dir:
-            requirements = package_utils.parse_requirements(requirements_file)
             anaconda_packages = (
                 AnacondaPackages.empty()
                 if ignore_anaconda

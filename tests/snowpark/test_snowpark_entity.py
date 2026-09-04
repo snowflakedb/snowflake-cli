@@ -189,6 +189,27 @@ def test_bundle(
     assert (output / "my_snowpark_project" / "app.py").exists()
 
 
+@mock.patch(ANACONDA_PACKAGES)
+def test_bundle_with_dependencies_from_pyproject(
+    mock_anaconda, example_function_workspace, enable_snowpark_glob_support_feature_flag
+):
+    mock_anaconda.return_value = AnacondaPackages(
+        {
+            "pandas": AvailablePackage("pandas", "1.2.3"),
+        }
+    )
+    entity, action_context = example_function_workspace
+    (entity.root / "requirements.txt").unlink()
+    (entity.root / "pyproject.toml").write_text(
+        '[project]\nname = "my_snowpark_project"\ndependencies = ["pandas"]\n'
+    )
+
+    entity.action_bundle(action_context, None, False, False, None, False)
+
+    output = entity.root / "output" / "bundle" / "snowpark"
+    assert "pandas" in (output / "requirements.txt").read_text()
+
+
 def test_describe_function_sql(example_function_workspace):
     entity, _ = example_function_workspace
     assert entity.get_describe_sql() == "DESCRIBE FUNCTION IDENTIFIER('func1');"
