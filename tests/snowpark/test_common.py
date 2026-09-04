@@ -72,6 +72,10 @@ def test_convert_resource_details_to_dict():
         ({"imports": ["@FOO.BAR.BAZ/my_snowpark_project/app.zip"]}, False),
         ({"runtime": "3.9"}, True),
         ({"execute_as_caller": False}, True),
+        ({"strict": True}, True),
+        ({"strict": False}, False),
+        ({"immutable": True}, True),
+        ({"immutable": False}, False),
     ],
 )
 def test_check_if_replace_is_required_entity_changes(
