@@ -117,17 +117,34 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         if not output_dir.exists():  # type: ignore[union-attr]
             SecurePath(output_dir).mkdir(parents=True)
 
-        # 1 Check if requirements exits
-        if (self.root / "requirements.txt").exists():
+        # 1 Check if requirements exist. Prefer requirements.txt; fall back
+        # to PEP 621 [project].dependencies in pyproject.toml.
+        requirements_txt = self.root / "requirements.txt"
+        pyproject = self.root / "pyproject.toml"
+        if requirements_txt.exists():
             download_results = self._process_requirements(
                 bundle_dir=output_dir,  # type: ignore
                 archive_name="dependencies.zip",
-                requirements_file=SecurePath(self.root / "requirements.txt"),
+                requirements_file=SecurePath(requirements_txt),
                 ignore_anaconda=ignore_anaconda,
                 skip_version_check=skip_version_check,
                 index_url=index_url,
                 allow_shared_libraries=allow_shared_libraries,
             )
+        elif pyproject.exists():
+            pyproject_requirements = package_utils.parse_pyproject_dependencies(
+                pyproject_file=SecurePath(pyproject),
+            )
+            if pyproject_requirements:
+                download_results = self._process_requirements_list(
+                    bundle_dir=output_dir,  # type: ignore
+                    archive_name="dependencies.zip",
+                    requirements=pyproject_requirements,
+                    ignore_anaconda=ignore_anaconda,
+                    skip_version_check=skip_version_check,
+                    index_url=index_url,
+                    allow_shared_libraries=allow_shared_libraries,
+                )
 
         # 2 get the artifacts list
         artifacts = map_path_mapping_to_artifact(project_paths, self.model.artifacts)
@@ -215,9 +232,30 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         Parameters:
 
         """
+        requirements = package_utils.parse_requirements(requirements_file)
+        return self._process_requirements_list(
+            bundle_dir=bundle_dir,
+            archive_name=archive_name,
+            requirements=requirements,
+            ignore_anaconda=ignore_anaconda,
+            skip_version_check=skip_version_check,
+            index_url=index_url,
+            allow_shared_libraries=allow_shared_libraries,
+        )
+
+    def _process_requirements_list(
+        self,
+        bundle_dir: Path,
+        archive_name: str,
+        requirements,
+        ignore_anaconda: bool,
+        skip_version_check: bool = False,
+        index_url: Optional[str] = None,
+        allow_shared_libraries: bool = False,
+    ) -> DownloadUnavailablePackagesResult:
+        """Download dependencies for an already-parsed list of requirements."""
         anaconda_packages_manager = AnacondaPackagesManager()
         with SecurePath.temporary_directory() as tmp_dir:
-            requirements = package_utils.parse_requirements(requirements_file)
             anaconda_packages = (
                 AnacondaPackages.empty()
                 if ignore_anaconda
