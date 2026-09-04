@@ -23,6 +23,7 @@
 ## Fixes and improvements
 * Upgraded tomlkit from 0.13.3 to 0.15.1, which fixes ~O(n^2) parsing of `config.toml`/`connections.toml`. Large config files were parsed in seconds and re-parsed several times per command, adding noticeable startup latency to every `snow` invocation; parsing is now effectively instant regardless of file size.
 * Upgraded GitPython from 3.1.58 to 3.1.59.
+* Upgraded snowflake-connector-python from 4.7.1 to 4.7.3.
 
 
 # v3.26.0
