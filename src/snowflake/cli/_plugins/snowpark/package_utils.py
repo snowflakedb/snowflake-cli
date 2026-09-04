@@ -22,6 +22,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import tomlkit
 from click import ClickException
 from snowflake.cli._plugins.snowpark.models import (
     Requirement,
@@ -33,8 +34,11 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
 )
 from snowflake.cli.api.config import get_subprocess_encoding
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.secure_path import SecurePath
+from tomlkit.exceptions import TOMLKitError
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +66,155 @@ def parse_requirements(
             if line:
                 reqs.append(Requirement.parse_line(line))
     return reqs
+
+
+@dataclasses.dataclass
+class PyprojectDependencies:
+    """Dependencies declared in the [project] table of a pyproject.toml file."""
+
+    requirements: List[Requirement] = dataclasses.field(default_factory=list)
+    are_dynamic: bool = False
+
+
+def parse_pyproject_dependencies(
+    pyproject_file: SecurePath = SecurePath("pyproject.toml"),
+) -> PyprojectDependencies:
+    """Reads and parses dependencies declared in a pyproject.toml file.
+
+    Only PEP 621 metadata is read, that is the "dependencies" key of the
+    [project] table. Optional dependencies (extras) are not included.
+
+    Args:
+        pyproject_file (SecurePath, optional): The name of the file.
+        Defaults to 'pyproject.toml'.
+
+    Returns:
+        PyprojectDependencies: The declared requirements, and whether the project
+        declares its dependencies as dynamic metadata.
+    """
+    if not pyproject_file.exists():
+        return PyprojectDependencies()
+
+    try:
+        parsed = tomlkit.parse(
+            pyproject_file.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+        )
+    except TOMLKitError as err:
+        raise CliArgumentError(f"Cannot parse {pyproject_file.path}: {err}")
+
+    # An absent key means "not declared" and is fine; a key that is present but holds
+    # the wrong type is an error. Defaulting with "or" would conflate the two, letting
+    # falsy values such as false or 0 through as "not declared".
+    project_section = parsed.get("project")
+    if project_section is None:
+        return PyprojectDependencies()
+    if not isinstance(project_section, dict):
+        raise CliArgumentError(
+            f"Invalid {pyproject_file.path}: [project] should be a table."
+        )
+
+    dependencies = project_section.get("dependencies")
+    if dependencies is None:
+        dependencies = []
+    if not isinstance(dependencies, list) or any(
+        not isinstance(dependency, str) for dependency in dependencies
+    ):
+        raise CliArgumentError(
+            f"Invalid {pyproject_file.path}: [project] dependencies should be a list of strings."
+        )
+
+    dynamic = project_section.get("dynamic")
+    return PyprojectDependencies(
+        requirements=[
+            Requirement.parse_line(dependency)
+            for dependency in dependencies
+            if dependency.strip()
+        ],
+        are_dynamic=isinstance(dynamic, list) and "dependencies" in dynamic,
+    )
+
+
+@dataclasses.dataclass
+class RequirementsSource:
+    """The project file dependencies were collected from."""
+
+    file: SecurePath
+    requirements: List[Requirement]
+
+    @property
+    def file_name(self) -> str:
+        return self.file.path.name
+
+
+def resolve_requirements_source(
+    requirements_file: SecurePath,
+    pyproject_file: SecurePath,
+) -> Optional[RequirementsSource]:
+    """Collects the project dependencies from requirements.txt or pyproject.toml.
+
+    Precedence is decided by the existence of requirements.txt, not by comparing what
+    each file declares: when requirements.txt exists it is the source, even if it is
+    empty or holds only comments, so that projects already using it are built exactly
+    as before. pyproject.toml is read only when requirements.txt is absent, and only
+    contributes if it declares [project] dependencies - otherwise resolving them would
+    be a no-op paid for with a lookup of the Anaconda channel contents.
+
+    Args:
+        requirements_file: Path to the project's requirements.txt. Required, and never
+            None; the file itself does not have to exist.
+        pyproject_file: Path to the project's pyproject.toml. Required, and never None;
+            the file itself does not have to exist.
+
+    Returns:
+        RequirementsSource, or None if the project declares no dependencies.
+    """
+    if requirements_file.exists():
+        if _pyproject_declares_dependencies(pyproject_file):
+            cli_console.warning(
+                f"{requirements_file.path.name} exists, so dependencies are taken from "
+                f"{requirements_file.path.name} and [project] dependencies in "
+                f"{pyproject_file.path.name} are ignored. {pyproject_file.path.name} is "
+                f"only used when {requirements_file.path.name} is absent."
+            )
+        return RequirementsSource(
+            file=requirements_file,
+            requirements=parse_requirements(requirements_file),
+        )
+
+    # No existence check needed here: parse_pyproject_dependencies() returns no
+    # dependencies for a missing file, just as parse_requirements() returns none for a
+    # missing requirements.txt. requirements_file.exists() is tested above because that
+    # is what decides precedence, not because reading a missing file would fail.
+    pyproject_dependencies = parse_pyproject_dependencies(pyproject_file)
+    if pyproject_dependencies.requirements:
+        return RequirementsSource(
+            file=pyproject_file,
+            requirements=pyproject_dependencies.requirements,
+        )
+    if pyproject_dependencies.are_dynamic:
+        cli_console.warning(
+            f"{pyproject_file.path.name} declares dependencies as dynamic metadata, "
+            f"which cannot be resolved by the CLI. List them under [project] dependencies, "
+            f"or in a requirements.txt file."
+        )
+    return None
+
+
+def _pyproject_declares_dependencies(pyproject_file: SecurePath) -> bool:
+    """Checks whether pyproject.toml declares any [project] dependencies.
+
+    Never raises - the caller already has a requirements.txt to build from, so a
+    pyproject.toml that cannot be read is not worth failing the build over. That covers
+    more than the parse and shape errors raised by parse_pyproject_dependencies():
+    read_text() can also fail on an oversized file, on undecodable bytes, or on any
+    other OS-level read error, and none of those should abort a build that until now
+    never looked at this file.
+    """
+    try:
+        return bool(parse_pyproject_dependencies(pyproject_file).requirements)
+    except Exception as err:
+        log.info("Could not read dependencies from %s: %s", pyproject_file.path, err)
+        return False
 
 
 def generate_deploy_stage_name(identifier: str) -> str:

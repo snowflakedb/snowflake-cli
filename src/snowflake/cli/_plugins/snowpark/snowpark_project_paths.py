@@ -79,6 +79,10 @@ class SnowparkProjectPaths(ProjectPaths):
         return SecurePath(self.path_relative_to_root(Path("requirements.txt")))
 
     @property
+    def pyproject(self) -> SecurePath:
+        return SecurePath(self.path_relative_to_root(Path("pyproject.toml")))
+
+    @property
     def bundle_root(self) -> Path:
         return bundle_root(self.project_root, "snowpark")
 
