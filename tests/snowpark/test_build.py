@@ -42,6 +42,57 @@ def test_snowpark_build_no_deprecated_warnings_by_default(
         assert "flag is deprecated" not in result.output
 
 
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
+def test_snowpark_build_resolves_dependencies_from_pyproject(
+    mock_download, runner, project_directory
+):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
+    with project_directory("snowpark_pyproject_dependencies"):
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+
+        assert result.exit_code == 0, result.output
+        assert "Resolving dependencies from pyproject.toml" in result.output
+        assert [req.line for req in mock_download.call_args.kwargs["requirements"]] == [
+            "snowflake-snowpark-python",
+            "requests>=2.28",
+        ]
+
+
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
+def test_snowpark_build_prefers_requirements_txt_over_pyproject(
+    mock_download, runner, project_directory
+):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
+    with project_directory("snowpark_functions_v2") as tmp_dir:
+        (tmp_dir / "pyproject.toml").write_text(
+            '[project]\nname = "my_snowpark_project"\ndependencies = ["requests"]\n'
+        )
+
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+
+        assert result.exit_code == 0, result.output
+        assert "Resolving dependencies from requirements.txt" in result.output
+        assert "requirements.txt exists" in result.output
+        assert "pyproject.toml are ignored" in result.output
+        assert [req.name for req in mock_download.call_args.kwargs["requirements"]] == [
+            "snowflake_snowpark_python"
+        ]
+
+
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
+def test_snowpark_build_without_any_dependency_file(
+    mock_download, runner, project_directory
+):
+    with project_directory("snowpark_functions_v2") as tmp_dir:
+        (tmp_dir / "requirements.txt").unlink()
+
+        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
+
+        assert result.exit_code == 0, result.output
+        assert "Resolving dependencies" not in result.output
+        mock_download.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "artifacts, zip_name, expected_files",
     [
