@@ -3,11 +3,15 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import SPCS_RUNTIME_V2_NAME
 
 from tests.streamlit.streamlit_test_class import (
+    RESTART_PARAMS,
+    RESTART_SQL,
     STREAMLIT_NAME,
     TYPER,
     StreamlitTestClass,
+    restart_calls,
 )
 
 
@@ -36,7 +40,6 @@ class TestStreamlitCommands(StreamlitTestClass):
 
     @mock.patch(TYPER)
     def test_deploy_only_streamlit_file(self, mock_typer, project_directory, runner):
-
         with project_directory("example_streamlit") as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
             shutil.rmtree(tmp_dir / "pages")
@@ -136,7 +139,6 @@ class TestStreamlitCommands(StreamlitTestClass):
     def test_deploy_launch_browser(
         self, mock_typer, project_name, project_directory, runner
     ):
-
         with project_directory(project_name):
             result = runner.invoke(["streamlit", "deploy", "--open"])
 
@@ -362,6 +364,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_execute.assert_any_call(expected_query)
         if post_create_command:
             self.mock_execute.assert_any_call(post_create_command)
+        assert restart_calls(self.mock_execute_with_params) == []
 
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
@@ -396,6 +399,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_execute.assert_any_call(expected_query)
         if post_create_command:
             self.mock_execute.assert_any_call(post_create_command)
+        assert restart_calls(self.mock_execute_with_params) == []
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
         )
@@ -411,7 +415,6 @@ class TestStreamlitCommands(StreamlitTestClass):
         alter_snowflake_yml,
         mock_live_version_location_uri,
     ):
-
         with project_directory(project_name) as tmp_dir:
             if project_name == "example_streamlit_v2":
                 alter_snowflake_yml(
@@ -437,6 +440,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         ).strip()
         assert result.exit_code == 0, result.output
         self.mock_execute.assert_any_call(expected_query)
+        assert restart_calls(self.mock_execute_with_params) == []
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
         )
@@ -483,9 +487,45 @@ class TestStreamlitCommands(StreamlitTestClass):
         assert (
             add_live_calls == []
         ), "ADD LIVE VERSION should not be called for existing apps"
+        # Warehouse DESCRIBE (no runtime_name) must not restart.
+        assert restart_calls(self.mock_execute_with_params) == []
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
         )
+
+    @pytest.mark.parametrize(
+        "project_name", ["example_streamlit_v2", "example_streamlit"]
+    )
+    def test_deploy_versioned_replace_existing_spcs_restarts(
+        self,
+        project_name,
+        project_directory,
+        runner,
+        alter_snowflake_yml,
+        mock_live_version_location_uri,
+    ):
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        self.mock_describe.return_value = mock_cursor
+        mock_live_version_location_uri.return_value = mock_cursor
+        with project_directory(project_name) as tmp_dir:
+            if project_name == "example_streamlit_v2":
+                alter_snowflake_yml(
+                    tmp_dir / "snowflake.yml",
+                    parameter_path="entities.test_streamlit.artifacts",
+                    value=["streamlit_app.py", "environment.yml", "pages/"],
+                )
+            with mock.patch(
+                "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
+                return_value=True,
+            ):
+                result = runner.invoke(["streamlit", "deploy", "--replace"])
+
+        assert result.exit_code == 0, result.output
+        self.mock_execute_with_params.assert_any_call(RESTART_SQL, RESTART_PARAMS)
 
     def test_deploy_legacy_replace_existing_uses_alter(
         self,
@@ -512,6 +552,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         ).strip()
         assert result.exit_code == 0, result.output
         self.mock_execute.assert_any_call(expected_query)
+        assert restart_calls(self.mock_execute_with_params) == []
 
     def test_share_streamlit(self, runner, mock_streamlit_ctx):
         self.mock_connector.return_value = mock_streamlit_ctx
@@ -572,7 +613,6 @@ class TestStreamlitCommands(StreamlitTestClass):
 
     @pytest.mark.parametrize("entity_id", ["app_1", "app_2"])
     def test_selecting_streamlit_from_pdf(self, entity_id, project_directory, runner):
-
         with project_directory("example_streamlit_multiple_v2"):
             result = runner.invoke(
                 ["streamlit", "deploy", entity_id, "--replace", "--legacy"]

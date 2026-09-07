@@ -35,6 +35,7 @@
 * `snow streamlit deploy` now warns rather than staying silent when `--legacy` or a `ROOT_LOCATION` deployment cannot carry the requested `runtime_name`, and when a redeploy moves a running app onto a different runtime.
 * Upgraded GitPython from 3.1.58 to 3.1.59.
 * Upgraded snowflake-connector-python from 4.7.1 to 4.7.3.
+* `snow streamlit deploy --replace` of an existing versioned SPCS v2 app now restarts the running Streamlit service after uploading files, so content-only updates show up without a Snowsight restart. First-time deploys, `CREATE OR REPLACE` conversions, and `--legacy` deploys are unchanged. Warehouse runtimes and no-op uploads (no file changes) are also unchanged.
 
 
 # v3.26.0
