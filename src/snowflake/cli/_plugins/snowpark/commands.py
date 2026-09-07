@@ -60,6 +60,7 @@ from snowflake.cli._plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     IgnoreAnacondaOption,
     IndexUrlOption,
+    SkipDependenciesOption,
     SkipVersionCheckOption,
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
@@ -85,6 +86,7 @@ from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
 )
 from snowflake.cli.api.exceptions import (
+    IncompatibleParametersError,
     SecretsWithoutExternalAccessIntegrationError,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -334,6 +336,7 @@ def build(
     allow_shared_libraries: bool = AllowSharedLibrariesOption,
     index_url: Optional[str] = IndexUrlOption,
     skip_version_check: bool = SkipVersionCheckOption,
+    skip_dependencies: bool = SkipDependenciesOption,
     **options,
 ) -> CommandResult:
     """
@@ -342,6 +345,14 @@ def build(
     dependencies.zip file. Dependencies are collected from requirements.txt, or from [project] dependencies
     in pyproject.toml if there is no requirements.txt.
     """
+    if skip_dependencies:
+        _validate_skip_dependencies_is_used_alone(
+            ignore_anaconda=ignore_anaconda,
+            allow_shared_libraries=allow_shared_libraries,
+            index_url=index_url,
+            skip_version_check=skip_version_check,
+        )
+
     cli_context = get_cli_context()
     pd = _get_v2_project_definition(cli_context)
 
@@ -355,11 +366,13 @@ def build(
     project_paths.remove_up_bundle_root()
 
     # Resolve dependencies
-    requirements_source = package_utils.resolve_requirements_source(
+    if skip_dependencies:
+        _warn_if_skip_dependencies_leaves_no_packages(get_snowpark_entities(pd))
+        _remove_files_left_by_previous_build(project_paths)
+    elif requirements_source := package_utils.resolve_requirements_source(
         requirements_file=project_paths.requirements,
         pyproject_file=project_paths.pyproject,
-    )
-    if requirements_source:
+    ):
         with (
             cli_console.phase(
                 f"Resolving dependencies from {requirements_source.file_name}"
@@ -418,6 +431,65 @@ def build(
                 artifact.build()
 
     return MessageResult(f"Build done.")
+
+
+def _validate_skip_dependencies_is_used_alone(
+    ignore_anaconda: bool,
+    allow_shared_libraries: bool,
+    index_url: Optional[str],
+    skip_version_check: bool,
+) -> None:
+    """The other dependency options configure a resolution that does not happen."""
+    dependency_options = {
+        "--ignore-anaconda": ignore_anaconda,
+        "--allow-shared-libraries": allow_shared_libraries,
+        "--index-url": index_url is not None,
+        "--skip-version-check": skip_version_check,
+    }
+    used_options = [option for option, is_used in dependency_options.items() if is_used]
+    if used_options:
+        raise IncompatibleParametersError(["--skip-dependencies", *used_options])
+
+
+def _warn_if_skip_dependencies_leaves_no_packages(
+    snowpark_entities: SnowparkEntities,
+) -> None:
+    # A skipped build writes no requirements.snowflake.txt, so the packages deploy
+    # sends are only the ones declared for an artifact repository. The condition
+    # mirrors the one guarding ARTIFACT_REPOSITORY in
+    # SnowparkObjectManager.create_or_replace: without both parts the entity is
+    # created with packages=().
+    entities_without_packages = [
+        key
+        for key, entity in snowpark_entities.items()
+        if not (
+            entity.artifact_repository
+            and (entity.artifact_repository_packages or entity.packages)
+        )
+    ]
+    if entities_without_packages:
+        cli_console.warning(
+            f"No packages are declared for: {', '.join(entities_without_packages)}. "
+            "--skip-dependencies reads neither requirements.txt nor pyproject.toml, so "
+            "these are deployed with no dependencies and imports of them fail at runtime. "
+            "Declare artifact_repository and packages in the project definition "
+            "to install them from an artifact repository."
+        )
+
+
+def _remove_files_left_by_previous_build(
+    project_paths: SnowparkProjectPaths,
+) -> None:
+    _delete_if_exists(project_paths.snowflake_requirements)
+    _delete_if_exists(
+        SecurePath(project_paths.get_dependencies_artifact().post_build_path)
+    )
+
+
+def _delete_if_exists(path: SecurePath) -> None:
+    if path.path.exists():
+        cli_console.step(f"Removing {path.path.name} left by a previous build")
+        path.unlink()
 
 
 def get_snowpark_entities(

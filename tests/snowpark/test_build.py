@@ -93,6 +93,161 @@ def test_snowpark_build_without_any_dependency_file(
         mock_download.assert_not_called()
 
 
+@patch(
+    "snowflake.cli._plugins.snowpark.package.anaconda_packages.AnacondaPackagesManager"
+    ".find_packages_available_in_snowflake_anaconda"
+)
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
+def test_build_with_skip_dependencies_does_not_resolve_requirements(
+    mock_download,
+    mock_anaconda,
+    runner,
+    enable_snowpark_glob_support_feature_flag,
+    project_directory,
+    alter_snowflake_yml,
+):
+    with project_directory("glob_patterns") as tmp_dir:
+        (tmp_dir / "requirements.txt").write_text("dummy-pkg-for-tests\n")
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml", "entities.hello_procedure.artifacts", ["src/"]
+        )
+
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies"])
+
+        assert result.exit_code == 0, result.output
+        mock_anaconda.assert_not_called()
+        mock_download.assert_not_called()
+        assert "Resolving dependencies" not in result.output
+        assert not (tmp_dir / "requirements.snowflake.txt").exists()
+        assert not (tmp_dir / "dependencies.zip").exists()
+        # The code of the project is still built, and into the bundle deploy uploads.
+        _assert_zip_contains(
+            tmp_dir / "output" / "bundle" / "snowpark" / "src.zip",
+            {"app.py", "dir/dir_app.py"},
+        )
+
+
+@patch(
+    "snowflake.cli._plugins.snowpark.package.anaconda_packages.AnacondaPackagesManager"
+    ".find_packages_available_in_snowflake_anaconda"
+)
+@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
+def test_build_with_skip_dependencies_does_not_resolve_pyproject(
+    mock_download, mock_anaconda, runner, project_directory
+):
+    """pyproject.toml is the other dependency source, and it is skipped as well."""
+    with project_directory("snowpark_pyproject_dependencies") as tmp_dir:
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies"])
+
+        assert result.exit_code == 0, result.output
+        mock_anaconda.assert_not_called()
+        mock_download.assert_not_called()
+        assert "Resolving dependencies" not in result.output
+        assert not (tmp_dir / "requirements.snowflake.txt").exists()
+        assert not (tmp_dir / "dependencies.zip").exists()
+
+
+def test_build_with_skip_dependencies_removes_files_left_by_previous_build(
+    runner, project_directory
+):
+    with project_directory("snowpark_functions") as tmp_dir:
+        (tmp_dir / "requirements.snowflake.txt").write_text("pandas==2.1.4")
+        (tmp_dir / "dependencies.zip").touch()
+
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies"])
+
+        assert result.exit_code == 0, result.output
+        assert "requirements.snowflake.txt" in result.output
+        assert "dependencies.zip" in result.output
+        assert not (tmp_dir / "requirements.snowflake.txt").exists()
+        assert not (tmp_dir / "dependencies.zip").exists()
+
+
+def test_build_with_skip_dependencies_warns_when_no_packages_are_declared(
+    runner, project_directory
+):
+    with project_directory("snowpark_functions_v2"):
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies"])
+
+    assert result.exit_code == 0, result.output
+    assert "No packages are declared" in result.output
+    assert "func1" in result.output
+
+
+def test_build_with_skip_dependencies_warns_when_repository_declares_no_packages(
+    runner, project_directory, alter_snowflake_yml
+):
+    """artifact_repository alone still leaves deploy creating the entity with packages=()."""
+    with project_directory("snowpark_functions_v2") as tmp_dir:
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.func1.artifact_repository",
+            value="db.schema.repo",
+        )
+
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies"])
+
+    assert result.exit_code == 0, result.output
+    assert "No packages are declared" in result.output
+
+
+def test_build_with_skip_dependencies_does_not_warn_when_packages_are_declared(
+    runner, project_directory, alter_snowflake_yml
+):
+    with project_directory("snowpark_functions_v2") as tmp_dir:
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.func1.artifact_repository",
+            value="db.schema.repo",
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.func1.artifact_repository_packages",
+            value=["dummy-pkg-for-tests"],
+        )
+
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies"])
+
+    assert result.exit_code == 0, result.output
+    assert "No packages are declared" not in result.output
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "--ignore-anaconda",
+        "--allow-shared-libraries",
+        "--skip-version-check",
+    ],
+)
+def test_build_skip_dependencies_is_incompatible_with_resolution_options(
+    runner, project_directory, option
+):
+    with project_directory("snowpark_functions"):
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies", option])
+
+    assert result.exit_code != 0
+    # The message is wrapped by the terminal formatter, so only the option names
+    # and the reason can be matched.
+    assert "'--skip-dependencies'" in result.output
+    assert f"'{option}'" in result.output
+    assert "incompatible" in result.output
+
+
+def test_build_skip_dependencies_is_incompatible_with_index_url(
+    runner, project_directory
+):
+    with project_directory("snowpark_functions"):
+        result = runner.invoke(
+            ["snowpark", "build", "--skip-dependencies", "--index-url", "http://pypi"]
+        )
+
+    assert result.exit_code != 0
+    assert "'--skip-dependencies'" in result.output
+    assert "'--index-url'" in result.output
+    assert "incompatible" in result.output
+
+
 @pytest.mark.parametrize(
     "artifacts, zip_name, expected_files",
     [

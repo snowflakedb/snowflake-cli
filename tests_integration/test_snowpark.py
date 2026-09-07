@@ -1812,6 +1812,54 @@ def test_using_external_packages_from_package_repository(
         )
 
 
+@pytest.mark.integration
+def test_build_with_skip_dependencies_deploys_only_project_code(
+    test_database, runner, project_directory, alter_snowflake_yml
+):
+    """Dependencies are left to the artifact repository, so nothing is packaged."""
+    with project_directory("snowpark_artifact_repository_skip_dependencies") as tmp_dir:
+        # The fixture declares only dummy-pkg-for-tests; snowflake-snowpark-python comes
+        # from requirements.txt, which --skip-dependencies does not read. app.py imports
+        # snowflake.snowpark, so it has to be declared for the repository instead, and
+        # this call is what makes the deployed entities runnable. The whole list is
+        # restated because alter_snowflake_yml replaces the value.
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="mixins.snowpark_shared.artifact_repository_packages",
+            value=["snowflake-snowpark-python", "dummy-pkg-for-tests"],
+        )
+
+        result = runner.invoke_with_connection(
+            ["snowpark", "build", "--skip-dependencies"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Build done." in result.output
+        assert not list(tmp_dir.rglob("dependencies.zip"))
+        assert not list(tmp_dir.rglob("requirements.snowflake.txt"))
+
+        result = runner.invoke_with_connection(["snowpark", "deploy"])
+        assert result.exit_code == 0, result.output
+
+        for object_type, execution_identifier in (
+            ("function", "test_function()"),
+            ("procedure", "test_procedure()"),
+        ):
+            result = runner.invoke_with_connection(
+                [
+                    "snowpark",
+                    "execute",
+                    object_type,
+                    execution_identifier,
+                    "--warehouse",
+                    "snowpark_tests",
+                ]
+            )
+
+            assert result.exit_code == 0, result.output
+            assert "We want... a shrubbery!" in result.output
+
+
 @pytest.fixture
 def _test_setup(
     runner,
