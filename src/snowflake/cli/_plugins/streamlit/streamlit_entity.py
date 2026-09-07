@@ -35,6 +35,8 @@ log = logging.getLogger(__name__)
 # Snowflake errno / SQLSTATE for "live version already exists" (same codes as
 # SnowflakeAppManager.ensure_workspace_live_version).
 _LIVE_VERSION_EXISTS_ERRNO = 99106
+_SPCS_CONTAINER_RUNTIME_PREFIX = "SYSTEM$ST_CONTAINER_RUNTIME"
+_RESTART_STREAMLIT_FUNCTION = "SYSTEM$RESTART_STREAMLIT"
 
 
 def _is_live_version_already_exists_error(exc: ProgrammingError) -> bool:
@@ -49,6 +51,19 @@ def _is_live_version_already_exists_error(exc: ProgrammingError) -> bool:
     ):
         return True
     return "There is already a live version" in error_text
+
+
+def _describe_row_is_spcs_v2(current: Dict[str, Any]) -> bool:
+    """True when DESCRIBE says the live object is an SPCS container runtime.
+
+    Uses the live row, not snowflake.yml: a content-only project file can omit
+    ``runtime_name`` while the object already runs on
+    ``SYSTEM$ST_CONTAINER_RUNTIME_*``. Prefix-match so later Python runtimes
+    still restart. Warehouse runtimes copy source per viewer and do not keep a
+    process-global ``ScriptCache``, so they do not need a restart.
+    """
+    runtime = (current.get("runtime_name") or "").strip().upper()
+    return runtime.startswith(_SPCS_CONTAINER_RUNTIME_PREFIX)
 
 
 class _TagRef(NamedTuple):
@@ -274,6 +289,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     ):
         # this query unlike most others doesn't accept fqn wrapped in `IDENTIFIER('')`
         return f"ALTER STREAMLIT {self._get_identifier(schema, database)} ADD LIVE VERSION FROM LAST;"
+
+    def get_restart_sql(self) -> str:
+        """Return the restart CALL with the identifier left as a bind placeholder.
+
+        The identifier is bound rather than quoted into the SQL text, matching
+        ``SYSTEM$GET_APPLICATION_SERVICE_LOGS`` in apps/manager.py and
+        ``SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN`` in log_streaming.py. Qmark
+        style because :meth:`SqlExecutor.execute_query_with_params` forces it.
+        """
+        return f"CALL {_RESTART_STREAMLIT_FUNCTION}(?);"
 
     def get_alter_sql(
         self,
@@ -622,6 +647,24 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
         return stage_root
 
+    def _restart_running_app(self) -> None:
+        """Bounce the SPCS service so uploaded files replace cached bytecode.
+
+        A content-only ``--replace`` no longer issues ``CREATE OR REPLACE``, so
+        the SPCS process survives. Streamlit's ``ScriptCache`` is process-global
+        and is only cleared by a live browser watcher; without a restart the
+        container keeps serving what it already compiled. First create and
+        ``CREATE OR REPLACE`` conversion skip this — they start a new process.
+        """
+        console = self._workspace_ctx.console
+        identifier = self._get_identifier()
+        restart_sql = self.get_restart_sql()
+        console.step(
+            f"Restarting Streamlit app {sanitize_for_terminal(identifier)} "
+            "so the new files take effect"
+        )
+        self._sql_executor.execute_query_with_params(restart_sql, (identifier,))
+
     def _deploy_versioned(
         self,
         bundle_map: BundleMap,
@@ -629,6 +672,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         prune: bool = False,
         object_exists: bool = False,
     ):
+        restart_after_upload = False
         if object_exists:
             current = self.describe().fetchone() or {}
             stage_root = current.get("live_version_location_uri")
@@ -650,6 +694,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 if alter_sql:
                     self._execute_query(alter_sql)
                 self._sync_tags()
+                # DESCRIBE, not snowflake.yml: a content-only project can omit
+                # runtime_name while the live object is already SPCS v2.
+                restart_after_upload = _describe_row_is_spcs_v2(current)
         else:
             self._execute_query(
                 self.get_deploy_sql(
@@ -661,7 +708,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             stage_root = self._ensure_live_version_location_uri()
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
-        sync_deploy_root_with_stage(
+        diff = sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
             deploy_root=bundle_map.deploy_root(),
             bundle_map=bundle_map,
@@ -673,3 +720,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
+        # Property-only ALTER does not clear ScriptCache. Skip when the stage
+        # already matches (no-op --replace / CI with unchanged artifacts).
+        if restart_after_upload and diff.has_changes():
+            self._restart_running_app()

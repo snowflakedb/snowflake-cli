@@ -6,6 +6,7 @@ import pytest
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.streamlit.streamlit_entity import (
     StreamlitEntity,
+    _describe_row_is_spcs_v2,
     _is_live_version_already_exists_error,
     _TagRef,
 )
@@ -17,13 +18,22 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
 from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES, SQL_COMPILATION_ERROR
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.schemas.updatable_model import context
 from snowflake.connector.errors import ProgrammingError
 
 from tests.conftest import MockCursor
-from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
+from tests.streamlit.streamlit_test_class import (
+    RESTART_PARAMS,
+    RESTART_SQL,
+    STREAMLIT_NAME,
+    StreamlitTestClass,
+    restart_calls,
+    stage_diff_unchanged,
+    stage_diff_with_changes,
+)
 
 CONNECTOR = "snowflake.connector.connect"
 
@@ -1254,6 +1264,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
         mock_sync.assert_called_once()
         assert mock_sync.call_args.kwargs["force_overwrite"] is True
+        assert restart_calls(self.mock_execute_with_params) == []
 
     @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
     @mock.patch(
@@ -1305,6 +1316,372 @@ class TestStreamlitEntity(StreamlitTestClass):
         ]
         assert add_live_calls == []
         mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
+        # Warehouse DESCRIBE has no SPCS runtime_name — do not CALL restart.
+        assert restart_calls(self.mock_execute_with_params) == []
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_content_only_replace_restarts_without_alter(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """SNOW-4014804: content-only --replace (no property ALTER) still restarts.
+
+        yml omits runtime_name; DESCRIBE says the live object is SPCS v2.
+        """
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+        mock_sync.return_value = stage_diff_with_changes()
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        alter_set_calls = [
+            c
+            for c in self.mock_execute.call_args_list
+            if "ALTER STREAMLIT" in str(c) and "SET" in str(c)
+        ]
+        assert alter_set_calls == []
+        self.mock_execute_with_params.assert_any_call(RESTART_SQL, RESTART_PARAMS)
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_spcs_noop_diff_does_not_restart(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """Unchanged artifacts must not bounce the SPCS service."""
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+        mock_sync.return_value = stage_diff_unchanged()
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        assert restart_calls(self.mock_execute_with_params) == []
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_first_create_does_not_restart(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """A new object starts a new process; do not pay a restart cold start."""
+        mock_object_exists.return_value = False
+        mock_is_legacy.return_value = False
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+        mock_stage_manager_cls.return_value.stage_path_parts_from_str.return_value = (
+            mock.Mock()
+        )
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            query_warehouse="test_warehouse",
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=False, legacy=False)
+
+        assert restart_calls(self.mock_execute_with_params) == []
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_replace_existing_restart_error_fails(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """A failed restart must fail the deploy: the process was not bounced."""
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+        mock_sync.return_value = stage_diff_with_changes()
+        unknown_fn = "Unknown function SYSTEM$RESTART_STREAMLIT"
+
+        def _execute_with_params(sql, params=None, **kwargs):
+            if "SYSTEM$RESTART_STREAMLIT" in sql:
+                raise ProgrammingError(errno=SQL_COMPILATION_ERROR, msg=unknown_fn)
+            return mock.Mock()
+
+        self.mock_execute_with_params.side_effect = _execute_with_params
+
+        with pytest.raises(ProgrammingError) as exc_info:
+            entity.action_deploy(
+                action_context, _open=False, replace=True, legacy=False
+            )
+
+        assert exc_info.value.errno == SQL_COMPILATION_ERROR
+        mock_sync.assert_called_once()
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_versioned_replace_existing_restart_privilege_error_fails(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """Insufficient privilege means the process was not bounced; fail deploy."""
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": live_uri,
+            "query_warehouse": "test_warehouse",
+            "runtime_name": SPCS_RUNTIME_V2_NAME,
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=False,
+            live_uri=live_uri,
+            describe_return=mock_cursor,
+        )
+        mock_sync.return_value = stage_diff_with_changes()
+
+        def _execute_with_params(sql, params=None, **kwargs):
+            if "SYSTEM$RESTART_STREAMLIT" in sql:
+                raise ProgrammingError(
+                    errno=INSUFFICIENT_PRIVILEGES, msg="Insufficient privileges"
+                )
+            return mock.Mock()
+
+        self.mock_execute_with_params.side_effect = _execute_with_params
+
+        with pytest.raises(ProgrammingError) as exc_info:
+            entity.action_deploy(
+                action_context, _open=False, replace=True, legacy=False
+            )
+
+        assert exc_info.value.errno == INSUFFICIENT_PRIVILEGES
+        mock_sync.assert_called_once()
+
+    def test_describe_row_is_spcs_v2(self):
+        assert _describe_row_is_spcs_v2({"runtime_name": SPCS_RUNTIME_V2_NAME}) is True
+        assert (
+            _describe_row_is_spcs_v2({"runtime_name": SPCS_RUNTIME_V2_NAME.lower()})
+            is True
+        )
+        assert (
+            _describe_row_is_spcs_v2(
+                {"runtime_name": "SYSTEM$ST_CONTAINER_RUNTIME_PY3_12"}
+            )
+            is True
+        )
+        assert (
+            _describe_row_is_spcs_v2({"runtime_name": "SYSTEM$WAREHOUSE_RUNTIME"})
+            is False
+        )
+        assert _describe_row_is_spcs_v2({}) is False
+        assert _describe_row_is_spcs_v2({"runtime_name": None}) is False
+
+    def test_get_restart_sql(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+        assert entity.get_restart_sql() == RESTART_SQL
+
+    def test_restart_passes_identifier_as_bind_parameter(self, workspace_context):
+        """A hostile identifier reaches the connector as a bind value, not as SQL text.
+
+        Replaces an earlier test that asserted the identifier was quote-escaped into
+        the statement. Binding is the stronger property: there is no escaping left to
+        get wrong, and it matches SYSTEM$GET_APPLICATION_SERVICE_LOGS in
+        apps/manager.py and SYSTEM$GET_STREAMLIT_DEVELOPER_API_TOKEN in log_streaming.
+        """
+        hostile = "app'; DROP TABLE users; --"
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with mock.patch.object(entity, "_get_identifier", return_value=hostile):
+            entity._restart_running_app()  # noqa: SLF001
+
+        self.mock_execute_with_params.assert_called_once_with(
+            "CALL SYSTEM$RESTART_STREAMLIT(?);", (hostile,)
+        )
+        # The payload must not appear anywhere in the statement text.
+        sent_sql = self.mock_execute_with_params.call_args[0][0]
+        assert "DROP TABLE" not in sent_sql
+
+    def test_restart_step_sanitizes_identifier_for_terminal(self, workspace_context):
+        """A quoted identifier carrying control characters must not reach the terminal.
+
+        `console.step` does not sanitize (only `styled_message` does), so escape
+        sequences in an identifier would otherwise be written out verbatim.
+        """
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        with mock.patch.object(
+            entity, "_get_identifier", return_value="app\x1b[31mRED\x1b[0m"
+        ), mock.patch.object(entity, "_execute_query"):
+            entity._restart_running_app()  # noqa: SLF001
+
+        steps = [str(call) for call in workspace_context.console.step.call_args_list]
+        assert any("appRED" in s for s in steps)
+        assert not any("\x1b" in s for s in steps)
 
     def test_is_live_version_already_exists_error_matches_errno(self):
         errno_exc = ProgrammingError(errno=99106, msg="duplicate")
