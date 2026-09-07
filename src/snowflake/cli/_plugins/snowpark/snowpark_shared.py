@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import typer
+from snowflake.cli.api.feature_flags import FeatureFlag
 
 AllowSharedLibrariesOption: bool = typer.Option(
     False,
@@ -33,6 +34,16 @@ SkipVersionCheckOption: bool = typer.Option(
     False,
     "--skip-version-check",
     help="Skip comparing versions of dependencies between requirements and Anaconda.",
+)
+
+SkipDependenciesOption: bool = typer.Option(
+    False,
+    "--skip-dependencies",
+    help="Does not resolve dependencies from requirements.txt or pyproject.toml and"
+    " does not create dependencies.zip. Only the code of the project is packaged. Use"
+    " it when packages are declared in the project definition file and installed by"
+    " Snowflake, for example from an artifact repository.",
+    hidden=not FeatureFlag.ENABLE_SNOWPARK_SKIP_DEPENDENCIES.is_enabled(),
 )
 
 IndexUrlOption: str | None = typer.Option(
