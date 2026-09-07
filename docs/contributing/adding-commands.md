@@ -38,8 +38,15 @@ directory — service/manager structure, helper functions, file layout. Those ar
 yours to decide as long as they stay encapsulated within `_plugins/<your-plugin>/`
 and do not add to `api/` or `_app/`.
 
-**Where to get sign-off:** open a GitHub Issue describing the interface and tag a
-maintainer for review.
+**Where to get sign-off** — any of these counts:
+
+- A GitHub Issue describing the interface, tagged for maintainer review
+- A separate PR that lands only the scaffold (`interface.py` / command stubs)
+  plus a `CODEOWNERS` entry for the plugin directory — the Phase 1 path in
+  [writing-a-plugin.md](writing-a-plugin.md)
+- A link to an internal Google Doc
+
+Questions: Slack `#snowcli-pr-help`.
 
 ---
 

@@ -200,13 +200,14 @@ command surface without seeing any implementation.
 
 ### CODEOWNERS for Phase 2
 
-For a **built-in** plugin (one that lives in this repository), add yourself and a
-colleague as `CODEOWNERS` for your plugin directory in the Phase 1 PR, so the
-Phase 2 implementation only needs review from your team:
+For a **built-in** plugin (one that lives in this repository), add a
+`CODEOWNERS` path for your plugin directory in the Phase 1 PR, so the
+Phase 2 implementation only needs review from your team. GitHub last-match-wins:
+keep `@snowflake-eng/snowcli`, then add two individuals or one owning team.
 
 ```
 # analytics plugin
-/src/snowflake/cli/_plugins/analytics/   @your-handle @colleague-handle
+/src/snowflake/cli/_plugins/analytics/   @snowflake-eng/snowcli @your-handle @colleague-handle
 ```
 
 For a plugin in its own repository this is unnecessary — you already own the repo.
