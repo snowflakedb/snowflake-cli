@@ -1,0 +1,7 @@
+* @snowflake-eng/snowcli
+
+# reporting plugin
+/src/snowflake/cli/_plugins/reporting/   @snowflake-eng/snowcli @owner-handle @colleague-handle
+
+# inventory plugin
+/src/snowflake/cli/_plugins/inventory/   @snowflake-eng/snowcli @snowflake-eng/some-team

@@ -1,0 +1,303 @@
+id: snowflake-cli-command-process-rules
+friendly_name: "Snowflake CLI - Command Contribution Process Rules"
+status: enabled
+allowed_folders:
+  - "src/"
+  - ".github/"
+excluded_folders:
+  - ".github/workflows/"
+  - ".github/scripts/"
+  - ".github/ISSUE_TEMPLATE/"
+  - ".github/dependabot.yml"
+  - ".github/pull_request_template.md"
+  - ".github/repo_meta.yaml"
+# CODEOWNERS has no extension; "all" is required so its diff is in the same
+# review as the plugin Python files. A `.py`-only filter made the CODEOWNERS
+# exemption invisible. Under `.github/`, only CODEOWNERS is in play — SCOPE
+# must ignore every other file that still matches the folder filter.
+allowed_file_extensions:
+  - "all"
+rules:
+  - id: snowflake-cli-command-design-sign-off
+    status: enabled
+    rule: |
+      **SCOPE**: This rule applies to Python files that declare or modify user-facing CLI
+      surface: `@app.command()`, `SnowTyperFactory(name=...)`, `CommandDef`, `ParamDef`,
+      `CommandGroupSpec`, `SingleCommandSpec`, or `typer.Option` / `typer.Argument` used as a
+      command parameter. If the file contains none of these surface declarations — including
+      `.github/CODEOWNERS` and any other non-Python file this ruleset can see — make
+      no comments and stop. Under `.github/`, the only file this ruleset may read is
+      `CODEOWNERS`; ignore `dependabot.yml`, `repo_meta.yaml`, `pull_request_template.md`,
+      and everything else there. Never comment on `get_builtin_plugin_name_to_plugin_spec()`
+      — that registry is not user-facing surface; the command or group declaration is.
+
+      **OBJECTIVE**: Authors adding user-facing CLI surface should be reminded that
+      design agreement with CLI maintainers is the usual first step — this is an FYI,
+      not a merge blocker.
+
+      **REQUIREMENT**: New or renamed user-facing interface (commands, groups, flags,
+      arguments, output format) is typically agreed with CLI maintainers first. See
+      `docs/contributing/adding-commands.md#design-sign-off-before-writing-code`.
+      Sign-off covers names, flag types/defaults, lifecycle stage (PrPr/PuPr/GA),
+      output format, and where the command lives.
+
+      Any of these counts as design agreement:
+      - a GitHub Issue
+      - a separate PR that lands only the scaffold (`interface.py` / command stubs)
+        plus a `CODEOWNERS` entry for the plugin directory
+      - a link to an internal Google Doc
+
+      When the diff adds or renames that surface, leave an **FYI** comment on the
+      new declaration. The comment must:
+      - start with `FYI:` (informational — do not say "before merging", "required",
+        "must cite", or "get sign-off before merge")
+      - list the three accepted agreement forms above
+      - point people to Slack `#snowcli-pr-help` for questions
+      - invite the author to drop a link if they already have one
+
+      Do not request implementation changes. Do not treat a missing link as a
+      defect to fix in the code.
+
+      When this diff introduces a **new command group**, leave **exactly one FYI**
+      on the group (`SnowTyperFactory(name=...)` or `CommandGroupSpec`). Do not
+      also comment on `@app.command()` / `CommandDef` / parameters under that new
+      group — a large group (`snow feature`, `snow spcs`) would otherwise get one
+      comment per command. `SingleCommandSpec` is one comment on the spec.
+
+      Comment on an individual `@app.command()` or `CommandDef` only when that
+      command is added to a group that is **not** new in this diff.
+
+      Do not also comment on `typer.Option` / `typer.Argument` / `ParamDef` that
+      belong to a command already covered (by a group comment or a command
+      comment). Only comment on a new option or argument when it is added to a
+      command that is not itself new, on a group that is not itself new.
+
+      Never comment on `get_builtin_plugin_name_to_plugin_spec()` or
+      `builtin_plugins.py`. A new plugin also registers there; that file will not
+      see the spec/factory comment in `commands.py` / `interface.py` and must not
+      get a second FYI.
+
+      Sign-off does **not** cover implementation inside the plugin directory
+      (`handler.py`, `manager.py`, helpers). Those files are out of scope even when they
+      sit next to a new command.
+
+      **DO NOT FLAG:**
+      - `handler.py` / `manager.py` / private helpers that do not declare CLI surface
+      - Bug fixes that keep the same command name, flag names, types, defaults, and
+        output shape
+      - Help-text-only edits (`help=` string or command docstring) with no rename and
+        no new parameter
+      - Reordering existing options or reformatting existing `@app.command()` signatures
+      - Reusing an already-attached shared flag (`ForceOption`, `InteractiveOption`,
+        `PatternOption`, `OutputFormatOption`) without adding a new one
+      - Test files (`tests/`, `tests_integration/`, `tests_e2e/`)
+      - Framework types under `src/snowflake/cli/api/plugins/command/` (the spec
+        dataclasses themselves, not a plugin using them)
+      - A PR description or nearby comment that already links to a design-approval
+        GitHub Issue, a prior scaffold+CODEOWNERS PR, or an internal Google Doc
+      - `get_builtin_plugin_name_to_plugin_spec()` / `builtin_plugins.py` — never;
+        the command declaration is the user-facing surface
+      - Individual `@app.command()` / `CommandDef` under a group that is new in
+        this same diff — the one group FYI covers them
+
+      **WHAT TO FLAG:**
+      - A new `SnowTyperFactory(name=...)` command group — one FYI on the factory,
+        not on each `@app.command()` beneath it
+      - A new `CommandGroupSpec` — one FYI on the spec (covers nested
+        `CommandDef` / `ParamDef` in that spec)
+      - A new `SingleCommandSpec` — one FYI on the spec
+      - A new `@app.command()` / `@app.command("name")` only when the parent group
+        is not new — one comment on the decorator, not on each of its parameters
+      - A new `CommandDef(...)` only when it is added to an already-existing spec
+        (the group itself is not new)
+      - A new `typer.Option(...)` / `typer.Argument(...)` / `ParamDef(...)` only when
+        added to a command that is not itself new, on a group that is not new
+      - A renamed command, flag, or option (on an existing group)
+      - A changed `output_type=` / command return type that changes user-visible output
+
+      ❌ **BAD:**
+      ```python
+      @app.command(requires_connection=True)
+      def purge(name: str, force: bool = typer.Option(False, "--force")):
+          """Purges a resource."""
+          return MessageResult("purged")
+
+      ANALYTICS_SPEC = CommandGroupSpec(
+          name="analytics",
+          help="Run analytics queries.",
+          parent_path=(),
+          commands=(
+              CommandDef(
+                  name="run",
+                  help="Run an analytics query.",
+                  handler_method="run",
+                  params=(
+                      ParamDef(
+                          name="limit",
+                          type=int,
+                          kind=ParamKind.OPTION,
+                          cli_names=("--limit", "-l"),
+                          default=100,
+                      ),
+                  ),
+                  output_type="QueryResult",
+              ),
+          ),
+      )
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      def list_repo_entries(manager, repo_name: str) -> list[dict]:
+          rows = manager.show_repositories()
+          return [row for row in rows if row["name"] == repo_name]
+
+
+      class AnalyticsHandlerImpl(AnalyticsHandler, SqlExecutionMixin):
+          def run(self, query_name: str, limit: int) -> CommandResult:
+              cursor = self.execute_query(
+                  f"SELECT * FROM analytics_queries "
+                  f"WHERE name = {to_string_literal(query_name)} "
+                  f"LIMIT {limit}"
+              )
+              return QueryResult(cursor)
+      ```
+
+  - id: snowflake-cli-new-plugin-codeowners
+    status: enabled
+    rule: |
+      **SCOPE**: This rule applies only when this diff introduces a **new built-in
+      plugin** — a plugin name that does not already exist on the base (pre-diff)
+      side. Signals: a new directory under `src/snowflake/cli/_plugins/<name>/` with
+      `interface.py` or `plugin_spec.py`, a new top-level `SnowTyperFactory` whose
+      `name=` is not already a registry key, or a **new** key in
+      `get_builtin_plugin_name_to_plugin_spec()`. "New" means added in this diff,
+      not "absent from a hardcoded list." Adding a command, flag, or handler to an
+      already-registered plugin is out of scope. If the file does not introduce a
+      new plugin, make no comments and stop. Never comment on `.github/CODEOWNERS`
+      itself — that file is in scope only so the exemption below can see it.
+      Under `.github/`, the only file this ruleset may read is `CODEOWNERS`;
+      ignore `dependabot.yml`, `repo_meta.yaml`, `pull_request_template.md`,
+      and everything else there.
+
+      The CODEOWNERS exemption: if this review includes `.github/CODEOWNERS` and
+      it already lists `/src/snowflake/cli/_plugins/<name>/` with `@snowflake-eng/snowcli`
+      plus **either** two individuals **or** one owning team (the `dcm` pattern),
+      do not comment. Do not require `@snowflake-eng/client-side-interfaces` —
+      it duplicates snowcli on these paths. If you cannot see CODEOWNERS in
+      this review, still comment — do not assume it was added.
+
+      The plugin name is the registry key in `get_builtin_plugin_name_to_plugin_spec()`,
+      not the directory. `"app"` is the registered name for `snow app`; `nativeapp`
+      and `apps` are directories only. Do not treat an existing `"app"` key as new.
+
+      **OBJECTIVE**: A new built-in plugin must add `CODEOWNERS` entries for its
+      directory in the same PR, so later implementation PRs are reviewed by the
+      owning team rather than only CLI core maintainers.
+
+      **REQUIREMENT**: When introducing a new built-in plugin (one that lives in this
+      repository under `src/snowflake/cli/_plugins/<name>/`), the same PR must add
+      the plugin's authors as `CODEOWNERS` for that directory (see
+      `docs/contributing/writing-a-plugin.md` — "CODEOWNERS for Phase 2"). Required
+      for interface-first Phase 1 PRs and for new classic top-level command groups.
+
+      Leave **exactly one comment per new plugin name**, on the first surface
+      declaration in the file (`CommandGroupSpec`, `SingleCommandSpec`,
+      `SnowTyperFactory(name=...)`, or `command_spec()`). Never comment on
+      `get_builtin_plugin_name_to_plugin_spec()` or `builtin_plugins.py` — the
+      spec or factory in `commands.py` / `interface.py` is the comment site.
+      If the registry key is the only signal in this file, make no comments.
+
+      Tell the author to add a `.github/CODEOWNERS` path in this same PR.
+      GitHub CODEOWNERS is last-match-wins: a later path **replaces** the
+      top-level `*` owners, it does not merge with them. Keep `@snowflake-eng/snowcli`,
+      then add plugin owners. Do not also list `@snowflake-eng/client-side-interfaces`
+      (it duplicates snowcli on these paths). Either of these is enough:
+
+      ```
+      # <name> plugin
+      /src/snowflake/cli/_plugins/<name>/   @snowflake-eng/snowcli @author-handle @colleague-handle
+      ```
+
+      ```
+      # <name> plugin
+      /src/snowflake/cli/_plugins/<name>/   @snowflake-eng/snowcli @owning-team
+      ```
+
+      Required: `@snowflake-eng/snowcli` plus either two individuals or one
+      owning team. External plugins that live in their own repository do not
+      need an entry here.
+
+      **DO NOT FLAG:**
+      - A plugin name that already exists on the base (pre-diff) side of this PR —
+        a key already present in `get_builtin_plugin_name_to_plugin_spec()`, or a
+        `_plugins/<name>/` directory that already existed. Compare against the
+        pre-change file / tree, not a memorized allowlist. The list of registered
+        plugins changes (e.g. `run`, `ai`, `feature`); a hardcoded list will drift.
+      - The existing `"app"` registry key, or edits under `nativeapp/` / `apps/`.
+        Those directories belong to the already-registered `app` plugin.
+      - `handler.py` / `manager.py` implementation of an existing or already-added
+        plugin
+      - Adding a subcommand or flag to an existing group
+      - Test files
+      - A CODEOWNERS update that already lists `/src/snowflake/cli/_plugins/<name>/`
+        with `@snowflake-eng/snowcli` plus either two individuals or one owning team
+      - `get_builtin_plugin_name_to_plugin_spec()` / `builtin_plugins.py` — never
+        comment there. Use the key only to decide whether the name is new.
+
+      **WHAT TO FLAG:**
+      - Only a plugin name **newly added in this diff**. If the name already
+        appears as a registry key or `_plugins/` directory on the base side, skip.
+      - New `CommandGroupSpec` or `SingleCommandSpec` for a name this diff newly
+        introduces — one comment on the spec
+      - New `plugin_spec.py` / `command_spec()` that returns `CommandSpec` /
+        `build_command_spec` for a new plugin — one comment, only if no spec or
+        factory for that plugin is already commented
+      - New `SnowTyperFactory(name="<new-group>")` that introduces a new top-level
+        group — one comment on the factory
+
+      ❌ **BAD:**
+      ```python
+      ANALYTICS_SPEC = CommandGroupSpec(
+          name="analytics",
+          help="Run analytics queries.",
+          parent_path=(),
+          commands=(
+              CommandDef(
+                  name="run",
+                  help="Run an analytics query.",
+                  handler_method="run",
+                  requires_connection=True,
+                  output_type="QueryResult",
+              ),
+          ),
+      )
+
+
+      @plugin_hook_impl
+      def command_spec():
+          return build_command_spec(ANALYTICS_SPEC, AnalyticsHandlerImpl())
+
+
+      def get_builtin_plugin_name_to_plugin_spec():
+          plugin_specs = {
+              "git": git_plugin_spec,
+              "analytics": analytics_plugin_spec,
+          }
+          return plugin_specs
+      ```
+
+      ✅ **GOOD:**
+      ```python
+      def get_builtin_plugin_name_to_plugin_spec():
+          plugin_specs = {
+              "git": git_plugin_spec,
+              "sql": sql_plugin_spec,
+          }
+          return plugin_specs
+
+
+      class GitManager(SqlExecutionMixin):
+          def show_repositories(self):
+              return self.execute_query("SHOW GIT REPOSITORIES")
+      ```
