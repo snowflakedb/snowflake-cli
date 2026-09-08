@@ -1,7 +1,10 @@
 import pytest
 
 from tests_integration.testing_utils import FlowTestSetup
-from tests_integration.testing_utils.streamlit_utils import StreamlitTestSteps
+from tests_integration.testing_utils.streamlit_utils import (
+    WAREHOUSE_RUNTIME_NAME,
+    StreamlitTestSteps,
+)
 
 # TODO: use below constant instead of hardcoded values
 APP_1 = "app_1"
@@ -17,6 +20,11 @@ def test_streamlit_flow(
 ):
     database = test_database.upper()
     with project_directory("streamlit_v2"):
+        # This flow asserts an exact staged file set and runs `streamlit execute`.
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.app_1.runtime_name", WAREHOUSE_RUNTIME_NAME
+        )
+
         _streamlit_test_steps.list_streamlit_should_return_empty_list()
 
         _streamlit_test_steps.deploy_should_result_in_error_as_there_are_multiple_entities_in_project_file()
@@ -72,6 +80,11 @@ def test_streamlit_experimental_flow(
 ):
     database = test_database.upper()
     with project_directory("streamlit_v2"):
+        # This flow asserts an exact staged file set and runs `streamlit execute`.
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.app_1.runtime_name", WAREHOUSE_RUNTIME_NAME
+        )
+
         _streamlit_test_steps.list_streamlit_should_return_empty_list()
 
         _streamlit_test_steps.deploy_should_result_in_error_as_there_are_multiple_entities_in_project_file()

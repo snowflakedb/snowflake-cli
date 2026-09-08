@@ -10,6 +10,19 @@ from tests_integration.testing_utils import (
     assert_that_result_is_error,
 )
 
+# BCR-2342 made the container runtime the default for CREATE STREAMLIT when
+# RUNTIME_NAME is omitted, so a project that names no runtime no longer gets a
+# warehouse-backed app. Tests that assert warehouse-runtime behaviour - an exact
+# staged file set, EXECUTE STREAMLIT, IMPORTS - therefore have to name the runtime
+# rather than inherit the account default, which is not theirs to control and has
+# now changed under them once.
+#
+# Container-runtime coverage lives separately, in tests_using_container_services/
+# on the streamlit_spcs_v2 project, where the file check is a subset assertion and
+# execute is skipped. Keeping the runtimes in separate suites is what lets each one
+# assert exactly rather than loosely.
+WAREHOUSE_RUNTIME_NAME = "SYSTEM$WAREHOUSE_RUNTIME"
+
 
 class StreamlitTestSteps:
     def __init__(self, setup):

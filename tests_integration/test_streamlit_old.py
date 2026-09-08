@@ -25,6 +25,7 @@ from tests_integration.test_utils import (
     rows_from_snowflake_session,
 )
 from tests_integration.testing_utils import assert_that_result_is_successful
+from tests_integration.testing_utils.streamlit_utils import WAREHOUSE_RUNTIME_NAME
 
 
 @pytest.mark.integration
@@ -193,6 +194,12 @@ def test_streamlit_deploy_with_imports(
     # This work because uploading the imports artifact because
     # deploying streamlit does not start the app.
     with project_directory(f"streamlit_v2"):
+        # IMPORTS is only accepted on the warehouse runtime.
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities.my_streamlit.runtime_name",
+            WAREHOUSE_RUNTIME_NAME,
+        )
         alter_snowflake_yml(
             "snowflake.yml",
             "entities.my_streamlit.imports",
@@ -448,11 +455,18 @@ def test_streamlit_execute_in_headless_mode(
     snowflake_session,
     test_database,
     project_directory,
+    alter_snowflake_yml,
 ):
     streamlit_name = "test_streamlit_deploy_snowcli"
 
     # Deploy the Streamlit app
     with project_directory("streamlit_v2"):
+        # EXECUTE STREAMLIT is not a supported container-runtime execution model.
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities.my_streamlit.runtime_name",
+            WAREHOUSE_RUNTIME_NAME,
+        )
         result = runner.invoke_with_connection_json(
             [
                 "streamlit",
