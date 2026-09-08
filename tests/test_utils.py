@@ -103,6 +103,48 @@ def test_parse_requirements_with_nonexistent_file(temporary_directory):
 
 
 @pytest.mark.parametrize(
+    "package, expected",
+    [
+        # Unix-style traversal inside a direct URL (OWASP "dot-dot-slash")
+        (
+            "foo @ https://attacker.example/../../../../tmp/x.whl",
+            "foo",
+        ),
+        # Windows-style separators (OWASP notes Windows accepts \ as well as /)
+        (
+            r"foo @ https://attacker.example/..\..\tmp\x.whl",
+            "foo",
+        ),
+        # Absolute file URL — still a requirement, not a dest path
+        (
+            "foo @ file:///../../tmp/x.whl",
+            "foo",
+        ),
+        # Legitimate HTTPS reference: name only, even though the URL has slashes
+        (
+            "foo @ https://files.example.com/wheels/foo.whl",
+            "foo",
+        ),
+        # No separator: keep the historical zip name (hyphens included)
+        (
+            "totally-awesome-package",
+            "totally-awesome-package",
+        ),
+        # CLI args are not URL-decoded; %2e%2e%2f is a single filename, not ../
+        (
+            "%2e%2e%2ftotally-awesome-package",
+            "%2e%2e%2ftotally-awesome-package",
+        ),
+    ],
+)
+def test_get_package_name_from_pip_wheel_uses_safe_fallback(package, expected):
+    with patch.object(package_utils, "pip_wheel", return_value=1):
+        result = package_utils.get_package_name_from_pip_wheel(package)
+
+    assert result == expected
+
+
+@pytest.mark.parametrize(
     "contents, expected",
     [
         (

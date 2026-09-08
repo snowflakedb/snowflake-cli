@@ -142,7 +142,7 @@
 * `snow app deploy` now drops the code stage before recreating it only when the stage already exists. A first deploy has nothing to clear, so it no longer issues `DROP STAGE` unnecessarily, letting a role with only `CREATE STAGE` (and not `OWNERSHIP`) deploy successfully.
 * Upgraded `snowflake-connector-python` from 4.6.0 to 4.7.1.
 * Upgraded `snowflake-snowpark-python` from 1.41.0 to 1.53.0.
-
+* Security improvements
 
 # v3.22.1
 

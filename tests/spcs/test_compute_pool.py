@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from io import StringIO
 from textwrap import dedent
 from unittest.mock import Mock, patch
 
@@ -31,6 +32,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.util_text import split_statements
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
 from tests_integration.testing_utils.assertions.test_result_assertions import (
@@ -72,7 +74,7 @@ def test_create(mock_execute_query):
             "CREATE COMPUTE POOL test_pool",
             "MIN_NODES = 2",
             "MAX_NODES = 3",
-            "INSTANCE_FAMILY = test_family",
+            "INSTANCE_FAMILY = 'test_family'",
             "AUTO_RESUME = True",
             "INITIALLY_SUSPENDED = False",
             "AUTO_SUSPEND_SECS = 7200",
@@ -83,6 +85,30 @@ def test_create(mock_execute_query):
     actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
     assert expected_query == actual_query
     assert result == cursor
+
+
+@patch(EXECUTE_QUERY)
+def test_create_instance_family_injection_neutralized(mock_execute_query):
+    """instance_family is quoted so a crafted value cannot inject extra statements."""
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    malicious_family = "CPU_X64_XS; GRANT ROLE ACCOUNTADMIN TO USER attacker"
+    ComputePoolManager().create(
+        pool_name="test_pool",
+        min_nodes=1,
+        max_nodes=1,
+        instance_family=malicious_family,
+        auto_resume=True,
+        initially_suspended=False,
+        auto_suspend_secs=3600,
+        tags=None,
+        comment=None,
+        if_not_exists=False,
+    )
+    sent_query = mock_execute_query.call_args.args[0]
+    statements = [s for s, _ in split_statements(StringIO(sent_query))]
+    assert len(statements) == 1
+    assert "GRANT ROLE ACCOUNTADMIN" in statements[0]
 
 
 @patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
@@ -197,7 +223,7 @@ def test_create_compute_pool_if_not_exists(mock_execute_query):
             "CREATE COMPUTE POOL IF NOT EXISTS test_pool",
             "MIN_NODES = 1",
             "MAX_NODES = 1",
-            "INSTANCE_FAMILY = test_family",
+            "INSTANCE_FAMILY = 'test_family'",
             "AUTO_RESUME = True",
             "INITIALLY_SUSPENDED = False",
             "AUTO_SUSPEND_SECS = 3600",
@@ -233,7 +259,7 @@ def test_deploy_from_project_definition(
             CREATE COMPUTE POOL test_compute_pool
             MIN_NODES = 1
             MAX_NODES = 2
-            INSTANCE_FAMILY = CPU_X64_XS
+            INSTANCE_FAMILY = 'CPU_X64_XS'
             AUTO_RESUME = True
             INITIALLY_SUSPENDED = True
             AUTO_SUSPEND_SECS = 60
@@ -326,7 +352,7 @@ def test_deploy_from_project_definition_multiple_compute_pools_with_entity_id(
             CREATE COMPUTE POOL test_compute_pool
             MIN_NODES = 1
             MAX_NODES = 2
-            INSTANCE_FAMILY = CPU_X64_XS
+            INSTANCE_FAMILY = 'CPU_X64_XS'
             AUTO_RESUME = True
             INITIALLY_SUSPENDED = True
             AUTO_SUSPEND_SECS = 60"""
@@ -363,7 +389,7 @@ def test_deploy_only_required(
             CREATE COMPUTE POOL test_compute_pool
             MIN_NODES = 1
             MAX_NODES = 1
-            INSTANCE_FAMILY = CPU_X64_XS
+            INSTANCE_FAMILY = 'CPU_X64_XS'
             AUTO_RESUME = True
             INITIALLY_SUSPENDED = False
             AUTO_SUSPEND_SECS = 3600"""
@@ -753,7 +779,7 @@ def test_resume_options_are_passing_correct_values(
         == f"""CREATE COMPUTE POOL CACHE_COMPUTE_POOL_CPU
 MIN_NODES = 1
 MAX_NODES = 2
-INSTANCE_FAMILY = CPU_X64_XS
+INSTANCE_FAMILY = 'CPU_X64_XS'
 AUTO_RESUME = {expected_value}
 INITIALLY_SUSPENDED = False
 AUTO_SUSPEND_SECS = 3600"""

@@ -146,7 +146,8 @@ class SecurePath:
         """
         Create a file at this given path. For details, check pathlib.Path.touch()
         """
-        if not self.exists():
+        already_exists = self.exists()
+        if not already_exists:
             log.info("Creating file %s", str(self._path))
         self._path.touch(mode=permissions_mask, exist_ok=exist_ok)
 
@@ -163,7 +164,8 @@ class SecurePath:
             self.parent.mkdir(
                 permissions_mask=permissions_mask, exist_ok=exist_ok, parents=True
             )
-        if not self.exists():
+        already_exists = self.exists()
+        if not already_exists:
             log.info("Creating directory %s", str(self._path))
         self._path.mkdir(mode=permissions_mask, exist_ok=exist_ok)
 

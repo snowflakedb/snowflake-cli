@@ -256,7 +256,8 @@ def get_package_name_from_pip_wheel(package: str, index_url: str | None = None) 
         ]
 
         if pip_result != 0 or len(file_list) != 1:
-            # cannot determine package name
+            if "/" in package or "\\" in package:
+                return Requirement.parse_line(package).name
             return package
         return WheelMetadata.from_wheel((tmp_dir / file_list[0]).path).name
 
