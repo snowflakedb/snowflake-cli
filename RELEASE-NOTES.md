@@ -24,6 +24,7 @@
 
 
 # v3.27.0
+## Backward incompatibility
 * `snow streamlit deploy` now rejects a `runtime_name` in `snowflake.yml` that the CLI does not recognize, rather than dropping it from the DDL and deploying onto whichever runtime the account defaults to. Supported values are `SYSTEM$ST_CONTAINER_RUNTIME_PY3_11` and `SYSTEM$WAREHOUSE_RUNTIME`, matched ignoring case and surrounding whitespace.
 * An empty or whitespace-only `runtime_name` or `compute_pool` is now an error, where both were previously treated as unset and deployed. Omit the key entirely instead.
 * Because the accepted runtime values are a fixed list, a runtime released after your CLI version is rejected until you upgrade.
