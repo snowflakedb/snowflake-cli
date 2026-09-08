@@ -680,6 +680,7 @@ def like_option(help_example: str):
 
 
 def _pattern_option_callback(value):
+    # Input guard only; the value is escaped at the SQL sink regardless.
     if value and value.count("'") != value.count("\\'"):
         raise ClickException('All "\'" characters in PATTERN must be escaped: "\\\'"')
     return value

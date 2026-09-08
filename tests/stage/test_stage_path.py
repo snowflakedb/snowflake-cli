@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import tempfile
+import unittest.mock as mock
 from pathlib import Path, PurePosixPath
 
 import pytest
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts, VStagePathParts
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.stage_path import StagePath
 
 # (path, is_git_repo)
@@ -758,6 +760,40 @@ def test_relative_to_raises_for_non_subpath(file_path_str, stage_root_str):
     root = StagePath.from_stage_str(stage_root_str)
     with pytest.raises(ValueError, match="is not in the subpath of"):
         fp.relative_to(root)
+
+
+class TestIsQuoted:
+    INJECTION_PAYLOAD = "'@pkg.stage'; GRANT ROLE ACCOUNTADMIN TO USER alice; --'"
+
+    def test_injection_payload_is_not_considered_quoted(self):
+        sp = StagePath.from_stage_str("@stage")
+        # Temporarily swap absolute_path to return the payload so we can test
+        # is_quoted() logic directly via quoted_absolute_path.
+        with mock.patch.object(
+            sp, "absolute_path", return_value=self.INJECTION_PAYLOAD
+        ):
+            assert not sp.is_quoted()
+
+    def test_injection_payload_gets_sanitized_by_quoted_absolute_path(self):
+        sp = StagePath.from_stage_str("@stage")
+        with mock.patch.object(
+            sp, "absolute_path", return_value=self.INJECTION_PAYLOAD
+        ):
+            result = sp.quoted_absolute_path()
+            assert result == to_string_literal(self.INJECTION_PAYLOAD)
+
+    def test_well_formed_quoted_literal_is_still_accepted(self):
+        sp = StagePath.from_stage_str("@stage")
+        # A valid quoted path has no inner single quotes (or only doubled ones)
+        valid_literal = "'@my_stage/path/file.sql'"
+        with mock.patch.object(sp, "absolute_path", return_value=valid_literal):
+            assert sp.is_quoted()
+
+    def test_doubled_inner_quotes_are_accepted(self):
+        sp = StagePath.from_stage_str("@stage")
+        doubled_inner = "'it''s a path'"
+        with mock.patch.object(sp, "absolute_path", return_value=doubled_inner):
+            assert sp.is_quoted()
 
 
 def test_local_dir_with_dot_are_identified_as_dir_not_file():

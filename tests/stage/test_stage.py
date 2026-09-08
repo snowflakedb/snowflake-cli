@@ -13,6 +13,7 @@
 # limitations under the License.
 import glob
 import os
+from io import StringIO
 from pathlib import Path
 from typing import Optional
 from unittest import mock
@@ -28,9 +29,11 @@ from snowflake.cli._plugins.stage.manager import (
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
+from snowflake.connector.util_text import split_statements
 
 from tests_common import IS_WINDOWS
 
@@ -75,6 +78,28 @@ def test_stage_list_pattern_error(runner):
     assert result.exit_code == 1, result.output
     assert "Error" in result.output
     assert 'All "\'" characters in PATTERN must be escaped: "\\\'"' in result.output
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_list_pattern_neutralizes_stacked_query_injection(
+    mock_execute, runner, mock_cursor
+):
+    # SNOW-3649693: a crafted `--pattern` must stay inside the string literal
+    # instead of becoming a second statement.
+    mock_execute.return_value = mock_cursor(["row"], [])
+    malicious_pattern = r"\\\\'; GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+    result = runner.invoke(
+        ["stage", "list-files", "-c", "empty", "--pattern", malicious_pattern, "x"]
+    )
+    assert result.exit_code == 0, result.output
+
+    sent_query = mock_execute.call_args.args[0]
+    assert sent_query == "ls @x pattern = " + to_string_literal(malicious_pattern)
+    # The escaped pattern parses as a single statement.
+    statements = [stmt for stmt, _ in split_statements(StringIO(sent_query))]
+    assert len(statements) == 1, statements
+    assert statements[0].lower().startswith("ls @x pattern = ")
+    assert "GRANT ROLE ACCOUNTADMIN" in statements[0]
 
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -1876,6 +1901,128 @@ def test_stage_put_with_square_brackets_and_trailing_slash(mock_execute, mock_cu
         assert call_args == (
             f"put file://{expected_path} @stageName auto_compress=false parallel=4 overwrite=False"
         )
+
+
+@pytest.mark.parametrize(
+    "stage_path, traversal_filename",
+    [
+        ("@mystage", "mystage/../../../../other_directory/file.txt"),
+        ("@exe", "exe/../../other_directory/file.txt"),
+        ("@~", "a/../../../other_directory/file.txt"),
+        (
+            "@repo/branches/main/",
+            "repo/branches/main/../../../../other_directory/file.txt",
+        ),
+        (
+            "snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/v1/",
+            "deployments/v1/../../../other_directory/file.txt",
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_get_recursive_rejects_path_traversal(
+    mock_execute,
+    mock_cursor,
+    temporary_directory,
+    stage_path,
+    traversal_filename,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": traversal_filename}],
+        [],
+    )
+
+    with pytest.raises(
+        CliError, match="Refusing to write outside the destination directory"
+    ):
+        StageManager().get_recursive(stage_path, Path(temporary_directory))
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_get_recursive_allows_valid_nested_path(
+    mock_execute,
+    mock_cursor,
+    temporary_directory,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": "mystage/sub/dir/file.txt"}],
+        [],
+    )
+
+    # Valid nested path — must not raise
+    StageManager().get_recursive("@mystage", Path(temporary_directory))
+    mock_execute.assert_called()
+
+
+def test_check_for_path_traversal_rejects_sibling_prefix(temporary_directory):
+    """Component-wise check: dest=.../foo must reject .../foobar (string prefix, not path prefix)."""
+    dest = Path(temporary_directory) / "foo"
+    sibling = Path(temporary_directory) / "foobar"
+
+    with pytest.raises(
+        CliError, match="Refusing to write outside the destination directory"
+    ):
+        StageManager._check_for_path_traversal(dest.resolve(), sibling)  # noqa: SLF001
+
+
+class TestQuoteStageName:
+    INJECTION_PAYLOAD = "'@pkg.stage'; GRANT ROLE ACCOUNTADMIN TO USER alice; --'"
+
+    def test_injection_payload_is_sanitized_to_safe_literal(self):
+        result = StageManager.quote_stage_name(self.INJECTION_PAYLOAD)
+        # quote_stage_name prepends @ via get_standard_stage_prefix, then wraps
+        # with to_string_literal because the name contains special characters.
+        assert result == to_string_literal("@" + self.INJECTION_PAYLOAD)
+
+    def test_well_formed_single_quoted_name_passes_through(self):
+        # A real Snowflake string literal has no unescaped inner single quotes.
+        valid = "'@my_stage'"
+        assert StageManager.quote_stage_name(valid) == valid
+
+    def test_name_with_doubled_inner_quotes_passes_through(self):
+        """A stage name with only doubled inner quotes is a valid literal."""
+        doubled = "'stage''name'"
+        assert StageManager.quote_stage_name(doubled) == doubled
+
+
+class TestParsePythonVariables:
+    _parse = staticmethod(StageManager._parse_python_variables)  # noqa: SLF001
+
+    @staticmethod
+    def _var(key: str, value: str):
+        from snowflake.cli.api.commands.common import Variable
+
+        return Variable(key=key, value=value)
+
+    def test_plain_string_passes_through_unchanged(self):
+        assert self._parse([self._var("x", "hello")]) == {"x": "hello"}
+
+    def test_valid_single_quoted_literal_is_unwrapped(self):
+        assert self._parse([self._var("x", "'world'")]) == {"x": "world"}
+
+    def test_empty_single_quoted_literal_is_unwrapped(self):
+        assert self._parse([self._var("x", "''")]) == {"x": ""}
+
+    def test_valid_double_quoted_literal_is_unwrapped(self):
+        assert self._parse([self._var("x", '"identifier"')]) == {"x": "identifier"}
+
+    def test_injection_payload_is_not_unwrapped(self):
+        payload = "'value'; DROP TABLE t;--'"
+        expected = {"x": payload}
+        # The outer quotes must NOT be stripped; the full payload is preserved.
+        assert self._parse([self._var("x", payload)]) == expected
+
+    def test_multiple_variables_are_all_parsed(self):
+        variables = [
+            self._var("a", "raw"),
+            self._var("b", "'quoted'"),
+            self._var("c", '"dq"'),
+        ]
+        assert self._parse(variables) == {"a": "raw", "b": "quoted", "c": "dq"}
+
+    def test_double_quoted_injection_payload_is_not_unwrapped(self):
+        payload = '"val"; DROP TABLE t;--"'
+        assert self._parse([self._var("x", payload)]) == {"x": payload}
 
 
 class TestStageUploadWorkers:

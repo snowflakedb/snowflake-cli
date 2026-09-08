@@ -23,6 +23,7 @@ from snowflake.cli._plugins.spcs.common import (
     strip_empty_lines,
 )
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -50,7 +51,7 @@ class ComputePoolManager(SqlExecutionMixin):
             {create_statement} {pool_name}
             MIN_NODES = {min_nodes}
             MAX_NODES = {max_nodes}
-            INSTANCE_FAMILY = {instance_family}
+            INSTANCE_FAMILY = {to_string_literal(instance_family)}
             AUTO_RESUME = {auto_resume}
             INITIALLY_SUSPENDED = {initially_suspended}
             AUTO_SUSPEND_SECS = {auto_suspend_secs}

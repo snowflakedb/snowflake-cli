@@ -42,7 +42,13 @@ from snowflake.cli.api.config import get_config_value
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, to_string_literal
+from snowflake.cli.api.project.util import (
+    VALID_IDENTIFIER_REGEX,
+    is_valid_quoted_identifier,
+    is_valid_string_literal,
+    to_string_literal,
+)
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -170,7 +176,7 @@ class StagePathParts:
 
     def get_standard_stage_path(self) -> str:
         path = self.get_full_stage_path(self.path)
-        return f"{AT_PREFIX}{path}{'/'if self.is_directory and not path.endswith('/') else ''}"
+        return f"{AT_PREFIX}{path}{'/' if self.is_directory and not path.endswith('/') else ''}"
 
     def get_standard_stage_directory_path(self) -> str:
         path = self.get_standard_stage_path()
@@ -332,7 +338,7 @@ class StageManager(SqlExecutionMixin):
 
     @staticmethod
     def quote_stage_name(name: str) -> str:
-        if name.startswith("'") and name.endswith("'"):
+        if is_valid_string_literal(name):
             return name  # already quoted
 
         standard_name = StageManager.get_standard_stage_prefix(name)
@@ -360,7 +366,9 @@ class StageManager(SqlExecutionMixin):
             stage_path = stage_name.path_for_sql()
         query = f"ls {stage_path}"
         if pattern is not None:
-            query += f" pattern = '{pattern}'"
+            # Escape the pattern before interpolating it into the LIST query
+            # (SNOW-3649693).
+            query += f" pattern = {to_string_literal(pattern)}"
         return self.execute_query(query, cursor_class=DictCursor)
 
     @staticmethod
@@ -380,16 +388,33 @@ class StageManager(SqlExecutionMixin):
             f"get {spath.path_for_sql()} {self._to_uri(dest_directory)} parallel={parallel}"
         )
 
+    @staticmethod
+    def _check_for_path_traversal(resolved_dest: Path, local_dir: Path) -> None:
+        """Raise CliError when *local_dir* escapes the *resolved_dest* sandbox."""
+        resolved_local = local_dir.resolve()
+        try:
+            resolved_local.relative_to(resolved_dest)
+        except ValueError:
+            raise CliError(
+                f"Refusing to write outside the destination directory: "
+                f"the server returned a path that would resolve to "
+                f"'{sanitize_for_terminal(str(resolved_local))}', which is outside "
+                f"'{sanitize_for_terminal(str(resolved_dest))}'. "
+                f"Aborting download."
+            )
+
     def get_recursive(
         self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> List[SnowflakeCursor]:
         stage_root = self.build_path(stage_path)
+        resolved_dest = dest_path.resolve()
 
         results = []
         for file_path in self.iter_stage(stage_root):
             local_dir = file_path.get_local_target_path(
                 target_dir=dest_path, stage_root=stage_root
             )
+            StageManager._check_for_path_traversal(resolved_dest, local_dir)
             self._assure_is_existing_directory(local_dir)
 
             result = self.execute_query(
@@ -820,9 +845,9 @@ class StageManager(SqlExecutionMixin):
     @staticmethod
     def _parse_python_variables(variables: List[Variable]) -> Dict:
         def _unwrap(s: str):
-            if s.startswith("'") and s.endswith("'"):
+            if is_valid_string_literal(s):
                 return s[1:-1]
-            if s.startswith('"') and s.endswith('"'):
+            if is_valid_quoted_identifier(s):
                 return s[1:-1]
             return s
 
@@ -974,7 +999,11 @@ class StageManager(SqlExecutionMixin):
 
         try:
             log.info("Executing Python file: %s", file_stage_path)
-            self._python_exe_procedure(self.get_standard_stage_prefix(file_stage_path), variables, session=self.snowpark_session)  # type: ignore
+            self._python_exe_procedure(
+                self.get_standard_stage_prefix(file_stage_path),
+                variables,
+                session=self.snowpark_session,
+            )  # type: ignore
             return StageManager._success_result(file=original_file)
         except SnowparkSQLException as e:
             StageManager._handle_execution_exception(on_error=on_error, exception=e)

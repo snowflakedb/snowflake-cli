@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from io import StringIO
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
@@ -20,8 +21,10 @@ import pytest
 from snowflake.cli._plugins.git.manager import GitManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import DictCursor, ProgrammingError
+from snowflake.connector.util_text import split_statements
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
 STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
@@ -179,6 +182,35 @@ def test_list_files_pattern(mock_connector, runner, mock_ctx):
 
     assert result.exit_code == 0, result.output
     assert ctx.get_query() == "ls @repo_name/branches/main/ pattern = 'REGEX'"
+
+
+@mock.patch("snowflake.connector.connect")
+def test_list_files_pattern_neutralizes_stacked_query_injection(
+    mock_connector, runner, mock_ctx
+):
+    # `snow git list-files` shares the `--pattern` sink with `snow stage
+    # list-files`, so the value is escaped the same way (SNOW-3649693).
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    malicious_pattern = r"\\\\'; GRANT ROLE ACCOUNTADMIN TO USER attacker; --"
+    result = runner.invoke(
+        [
+            "git",
+            "list-files",
+            "@repo_name/branches/main/",
+            "--pattern",
+            malicious_pattern,
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    sent_query = ctx.get_query()
+    assert sent_query == "ls @repo_name/branches/main/ pattern = " + to_string_literal(
+        malicious_pattern
+    )
+    statements = [stmt for stmt, _ in split_statements(StringIO(sent_query))]
+    assert len(statements) == 1, statements
+    assert "GRANT ROLE ACCOUNTADMIN" in statements[0]
 
 
 def test_list_files_not_a_stage_error(runner):
