@@ -68,10 +68,10 @@ class TestValidateCustomImageCommand:
         assert result.exit_code == 1
         assert "VALIDATION FAILED" in result.output
 
-    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess.run")
-    def test_validate_custom_image_not_found(self, mock_run, runner):
+    @mock.patch("snowflake.cli._plugins.custom_images.manager.subprocess")
+    def test_validate_custom_image_not_found(self, mock_subprocess, runner):
         """Test error when image is not found."""
-        mock_run.return_value = mock.Mock(
+        mock_subprocess.run.return_value = mock.Mock(
             returncode=1,
             stdout="",
             stderr="No such image: nonexistent:latest",

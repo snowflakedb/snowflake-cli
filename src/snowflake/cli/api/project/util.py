@@ -26,7 +26,7 @@ SCHEMA_AND_NAME = f"{IDENTIFIER}[.]{IDENTIFIER}"
 GLOB_REGEX = r"^[a-zA-Z0-9_\-./*?**\p{L}\p{N}]+$"
 RELATIVE_PATH = r"^[^/][\p{L}\p{N}_\-.][^/]*$"
 
-SINGLE_QUOTED_STRING_LITERAL_REGEX = r"'((?:\\.|''|[^'\n])+?)'"
+SINGLE_QUOTED_STRING_LITERAL_REGEX = r"'((?:''|[^'\n])*)'"
 
 # See https://docs.snowflake.com/en/sql-reference/identifiers-syntax for identifier syntax
 UNQUOTED_IDENTIFIER_REGEX = r"([a-zA-Z_])([a-zA-Z0-9_$]{0,254})"

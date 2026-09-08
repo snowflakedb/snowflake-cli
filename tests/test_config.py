@@ -26,6 +26,7 @@ from snowflake.cli.api.cli_global_context import fork_cli_context
 from snowflake.cli.api.config import (
     ConfigFileTooWidePermissionsError,
     ConnectionConfig,
+    _initialise_config,
     apply_stdout_encoding,
     config_init,
     get_config_section,
@@ -223,6 +224,40 @@ def test_create_default_config_if_not_exists_with_proper_permissions(
             assert_file_permissions_are_strict(config_path)
         finally:
             clean_logging_handlers()
+
+
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows ACL test")
+def test_initialise_config_restricts_new_dir_permissions_on_windows(tmp_path):
+    config_dir = tmp_path / "snowflake"
+    config_file = config_dir / "config.toml"
+    # Widen tmp_path with (OI)(CI) so config_dir inherits wide ACLs when created.
+    # config_dir does not exist yet — _initialise_config creates and restricts it.
+    _windows_grant_permissions("(OI)(CI)F", tmp_path)
+    with (
+        mock.patch("snowflake.cli.api.config._initialise_cli_section"),
+        mock.patch("snowflake.cli.api.config._initialise_logs_section"),
+        mock.patch("snowflake.cli.api.config.get_config_manager"),
+    ):
+        _initialise_config(config_file)
+    assert_file_permissions_are_strict(config_dir)
+
+
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows ACL test")
+def test_initialise_config_restricts_new_file_permissions_on_windows(tmp_path):
+    config_dir = tmp_path / "snowflake"
+    config_file = config_dir / "config.toml"
+    # Pre-create config_dir with wide inheritable ACLs so config_file inherits
+    # them on touch(). parent_existed=True so the dir restriction is skipped,
+    # isolating the file restriction path.
+    config_dir.mkdir()
+    _windows_grant_permissions("(OI)(CI)F", config_dir)
+    with (
+        mock.patch("snowflake.cli.api.config._initialise_cli_section"),
+        mock.patch("snowflake.cli.api.config._initialise_logs_section"),
+        mock.patch("snowflake.cli.api.config.get_config_manager"),
+    ):
+        _initialise_config(config_file)
+    assert_file_permissions_are_strict(config_file)
 
 
 @mock.patch.dict(
@@ -514,17 +549,42 @@ def test_readable_permissions_on_default_config_file_causes_error(
 
 @parametrize_icacls
 @pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
-@pytest.mark.skip("WIP: https://github.com/snowflakedb/snowflake-cli/issues/1759")
-def test_too_wide_permissions_on_default_config_file_causes_error_windows(
+def test_too_wide_permissions_on_default_config_file_causes_warning_windows(
     snowflake_home: Path, permissions: str
 ):
+    from tests.conftest import clean_logging_handlers
+
     config_path = snowflake_home / "config.toml"
     config_path.touch()
     _windows_grant_permissions(permissions, config_path)
 
-    with pytest.raises(ConfigFileTooWidePermissionsError) as error:
-        config_init(None)
-    assert "config.toml has too wide permissions" in error.value.message
+    try:
+        with pytest.warns(
+            UserWarning,
+            match=r"Unauthorized users have access to configuration file .*config\.toml",
+        ):
+            config_init(None)
+    finally:
+        clean_logging_handlers()
+
+
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
+def test_default_config_strict_permissions_no_warning_windows(snowflake_home: Path):
+    from tests.conftest import clean_logging_handlers
+
+    config_path = snowflake_home / "config.toml"
+    config_path.touch()
+
+    try:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config_init(None)
+        permission_warnings = [
+            warning for warning in w if "Unauthorized users" in str(warning.message)
+        ]
+        assert not permission_warnings
+    finally:
+        clean_logging_handlers()
 
 
 @pytest.mark.parametrize(
@@ -585,9 +645,67 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permi
         assert result.returncode == 0, result.stdout + result.stderr
 
         try:
+            with pytest.warns(UserWarning) as warning_list:
+                config_init(config_file=config_path)
+            warning_text = str(warning_list[0].message)
+            assert "Unauthorized users" in warning_text
+            assert "Everyone" in warning_text
+            assert str(config_path) in warning_text
+            assert "/inheritance:r /grant" in warning_text
+            assert ":(F)" in warning_text
+        finally:
+            clean_logging_handlers()
+
+
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
+def test_everyone_on_continuation_line_triggers_warning_windows():
+    """
+    icacls renders well-known SIDs such as Everyone without a domain prefix on
+    indented continuation lines when they are not the first ACE in the DACL.
+    This test controls the ACL explicitly to guarantee that layout
+    """
+    import subprocess
+
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
+    with TemporaryDirectory() as tmp_dir:
+        resolved_tmp_dir = path_resolver(tmp_dir)
+        config_path = Path(resolved_tmp_dir) / "config.toml"
+        config_path.touch()
+
+        # Build a controlled two-ACE DACL:
+        #   1. Remove inherited ACEs and set Administrators as the only entry —
+        #      icacls will place this on the file-path line.
+        #   2. Add Everyone:R as a second entry — icacls renders it on an
+        #      indented continuation line with no domain\ prefix:
+        #        C:\...\config.toml BUILTIN\Administrators:(F)
+        #                           Everyone:(R)
+        result = subprocess.run(
+            [
+                "icacls",
+                str(config_path),
+                "/inheritance:r",
+                "/GRANT",
+                "BUILTIN\\Administrators:F",
+            ],
+            text=True,
+            capture_output=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+
+        result = subprocess.run(
+            ["icacls", str(config_path), "/GRANT", "Everyone:R"],
+            text=True,
+            capture_output=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+
+        try:
             with pytest.warns(
                 UserWarning,
-                match=r"Unauthorized users \(.*\) have access to configuration file .*",
+                match=r"Unauthorized users have access to configuration file .*",
             ):
                 config_init(config_file=config_path)
         finally:
@@ -632,19 +750,25 @@ def test_readable_permissions_on_default_connections_file_causes_error(
 
 @parametrize_icacls
 @pytest.mark.skipif(condition=not IS_WINDOWS, reason="Windows permission system test")
-@pytest.mark.skip("WIP: https://github.com/snowflakedb/snowflake-cli/issues/1759")
-def test_too_wide_permissions_on_default_connections_file_causes_error_windows(
+def test_too_wide_permissions_on_default_connections_file_causes_warning_windows(
     snowflake_home: Path, permissions: str
 ):
+    from tests.conftest import clean_logging_handlers
+
     config_path = snowflake_home / "config.toml"
     config_path.touch()
     connections_path = snowflake_home / "connections.toml"
     connections_path.touch()
     _windows_grant_permissions(permissions, connections_path)
 
-    with pytest.raises(ConfigFileTooWidePermissionsError) as error:
-        config_init(None)
-    assert "connections.toml has too wide permissions" in error.value.message
+    try:
+        with pytest.warns(
+            UserWarning,
+            match=r"Unauthorized users have access to configuration file .*connections\.toml",
+        ):
+            config_init(None)
+    finally:
+        clean_logging_handlers()
 
 
 def test_no_error_when_init_from_non_default_config(
@@ -933,6 +1057,163 @@ def test_custom_config_env_var_does_not_suppress_writable_error(
         ):
             with pytest.raises(ConfigFileTooWidePermissionsError):
                 config_init(config_file=config_path)
+
+
+@parametrize_icacls
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_custom_config_enforce_strict_wide_permissions_warns_windows(
+    snowflake_home: Path, permissions: str
+):
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
+    with TemporaryDirectory() as tmp_dir:
+        resolved_tmp_dir = path_resolver(tmp_dir)
+        config_path = Path(resolved_tmp_dir) / "config.toml"
+        config_path.touch()
+        _windows_grant_permissions(permissions, config_path)
+
+        try:
+            with pytest.warns(
+                UserWarning,
+                match=r"Unauthorized users have access to configuration file .*",
+            ):
+                config_init(config_file=config_path)
+        finally:
+            clean_logging_handlers()
+
+
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
+@with_feature_flags({FeatureFlag.ENFORCE_STRICT_CONFIG_PERMISSIONS: True})
+def test_custom_config_enforce_strict_strict_permissions_no_warning_windows(
+    snowflake_home: Path,
+):
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
+    with TemporaryDirectory() as tmp_dir:
+        resolved_tmp_dir = path_resolver(tmp_dir)
+        config_path = Path(resolved_tmp_dir) / "config.toml"
+        config_path.touch()
+
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                config_init(config_file=config_path)
+            permission_warnings = [
+                warning for warning in w if "Unauthorized users" in str(warning.message)
+            ]
+            assert not permission_warnings
+        finally:
+            clean_logging_handlers()
+
+
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows permission system test")
+def test_check_custom_config_permissions_strict_enforcement_warns_windows(
+    tmp_path, monkeypatch
+):
+    from snowflake.cli.api.config import _check_custom_config_permissions
+
+    config_file = tmp_path / "config.toml"
+    config_file.touch()
+    monkeypatch.setattr(
+        "snowflake.cli.api.config._should_enforce_strict_config_permissions",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.file_permissions_are_strict", lambda _: False
+    )
+    with pytest.warns(UserWarning, match="have access"):
+        _check_custom_config_permissions(config_file)
+
+
+def test_check_file_permissions_warns_on_windows(tmp_path, monkeypatch):
+    from snowflake.cli.api.config import _check_file_permissions
+
+    config_file = tmp_path / "config.toml"
+    config_file.touch()
+    monkeypatch.setattr("snowflake.cli.api.config.IS_WINDOWS", True)
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.file_permissions_are_strict", lambda _: False
+    )
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.get_windows_permission_warning",
+        lambda _: "Unauthorized users have access",
+    )
+
+    with pytest.warns(UserWarning, match="Unauthorized users"):
+        _check_file_permissions(config_file)
+
+
+def test_check_file_permissions_skip_env_var_does_not_suppress_windows_warning(
+    tmp_path, monkeypatch
+):
+    from snowflake.cli.api.config import _check_file_permissions
+
+    config_file = tmp_path / "config.toml"
+    config_file.touch()
+    monkeypatch.setattr("snowflake.cli.api.config.IS_WINDOWS", True)
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.file_permissions_are_strict", lambda _: False
+    )
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.get_windows_permission_warning",
+        lambda _: "Unauthorized users have access",
+    )
+    monkeypatch.setenv("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", "true")
+
+    with pytest.warns(UserWarning, match="Unauthorized users"):
+        _check_file_permissions(config_file)
+
+
+def test_check_custom_config_permissions_warns_on_windows(tmp_path, monkeypatch):
+    from snowflake.cli.api.config import _check_custom_config_permissions
+
+    config_file = tmp_path / "config.toml"
+    config_file.touch()
+    monkeypatch.setattr("snowflake.cli.api.config.IS_WINDOWS", True)
+    monkeypatch.setattr(
+        "snowflake.cli.api.config._should_enforce_strict_config_permissions",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.file_permissions_are_strict", lambda _: False
+    )
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.get_windows_permission_warning",
+        lambda _: "Unauthorized users have access",
+    )
+
+    with pytest.warns(UserWarning, match="Unauthorized users"):
+        _check_custom_config_permissions(config_file)
+
+
+def test_check_custom_config_permissions_skip_env_var_does_not_suppress_windows_warning(
+    tmp_path, monkeypatch
+):
+    from snowflake.cli.api.config import _check_custom_config_permissions
+
+    config_file = tmp_path / "config.toml"
+    config_file.touch()
+    monkeypatch.setattr("snowflake.cli.api.config.IS_WINDOWS", True)
+    monkeypatch.setattr(
+        "snowflake.cli.api.config._should_enforce_strict_config_permissions",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.file_permissions_are_strict", lambda _: False
+    )
+    monkeypatch.setattr(
+        "snowflake.cli.api.config.get_windows_permission_warning",
+        lambda _: "Unauthorized users have access",
+    )
+    monkeypatch.setenv("SF_SKIP_TOKEN_FILE_PERMISSIONS_VERIFICATION", "true")
+
+    with pytest.warns(UserWarning, match="Unauthorized users"):
+        _check_custom_config_permissions(config_file)
 
 
 @pytest.mark.parametrize(
@@ -1634,3 +1915,34 @@ def test_encoding_diagnostics_both_configured(monkeypatch):
 
     result = get_encoding_diagnostics()
     assert result == "No encoding issues - your system is properly configured."
+
+
+@pytest.mark.skipif(not IS_WINDOWS, reason="Windows ACL test")
+def test_new_config_file_has_strict_acls_despite_wide_parent_windows():
+    """
+    Config file created by _initialise_config must have strict ACLs even when
+    the parent directory carries a broad inherited ACE (e.g. Everyone:(R)), as
+    is common on domain-joined workstations where %USERPROFILE% inherits wide
+    directory ACLs.
+    """
+    import subprocess
+
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
+    with TemporaryDirectory() as tmp_dir:
+        resolved_tmp_dir = path_resolver(tmp_dir)
+        result = subprocess.run(
+            ["icacls", resolved_tmp_dir, "/grant", "Everyone:(R)"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+
+        config_path = Path(resolved_tmp_dir) / "config.toml"
+        try:
+            config_init(config_file=config_path)
+            assert_file_permissions_are_strict(config_path)
+        finally:
+            clean_logging_handlers()

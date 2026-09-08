@@ -5,6 +5,7 @@ from pathlib import Path, PurePosixPath
 
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
+    is_valid_string_literal,
     to_string_literal,
 )
 
@@ -281,7 +282,7 @@ class StagePath:
 
     def is_quoted(self) -> bool:
         path = self.absolute_path()
-        return path.startswith("'") and path.endswith("'")
+        return is_valid_string_literal(path)
 
     def path_for_sql(self) -> str:
         path = self.absolute_path()
