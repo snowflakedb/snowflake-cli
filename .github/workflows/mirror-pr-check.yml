@@ -1,0 +1,44 @@
+name: Check mirrored files for internal references
+
+# Required check on main: add this job name to branch protection after it has run there.
+
+on:
+  pull_request:
+    branches:
+      - "**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  internal-references:
+    name: Check mirrored files for internal references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Load config
+        run: |
+          source scripts/mirroring/lib/config.sh
+          echo "COPYBARA_RELEASE=${COPYBARA_RELEASE}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: scripts/mirroring/copybara
+          push: false
+          load: true
+          tags: copybara:local
+          build-args: |
+            COPYBARA_RELEASE=${{ env.COPYBARA_RELEASE }}
+
+      - name: Run internal-reference guards
+        run: bash scripts/mirroring/lib/copybara-verify.sh

@@ -15,8 +15,9 @@ MIRROR_BOT_EMAIL="mirror-bot@snowflake.com"
 
 TRUNK_BRANCH="main"
 
-# Copybara workflow name — must match the name() in copy.bara.sky
+# Copybara workflow names — must match name() in copy.bara.sky
 COPYBARA_WORKFLOW="mirror"
+COPYBARA_VERIFY_WORKFLOW="verify"
 
 # Copybara JAR release — must match the ARG default in copybara/Dockerfile.
 # Can be overridden via environment variable without editing this file.

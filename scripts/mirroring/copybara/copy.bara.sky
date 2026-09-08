@@ -1,8 +1,10 @@
-# Copybara config: one workflow.
+# Copybara config: two workflows.
 #
-# `mirror` — outbound: snowflake-eng/snowflake-cli -> snowflakedb/snowflake-cli.
-#             ITERATIVE, direct push, denylist filter + internal-marker guards.
-#             Triggered on push to main + hourly fallback via .github/workflows/mirror-main.yml.
+# `mirror`    — outbound: snowflake-eng/snowflake-cli -> snowflakedb/snowflake-cli.
+#               ITERATIVE, direct push, denylist filter + internal-marker guards.
+#               Triggered on push to main + hourly fallback via .github/workflows/mirror-main.yml.
+# `verify`    — same denylist + verify_match guards, local git origin + folder dest.
+#               Used as a PR merge gate so a leak fails before it lands on main.
 #
 SOURCE_REPO = "https://github.com/snowflake-eng/snowflake-cli"
 MIRROR_REPO = "https://github.com/snowflakedb/snowflake-cli"
@@ -55,6 +57,17 @@ EXCLUDED_PATHS = [
 # Re-include seam: paths matched here are mirrored even if excluded above.
 EXCLUDED_PATH_OVERRIDES = []
 
+ORIGIN_FILES = glob(["**"], exclude = EXCLUDED_PATHS) + glob(EXCLUDED_PATH_OVERRIDES)
+
+# Tripwires on mirrored files (no rewriting). Shared with `verify`.
+INTERNAL_REF_GUARDS = [
+    core.verify_match(
+        regex = "\\.snowflakecomputing\\.internal|\\.corp\\.snowflake",
+        verify_no_match = True,
+        failure_message = "Mirrored files must not name internal hostnames.",
+    ),
+]
+
 core.workflow(
     name = "mirror",
     # ITERATIVE preserves linear source history — one destination commit
@@ -65,10 +78,8 @@ core.workflow(
         url = SOURCE_REPO,
         ref = "main",  # overridden at runtime
     ),
-    # Direct push — no PR gate. Safety relies on the denylist + the
-    # verify_match checks below, plus environment approval on dispatch,
-    # plus the `snowflake-cli-mirror-privacy` ArcticOwl reviewer
-    # which flags new files in public paths whose content looks internal.
+    # Direct push. Safety relies on the denylist, INTERNAL_REF_GUARDS,
+    # and the `verify` merge-gate workflow.
     destination = git.github_destination(
         url = MIRROR_REPO,
         push = "main",  # overridden at runtime
@@ -76,25 +87,23 @@ core.workflow(
     authoring = authoring.pass_thru(
         "Mirror Bot <mirror-bot@snowflake.com>"
     ),
-    origin_files = glob(["**"], exclude = EXCLUDED_PATHS) + glob(EXCLUDED_PATH_OVERRIDES),
-    transformations = [
-        # Tripwires only — NO content rewriting (by design). We want the sync to
-        # FAIL loudly on an internal reference so it gets fixed at the source,
-        # rather than silently transforming files (which hides leaks and creates
-        # source/mirror drift). Revisit adding a core.replace once we've seen
-        # what actually trips these.
-        #
-        # Fail the sync if any mirrored file names the internal org. The
-        # machinery that legitimately references it (scripts/mirroring/**,
-        # mirror-*.yml, CODEOWNERS) is excluded from origin_files above, so a
-        # match here is an unexpected leak that needs a human.
-        core.verify_match(
-            regex = "snowflake-eng",
-            verify_no_match = True,
-        ),
-        core.verify_match(
-            regex = "\\.snowflakecomputing\\.internal|\\.corp\\.snowflake",
-            verify_no_match = True,
-        ),
-    ],
+    origin_files = ORIGIN_FILES,
+    transformations = INTERNAL_REF_GUARDS,
+)
+
+# Git origin + folder dest; same ORIGIN_FILES + INTERNAL_REF_GUARDS. No dest credentials.
+# Origin URL is the repo bind-mounted at /origin (see copybara-verify.sh).
+core.workflow(
+    name = "verify",
+    mode = "SQUASH",
+    origin = git.origin(
+        url = "file:///origin",
+        ref = "HEAD",
+    ),
+    destination = folder.destination(),
+    authoring = authoring.overwrite(
+        "Mirror Bot <mirror-bot@snowflake.com>"
+    ),
+    origin_files = ORIGIN_FILES,
+    transformations = INTERNAL_REF_GUARDS,
 )
