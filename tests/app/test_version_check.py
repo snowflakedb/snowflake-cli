@@ -22,7 +22,12 @@ from snowflake.cli._app.version_check import (
     wait_for_refresh,
     was_warning_shown_recently,
 )
-from snowflake.cli.api.config import config_init
+from snowflake.cli.api.config import (
+    CLI_SECTION,
+    IGNORE_NEW_VERSION_WARNING_KEY,
+    config_init,
+    get_env_variable_name,
+)
 from snowflake.cli.api.secure_path import SecurePath
 
 _WARNING_MESSAGE = (
@@ -62,6 +67,17 @@ def _immediate_background_refresh():
         "snowflake.cli._app.version_check.threading.Thread", _ImmediateThread
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def do_not_ignore_new_version_warning(monkeypatch):
+    """The root conftest.py silences the new-version notice for the whole suite.
+    This module asserts on the notice, so opt back out of that.
+    """
+    monkeypatch.delenv(
+        get_env_variable_name(CLI_SECTION, key=IGNORE_NEW_VERSION_WARNING_KEY),
+        raising=False,
+    )
 
 
 @pytest.fixture(autouse=True)

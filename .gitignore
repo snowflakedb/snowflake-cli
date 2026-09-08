@@ -28,3 +28,4 @@ plans/
 .cursor/mcp.json
 .mcp.json
 .ai/review/**/*.json
+/tests/logs/snowflake-cli.log

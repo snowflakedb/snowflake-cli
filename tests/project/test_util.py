@@ -179,25 +179,30 @@ def test_append_to_identifier():
     "literal,valid",
     [
         ("abc", False),
+        ("''", True),  # empty SQL string literal — valid with * quantifier
         ("'abc'", True),
         ("'_aBc_$'", True),
         ('"abc"', False),
-        (r"'abc\'def'", True),
+        (r"'abc\'def'", False),
         (r"'abc''def'", True),
         ("'a\bbc'", True),  # escape sequences
         ("'a\fbc'", True),
         ("'a\nbc'", False),
-        (r"'a\nbc'", True),
+        (r"'a\nbc'", True),  # backslash-n (two chars) is fine — not a quote
         ("'a\rbc'", True),
         ("'a\tbc'", True),
         ("'a\vbc'", True),
         ("'\xf6'", True),  # unicode escape
-        (r"'\'abc'", True),
-        (r"'a\'c'", True),
-        (r"'abc\''", True),
+        (r"'\'abc'", False),
+        (r"'a\'c'", False),
+        (r"'abc\''", False),
         ("'abc", False),  # leading unterminated single quote
         ("'a'c'", False),  # nested single quote
         ("abc'", False),  # trailing single quote
+        ("'@stage\\'; GRANT ROLE ACCOUNTADMIN TO USER alice; --'", False),
+        # Backslash not adjacent to a quote is fine.
+        (r"'value\n'", True),
+        (to_string_literal("a\\'b"), True),
     ],
 )
 def test_is_valid_string_literal(literal, valid):
@@ -223,6 +228,13 @@ def test_is_valid_string_literal(literal, valid):
         ("\xf6", "'\xf6'"),
         ("a\\b", "'a\\b'"),  # bare backslash passes through
         ("C:\\Users\\RUNNER~1", "'C:\\Users\\RUNNER~1'"),
+        # A trailing backslash run (not followed by a quote) is preserved
+        # verbatim: only backslashes *before a quote* are doubled. This is safe
+        # for `ls ... pattern = '...'` because the literal is the final token, so
+        # the (escaped) closing quote has nothing after it for the splitter to
+        # absorb.
+        ("a\\", "'a\\'"),  # single trailing backslash
+        ("a\\\\\\", "'a\\\\\\'"),  # odd-length (3) trailing backslash run
         ("'abc", "'''abc'"),  # leading unterminated single quote
         ("a'c", "'a''c'"),  # nested single quote
         ("abc'", "'abc'''"),  # trailing single quote

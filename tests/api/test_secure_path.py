@@ -249,6 +249,30 @@ def test_mkdir(temporary_directory, save_logs, _widen_umask_for_testing):
         dir2 = dir2.parent
 
 
+def test_touch_leaves_existing_file_permissions_unchanged(
+    temporary_directory, _widen_umask_for_testing
+):
+    file_path = Path(temporary_directory) / "existing.txt"
+    file_path.touch(mode=0o644)
+    original_mode = file_path.stat().st_mode
+
+    SecurePath(file_path).touch()
+
+    assert file_path.stat().st_mode == original_mode
+
+
+def test_mkdir_leaves_existing_dir_permissions_unchanged(
+    temporary_directory, _widen_umask_for_testing
+):
+    dir_path = Path(temporary_directory) / "existing_dir"
+    dir_path.mkdir(mode=0o777)
+    original_mode = dir_path.stat().st_mode
+
+    SecurePath(dir_path).mkdir(exist_ok=True)
+
+    assert dir_path.stat().st_mode == original_mode
+
+
 def test_move(temporary_directory, save_logs):
     def _get_new_file():
         file = Path(temporary_directory) / "file.txt"
