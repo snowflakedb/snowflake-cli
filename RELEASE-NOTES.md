@@ -49,6 +49,7 @@
 * `snow streamlit deploy --replace` of an existing versioned SPCS v2 app now restarts the running Streamlit service after uploading files, so content-only updates show up without a Snowsight restart. First-time deploys, `CREATE OR REPLACE` conversions, and `--legacy` deploys are unchanged. Warehouse runtimes and no-op uploads (no file changes) are also unchanged.
 * Security improvements
 
+* Upgraded GitPython from 3.1.59 to 3.1.62 to address CVE CVE-2026-78676.
 
 # v3.26.0
 
