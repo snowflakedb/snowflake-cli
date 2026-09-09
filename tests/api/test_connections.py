@@ -370,3 +370,54 @@ def test_connection_cache_failure_log_does_not_leak_credentials(
     # We should still see a "failed to connect" breadcrumb so the debug log
     # retains diagnostic value.
     assert "failed to connect" in rendered_logs
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_get_if_open_does_not_dial(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    """get_if_open must never create a connection -- callers use it precisely
+    because authenticating would be a side effect they cannot afford."""
+    mock_command_info.return_value = "application"
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    assert local_connection_cache.get_if_open(ctx) is None
+    mock_connect.assert_not_called()
+
+    # Once something else opens it, the same peek returns that connection.
+    opened = local_connection_cache[ctx]
+    assert local_connection_cache.get_if_open(ctx) is opened
+    mock_connect.assert_called_once()
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_get_if_open_reports_cached_failure_as_none(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    """A cached failure is reported as None rather than re-raised: a caller that
+    only wants to observe an existing connection has nothing to handle."""
+    mock_command_info.return_value = "application"
+    mock_connect.side_effect = DatabaseError("boom")
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    with pytest.raises(InvalidConnectionConfigurationError):
+        local_connection_cache[ctx]
+
+    assert local_connection_cache.get_if_open(ctx) is None
+
+
+def test_get_if_open_rejects_non_context(local_connection_cache):
+    with pytest.raises(ValueError, match="Expected key to be ConnectionContext"):
+        local_connection_cache.get_if_open("default")
