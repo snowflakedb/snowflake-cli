@@ -867,3 +867,99 @@ def test_flags_from_parent_contexts_are_captured(mock_uuid4, mock_connect, runne
     assert (
         "run_async" in command_flags
     ), f"run_async flag should be captured in telemetry. Found flags: {command_flags}"
+
+
+_INTERACTIVE_CONFIG = """
+[connections.default]
+account = "acct"
+user = "usr"
+authenticator = "externalbrowser"
+"""
+
+_SILENT_CONFIG = """
+[connections.default]
+account = "acct"
+user = "usr"
+password = "pwd"
+"""
+
+
+@mock.patch("snowflake.connector.connect")
+def test_telemetry_does_not_open_connection_for_interactive_authenticator(
+    mock_connect, runner, config_file
+):
+    """Telemetry must never be the reason the CLI authenticates.
+
+    `connection list` needs no Snowflake connection, but telemetry used to reach
+    for one to get the connector's telemetry channel -- which for externalbrowser
+    launched a browser on every command and hung headless/CI runs.
+    """
+    with config_file(_INTERACTIVE_CONFIG) as config:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            result = runner.invoke_with_config_file(config, ["connection", "list"])
+
+    assert result.exit_code == 0, result.output
+    mock_connect.assert_not_called()
+
+
+@mock.patch("snowflake.connector.connect")
+def test_telemetry_does_not_open_connection_for_env_var_authenticator(
+    mock_connect, runner, config_file
+):
+    """SNOWFLAKE_AUTHENTICATOR needs its own check because the CLI's config layer
+    merges only SNOWFLAKE_CONNECTIONS_* into the connection context -- and setting
+    it with no authenticator in config.toml is the common CI setup."""
+    with config_file(_SILENT_CONFIG) as config:
+        with mock.patch.dict(
+            os.environ, {"SNOWFLAKE_AUTHENTICATOR": "externalbrowser"}, clear=True
+        ):
+            result = runner.invoke_with_config_file(config, ["connection", "list"])
+
+    assert result.exit_code == 0, result.output
+    mock_connect.assert_not_called()
+
+
+@mock.patch("snowflake.connector.connect")
+def test_telemetry_prefers_config_authenticator_over_env_var(
+    mock_connect, runner, config_file
+):
+    """The env var is a fallback, not an override -- same order as
+    `connect_to_snowflake`, whose step (2) applies SUPPORTED_ENV_OVERRIDES only to
+    keys config and flags left unset.
+
+    Resolving it the other way round let a leftover silent SNOWFLAKE_AUTHENTICATOR
+    mask an interactive config.toml, so telemetry opened a connection that still
+    went through SSO -- exactly the browser this change exists to prevent.
+    """
+    with config_file(_INTERACTIVE_CONFIG) as config:
+        with mock.patch.dict(
+            os.environ, {"SNOWFLAKE_AUTHENTICATOR": "SNOWFLAKE"}, clear=True
+        ):
+            result = runner.invoke_with_config_file(config, ["connection", "list"])
+
+    assert result.exit_code == 0, result.output
+    mock_connect.assert_not_called()
+
+
+@mock.patch("snowflake.connector.connect")
+def test_telemetry_may_open_connection_for_silent_authenticator(
+    mock_connect, runner, config_file
+):
+    """The gate is on interaction, not on connecting: where logging in is silent
+    telemetry still opens a connection, so coverage of commands that never
+    connect is unchanged."""
+    with config_file(_SILENT_CONFIG) as config:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            result = runner.invoke_with_config_file(config, ["connection", "list"])
+
+    assert result.exit_code == 0, result.output
+    mock_connect.assert_called()
+
+
+@mock.patch("snowflake.connector.connect")
+def test_get_auth_type_does_not_open_connection(mock_connect):
+    """_get_auth_type reads an already-open connection or nothing at all."""
+    from snowflake.cli._app.telemetry import _get_auth_type
+
+    assert _get_auth_type() == ""
+    mock_connect.assert_not_called()
