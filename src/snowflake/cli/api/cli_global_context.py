@@ -146,6 +146,18 @@ class _CliGlobalContextManager:
         self.connection_context.validate_and_complete()
         return self.connection_cache[self.connection_context]
 
+    @property
+    def connection_if_open(self) -> SnowflakeConnection | None:
+        """
+        Returns the connection for our configured context only if one is already
+        open in the cache, otherwise None. Never creates a connection.
+
+        Use this instead of `connection` for observation-only code paths where
+        authenticating would be a bug rather than a cost -- see
+        OpenConnectionCache.get_if_open.
+        """
+        return self.connection_cache.get_if_open(self.connection_context)
+
     def _definition_manager_or_raise(self) -> DefinitionManager:
         """
         (Re-)parses project definition based on project args (project_path_arg and
@@ -247,6 +259,10 @@ class _CliGlobalContextAccess:
     @property
     def connection(self) -> SnowflakeConnection:
         return self._manager.connection
+
+    @property
+    def connection_if_open(self) -> SnowflakeConnection | None:
+        return self._manager.connection_if_open
 
     @property
     def connection_context(self) -> ConnectionContext:

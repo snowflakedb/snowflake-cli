@@ -324,6 +324,30 @@ class OpenConnectionCache:
         self._touch(key)
         return self.connections[key]
 
+    def get_if_open(self, ctx: ConnectionContext) -> SnowflakeConnection | None:
+        """
+        Returns the cached connection for ctx if one is already open, else None.
+
+        Unlike __getitem__ this never dials, so it is safe to call from code that
+        must not authenticate as a side effect -- notably telemetry, which would
+        otherwise launch a browser (externalbrowser/OAuth) on commands that need
+        no connection at all. A previously cached failure is reported as None
+        rather than re-raised: a caller that only wants to observe an existing
+        connection has nothing to handle.
+
+        Deliberately does not _touch() the entry, so merely observing a
+        connection cannot extend its lifetime.
+        """
+        if not isinstance(ctx, ConnectionContext):
+            raise ValueError(
+                f"Expected key to be ConnectionContext but got {repr(ctx)}"
+            )
+        ctx.validate_and_complete()
+        key = ctx._full_cache_key()  # noqa: SLF001
+        if not self._has_open_connection(key):
+            return None
+        return self.connections[key]
+
     def clear(self):
         """Closes all connections and resets the cache to its initial state."""
         connection_keys = list(self.connections.keys())
