@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Telemetry no longer opens a Snowflake connection on its own. Under `externalbrowser` or OAuth authorization-code authentication, commands that never touch Snowflake — such as `snow connection list`, `snow app bundle`, and `snow sql --help` — no longer open a browser tab, and no longer hang in headless or CI runs waiting for one that cannot appear.
 
 
 # v3.27.0

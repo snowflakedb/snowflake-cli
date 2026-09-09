@@ -18,7 +18,7 @@ import os
 import platform
 import sys
 from enum import Enum, unique
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import click
 import typer
@@ -365,18 +365,80 @@ def _get_auth_type() -> str:
     which is what telemetry needs to segment auth usage (password vs key_pair vs
     oauth vs externalbrowser vs ...).
 
-    By the time the telemetry payload is built the connection has already been
-    established -- the telemetry channel itself comes from it -- so reading it
-    here is a cache hit and never dials a new connection. Any failure, or a
-    connection that does not expose a string authenticator, yields ``""``.
+    Reads the connection only if one is *already* open: telemetry must never be
+    the reason the CLI authenticates. ``get_cli_context().connection`` is lazy and
+    would dial on a miss, which for externalbrowser/OAuth means launching a
+    browser -- and the payload is also built for the pre-command event, before the
+    command body has connected. So the field is empty on the pre-command event and
+    populated on the post-command one, where the connection genuinely exists. Any
+    failure, no open connection, or a connection that does not expose a string
+    authenticator yields ``""``.
     """
     try:
-        authenticator = getattr(get_cli_context().connection, "_authenticator", None)
+        connection = get_cli_context().connection_if_open
     except Exception:
         return ""
+    authenticator = getattr(connection, "_authenticator", None)
     if not isinstance(authenticator, str):
         return ""
     return _normalize_auth_type(authenticator)
+
+
+# Authenticators whose login flow needs a human present: opening a connection
+# for these launches a browser or pushes an MFA prompt. Telemetry is never worth
+# that, so when one of them is configured we only piggyback on a connection the
+# command itself opened (see CLITelemetryClient._telemetry). Everything else --
+# password, key pair, PAT, workload identity, token-based OAuth, native Okta --
+# completes without user interaction and keeps today's behaviour.
+_INTERACTIVE_AUTHENTICATORS = frozenset(
+    {
+        "EXTERNALBROWSER",
+        "OAUTH_AUTHORIZATION_CODE",
+        "USERNAME_PASSWORD_MFA",
+    }
+)
+
+
+def _configured_authenticator() -> str:
+    """Resolve the configured authenticator without opening a connection.
+
+    Resolution order mirrors :func:`connect_to_snowflake`, so the answer matches
+    the authenticator a dial would really use: flags first, then the named
+    connection's config, and ``SNOWFLAKE_AUTHENTICATOR`` only as a fallback when
+    neither set one. ``authenticator`` is in ``SUPPORTED_ENV_OVERRIDES``, which
+    step (2) of that function applies only to keys still missing -- so reading the
+    env var first would let a leftover ``SNOWFLAKE_AUTHENTICATOR=snowflake``
+    mask an ``authenticator = "externalbrowser"`` in ``config.toml`` and put the
+    browser back. It still needs an explicit read because the CLI's config layer
+    merges only ``SNOWFLAKE_CONNECTIONS_*`` into the connection context.
+
+    Reads config on a *clone* of the connection context: ``update_from_config``
+    fills in missing fields, and doing that to the shared context would change
+    the connection cache key the command body later computes.
+    """
+    context = get_cli_context().connection_context.clone()
+    context.validate_and_complete()
+    context.update_from_config()
+    from_context = (context.authenticator or "").strip()
+    if from_context:
+        return from_context.upper()
+    return os.environ.get("SNOWFLAKE_AUTHENTICATOR", "").strip().upper()
+
+
+def _telemetry_may_open_connection() -> bool:
+    """Whether telemetry may open a connection when none is open yet.
+
+    Telemetry rides on the connector's per-connection telemetry channel, so
+    emitting an event requires a connection. That is acceptable when logging in
+    is silent, but not when it would prompt the user -- so this gates the dial
+    rather than the send. If the authenticator cannot be determined, assume the
+    worst and stay quiet: a lost telemetry event is cheaper than an unexpected
+    browser window.
+    """
+    try:
+        return _configured_authenticator() not in _INTERACTIVE_AUTHENTICATORS
+    except Exception:
+        return False
 
 
 def _detect_agent_environment() -> str:
@@ -463,6 +525,17 @@ def _get_config_telemetry() -> TelemetryDict:
 
 
 class CLITelemetryClient:
+    # Cap on events recorded before a connection existed, waiting to be handed
+    # to the connector's telemetry channel (see _drain). A runaway guard rather
+    # than a batch size: a single run emits at most three events (usage, error,
+    # result), and the cap stays well under the connector's own
+    # DEFAULT_FORCE_FLUSH_SIZE of 100, so a drain cannot force a larger upload
+    # than the channel already sends on its own.
+    _PENDING_LIMIT = 32
+
+    def __init__(self):
+        self._pending: List[Tuple[Dict[str, Any], int]] = []
+
     @property
     def _ctx(self) -> _CliGlobalContextAccess:
         return get_cli_context()
@@ -495,18 +568,78 @@ class CLITelemetryClient:
 
     @property
     def _telemetry(self):
-        return self._ctx.connection._telemetry  # noqa
+        """The connector's telemetry channel, or None if nothing is connected yet.
+
+        The channel lives on a SnowflakeConnection, and reaching for it through
+        the lazy `connection` accessor made *telemetry* dial. With an
+        externalbrowser/OAuth default that launched a browser on every command
+        running through SnowTyper -- including ones needing no connection, e.g.
+        `snow connection list` -- and broke headless/CI runs, with the resulting
+        error swallowed by ignore_exceptions so the command still looked fine.
+
+        So prefer a connection that is already open, and only fall back to
+        opening one when logging in is silent (_telemetry_may_open_connection).
+        """
+        connection = self._ctx.connection_if_open
+        if connection is None and _telemetry_may_open_connection():
+            connection = self._ctx.connection
+        if connection is None:
+            return None
+        return connection._telemetry  # noqa
 
     def send(self, payload: TelemetryDict):
-        if self._telemetry:
-            message = self.generate_telemetry_data_dict(payload)
-            telemetry_data = TelemetryData.from_telemetry_data_dict(
-                from_dict=message, timestamp=get_time_millis()
+        # Timestamp now, but keep the raw dict: _drain backfills the fields that
+        # are only knowable once a connection exists.
+        self._pending.append(
+            (self.generate_telemetry_data_dict(payload), get_time_millis())
+        )
+        # Keep the newest events if a run somehow never connects; the list holds
+        # two entries for a command that succeeds (usage + result) and three when
+        # it also reports an error.
+        del self._pending[: -self._PENDING_LIMIT]
+        self._drain()
+
+    def _drain(self):
+        """Hand any buffered events to the channel, if there is one.
+
+        Buffering is what keeps this fix from costing coverage: the pre-command
+        event is generated before the command body connects, so dropping events
+        that find no open channel would lose a usage event for *every* command.
+        Instead they are held and drained once the command opens its connection
+        (log_command_result and flush_telemetry both drain). Commands that never
+        connect emit nothing -- which is the intended behaviour change: telemetry
+        is no longer worth an unrequested login.
+        """
+        telemetry = self._telemetry
+        if telemetry is None:
+            return
+        pending, self._pending = self._pending, []
+        auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
+        for message, timestamp in pending:
+            # An event buffered before the connection opened could not resolve the
+            # authenticator yet; fill it in now that one is available, so the field
+            # is not lost on the pre-command event.
+            if not message.get(auth_type_field):
+                message[auth_type_field] = _get_auth_type()
+            telemetry.try_add_log_to_batch(
+                TelemetryData.from_telemetry_data_dict(
+                    from_dict=message, timestamp=timestamp
+                )
             )
-            self._telemetry.try_add_log_to_batch(telemetry_data)
 
     def flush(self):
-        self._telemetry.send_batch()
+        try:
+            self._drain()
+            telemetry = self._telemetry
+            if telemetry is not None:
+                telemetry.send_batch()
+        finally:
+            # The command is over, so anything still buffered belongs to a run
+            # that never opened a connection and can never be sent. Drop it:
+            # this client is a module-level singleton, and leaving events queued
+            # would attribute them to whatever command runs next in the same
+            # process.
+            self._pending.clear()
 
 
 _telemetry = CLITelemetryClient()
