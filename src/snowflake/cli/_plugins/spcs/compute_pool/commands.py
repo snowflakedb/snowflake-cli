@@ -40,6 +40,7 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
+    QueryResult,
     SingleQueryResult,
 )
 from snowflake.cli.api.project.definition_helper import (
@@ -299,3 +300,12 @@ def status(pool_name: FQN = ComputePoolNameArgument, **options) -> CommandResult
     """
     cursor = ComputePoolManager().status(pool_name=pool_name.identifier)
     return SingleQueryResult(cursor)
+
+
+@app.command("show-instance-families", requires_connection=True)
+def show_instance_families(**options) -> CommandResult:
+    """
+    Shows available compute pool instance families and their specifications.
+    """
+    cursor = ComputePoolManager().show_instance_families()
+    return QueryResult(cursor)
