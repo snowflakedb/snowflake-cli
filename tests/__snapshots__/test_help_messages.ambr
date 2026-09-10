@@ -21810,13 +21810,6 @@
    To resume from a known point, pass the token printed by a previous interrupted 
    run via --start-token.                                                         
                                                                                   
-   This command is hidden by default. Enable it with:                             
-                                                                                  
-                                                                                  
-    [cli.features]                                                                
-    enable_spcs_remote_build = true                                               
-                                                                                  
-                                                                                  
   +- Options --------------------------------------------------------------------+
   | --page-size            INTEGER RANGE [1<=x<=200]  Number of jobs to request  |
   |                                                   per server page (1–200).   |
@@ -21981,13 +21974,6 @@
    Looks up the job in the live service store first; falls back to the 30-day job 
    history for completed jobs.                                                    
                                                                                   
-   This command is hidden by default. Enable it with:                             
-                                                                                  
-                                                                                  
-    [cli.features]                                                                
-    enable_spcs_remote_build = true                                               
-                                                                                  
-                                                                                  
   +- Options --------------------------------------------------------------------+
   | *  --job-name          TEXT  Fully-qualified name of the remote build job to |
   |                              look up (e.g.                                   |
@@ -22140,13 +22126,6 @@
                                                                                   
    Builds an image or app artifact using the Snowflake remote build REST API.     
                                                                                   
-   This command is hidden by default. To make it visible in help output, enable   
-   the feature flag in your config.toml: [cli.features] enable_spcs_remote_build  
-   = true                                                                         
-                                                                                  
-   Or set the environment variable: export                                        
-   SNOWFLAKE_CLI_FEATURES_ENABLE_SPCS_REMOTE_BUILD=true                           
-                                                                                  
    Unlike build-image (which runs an EXECUTE JOB SERVICE system function), this   
    command calls the GS REST API directly:                                        
                                                                                   
@@ -22160,19 +22139,6 @@
     • --build-type app: builds an application tarball and uploads it to an        
       ARTIFACT REPOSITORY. --location (ARTIFACT REPOSITORY) is required.          
       Equivalent to SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO.                     
-                                                                                  
-   Required account parameters (must be set to 'enable'):                         
-                                                                                  
-    • ENABLE_SNOW_API_FOR_REMOTE_BUILD — gates the REST API endpoints (all build  
-      types).                                                                     
-    • ENABLE_SPCS_RUNTIME_IMAGE_BUILDER_FUNCTIONS — gates image builds            
-      (--build-type image).                                                       
-    • ENABLE_SPCS_RUNTIME_APP_BUILDER_FUNCTIONS — gates app/tarball builds        
-      (--build-type app).                                                         
-                                                                                  
-   On qualification and test deployments all three parameters default to true. On 
-   a standard account you must explicitly enable the relevant parameters before   
-   this command works.                                                            
                                                                                   
   +- Options --------------------------------------------------------------------+
   | *  --build-context-dir           DIRECTORY  Directory to use as build        |
@@ -23352,40 +23318,52 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create            Creates a new service in the current                       |
-  |                   schema.                                                    |
-  | deploy            Deploys a service defined in the project                   |
-  |                   definition file.                                           |
-  | describe          Provides description of service.                           |
-  | drop              Drops a service.                                           |
-  | events            Retrieve platform events for a service.                    |
-  | execute-job       Creates and executes a job service in the                  |
-  |                   current schema.                                            |
-  | list              Lists all available services.                              |
-  | list-containers   Lists all service containers in a service.                 |
-  | list-endpoints    Lists the endpoints in a service.                          |
-  | list-instances    Lists all service instances in a service.                  |
-  | list-roles        Lists all service roles in a service.                      |
-  | logs              Retrieves local logs from a service                        |
-  |                   container.                                                 |
-  | metrics           Retrieve platform metrics for a service                    |
-  |                   container.                                                 |
-  | resume            Resumes the service from a SUSPENDED state.                |
-  | set               Sets one or more properties for the                        |
-  |                   service.                                                   |
-  | status            Retrieves the status of a service. This      (deprecated)  |
-  |                   command is deprecated and will be removed                  |
-  |                   in a future release. Use describe instead                  |
-  |                   to get service status and use                              |
-  |                   list-instances and list-containers to get                  |
-  |                   more detailed information about service                    |
-  |                   instances and containers.                                  |
-  | suspend           Suspends the service, shutting down and                    |
-  |                   deleting all its containers.                               |
-  | unset             Resets one or more properties for the                      |
-  |                   service to their default value(s).                         |
-  | upgrade           Updates an existing service with a new                     |
-  |                   specification file.                                        |
+  | create                 Creates a new service in the current                  |
+  |                        schema.                                               |
+  | deploy                 Deploys a service defined in the                      |
+  |                        project definition file.                              |
+  | describe               Provides description of service.                      |
+  | drop                   Drops a service.                                      |
+  | events                 Retrieve platform events for a                        |
+  |                        service.                                              |
+  | execute-job            Creates and executes a job service in                 |
+  |                        the current schema.                                   |
+  | list                   Lists all available services.                         |
+  | list-containers        Lists all service containers in a                     |
+  |                        service.                                              |
+  | list-endpoints         Lists the endpoints in a service.                     |
+  | list-instances         Lists all service instances in a                      |
+  |                        service.                                              |
+  | list-roles             Lists all service roles in a service.                 |
+  | logs                   Retrieves local logs from a service                   |
+  |                        container.                                            |
+  | metrics                Retrieve platform metrics for a                       |
+  |                        service container.                                    |
+  | remote-build           Builds an image or app artifact using                 |
+  |                        the Snowflake remote build REST API.                  |
+  | remote-build-history   Lists all remote build jobs for the                   |
+  |                        current account from the past ~30                     |
+  |                        days, newest first.                                   |
+  | remote-build-status    Displays the current status of a                      |
+  |                        remote build job.                                     |
+  | resume                 Resumes the service from a SUSPENDED                  |
+  |                        state.                                                |
+  | set                    Sets one or more properties for the                   |
+  |                        service.                                              |
+  | status                 Retrieves the status of a service.      (deprecated)  |
+  |                        This command is deprecated and will be                |
+  |                        removed in a future release. Use                      |
+  |                        describe instead to get service status                |
+  |                        and use list-instances and                            |
+  |                        list-containers to get more detailed                  |
+  |                        information about service instances                   |
+  |                        and containers.                                       |
+  | suspend                Suspends the service, shutting down                   |
+  |                        and deleting all its containers.                      |
+  | unset                  Resets one or more properties for the                 |
+  |                        service to their default value(s).                    |
+  | upgrade                Updates an existing service with a new                |
+  |                        specification file.                                   |
   +------------------------------------------------------------------------------+
   
   
@@ -27162,40 +27140,52 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create            Creates a new service in the current                       |
-  |                   schema.                                                    |
-  | deploy            Deploys a service defined in the project                   |
-  |                   definition file.                                           |
-  | describe          Provides description of service.                           |
-  | drop              Drops a service.                                           |
-  | events            Retrieve platform events for a service.                    |
-  | execute-job       Creates and executes a job service in the                  |
-  |                   current schema.                                            |
-  | list              Lists all available services.                              |
-  | list-containers   Lists all service containers in a service.                 |
-  | list-endpoints    Lists the endpoints in a service.                          |
-  | list-instances    Lists all service instances in a service.                  |
-  | list-roles        Lists all service roles in a service.                      |
-  | logs              Retrieves local logs from a service                        |
-  |                   container.                                                 |
-  | metrics           Retrieve platform metrics for a service                    |
-  |                   container.                                                 |
-  | resume            Resumes the service from a SUSPENDED state.                |
-  | set               Sets one or more properties for the                        |
-  |                   service.                                                   |
-  | status            Retrieves the status of a service. This      (deprecated)  |
-  |                   command is deprecated and will be removed                  |
-  |                   in a future release. Use describe instead                  |
-  |                   to get service status and use                              |
-  |                   list-instances and list-containers to get                  |
-  |                   more detailed information about service                    |
-  |                   instances and containers.                                  |
-  | suspend           Suspends the service, shutting down and                    |
-  |                   deleting all its containers.                               |
-  | unset             Resets one or more properties for the                      |
-  |                   service to their default value(s).                         |
-  | upgrade           Updates an existing service with a new                     |
-  |                   specification file.                                        |
+  | create                 Creates a new service in the current                  |
+  |                        schema.                                               |
+  | deploy                 Deploys a service defined in the                      |
+  |                        project definition file.                              |
+  | describe               Provides description of service.                      |
+  | drop                   Drops a service.                                      |
+  | events                 Retrieve platform events for a                        |
+  |                        service.                                              |
+  | execute-job            Creates and executes a job service in                 |
+  |                        the current schema.                                   |
+  | list                   Lists all available services.                         |
+  | list-containers        Lists all service containers in a                     |
+  |                        service.                                              |
+  | list-endpoints         Lists the endpoints in a service.                     |
+  | list-instances         Lists all service instances in a                      |
+  |                        service.                                              |
+  | list-roles             Lists all service roles in a service.                 |
+  | logs                   Retrieves local logs from a service                   |
+  |                        container.                                            |
+  | metrics                Retrieve platform metrics for a                       |
+  |                        service container.                                    |
+  | remote-build           Builds an image or app artifact using                 |
+  |                        the Snowflake remote build REST API.                  |
+  | remote-build-history   Lists all remote build jobs for the                   |
+  |                        current account from the past ~30                     |
+  |                        days, newest first.                                   |
+  | remote-build-status    Displays the current status of a                      |
+  |                        remote build job.                                     |
+  | resume                 Resumes the service from a SUSPENDED                  |
+  |                        state.                                                |
+  | set                    Sets one or more properties for the                   |
+  |                        service.                                              |
+  | status                 Retrieves the status of a service.      (deprecated)  |
+  |                        This command is deprecated and will be                |
+  |                        removed in a future release. Use                      |
+  |                        describe instead to get service status                |
+  |                        and use list-instances and                            |
+  |                        list-containers to get more detailed                  |
+  |                        information about service instances                   |
+  |                        and containers.                                       |
+  | suspend                Suspends the service, shutting down                   |
+  |                        and deleting all its containers.                      |
+  | unset                  Resets one or more properties for the                 |
+  |                        service to their default value(s).                    |
+  | upgrade                Updates an existing service with a new                |
+  |                        specification file.                                   |
   +------------------------------------------------------------------------------+
   
   
