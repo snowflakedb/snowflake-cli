@@ -1020,7 +1020,6 @@ def build_image(
 @app.command(
     "remote-build",
     requires_connection=True,
-    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
 )
 def remote_build(
     build_context_dir: Path = typer.Option(
@@ -1098,14 +1097,6 @@ def remote_build(
     """
     Builds an image or app artifact using the Snowflake remote build REST API.
 
-    This command is hidden by default. To make it visible in help output, enable the
-    feature flag in your config.toml:
-    [cli.features]
-    enable_spcs_remote_build = true
-
-    Or set the environment variable:
-    export SNOWFLAKE_CLI_FEATURES_ENABLE_SPCS_REMOTE_BUILD=true
-
     Unlike ``build-image`` (which runs an ``EXECUTE JOB SERVICE`` system function),
     this command calls the GS REST API directly:
 
@@ -1118,15 +1109,6 @@ def remote_build(
       Equivalent to ``SYSTEM$SPCS_TEST_REMOTE_BUILD``.
     - ``--build-type app``: builds an application tarball and uploads it to an ARTIFACT REPOSITORY.
       ``--location`` (ARTIFACT REPOSITORY) is required. Equivalent to ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO``.
-
-    **Required account parameters (must be set to 'enable'):**
-
-    - ``ENABLE_SNOW_API_FOR_REMOTE_BUILD`` — gates the REST API endpoints (all build types).
-    - ``ENABLE_SPCS_RUNTIME_IMAGE_BUILDER_FUNCTIONS`` — gates image builds (``--build-type image``).
-    - ``ENABLE_SPCS_RUNTIME_APP_BUILDER_FUNCTIONS`` — gates app/tarball builds (``--build-type app``).
-
-    On qualification and test deployments all three parameters default to ``true``.
-    On a standard account you must explicitly enable the relevant parameters before this command works.
     """
     if build_type not in ("image", "app"):
         raise CliArgumentError(
@@ -1350,7 +1332,6 @@ def remote_build(
 @app.command(
     "remote-build-status",
     requires_connection=True,
-    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
 )
 def remote_build_status(
     job_name: str = typer.Option(
@@ -1366,11 +1347,6 @@ def remote_build_status(
 
     Looks up the job in the live service store first; falls back to the 30-day job history
     for completed jobs.
-
-    This command is hidden by default. Enable it with:
-
-        [cli.features]
-        enable_spcs_remote_build = true
     """
     manager = RemoteBuildManager()
     job = manager.get_remote_builder(job_name)
@@ -1389,7 +1365,6 @@ def remote_build_status(
 @app.command(
     "remote-build-history",
     requires_connection=True,
-    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
 )
 def remote_build_history(
     page_size: int = typer.Option(
@@ -1422,11 +1397,6 @@ def remote_build_history(
 
     To resume from a known point, pass the token printed by a previous interrupted run via
     --start-token.
-
-    This command is hidden by default. Enable it with:
-
-        [cli.features]
-        enable_spcs_remote_build = true
     """
     manager = RemoteBuildManager()
     all_rows: list[dict] = []
