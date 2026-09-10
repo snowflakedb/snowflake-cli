@@ -19,6 +19,8 @@
 ## Deprecations
 
 ## New additions
+* Upgraded GitPython from 3.1.59 to 3.1.62 to address CVE CVE-2026-78676.
+* Upgraded typing-extension from 4.14.1 to 4.16.0 (required by GitPython)
 
 ## Fixes and improvements
 * Telemetry no longer opens a Snowflake connection on its own. Under `externalbrowser` or OAuth authorization-code authentication, commands that never touch Snowflake — such as `snow connection list`, `snow app bundle`, and `snow sql --help` — no longer open a browser tab, and no longer hang in headless or CI runs waiting for one that cannot appear.
@@ -48,9 +50,6 @@
 * Upgraded snowflake-connector-python from 4.7.1 to 4.7.3.
 * `snow streamlit deploy --replace` of an existing versioned SPCS v2 app now restarts the running Streamlit service after uploading files, so content-only updates show up without a Snowsight restart. First-time deploys, `CREATE OR REPLACE` conversions, and `--legacy` deploys are unchanged. Warehouse runtimes and no-op uploads (no file changes) are also unchanged.
 * Security improvements
-
-* Upgraded GitPython from 3.1.59 to 3.1.62 to address CVE CVE-2026-78676.
-* Upgraded typing-extension from 4.14.1 to 4.16.0 (required by GitPython)
 
 # v3.26.0
 
