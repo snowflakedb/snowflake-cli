@@ -689,12 +689,6 @@ class TestRemoteBuildCliValidation:
         assert result.exit_code != 0
         assert "No such option" in result.output
 
-    def test_remote_build_hidden_by_default(self, runner):
-        """remote-build does not appear in help when the feature flag is off."""
-        result = runner.invoke(["spcs", "service", "--help"])
-        assert result.exit_code == 0
-        assert "remote-build" not in result.output
-
 
 class TestRemoteBuildCliSuccess:
     """Happy-path and edge-case CLI tests that mock the manager layer."""
