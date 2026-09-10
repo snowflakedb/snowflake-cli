@@ -50,6 +50,7 @@
 * Security improvements
 
 * Upgraded GitPython from 3.1.59 to 3.1.62 to address CVE CVE-2026-78676.
+* Upgraded typing-extension from 4.14.1 to 4.16.0 (required by GitPython)
 
 # v3.26.0
 
