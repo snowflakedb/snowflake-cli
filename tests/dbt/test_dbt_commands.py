@@ -1193,6 +1193,38 @@ class TestDBTExecute:
                 "EXECUTE DBT PROJECT pipeline_name args='run --vars ''start_date: 2016-06-01'' --select my_model'",
                 id="vars-with-other-flags",
             ),
+            # Commands added to the allowlist to match the backend
+            # (SNOW-4096180). Each must be forwarded to EXECUTE DBT PROJECT.
+            pytest.param(
+                ["dbt", "execute", "pipeline_name", "source", "freshness"],
+                "EXECUTE DBT PROJECT pipeline_name args='source freshness'",
+                id="source-freshness",
+            ),
+            pytest.param(
+                ["dbt", "execute", "pipeline_name", "docs", "generate"],
+                "EXECUTE DBT PROJECT pipeline_name args='docs generate'",
+                id="docs-generate",
+            ),
+            pytest.param(
+                ["dbt", "execute", "pipeline_name", "clean"],
+                "EXECUTE DBT PROJECT pipeline_name args='clean'",
+                id="clean",
+            ),
+            pytest.param(
+                ["dbt", "execute", "pipeline_name", "debug"],
+                "EXECUTE DBT PROJECT pipeline_name args='debug'",
+                id="debug",
+            ),
+            pytest.param(
+                ["dbt", "execute", "pipeline_name", "ls"],
+                "EXECUTE DBT PROJECT pipeline_name args='ls'",
+                id="ls",
+            ),
+            pytest.param(
+                ["dbt", "execute", "pipeline_name", "deps_compile"],
+                "EXECUTE DBT PROJECT pipeline_name args='deps_compile'",
+                id="deps_compile",
+            ),
         ],
     )
     def test_dbt_execute(self, mock_connect, mock_cursor, runner, args, expected_query):
