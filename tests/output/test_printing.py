@@ -233,10 +233,17 @@ def test_print_multi_results_table(capsys, _multiple_results):
     )
 
 
-def test_print_many_columns_table_is_legible(capsys):
+def test_print_many_columns_table_is_legible(capsys, monkeypatch):
     # Regression: with many columns and a non-TTY stdout, rich's default width
     # of 80 used to squash each cell to 0-1 characters, producing a series of
     # "|" separators with no content. See GH#2725 / SNOW-2917443.
+    #
+    # Pin the dumb-terminal env that actually ignores a lone Console(width=…):
+    # FORCE_COLOR (even "0") makes Rich report is_terminal, TERM in
+    # {dumb, unknown} then makes size 80×25. GitHub Actions is TERM=unknown
+    # with no FORCE_COLOR and would not catch a revert of height=.
+    monkeypatch.setenv("TERM", "unknown")
+    monkeypatch.setenv("FORCE_COLOR", "0")
     ncols = 30
     row = {f"col_{i}": f"value_{i}" for i in range(ncols)}
     collection = CollectionResult([row])
