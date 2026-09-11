@@ -1229,6 +1229,107 @@ dev
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_with_git_url(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+        mock_validate_dbt_version,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(
+                git_commit="abc123",
+                git_branch="main",
+                git_url="https://github.com/acme/repo.git",
+            ),
+        )
+
+        expected_query = (
+            f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+            f" GIT_COMMIT='abc123' GIT_BRANCH='main' GIT_URL='https://github.com/acme/repo.git'"
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_or_replace_with_git_url(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+        mock_validate_dbt_version,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=True,
+            attrs=DBTDeployAttributes(
+                git_commit="deadbeef",
+                git_branch="feature-x",
+                git_url="https://github.com/acme/repo.git",
+            ),
+        )
+
+        expected_query = (
+            f"CREATE OR REPLACE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+            f" GIT_COMMIT='deadbeef' GIT_BRANCH='feature-x' GIT_URL='https://github.com/acme/repo.git'"
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_alter_with_git_url(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+        mock_validate_dbt_version,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": None,
+            "dbt_version": None,
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(
+                git_commit="abc123",
+                git_branch="main",
+                git_url="https://github.com/acme/repo.git",
+            ),
+        )
+
+        mock_execute_query.assert_called_once_with(
+            f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+            f" GIT_COMMIT='abc123' GIT_BRANCH='main' GIT_URL='https://github.com/acme/repo.git'"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     def test_deploy_create_with_default_environment(
         self,
         _mock_put_recursive,

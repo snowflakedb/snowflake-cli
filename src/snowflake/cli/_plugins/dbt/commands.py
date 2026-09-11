@@ -142,12 +142,18 @@ def _git_branch_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--git-branch")
 
 
-def _github_actions_git_metadata() -> tuple[Optional[str], Optional[str]]:
-    """Auto-detect ``(git_commit, git_branch)`` from GitHub Actions env vars.
+def _git_url_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--git-url")
 
-    Best-effort: returns ``(None, None)`` on any failure (or when not running under
-    GitHub Actions) so auto-detection can never block a deploy — an explicit
-    ``--git-commit``/``--git-branch`` can always supply the values instead.
+
+def _github_actions_git_metadata() -> tuple[
+    Optional[str], Optional[str], Optional[str]
+]:
+    """Auto-detect ``(git_commit, git_branch, git_url)`` from GitHub Actions env vars.
+
+    Best-effort: returns ``(None, None, None)`` on any failure (or when not running
+    under GitHub Actions) so auto-detection can never block a deploy — explicit
+    ``--git-commit``/``--git-branch``/``--git-url`` flags always take precedence.
 
     On ``push`` events ``GITHUB_SHA`` / ``GITHUB_REF_NAME`` are the branch-tip
     commit and branch name. On ``pull_request`` events ``GITHUB_SHA`` is an
@@ -158,11 +164,18 @@ def _github_actions_git_metadata() -> tuple[Optional[str], Optional[str]]:
     (``None``) so an explicit ``--git-commit`` can supply it. ``pull_request_target``
     is intentionally not special-cased: it runs in the base-branch context, so its
     ``GITHUB_SHA`` (the base commit) already matches what is deployed.
+
+    The repository URL is derived from ``GITHUB_SERVER_URL``/``GITHUB_REPOSITORY``
+    (e.g. ``https://github.com/owner/repo``) and is event-independent.
     """
     if os.getenv("GITHUB_ACTIONS") != "true":
-        return None, None
+        return None, None, None
 
     try:
+        server_url = (os.getenv("GITHUB_SERVER_URL") or "").rstrip("/")
+        repository = os.getenv("GITHUB_REPOSITORY") or ""
+        url = f"{server_url}/{repository}" if server_url and repository else None
+
         if os.getenv("GITHUB_EVENT_NAME") == "pull_request":
             # Feature-branch deploy: the branch is GITHUB_HEAD_REF and the commit is
             # the real PR head SHA from the event payload (GITHUB_SHA here is the
@@ -188,15 +201,15 @@ def _github_actions_git_metadata() -> tuple[Optional[str], Optional[str]]:
             else:
                 branch = os.getenv("GITHUB_REF_NAME") or None
 
-        return commit, branch
+        return commit, branch, url
     except Exception:
         # Best-effort: never let auto-detection break the deploy.
         cli_console.warning(
             "Could not auto-detect git metadata from the GitHub Actions environment; "
-            "last_deployed_from will omit it. Pass --git-commit/--git-branch to set it "
-            "explicitly."
+            "last_deployed_from will omit it. Pass --git-commit/--git-branch/--git-url "
+            "to set them explicitly."
         )
-        return None, None
+        return None, None, None
 
 
 @app.command(
@@ -305,6 +318,14 @@ def deploy_dbt(
         hidden=not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled(),
         callback=_git_branch_callback,
     ),
+    git_url: Optional[str] = typer.Option(
+        None,
+        "--git-url",
+        show_default=False,
+        help="Git repository URL to record in last_deployed_from metadata when deploying from a plain stage (e.g. SnowCLI temp stage). In GitHub Actions it is auto-detected from GITHUB_SERVER_URL and GITHUB_REPOSITORY when not provided.",
+        hidden=not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled(),
+        callback=_git_url_callback,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -321,11 +342,12 @@ def deploy_dbt(
     if not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled():
         git_commit = None
         git_branch = None
-    elif git_commit is None or git_branch is None:
+        git_url = None
+    elif git_commit is None or git_branch is None or git_url is None:
         # Explicit flags take precedence; only auto-detect when there's a gap to
         # fill, so we never do needless work (or warn about auto-detection) when the
-        # caller already passed both values.
-        auto_commit, auto_branch = _github_actions_git_metadata()
+        # caller already passed all three values.
+        auto_commit, auto_branch, auto_url = _github_actions_git_metadata()
         detected = []
         if git_commit is None and auto_commit is not None:
             git_commit = auto_commit
@@ -333,11 +355,14 @@ def deploy_dbt(
         if git_branch is None and auto_branch is not None:
             git_branch = auto_branch
             detected.append(f"branch {auto_branch}")
+        if git_url is None and auto_url is not None:
+            git_url = auto_url
+            detected.append(f"url {auto_url}")
         if detected:
             cli_console.message(
                 "Auto-detected git metadata from the GitHub Actions environment ("
                 + ", ".join(detected)
-                + "); pass --git-commit/--git-branch to override."
+                + "); pass --git-commit/--git-branch/--git-url to override."
             )
 
     attrs = DBTDeployAttributes(
@@ -352,6 +377,7 @@ def deploy_dbt(
         auto_compile=auto_compile,
         git_commit=git_commit,
         git_branch=git_branch,
+        git_url=git_url,
     )
     return QueryResult(
         DBTManager().deploy(

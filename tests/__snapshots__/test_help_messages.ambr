@@ -5781,6 +5781,17 @@
   |                                                    GitHub Actions it is      |
   |                                                    auto-detected when not    |
   |                                                    provided.                 |
+  | --git-url                                    TEXT  Git repository URL to     |
+  |                                                    record in                 |
+  |                                                    last_deployed_from        |
+  |                                                    metadata when deploying   |
+  |                                                    from a plain stage (e.g.  |
+  |                                                    SnowCLI temp stage). In   |
+  |                                                    GitHub Actions it is      |
+  |                                                    auto-detected from        |
+  |                                                    GITHUB_SERVER_URL and     |
+  |                                                    GITHUB_REPOSITORY when    |
+  |                                                    not provided.             |
   | --help                     -h                      Show this message and     |
   |                                                    exit.                     |
   +------------------------------------------------------------------------------+
