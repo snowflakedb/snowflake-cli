@@ -214,6 +214,7 @@ class DBTDeployAttributes:
     auto_compile: Optional[bool] = None
     git_commit: Optional[str] = None
     git_branch: Optional[str] = None
+    git_url: Optional[str] = None
 
 
 class DBTManager(SqlExecutionMixin):
@@ -467,6 +468,8 @@ class DBTManager(SqlExecutionMixin):
             query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
         if attrs.git_branch:
             query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
+        if attrs.git_url:
+            query += f" GIT_URL={to_string_literal(attrs.git_url)}"
         result = self.execute_query(query)
 
         return result
@@ -521,6 +524,8 @@ class DBTManager(SqlExecutionMixin):
             query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
         if attrs.git_branch:
             query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
+        if attrs.git_url:
+            query += f" GIT_URL={to_string_literal(attrs.git_url)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
@@ -564,6 +569,8 @@ class DBTManager(SqlExecutionMixin):
             query += f" GIT_COMMIT={to_string_literal(attrs.git_commit)}"
         if attrs.git_branch:
             query += f" GIT_BRANCH={to_string_literal(attrs.git_branch)}"
+        if attrs.git_url:
+            query += f" GIT_URL={to_string_literal(attrs.git_url)}"
         query = self._handle_external_access_integrations_query(
             query, attrs.external_access_integrations, attrs.install_local_deps
         )
