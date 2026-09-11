@@ -621,6 +621,7 @@ class TestDBTDeploy:
         call_kwargs = mock_deploy.call_args[1]
         assert call_kwargs["attrs"].git_commit is None
         assert call_kwargs["attrs"].git_branch is None
+        assert call_kwargs["attrs"].git_url is None
 
     def test_deploy_gha_push_auto_detects_commit_and_branch(
         self, runner, dbt_project_path, mock_deploy
@@ -683,10 +684,11 @@ class TestDBTDeploy:
                         f"--source={dbt_project_path}",
                         "--git-commit=explicit",
                         "--git-branch=explicit-branch",
+                        "--git-url=https://github.com/acme/repo.git",
                     ]
                 )
 
-        # Nothing was auto-detected (flags supplied both) → no message.
+        # Nothing was auto-detected (all three flags supplied) → no message.
         assert result.exit_code == 0, result.output
         assert "Auto-detected git metadata" not in result.output
 
@@ -834,6 +836,7 @@ class TestDBTDeploy:
         # Not in GitHub Actions and no explicit flags → nothing auto-detected.
         assert call_kwargs["attrs"].git_commit is None
         assert call_kwargs["attrs"].git_branch is None
+        assert call_kwargs["attrs"].git_url is None
 
     def test_deploy_both_flags_skip_auto_detect(
         self, runner, dbt_project_path, mock_deploy
@@ -858,6 +861,7 @@ class TestDBTDeploy:
                         f"--source={dbt_project_path}",
                         "--git-commit=explicitc",
                         "--git-branch=explicitb",
+                        "--git-url=https://github.com/acme/repo.git",
                     ]
                 )
 
@@ -921,7 +925,82 @@ class TestDBTDeploy:
         assert call_kwargs["attrs"].git_commit == "explicit"
         assert call_kwargs["attrs"].git_branch == "explicit-branch"
 
-    @pytest.mark.parametrize("flag", ["--git-commit", "--git-branch"])
+    def test_deploy_with_git_url_passes_to_manager(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-commit=abc123",
+                        "--git-branch=main",
+                        "--git-url=https://github.com/acme/repo.git",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_commit == "abc123"
+        assert call_kwargs["attrs"].git_branch == "main"
+        assert call_kwargs["attrs"].git_url == "https://github.com/acme/repo.git"
+
+    def test_deploy_gha_push_auto_detects_url_from_server_and_repo(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "deadbeef",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+            "GITHUB_SERVER_URL": "https://github.com",
+            "GITHUB_REPOSITORY": "acme/repo",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["attrs"].git_url == "https://github.com/acme/repo"
+
+    def test_deploy_explicit_git_url_wins_over_gha_auto_detect(
+        self, runner, dbt_project_path, mock_deploy
+    ):
+        gha_env = {
+            "GITHUB_ACTIONS": "true",
+            "GITHUB_EVENT_NAME": "push",
+            "GITHUB_SHA": "deadbeef",
+            "GITHUB_HEAD_REF": "",
+            "GITHUB_REF_NAME": "main",
+            "GITHUB_SERVER_URL": "https://github.com",
+            "GITHUB_REPOSITORY": "acme/repo",
+        }
+        with with_feature_flags({FeatureFlag.ENABLE_DBT_GIT_METADATA: True}):
+            with mock.patch.dict("os.environ", gha_env):
+                result = runner.invoke(
+                    [
+                        "dbt",
+                        "deploy",
+                        "TEST_PIPELINE",
+                        f"--source={dbt_project_path}",
+                        "--git-url=https://github.com/acme/other-repo.git",
+                    ]
+                )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_deploy.call_args[1]
+        # Explicit flag takes precedence over GHA auto-detection.
+        assert call_kwargs["attrs"].git_url == "https://github.com/acme/other-repo.git"
+
+    @pytest.mark.parametrize("flag", ["--git-commit", "--git-branch", "--git-url"])
     def test_deploy_git_flags_reject_control_chars(
         self, runner, dbt_project_path, mock_deploy, flag
     ):

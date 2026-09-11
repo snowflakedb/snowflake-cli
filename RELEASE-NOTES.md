@@ -20,6 +20,7 @@
 
 ## New additions
 * `snow spcs service remote-build`, `remote-build-status`, and `remote-build-history` are now generally available.
+* `snow dbt deploy` now also accepts `--git-url`, recording the repository URL in the project's `last_deployed_from` metadata alongside `--git-commit`/`--git-branch`. Like those flags, it is auto-detected from the GitHub Actions environment (`GITHUB_SERVER_URL`/`GITHUB_REPOSITORY`) when not explicitly specified.
 
 ## Fixes and improvements
 * Telemetry no longer opens a Snowflake connection on its own. Under `externalbrowser` or OAuth authorization-code authentication, commands that never touch Snowflake — such as `snow connection list`, `snow app bundle`, and `snow sql --help` — no longer open a browser tab, and no longer hang in headless or CI runs waiting for one that cannot appear.
