@@ -28,11 +28,20 @@ DEFAULT_WRITEBACK_PROPERTY = "DEFAULT_WRITEBACK"
 AUTO_COMPILE_PROPERTY = "AUTO_COMPILE"
 WRITEBACK_CLAUSE = "WRITEBACK"
 
+# dbt commands the CLI registers as `snow dbt execute` subcommands. This mirrors
+# the backend's DBT_ALLOWED_COMMANDS allowlist (the real source of truth), which
+# validates the command server-side; keep the two in sync when the backend adds
+# support for a command.
 DBT_COMMANDS = [
     "build",
+    "clean",
     "compile",
+    "debug",
     "deps",
+    "deps_compile",
+    "docs",
     "list",
+    "ls",
     "parse",
     "retry",
     "run",
@@ -40,14 +49,12 @@ DBT_COMMANDS = [
     "seed",
     "show",
     "snapshot",
+    "source",
     "test",
 ]
 
+# Commands the backend does not accept, kept here for documentation only.
 UNSUPPORTED_COMMANDS = [
-    "clean",
     "clone",
-    "debug",
-    "docs",
     "init",
-    "source",
 ]
