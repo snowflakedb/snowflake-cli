@@ -16,8 +16,10 @@ from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
+import pytest
 from click import Command
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
+from snowflake.cli._app.dev.docs.commands_docs_generator import mdx_escape
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 
 
@@ -200,3 +202,17 @@ def test_flags_have_default_values(runner, temporary_directory, snapshot):
     )
     assert example_generated_file.exists()
     assert example_generated_file.read_text() == snapshot
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, ""),
+        ("", ""),
+        ("plain text", "plain text"),
+        ("<system_temporary_directory>", "&lt;system_temporary_directory&gt;"),
+        ("before <value> after", "before &lt;value&gt; after"),
+    ],
+)
+def test_mdx_escape(value, expected):
+    assert mdx_escape(value) == expected

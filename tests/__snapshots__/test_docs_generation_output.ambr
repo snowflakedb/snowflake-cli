@@ -204,7 +204,7 @@
   <dt><code className="samp">--diag-log-path <em>TEXT</em></code></dt>
   <dd>
   
-  Path for the generated report. Defaults to system temporary directory. Default: <system_temporary_directory>.
+  Path for the generated report. Defaults to system temporary directory. Default: &lt;system_temporary_directory&gt;.
   
   </dd>
   <dt><code className="samp">--diag-allowlist-path <em>TEXT</em></code></dt>
