@@ -40,6 +40,7 @@
 ## Deprecations
 
 ## New additions
+* `snow sql` REPL accepts an opt-in custom prompt via `--prompt-format` or a quoted `cli.prompt_format` string in `config.toml`. The default remains unchanged at ` > `. Supported placeholders are `[user]`, `[host]`, `[account]`, `[role]`, `[warehouse]`, `[database]`, `[schema]`, and `[connection]`; they match ignoring case (`[USER]` is the same as `[user]`). `\n` is a newline; `\[`, `\]`, and `\\` are literal `[`, `]`, and `\`. Unrecognised `[...]` tokens are dropped from the prompt and reported with a warning when the REPL starts, rather than rendered as literal text; this reserves the `[...]` namespace for later extensions. Colour directives such as `[#rrggbb]` and `[bg:#rrggbb]` are part of that namespace and are dropped in this version.
 * `snow snowpark build` now collects a project's dependencies from `pyproject.toml` when the project has no `requirements.txt`, so `snow snowpark deploy` picks them up as before. The `dependencies` key of the PEP 621 `[project]` table is read; optional dependencies (extras) are not. A project that has a `requirements.txt` still builds from it, and `pyproject.toml` is then ignored; the build says so when `pyproject.toml` also declares `[project]` dependencies. Dependencies declared as dynamic metadata (`dynamic = ["dependencies"]`) cannot be resolved and are reported as such.
 
 ## Fixes and improvements

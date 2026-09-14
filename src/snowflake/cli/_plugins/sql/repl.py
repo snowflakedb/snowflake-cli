@@ -11,8 +11,16 @@ from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
+from snowflake.cli._plugins.sql.prompt_format import (
+    DEFAULT_REPL_PROMPT,
+    format_repl_prompt,
+    session_prompt_values,
+)
 from snowflake.cli._plugins.sql.repl_commands import detect_command
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.config import get_config_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
@@ -62,6 +70,7 @@ class Repl:
         template_syntax_config: SQLTemplateSyntaxConfig = SQLTemplateSyntaxConfig(),
         local_only: bool = False,
         no_prompt_exit_repl: bool = False,
+        prompt_format: str | None = None,
     ):
         """Requires a `SqlManager` instance to execute queries.
 
@@ -76,6 +85,13 @@ class Repl:
         self._template_syntax_config = template_syntax_config
         self._local_only = local_only
         self._no_prompt_exit_repl = no_prompt_exit_repl
+        self._prompt_format = prompt_format
+        # Live SnowflakeConnection captured after a successful query so
+        # drawing a prompt never looks up the connection cache (that lookup
+        # can redial). Only captured when a format is set, and re-read after
+        # each successful execute so a redial after clear_failures() is
+        # visible on the next prompt.
+        self._session_connection = None
         self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
         self._completer = cli_completer
@@ -176,12 +192,31 @@ class Repl:
 
         return kb
 
-    def repl_prompt(self, msg: str = " > ") -> str:
+    def _current_prompt(self) -> str:
+        """Build the prompt for this iteration of the REPL loop.
+
+        An unset format keeps the historical `` > `` so this feature is
+        opt-in. A configured format is expanded from the live session so
+        ``USE DATABASE`` / ``USE WAREHOUSE`` show up on the next prompt.
+        """
+        if not self._prompt_format:
+            return DEFAULT_REPL_PROMPT
+        return format_repl_prompt(
+            self._prompt_format,
+            session_prompt_values(
+                self._session_connection,
+                connection_name=get_cli_context().connection_context.connection_name,
+            ),
+        )
+
+    def repl_prompt(self, msg: str | None = None) -> str:
         """Regular repl prompt with support for pre-filled input.
 
         Checks for queued input from commands like !edit and uses it as
         default text in the prompt. The queued input is cleared after use.
         """
+        if msg is None:
+            msg = self._current_prompt()
         default_text = self._next_input
 
         try:
@@ -219,6 +254,8 @@ class Repl:
             template_syntax_config=self._template_syntax_config,
             local_only=self._local_only,
         )
+        if self._prompt_format:
+            self._session_connection = self._sql_manager.connection
         return cursors
 
     def run(self):
