@@ -63,6 +63,20 @@ def get_main_option(options: List[str]) -> str:
     return ""
 
 
+def mdx_escape(value: Any) -> str:
+    """Escape angle brackets so MDX does not parse them as JSX tags."""
+    if value is None:
+        return ""
+    return str(value).replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _template_env_with_filters():
+    env = get_template_environment()
+    env.filters[get_main_option.__name__] = get_main_option
+    env.filters[mdx_escape.__name__] = mdx_escape
+    return env
+
+
 def _render_command_usage(
     command: Command,
     root: SecurePath,
@@ -71,8 +85,7 @@ def _render_command_usage(
 ):
     # This is end command
     command_name = command.name
-    env = get_template_environment()
-    env.filters[get_main_option.__name__] = get_main_option
+    env = _template_env_with_filters()
     template = env.get_template(template_name)
     arguments = []
     options = []
