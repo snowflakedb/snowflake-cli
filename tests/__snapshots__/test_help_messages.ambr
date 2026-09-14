@@ -24770,6 +24770,13 @@
    queries from file will be executed) or via stdin by piping output from other   
    command. For example cat my.sql | snow sql -i.                                 
                                                                                   
+   With no query source, opens an interactive REPL. The prompt stays ' > ' unless 
+   you set --prompt-format, for example --prompt-format                           
+   "[user]#[warehouse]@[database].[schema]> ". Placeholders: [user], [host],      
+   [account], [role], [warehouse], [database], [schema], [connection] (the -c     
+   connection name). They update after USE. Set a quoted prompt_format in the     
+   [cli] section of config.toml to make a format the default.                     
+                                                                                  
    The command supports variable substitution that happens on client-side.        
                                                                                   
   +- Options --------------------------------------------------------------------+
@@ -24851,6 +24858,51 @@
   | --no-prompt-exit…                                           Do not prompt    |
   |                                                             before exiting   |
   |                                                             the REPL.        |
+  | --prompt-format                           TEXT              Format string    |
+  |                                                             for the          |
+  |                                                             interactive SQL  |
+  |                                                             REPL prompt.     |
+  |                                                             Ignored with -q, |
+  |                                                             -f, or -i. Unset |
+  |                                                             keeps the        |
+  |                                                             default prompt.  |
+  |                                                             Placeholders:    |
+  |                                                             [user], [host],  |
+  |                                                             [account],       |
+  |                                                             [role],          |
+  |                                                             [warehouse],     |
+  |                                                             [database],      |
+  |                                                             [schema], and    |
+  |                                                             [connection]     |
+  |                                                             (the -c          |
+  |                                                             connection       |
+  |                                                             name). They      |
+  |                                                             update after     |
+  |                                                             USE. Missing     |
+  |                                                             values render as |
+  |                                                             (no user), (no   |
+  |                                                             database), and   |
+  |                                                             so on. A         |
+  |                                                             backslash        |
+  |                                                             followed by n is |
+  |                                                             a newline;       |
+  |                                                             prefix a bracket |
+  |                                                             or backslash     |
+  |                                                             with a backslash |
+  |                                                             to make it       |
+  |                                                             literal. Unknown |
+  |                                                             tokens,          |
+  |                                                             including colour |
+  |                                                             [#rrggbb] /      |
+  |                                                             [bg:#rrggbb],    |
+  |                                                             are dropped with |
+  |                                                             a warning.       |
+  |                                                             Quoted           |
+  |                                                             prompt_format in |
+  |                                                             the [cli]        |
+  |                                                             section of       |
+  |                                                             config.toml sets |
+  |                                                             the default.     |
   | --project          -p                     TEXT              Path where the   |
   |                                                             Snowflake        |
   |                                                             project is       |

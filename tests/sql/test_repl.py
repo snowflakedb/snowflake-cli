@@ -1,4 +1,6 @@
 import os
+from textwrap import dedent
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -594,3 +596,284 @@ def test_no_prompt_exit_repl(
         runner.invoke(["sql", *command_args])
 
     assert mock_ask_yn.called is ask_yn_called
+
+
+def test_repl_keeps_historical_default_prompt(repl):
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    assert repl.session.prompt.call_args.args[0] == " > "
+
+
+def _config_with_prompt_format(prompt_format: str | None) -> str:
+    config = dedent(
+        """\
+        [connections.default]
+        database = "db_for_test"
+        schema = "test_public"
+        role = "test_role"
+        warehouse = "xs"
+        password = "dummy_password"
+        """
+    )
+    if prompt_format is not None:
+        config += f"\n[cli]\nprompt_format = {prompt_format}\n"
+    return config
+
+
+@pytest.mark.parametrize(
+    "command_args, config_prompt_format, env_prompt_format, expected",
+    [
+        (["--prompt-format", "[user]>"], None, None, "[user]>"),
+        ([], '"[database]>"', None, "[database]>"),
+        (["--prompt-format", "[user]>"], '"[database]>"', None, "[user]>"),
+        ([], None, None, None),
+        # This option deliberately has no environment variable, so the
+        # environment must never win over config.toml or supply a value.
+        ([], '"[database]>"', "[schema]>", "[database]>"),
+        ([], None, "[schema]>", None),
+        (["--prompt-format", "[user]>"], None, "[schema]>", "[user]>"),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl")
+def test_prompt_format_sources(
+    mock_repl_cls,
+    runner,
+    config_file,
+    monkeypatch,
+    command_args,
+    config_prompt_format,
+    env_prompt_format,
+    expected,
+):
+    mock_repl_cls.return_value.run.return_value = None
+    if env_prompt_format is None:
+        monkeypatch.delenv("SNOWFLAKE_CLI_PROMPT_FORMAT", raising=False)
+    else:
+        monkeypatch.setenv("SNOWFLAKE_CLI_PROMPT_FORMAT", env_prompt_format)
+
+    with config_file(_config_with_prompt_format(config_prompt_format)) as cfg:
+        result = runner.invoke_with_config_file(cfg, ["sql", *command_args])
+
+    assert result.exit_code == 0, result.output
+    assert mock_repl_cls.call_args.kwargs["prompt_format"] == expected
+
+
+def _connection_for_prompt(**overrides):
+    values = dict(
+        user="alice",
+        host="host.example",
+        account="acct",
+        role="SYSADMIN",
+        warehouse="WH",
+        database="DB1",
+        schema="PUBLIC",
+    )
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def test_repl_expands_configured_prompt_format(mock_cursor):
+    mocked_cursor = [
+        mock_cursor(rows=[("1",)], columns=["1"]),
+    ]
+    connection = _connection_for_prompt()
+    with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursor):
+        repl = Repl(
+            SqlManager(connection=connection), prompt_format="[user]@[database]>"
+        )
+        repl.session.prompt = mock.Mock(side_effect=["exit", "y"])
+        repl.run()
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert "alice@DB1>" in prompt_messages
+
+
+@pytest.mark.parametrize(
+    "attribute, statement, updated_value",
+    [
+        ("database", "USE DATABASE DB2;", "DB2"),
+        ("warehouse", "USE WAREHOUSE WH2;", "WH2"),
+        ("role", "USE ROLE SECURITYADMIN;", "SECURITYADMIN"),
+        ("schema", "USE SCHEMA PRIVATE;", "PRIVATE"),
+    ],
+)
+def test_next_repl_prompt_reflects_use_statement(
+    mock_cursor, attribute, statement, updated_value
+):
+    mocked_cursor = [
+        mock_cursor(rows=[("1",)], columns=["1"]),
+    ]
+    connection = _connection_for_prompt()
+    original = getattr(connection, attribute)
+
+    def execute_and_update_connection(sql_text, **kwargs):
+        if "use " in sql_text.lower():
+            setattr(connection, attribute, updated_value)
+        return mocked_cursor
+
+    with mock.patch.object(
+        SqlManager, "_execute_string", side_effect=execute_and_update_connection
+    ):
+        repl = Repl(SqlManager(connection=connection), prompt_format=f"[{attribute}]>")
+        repl.session.prompt = mock.Mock(side_effect=[statement, "exit", "y"])
+        repl.run()
+
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert prompt_messages[0] == f"{original}>"
+    assert prompt_messages[1] == f"{updated_value}>"
+
+
+def test_repl_prompt_uses_connection_from_latest_successful_query(mock_cursor):
+    first = _connection_for_prompt(database="OLD")
+    second = _connection_for_prompt(database="NEW")
+
+    class _Manager:
+        def __init__(self):
+            self.connection = first
+            self._calls = 0
+
+        def execute(self, **kwargs):
+            self._calls += 1
+            if self._calls > 1:
+                self.connection = second
+            return 1, iter([mock_cursor(rows=[("1",)], columns=["1"])])
+
+    repl = Repl(_Manager(), prompt_format="[database]>")
+    repl.session.prompt = mock.Mock(side_effect=["select 1;", "exit", "y"])
+    repl.run()
+
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert prompt_messages[0] == "OLD>"
+    assert prompt_messages[1] == "NEW>"
+
+
+def test_prompt_format_rejects_non_string_config(runner, config_file):
+    config = dedent(
+        """\
+        [connections.default]
+        database = "db_for_test"
+        schema = "test_public"
+        role = "test_role"
+        warehouse = "xs"
+        password = "dummy_password"
+
+        [cli]
+        prompt_format = true
+        """
+    )
+    with config_file(config) as cfg:
+        result = runner.invoke_with_config_file(cfg, ["sql"])
+
+    assert result.exit_code != 0
+    assert "Expected a string for cli.prompt_format" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_prompt_format_invalid_config_ignored_for_one_shot_inputs(
+    mock_manager, runner, config_file, named_temporary_file
+):
+    mock_manager().execute.return_value = (0, [])
+    config = dedent(
+        """\
+        [connections.default]
+        database = "db_for_test"
+        schema = "test_public"
+        role = "test_role"
+        warehouse = "xs"
+        password = "dummy_password"
+
+        [cli]
+        prompt_format = true
+        """
+    )
+    with named_temporary_file() as sql_file:
+        sql_file.write_text("select 1")
+        with config_file(config) as cfg:
+            query_result = runner.invoke_with_config_file(
+                cfg, ["sql", "-q", "select 1"]
+            )
+            file_result = runner.invoke_with_config_file(
+                cfg, ["sql", "-f", str(sql_file)]
+            )
+            stdin_result = runner.invoke_with_config_file(
+                cfg, ["sql", "--stdin"], input="select 1"
+            )
+
+    assert query_result.exit_code == 0, query_result.output
+    assert file_result.exit_code == 0, file_result.output
+    assert stdin_result.exit_code == 0, stdin_result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_prompt_format_flag_ignored_for_one_shot_query(mock_manager, runner):
+    mock_manager().execute.return_value = (0, [])
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--prompt-format", "[#ff00ff][user]>"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "not supported in this version" not in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
+def test_prompt_format_uses_cli_connection_name(
+    mock_execute, mock_prompt_session, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor(["1"], ["1"]) for _ in range(2))
+    mock_prompt = mock.MagicMock()
+    mock_prompt.prompt.side_effect = iter(("exit", "y"))
+    mock_prompt_session.return_value = mock_prompt
+
+    result = runner.invoke(["sql", "-c", "full", "--prompt-format", "[connection]>"])
+
+    assert result.exit_code == 0, result.output
+    assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
+
+
+@pytest.mark.parametrize("colour_token", ["[#ff00ff]", "[bg:#00ff00]"])
+@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
+def test_prompt_format_warns_and_drops_colour_token_in_repl(
+    mock_execute, mock_prompt_session, runner, mock_cursor, colour_token
+):
+    mock_execute.return_value = (mock_cursor(["1"], ["1"]) for _ in range(2))
+    mock_prompt = mock.MagicMock()
+    mock_prompt.prompt.side_effect = iter(("exit", "y"))
+    mock_prompt_session.return_value = mock_prompt
+
+    result = runner.invoke(
+        ["sql", "-c", "full", "--prompt-format", f"{colour_token}[connection]>"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert colour_token in result.output
+    assert "not supported in this version" in result.output
+    assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
+
+
+@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
+def test_prompt_format_warns_and_drops_unknown_token_in_repl(
+    mock_execute, mock_prompt_session, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor(["1"], ["1"]) for _ in range(2))
+    mock_prompt = mock.MagicMock()
+    mock_prompt.prompt.side_effect = iter(("exit", "y"))
+    mock_prompt_session.return_value = mock_prompt
+
+    result = runner.invoke(
+        ["sql", "-c", "full", "--prompt-format", "[future-token][connection]>"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "[future-token]" in result.output
+    assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_prompt_format_unknown_token_warning_skipped_for_one_shot(mock_manager, runner):
+    mock_manager().execute.return_value = (0, [])
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--prompt-format", "[future-token]>"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "future-token" not in result.output
