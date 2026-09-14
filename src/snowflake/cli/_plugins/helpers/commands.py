@@ -17,10 +17,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import platform
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
 
 import click
 import typer
@@ -30,6 +31,7 @@ from snowflake.cli._app.version_check import (
     record_version_check_displayed,
     suppress_new_version_banner,
 )
+from snowflake.cli._plugins.helpers.installer_path import clean_installer_path_files
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -58,6 +60,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.schemas.project_definition import (
     get_version_map,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
@@ -66,6 +69,92 @@ app = SnowTyperFactory(
     name="helpers",
     help="Helper commands.",
 )
+
+
+def _format_paths(paths: Iterable[Path]) -> str:
+    return ", ".join(sanitize_for_terminal(str(path)) for path in paths)
+
+
+@app.command(name="clean-installer-path", requires_connection=False)
+def clean_installer_path(
+    apply_changes: bool = typer.Option(
+        False,
+        "--apply",
+        help="Remove historical installer PATH entries. The default is a dry run.",
+    ),
+    **options,
+) -> CommandResult:
+    """Remove PATH entries added by historical macOS installers."""
+    if platform.system() != "Darwin":
+        return MessageResult(
+            "This command is intended only for macOS. "
+            "Shell startup files were not scanned."
+        )
+
+    get_euid = getattr(os, "geteuid", None)
+    if get_euid is not None and get_euid() == 0:
+        raise CliError(
+            "This command must not be run as root. "
+            "Run it as the user whose shell files should be cleaned."
+        )
+
+    cleanup = clean_installer_path_files(Path.home(), apply_changes)
+    action = "Removed" if apply_changes else "Would remove"
+    messages: list[str] = []
+    found_entries = False
+    for file_cleanup in cleanup.files:
+        safe_path = sanitize_for_terminal(str(file_cleanup.path))
+        for line_number in file_cleanup.unpaired_comment_lines:
+            found_entries = True
+            messages.append(
+                "Unpaired historical installer comment in "
+                f"{safe_path} at line {line_number}; leaving it unchanged."
+            )
+        if file_cleanup.removed_pairs:
+            found_entries = True
+            noun = "pair" if file_cleanup.removed_pairs == 1 else "pairs"
+            messages.append(
+                f"{action} {file_cleanup.removed_pairs} historical installer "
+                f"PATH {noun} from {safe_path}."
+            )
+
+    for skipped_file in cleanup.skipped_files:
+        safe_path = sanitize_for_terminal(str(skipped_file))
+        messages.append(f"Skipped {safe_path}; the file could not be read or written.")
+
+    for skipped_symlink in cleanup.skipped_symlinks:
+        safe_path = sanitize_for_terminal(str(skipped_symlink))
+        messages.append(
+            f"Skipped {safe_path}: it is a symlink and is not modified by this command."
+        )
+
+    if not found_entries:
+        scope = (
+            " in the files that could be scanned"
+            if cleanup.skipped_files or cleanup.skipped_symlinks
+            else ""
+        )
+        messages.append(f"No historical installer PATH entries found{scope}.")
+
+    # Always account for every shell startup file the command looks at, so a run
+    # that finds nothing still tells the user what was actually examined.
+    if cleanup.files:
+        scanned = _format_paths(entry.path for entry in cleanup.files)
+        messages.append(f"Scanned {scanned}.")
+    if cleanup.missing_files:
+        messages.append(f"Not present: {_format_paths(cleanup.missing_files)}.")
+
+    for message in messages:
+        log.debug(message)
+
+    summary = "\n".join(messages)
+    if apply_changes and (cleanup.skipped_files or cleanup.skipped_symlinks):
+        suffix = (
+            "Some shell startup files could not be cleaned. "
+            "Check their permissions and run the command again."
+        )
+        raise CliError(f"{summary}\n{suffix}")
+    return MessageResult(summary)
 
 
 @app.command()
