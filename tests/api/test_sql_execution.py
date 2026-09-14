@@ -231,3 +231,9 @@ def test_execute_query_with_params_defaults_params_to_none():
     mock_cursor.execute.assert_called_once_with(
         "select current_role()", None, _force_qmark_paramstyle=True
     )
+
+
+def test_connection_returns_injected_connection():
+    mock_connection = mock.MagicMock()
+    executor = BaseSqlExecutor(connection=mock_connection)
+    assert executor.connection is mock_connection

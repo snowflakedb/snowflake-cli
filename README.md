@@ -96,6 +96,25 @@ snow --version
 
 You should now be able to run `snow` and get the CLI message.
 
+## Customize the SQL REPL prompt
+
+The interactive `snow sql` prompt remains ` > ` unless you opt in with
+`--prompt-format` or a quoted `prompt_format` string in the `[cli]` section of
+`config.toml`. Placeholders (case-insensitive) are `[user]`, `[host]`,
+`[account]`, `[role]`, `[warehouse]`, `[database]`, `[schema]`, and
+`[connection]` (the `-c` connection name). They update after `USE`. Example:
+
+```
+snow sql --prompt-format "[user]#[warehouse]@[database].[schema]> "
+```
+
+Missing values render as `(no user)`, `(no database)`, and so on.
+`\n` is a newline; `\[`, `\]`, and `\\` are literal `[`, `]`, and `\`.
+Unknown bracketed tokens are dropped from the prompt and reported with a
+warning when the REPL starts, which reserves the `[...]` namespace for later
+extensions. Colour directives (`[#rrggbb]`, `[bg:#rrggbb]`) are part of that
+namespace, so they are dropped rather than rendered in this version.
+
 ## Get involved
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you!

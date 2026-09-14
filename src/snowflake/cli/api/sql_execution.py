@@ -58,6 +58,19 @@ class BaseSqlExecutor:
     @property
     def _conn(self) -> SnowflakeConnection:
         """Returns the current Snowflake connection, either from the instance or the global CLI context."""
+        return self.connection
+
+    @property
+    def connection(self) -> SnowflakeConnection:
+        """Live Snowflake connection this executor is using.
+
+        Prefer this over ``get_cli_context().connection`` when the executor
+        already ran a query: that lookup goes through the connection cache
+        and can redial (including ``externalbrowser``) after idle cleanup.
+        The connector mutates database/schema/role/warehouse on this object
+        in place, so callers may cache the reference and still observe
+        ``USE`` statements.
+        """
         if self._connection:
             return self._connection
         return get_cli_context().connection

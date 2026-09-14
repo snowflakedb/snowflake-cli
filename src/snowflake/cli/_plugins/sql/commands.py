@@ -23,13 +23,22 @@ from typing import List, Optional
 import typer
 from click import UsageError
 from snowflake.cli._plugins.sql.manager import SqlManager
+from snowflake.cli._plugins.sql.prompt_format import (
+    require_string_prompt_format,
+    unknown_token_warning,
+    unknown_tokens_in_prompt_format,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     variables_option,
 )
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.config import get_config_bool_value
+from snowflake.cli.api.config import (
+    get_config_bool_value,
+    get_config_value_without_env,
+)
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -84,6 +93,15 @@ def _parse_template_syntax_config(
     result.enable_standard_syntax = _EnabledTemplating.STANDARD in enabled_syntaxes
     result.enable_jinja_syntax = _EnabledTemplating.JINJA in enabled_syntaxes
     return result
+
+
+def _warn_unknown_prompt_tokens(template: str | None) -> None:
+    if not template:
+        return
+    unknown_tokens = unknown_tokens_in_prompt_format(template)
+    if unknown_tokens:
+        # stderr so the warning stays out of query results / REPL transcript.
+        cli_console.stderr_warning(unknown_token_warning(unknown_tokens))
 
 
 @app.command(name="sql", requires_connection=True, no_args_is_help=False)
@@ -150,15 +168,41 @@ def execute_sql(
         help="Do not prompt before exiting the REPL.",
         show_default=False,
     ),
+    prompt_format: Optional[str] = typer.Option(
+        None,
+        "--prompt-format",
+        help=(
+            "Format string for the interactive SQL REPL prompt. Ignored with "
+            "-q, -f, or -i. Unset keeps the default prompt. "
+            r"Placeholders: \[user\], \[host\], \[account\], "
+            r"\[role\], \[warehouse\], \[database\], \[schema\], and "
+            r"\[connection\] (the -c connection name). They update after USE. "
+            "Missing values render as (no user), (no database), and so on. "
+            "A backslash followed by n is a newline; prefix a bracket or "
+            "backslash with a backslash to make it literal. "
+            r"Unknown tokens, including colour \[#rrggbb\] / \[bg:#rrggbb\], "
+            r"are dropped with a warning. Quoted prompt_format in the \[cli\] "
+            "section of config.toml sets the default."
+        ),
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
-    """
+    r"""
     Executes Snowflake query.
 
     Use either query, filename or input option.
 
     Query to execute can be specified using query option, filename option (all queries from file will be executed)
     or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
+
+    With no query source, opens an interactive REPL. The prompt stays ' > '
+    unless you set --prompt-format, for example
+    --prompt-format "\[user\]#\[warehouse\]@\[database\].\[schema\]> ".
+    Placeholders: \[user\], \[host\], \[account\], \[role\], \[warehouse\],
+    \[database\], \[schema\], \[connection\] (the -c connection name).
+    They update after USE. Set a quoted prompt_format in the \[cli\] section
+    of config.toml to make a format the default.
 
     The command supports variable substitution that happens on client-side.
     """
@@ -187,6 +231,14 @@ def execute_sql(
             std_in = True
 
     if no_source_provided:
+        if prompt_format is None:
+            # Deliberately env-free: a prompt template with brackets and
+            # newlines does not belong in an environment variable.
+            prompt_format = get_config_value_without_env(
+                "cli", key="prompt_format", default=None
+            )
+        prompt_format = require_string_prompt_format(prompt_format)
+        _warn_unknown_prompt_tokens(prompt_format)
         if single_transaction:
             raise CliArgumentError("single transaction cannot be used with REPL")
         from snowflake.cli._plugins.sql.repl import Repl
@@ -198,6 +250,7 @@ def execute_sql(
             template_syntax_config=template_syntax_config,
             local_only=local_only,
             no_prompt_exit_repl=no_prompt_exit_repl,
+            prompt_format=prompt_format,
         ).run()
         sys.exit(0)
 
