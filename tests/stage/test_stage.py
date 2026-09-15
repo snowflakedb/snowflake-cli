@@ -2032,12 +2032,12 @@ class TestStageUploadWorkers:
         monkeypatch.delenv(STAGE_UPLOAD_WORKERS_ENV_VAR, raising=False)
         # Literal on purpose: bumping DEFAULT_UPLOAD_WORKERS should be caught
         # here as a deliberate change rather than pass silently.
-        assert _resolve_upload_workers() == 16
+        assert _resolve_upload_workers() == 32
 
     def test_empty_env_uses_default(self, monkeypatch):
         # An empty value is treated as unset by the config system.
         monkeypatch.setenv(STAGE_UPLOAD_WORKERS_ENV_VAR, "")
-        assert _resolve_upload_workers() == 16
+        assert _resolve_upload_workers() == 32
 
     @pytest.mark.parametrize("raw, expected", [("1", 1), ("8", 8), ("32", 32)])
     def test_valid_env_override(self, monkeypatch, raw, expected):
