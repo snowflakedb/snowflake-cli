@@ -27,6 +27,7 @@
 ## Fixes and improvements
 * Telemetry no longer opens a Snowflake connection on its own. Under `externalbrowser` or OAuth authorization-code authentication, commands that never touch Snowflake — such as `snow connection list`, `snow app bundle`, and `snow sql --help` — no longer open a browser tab, and no longer hang in headless or CI runs waiting for one that cannot appear.
 * Upgraded GitPython from 3.1.59 to 3.1.62.
+* The default upload-concurrency budget for recursive stage uploads (`cli.stage_upload_workers`) is now 32, up from 16. This speeds up every command that uploads a directory tree to a stage — `snow stage copy --recursive`, `snow dcm deploy`, `snow dcm plan`, `snow dbt deploy`, `snow spcs service build-image` — by roughly 16-28% on trees with many nested folders. Set `cli.stage_upload_workers` (or `SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS`) to restore the previous value.
 
 
 # v3.27.0
