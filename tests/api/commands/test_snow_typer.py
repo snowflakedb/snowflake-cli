@@ -17,6 +17,11 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    RelatedLink,
+)
 from snowflake.cli.api.commands.snow_typer import (
     PREVIEW_PREFIX,
     SnowTyper,
@@ -532,3 +537,55 @@ def test_add_typer_subcommands_are_invokable(cli):
 
     sub_result = cli(app)(["sub", "sub_cmd", "--help"])
     assert sub_result.exit_code == 0, sub_result.output
+
+
+def test_command_docs_cleans_indented_usage_notes():
+    docs = CommandDocs(
+        usage_notes="""
+            First sentence.
+            Second sentence.
+            """
+    )
+    assert docs.usage_notes == "First sentence.\nSecond sentence."
+
+
+def test_command_docs_empty_versus_missing_usage_notes():
+    assert CommandDocs().usage_notes is None
+    assert CommandDocs(usage_notes="").usage_notes == ""
+    assert CommandDocs(usage_notes=None).usage_notes is None
+
+
+_DEMO_DOCS = CommandDocs(
+    related=(RelatedLink(href="/developer-guide/snowflake-cli/index"),),
+    usage_notes="Only usable on Tuesdays.",
+    examples=(Example(command="snow demo cmd_with_docs", output="done"),),
+)
+
+
+def _app_with_docs() -> SnowTyperFactory:
+    app = SnowTyperFactory(name="demo")
+
+    @app.command(
+        "cmd_with_docs",
+        requires_global_options=False,
+        requires_connection=False,
+        docs=_DEMO_DOCS,
+    )
+    def cmd_with_docs():
+        return MessageResult("ok")
+
+    @app.command(
+        "cmd_without_docs", requires_global_options=False, requires_connection=False
+    )
+    def cmd_without_docs():
+        return MessageResult("ok")
+
+    return app
+
+
+def test_declaring_command_docs_keeps_the_command_usable(cli):
+    """docs= is accepted by @app.command() and does not disturb the command."""
+    app = _app_with_docs().create_instance()
+
+    result = cli(app)(["cmd_with_docs"])
+    assert result.exit_code == 0, result.output

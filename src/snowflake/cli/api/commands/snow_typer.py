@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import click
 import typer
 from click import ClickException
+from snowflake.cli.api.commands.command_docs import CommandDocs
 from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
@@ -95,6 +96,7 @@ class SnowTyper(typer.Typer):
         is_enabled: Callable[[], bool] | None = None,
         require_warehouse: bool = False,
         preview: bool = False,
+        docs: Optional[CommandDocs] = None,
         **kwargs,
     ):
         """
