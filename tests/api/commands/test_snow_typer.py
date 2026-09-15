@@ -24,15 +24,19 @@ from snowflake.cli.api.commands.command_docs import (
     RelatedLink,
     get_command_docs,
 )
+from snowflake.cli.api.commands.docs_help import SnowTyperCommand
 from snowflake.cli.api.commands.snow_typer import (
     PREVIEW_PREFIX,
     SnowTyper,
     SnowTyperFactory,
     SortedTyperGroup,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import MessageResult
 from typer.main import get_command
 from typer.testing import CliRunner
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 def class_factory(
@@ -564,9 +568,22 @@ def test_command_docs_empty_versus_missing_examples():
 
 
 _DEMO_DOCS = CommandDocs(
-    related=(RelatedLink(href="/developer-guide/snowflake-cli/index"),),
-    usage_notes="Only usable on Tuesdays.",
-    examples=(Example(command="snow demo cmd_with_docs", output="done"),),
+    related=(
+        RelatedLink(href="/developer-guide/snowflake-cli/index"),
+        RelatedLink(
+            href="/developer-guide/snowflake-cli/command-reference/overview",
+            title="Snowflake CLI command reference",
+        ),
+    ),
+    usage_notes="Only usable on **Tuesdays**.",
+    examples=(
+        Example(
+            command="snow demo cmd_with_docs",
+            description="Run the command.",
+            output="done",
+        ),
+        Example(command="snow demo cmd_with_docs --again"),
+    ),
 )
 
 
@@ -603,12 +620,59 @@ def test_command_docs_are_readable_off_the_click_command():
     """docs= is reachable through the wrappers Typer puts around the callback."""
     group = get_command(_app_with_docs().create_instance())
 
+    assert isinstance(group.commands["cmd_with_docs"], SnowTyperCommand)
     assert (
         getattr(group.commands["cmd_with_docs"].callback, DOCS_ATTRIBUTE) == _DEMO_DOCS
     )
     assert not hasattr(group.commands["cmd_without_docs"].callback, DOCS_ATTRIBUTE)
     assert get_command_docs(group.commands["cmd_with_docs"]) == _DEMO_DOCS
     assert get_command_docs(group.commands["cmd_without_docs"]) == CommandDocs()
+
+
+def test_command_docs_do_not_appear_in_help_by_default(cli):
+    result = cli(_app_with_docs().create_instance())(["cmd_with_docs", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "Usage notes" not in result.output
+    assert "Examples" not in result.output
+    assert "Related topics" not in result.output
+
+
+@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
+def test_command_docs_appear_in_help(cli, os_agnostic_snapshot):
+    result = cli(_app_with_docs().create_instance())(["cmd_with_docs", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == os_agnostic_snapshot
+
+
+@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
+@pytest.mark.parametrize(
+    "docs",
+    [
+        CommandDocs(),
+        CommandDocs(usage_notes=""),
+    ],
+    ids=["missing-values", "empty-usage-notes"],
+)
+def test_empty_command_docs_do_not_add_help_sections(cli, docs):
+    app = SnowTyperFactory(name="demo")
+
+    @app.command(
+        "cmd",
+        requires_global_options=False,
+        requires_connection=False,
+        docs=docs,
+    )
+    def cmd():
+        return MessageResult("ok")
+
+    result = cli(app.create_instance())(["cmd", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "Usage notes" not in result.output
+    assert "Examples" not in result.output
+    assert "Related topics" not in result.output
 
 
 def test_command_docs_are_readable_with_connection_options():
@@ -628,3 +692,23 @@ def test_command_docs_are_readable_with_connection_options():
     assert not hasattr(group.commands["other"].callback, DOCS_ATTRIBUTE)
     assert get_command_docs(group.commands["cmd"]) == _DEMO_DOCS
     assert get_command_docs(group.commands["other"]) == CommandDocs()
+
+
+@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
+def test_command_docs_usage_notes_are_plain_text_in_help(cli):
+    app = SnowTyperFactory(name="demo")
+
+    @app.command(
+        "cmd",
+        requires_global_options=False,
+        requires_connection=False,
+        docs=CommandDocs(usage_notes="**Important:** use the `--force` flag."),
+    )
+    def cmd():
+        return MessageResult("ok")
+
+    result = cli(app.create_instance())(["cmd", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "**Important:**" in result.output
+    assert "`--force`" in result.output

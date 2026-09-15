@@ -16,6 +16,9 @@ from __future__ import annotations
 
 import pytest
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.feature_flags import FeatureFlag
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 @pytest.mark.parametrize(
@@ -48,3 +51,51 @@ def test_proper_context_values_for_silent(runner):
     assert runner.app
 
     assert result.exit_code == 0, result.output
+
+
+def _panel_lines(output: str) -> list[str]:
+    """Help output with the Rich panel borders stripped, one content line each."""
+    lines = []
+    for line in output.splitlines():
+        content = line.strip()
+        for border in ("│", "|"):
+            content = content.removeprefix(border).removesuffix(border)
+        lines.append(content.strip())
+    return lines
+
+
+@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
+@pytest.mark.parametrize("silent", [False, True], ids=["help", "silent-help"])
+def test_cortex_complete_help_includes_command_docs(runner, silent):
+    args = ["cortex", "complete"]
+    if silent:
+        args.append("--silent")
+    args.append("--help")
+    result = runner.invoke(args)
+
+    assert result.exit_code == 0, result.output
+    lines = _panel_lines(result.output)
+    # Prose is wrapped to the panel, so compare against the unwrapped text.
+    prose = " ".join(line for line in lines if line)
+
+    assert "Related topics" in result.output
+    assert "Usage notes" in result.output
+    assert "Examples" in result.output
+    assert "In the simplest use case, the prompt is a single string." in prose
+    assert "You can also provide a JSON file with conversation history" in prose
+    assert "Ask a question using the default model." in prose
+    assert "snow cortex complete" in prose
+
+    # Every path segment of every related link has to survive on a single line;
+    # folding at the panel edge used to cut them (".../command-refere" / "nce").
+    for href in (
+        "/developer-guide/snowflake-cli/index",
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "/developer-guide/snowflake-cli/command-reference/cortex-commands/overview",
+        "/user-guide/snowflake-cortex/aisql",
+    ):
+        for segment in href.split("/"):
+            if segment:
+                assert any(
+                    segment in line for line in lines
+                ), f"{segment!r} from {href} was split across lines"
