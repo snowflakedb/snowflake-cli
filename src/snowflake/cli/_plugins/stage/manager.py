@@ -72,7 +72,7 @@ log = logging.getLogger(__name__)
 # between the directory fan-out and each PUT's connector PARALLEL (see
 # put_recursive), so it also bounds total concurrency for callers that pass a
 # parallel value such as `snow stage copy --parallel`.
-DEFAULT_UPLOAD_WORKERS = 16
+DEFAULT_UPLOAD_WORKERS = 32
 
 # The budget is the ``cli.stage_upload_workers`` config value, i.e. the
 # SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS env var first, then config.toml.
