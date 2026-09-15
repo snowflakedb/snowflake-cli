@@ -557,6 +557,12 @@ def test_command_docs_empty_versus_missing_usage_notes():
     assert CommandDocs(usage_notes=None).usage_notes is None
 
 
+def test_command_docs_empty_versus_missing_examples():
+    assert CommandDocs().examples is None
+    assert CommandDocs(examples=()).examples == ()
+    assert CommandDocs(examples=None).examples is None
+
+
 _DEMO_DOCS = CommandDocs(
     related=(RelatedLink(href="/developer-guide/snowflake-cli/index"),),
     usage_notes="Only usable on Tuesdays.",
