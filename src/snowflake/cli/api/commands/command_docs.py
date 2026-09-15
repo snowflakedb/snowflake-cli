@@ -17,6 +17,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from inspect import cleandoc
 
+from click import Command
+
+DOCS_ATTRIBUTE = "__snowflake_cli_command_docs__"
+
 
 @dataclass(frozen=True)
 class Example:
@@ -40,3 +44,23 @@ class CommandDocs:
     def __post_init__(self) -> None:
         if self.usage_notes is not None:
             object.__setattr__(self, "usage_notes", cleandoc(self.usage_notes))
+
+
+def get_command_docs(command: Command) -> CommandDocs:
+    """
+    Reads the metadata declared through ``@app.command(docs=...)``.
+
+    The metadata is set on the user function. Typer copies ``__dict__`` onto
+    ``command.callback``; later wrappers are followed through ``__wrapped__``.
+
+    Commands without ``docs=`` return an empty ``CommandDocs``. Callers that
+    need sections (pages, ``--help``) should look at the fields, not at
+    whether the object was declared.
+    """
+    candidate = getattr(command, "callback", None)
+    while candidate is not None:
+        docs = getattr(candidate, DOCS_ATTRIBUTE, None)
+        if isinstance(docs, CommandDocs):
+            return docs
+        candidate = getattr(candidate, "__wrapped__", None)
+    return CommandDocs()
