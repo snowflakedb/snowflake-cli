@@ -35,6 +35,7 @@ from snowflake.cli._plugins.cortex.types import (
     Text,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import CommandDocs, Example, RelatedLink
 from snowflake.cli.api.commands.overrideable_parameter import (
     OverrideableArgument,
     OverrideableOption,
@@ -134,6 +135,45 @@ class Backend(Enum):
 @app.command(
     name="complete",
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            RelatedLink(href="/developer-guide/snowflake-cli/index"),
+            RelatedLink(
+                href="/developer-guide/snowflake-cli/command-reference/overview",
+                title="Snowflake CLI command reference",
+            ),
+            RelatedLink(
+                href="/developer-guide/snowflake-cli/command-reference/cortex-commands/overview"
+            ),
+            RelatedLink(
+                href="/user-guide/snowflake-cortex/aisql",
+                title="Snowflake Cortex",
+            ),
+        ),
+        usage_notes="""
+            In the simplest use case, the prompt is a single string.
+            You can also provide a JSON file with conversation history, including multiple prompts and responses,
+            for interactive chat-style conversation.
+            """,
+        examples=(
+            Example(
+                description="Ask a question using the default model.",
+                command=(
+                    'snow cortex complete "Is 5 more than 4? Please answer using one '
+                    'word without a period." -c snowhouse'
+                ),
+                output="Yes",
+            ),
+            Example(
+                description="Ask a question using a specified model.",
+                command=(
+                    'snow cortex complete "Is 5 more than 4? Please answer using one '
+                    'word without a period." -c snowhouse --model deepseek-r1'
+                ),
+                output="Yes",
+            ),
+        ),
+    ),
 )
 def complete(
     text: Optional[str] = ExclusiveTextSourceArgument(
