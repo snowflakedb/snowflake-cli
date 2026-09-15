@@ -18,9 +18,11 @@ from unittest.mock import MagicMock
 import pytest
 import typer
 from snowflake.cli.api.commands.command_docs import (
+    DOCS_ATTRIBUTE,
     CommandDocs,
     Example,
     RelatedLink,
+    get_command_docs,
 )
 from snowflake.cli.api.commands.snow_typer import (
     PREVIEW_PREFIX,
@@ -589,3 +591,34 @@ def test_declaring_command_docs_keeps_the_command_usable(cli):
 
     result = cli(app)(["cmd_with_docs"])
     assert result.exit_code == 0, result.output
+
+
+def test_command_docs_are_readable_off_the_click_command():
+    """docs= is reachable through the wrappers Typer puts around the callback."""
+    group = get_command(_app_with_docs().create_instance())
+
+    assert (
+        getattr(group.commands["cmd_with_docs"].callback, DOCS_ATTRIBUTE) == _DEMO_DOCS
+    )
+    assert not hasattr(group.commands["cmd_without_docs"].callback, DOCS_ATTRIBUTE)
+    assert get_command_docs(group.commands["cmd_with_docs"]) == _DEMO_DOCS
+    assert get_command_docs(group.commands["cmd_without_docs"]) == CommandDocs()
+
+
+def test_command_docs_are_readable_with_connection_options():
+    """The global-options wrapper sits between the callback and Typer."""
+    app = SnowTyperFactory(name="demo")
+
+    @app.command("cmd", requires_connection=True, docs=_DEMO_DOCS)
+    def cmd(**options):
+        return MessageResult("ok")
+
+    @app.command("other", requires_connection=True)
+    def other(**options):
+        return MessageResult("ok")
+
+    group = get_command(app.create_instance())
+    assert getattr(group.commands["cmd"].callback, DOCS_ATTRIBUTE) == _DEMO_DOCS
+    assert not hasattr(group.commands["other"].callback, DOCS_ATTRIBUTE)
+    assert get_command_docs(group.commands["cmd"]) == _DEMO_DOCS
+    assert get_command_docs(group.commands["other"]) == CommandDocs()

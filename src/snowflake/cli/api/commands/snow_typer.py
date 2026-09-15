@@ -22,7 +22,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import click
 import typer
 from click import ClickException
-from snowflake.cli.api.commands.command_docs import CommandDocs
+from snowflake.cli.api.commands.command_docs import DOCS_ATTRIBUTE, CommandDocs
 from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
@@ -112,6 +112,8 @@ class SnowTyper(typer.Typer):
         def custom_command(command_callable):
             """Custom command wrapper similar to Typer.command."""
             command_callable.__doc__ = sanitize_for_terminal(command_callable.__doc__)
+            if docs is not None:
+                setattr(command_callable, DOCS_ATTRIBUTE, docs)
 
             if preview and command_callable.__doc__:
                 if not command_callable.__doc__.strip().startswith(PREVIEW_PREFIX):
