@@ -27,6 +27,7 @@ from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
 )
+from snowflake.cli.api.commands.docs_help import SnowTyperCommand
 from snowflake.cli.api.commands.execution_metadata import (
     ExecutionMetadata,
     ExecutionStatus,
@@ -106,6 +107,8 @@ class SnowTyper(typer.Typer):
         """
         name = sanitize_for_terminal(name)
         self._sanitize_kwargs(kwargs)
+        if docs is not None:
+            kwargs.setdefault("cls", SnowTyperCommand)
         if is_enabled is not None and not is_enabled():
             return lambda func: func
 
