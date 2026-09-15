@@ -23,11 +23,15 @@
 * `snow dbt deploy` now also accepts `--git-url`, recording the repository URL in the project's `last_deployed_from` metadata alongside `--git-commit`/`--git-branch`. Like those flags, it is auto-detected from the GitHub Actions environment (`GITHUB_SERVER_URL`/`GITHUB_REPOSITORY`) when not explicitly specified.
 * `snow dbt execute` now accepts the `source`, `docs`, `clean`, `debug`, `ls`, and `deps_compile` commands (for example `snow dbt execute <project> source freshness` and `snow dbt execute <project> docs generate`), matching the set of commands the Snowflake backend already supports. These previously failed with a CLI "No such command" error even though the server accepted them.
 * `snow helpers clean-installer-path` cleans up the PATH entries that older macOS installers left behind in shell startup files, which can keep an outdated `snow` ahead of the current one. It reports what it would remove by default; `--apply` removes the entries and backs up every file it changes.
+* A `grants:` entry in `snowflake.yml` now accepts `user:` in place of `role:`, so `snow streamlit deploy` can grant an app to an individual user (UBAC) as well as to a role. Each entry needs exactly one of the two.
 
 ## Fixes and improvements
 * Telemetry no longer opens a Snowflake connection on its own. Under `externalbrowser` or OAuth authorization-code authentication, commands that never touch Snowflake — such as `snow connection list`, `snow app bundle`, and `snow sql --help` — no longer open a browser tab, and no longer hang in headless or CI runs waiting for one that cannot appear.
 * Upgraded GitPython from 3.1.59 to 3.1.62.
 * The default upload-concurrency budget for recursive stage uploads (`cli.stage_upload_workers`) is now 32, up from 16. This speeds up every command that uploads a directory tree to a stage — `snow stage copy --recursive`, `snow dcm deploy`, `snow dcm plan`, `snow dbt deploy`, `snow spcs service build-image` — by roughly 16-28% on trees with many nested folders. Set `cli.stage_upload_workers` (or `SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS`) to restore the previous value.
+* Grantee names in `grants:` are quoted only where SQL requires it, so a role or user whose name is not a bare identifier — an email address, for instance — no longer produces a syntax error.
+* A `privilege:` in `grants:` is now validated: it must be a privilege name — one or more unquoted-identifier words, such as `USAGE` or `IMPORTED PRIVILEGES`. Anything else is rejected before the project file is used.
+* A whitespace-only `role:` or `user:` in `grants:` is now treated as absent and reported, rather than emitted as a quoted blank name.
 
 
 # v3.27.0
