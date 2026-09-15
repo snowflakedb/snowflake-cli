@@ -37,9 +37,16 @@ class RelatedLink:
 
 @dataclass(frozen=True)
 class CommandDocs:
+    """
+    Command documentation declared through ``@app.command(docs=...)``.
+
+    All text fields are plain prose, not MDX. Docs pages escape them, so
+    markup written here is shown literally instead of being rendered.
+    """
+
     related: tuple[RelatedLink, ...] = ()
     usage_notes: str | None = None
-    examples: tuple[Example, ...] = ()
+    examples: tuple[Example, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.usage_notes is not None:

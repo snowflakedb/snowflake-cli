@@ -87,6 +87,11 @@ def test_docs_callback(runner):
     assert result.exit_code == 0, result.output
 
 
+def test_docs_pages_callback(runner, temporary_directory):
+    result = runner.invoke(["--docs-pages"])
+    assert result.exit_code == 0, result.output
+
+
 def test_all_commands_have_proper_documentation(runner, get_click_context):
     # invoke any command to populate app context (plugins registration)
     runner.invoke("--help")
