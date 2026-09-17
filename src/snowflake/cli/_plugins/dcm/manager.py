@@ -27,6 +27,7 @@ from snowflake.cli._plugins.dcm.models import (
 )
 from snowflake.cli._plugins.dcm.multistep_progress import StepProgressUpdater
 from snowflake.cli._plugins.dcm.progress import FileUploadProgress, upload_details
+from snowflake.cli._plugins.dcm.utils import RAW_ANALYZE_COMMAND_NAME
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
