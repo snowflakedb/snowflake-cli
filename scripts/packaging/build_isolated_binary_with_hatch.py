@@ -23,6 +23,26 @@ import tomlkit
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 INSTALLATION_SOURCE_VARIABLE = "INSTALLATION_SOURCE"
+# BINARY is the existing pkg / MSI / deb / rpm stamp. SNOWFLAKE_MANAGED is the
+# curl|sh tarball channel. Default stays BINARY so those jobs are unchanged.
+INSTALLATION_SOURCE_STAMPS = ("BINARY", "SNOWFLAKE_MANAGED")
+
+
+def rewrite_installation_source_assignment(
+    contents: str, source: str = "BINARY"
+) -> str:
+    if INSTALLATION_SOURCE_VARIABLE not in contents:
+        raise RuntimeError(
+            f"{INSTALLATION_SOURCE_VARIABLE} variable not defined in __about__.py"
+        )
+    if source not in INSTALLATION_SOURCE_STAMPS:
+        raise ValueError(
+            f"installation source stamp must be one of {INSTALLATION_SOURCE_STAMPS}, got {source!r}"
+        )
+    return contents.replace(
+        f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.PYPI",
+        f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.{source}",
+    )
 
 
 @contextlib.contextmanager
@@ -227,19 +247,10 @@ exec "$SCRIPT_DIR/python" "$@"
 
 
 @contextlib.contextmanager
-def override_is_installation_source_variable():
+def override_is_installation_source_variable(source: str = "BINARY"):
     about_file = PROJECT_ROOT / "src" / "snowflake" / "cli" / "__about__.py"
     contents = about_file.read_text()
-    if INSTALLATION_SOURCE_VARIABLE not in contents:
-        raise RuntimeError(
-            f"{INSTALLATION_SOURCE_VARIABLE} variable not defined in __about__.py"
-        )
-    about_file.write_text(
-        contents.replace(
-            f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.PYPI",
-            f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.BINARY",
-        )
-    )
+    about_file.write_text(rewrite_installation_source_assignment(contents, source))
     yield
     subprocess.run(["git", "checkout", str(about_file)])
 

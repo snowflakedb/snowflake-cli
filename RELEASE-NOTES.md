@@ -35,6 +35,7 @@
 * A `privilege:` in `grants:` is now validated: it must be a privilege name — one or more unquoted-identifier words, such as `USAGE` or `IMPORTED PRIVILEGES`. Anything else is rejected before the project file is used.
 * A whitespace-only `role:` or `user:` in `grants:` is now treated as absent and reported, rather than emitted as a quoted blank name.
 * Upgraded snowflake-connector-python from 4.7.3 to 4.7.4.
+* `snow --info` now reports `installation_source` (`pypi`, `binary`, or `snowflake-managed`) so support and agents can see how the CLI was installed. `snow --version` is unchanged.
 
 
 # v3.27.0
