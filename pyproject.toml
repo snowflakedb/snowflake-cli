@@ -174,8 +174,17 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
+# Keep `test`, `test_core`, and `test_nativeapp` in lockstep (same markers,
+# xdist flags, ignores). Forks run `test` (full suite); CI splits it into
+# `test_core` (everything except nativeapp) and `test_nativeapp`.
 test = [
-  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services tests_integration/ {args}',
+  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services --durations=25 tests_integration/ {args}',
+]
+test_core = [
+  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp --durations=25 tests_integration/ {args}',
+]
+test_nativeapp = [
+  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --durations=25 tests_integration/nativeapp {args}',
 ]
 test_container_services = [
   "pytest -m integration -n5 --dist=worksteal --deflake-test-type=integration tests_integration/tests_using_container_services",
