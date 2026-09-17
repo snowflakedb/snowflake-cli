@@ -40,10 +40,12 @@ from snowflake.cli.api.cli_global_context import (
     get_cli_context_manager,
 )
 from snowflake.cli.api.connections import OpenConnectionCache
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
 from tests.testing_utils.files_and_dirs import merge_left
 from tests_common import IS_WINDOWS
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 pytest_plugins = [
@@ -316,6 +318,14 @@ def enable_snowpark_glob_support_feature_flag():
             f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_disabled",
             return_value=False,
         ),
+    ):
+        yield
+
+
+@pytest.fixture
+def enable_snowpark_artifact_repository_requirements_feature_flag():
+    with with_feature_flags(
+        {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
     ):
         yield
 
