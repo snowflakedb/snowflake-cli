@@ -178,6 +178,10 @@ class CliAppFactory:
                         },
                         {"key": "python_version", "value": sys.version},
                         {"key": "system_info", "value": platform.platform()},
+                        {
+                            "key": "installation_source",
+                            "value": __about__.INSTALLATION_SOURCE.value,
+                        },
                         {"key": "feature_flags", "value": get_feature_flags_section()},
                         {"key": "SNOWFLAKE_HOME", "value": os.getenv("SNOWFLAKE_HOME")},
                     ],
