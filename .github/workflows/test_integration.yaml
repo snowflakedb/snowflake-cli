@@ -50,7 +50,34 @@ jobs:
       runs-on: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
       python-env: integration
-      hatch-run: integration:test
+      # Excludes nativeapp, which runs in the parallel `integration-nativeapp` job below.
+      hatch-run: integration:test_core
+      should-run: ${{ needs.changes.outputs.code == 'true' || github.event_name != 'pull_request' }}
+    secrets: inherit
+
+  # Overlaps the nativeapp suite (~40% of integration test items) with
+  # `integration-trusted` (now excluding nativeapp) as a second job. The
+  # suites already interleave under `-n5` in one pytest process; this overlaps
+  # two jobs and duplicates env setup. NOTE: this adds a NEW per-cell check
+  # `integration-nativeapp (<os>, <py>) / tests-trusted` that must be added to
+  # branch protection's required checks; until an admin does so it runs but
+  # does not block merges.
+  integration-nativeapp:
+    needs: [define-matrix, changes]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    uses: ./.github/workflows/test_trusted.yaml
+    with:
+      runs-on: ${{ matrix.os }}
+      python-version: ${{ matrix.python-version }}
+      python-env: integration
+      hatch-run: integration:test_nativeapp
       should-run: ${{ needs.changes.outputs.code == 'true' || github.event_name != 'pull_request' }}
     secrets: inherit
 
