@@ -40,7 +40,6 @@ from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
-from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 log = logging.getLogger(__name__)
@@ -154,10 +153,6 @@ def resolve_asset_paths(project_root: Path, assets: List[DCMAsset]) -> List[str]
 
 
 class DCMProjectManager(SqlExecutionMixin):
-    @property
-    def connection(self) -> SnowflakeConnection:
-        return self._conn
-
     def deploy_async(
         self,
         project_identifier: FQN,

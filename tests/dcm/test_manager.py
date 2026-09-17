@@ -1077,19 +1077,24 @@ class TestSyncLocalFiles:
 
 
 def test_connection_returns_underlying_connection():
-    # given
-    sentinel = object()
+    connection = mock.MagicMock()
+    manager = DCMProjectManager(connection=connection)
 
-    with mock.patch.object(
-        DCMProjectManager, "_conn", new_callable=mock.PropertyMock
-    ) as mock_conn:
-        mock_conn.return_value = sentinel
+    with mock.patch("snowflake.cli.api.sql_execution.get_cli_context") as context:
+        assert manager.connection is connection
+        manager.plan_async(project_identifier=TEST_PROJECT, from_stage="@my_stage")
+        connection.cursor.return_value.execute_async.assert_called_once()
+        context.assert_not_called()
 
-        # when
-        connection = DCMProjectManager().connection
 
-        # then
-        assert connection is sentinel
+def test_connection_defaults_to_cli_context():
+    with mock.patch("snowflake.cli.api.sql_execution.get_cli_context") as context:
+        connection = context.return_value.connection
+        manager = DCMProjectManager()
+
+        assert manager.connection is connection
+        manager.plan_async(project_identifier=TEST_PROJECT, from_stage="@my_stage")
+        connection.cursor.return_value.execute_async.assert_called_once()
 
 
 def test_add_sources_without_sources_folder_is_noop(tmp_path):
