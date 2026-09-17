@@ -71,7 +71,6 @@ from snowflake.cli._plugins.dcm.reporters import (
 )
 from snowflake.cli._plugins.dcm.utils import (
     RAW_ANALYZE_COMMAND_NAME,
-    RENDERED_FOLDER,
     announce_rendered_definitions,
     command_artifacts,
     mock_dcm_response,
@@ -745,18 +744,19 @@ def compile_project(
             effective_stage = _upload_step(
                 progress, manager, project_id, from_location, assets=context.assets
             )
-            result = progress.run_step(
-                COMPILE.key,
-                lambda step: manager.raw_analyze(
-                    project_identifier=project_id,
-                    configuration=context.configuration,
-                    from_stage=effective_stage,
-                    variables=variables,
-                    save_output=save_output,
-                    command_name="compile",
-                    output_folder_name="rendered_definitions",
-                ),
-            )
+            with output_stage(
+                project_id, command_name="compile", save_output=save_output
+            ) as output_path:
+                result = progress.run_step(
+                    COMPILE.key,
+                    lambda step: manager.raw_analyze(
+                        project_identifier=project_id,
+                        configuration=context.configuration,
+                        from_stage=effective_stage,
+                        variables=variables,
+                        output_path=output_path,
+                    ),
+                )
 
         reporter = AnalyzeErrorsReporter(save_output=save_output)
         if save_output:
@@ -793,18 +793,19 @@ def dependencies(
             effective_stage = _upload_step(
                 progress, manager, project_id, from_location, assets=context.assets
             )
-            result = progress.run_step(
-                COMPILE.key,
-                lambda step: manager.raw_analyze(
-                    project_identifier=project_id,
-                    configuration=context.configuration,
-                    from_stage=effective_stage,
-                    variables=variables,
-                    save_output=save_output,
-                    command_name="dependencies",
-                    output_folder_name="rendered_definitions",
-                ),
-            )
+            with output_stage(
+                project_id, command_name="dependencies", save_output=save_output
+            ) as output_path:
+                result = progress.run_step(
+                    COMPILE.key,
+                    lambda step: manager.raw_analyze(
+                        project_identifier=project_id,
+                        configuration=context.configuration,
+                        from_stage=effective_stage,
+                        variables=variables,
+                        output_path=output_path,
+                    ),
+                )
 
         reporter = DependenciesReporter(
             project_identifier=project_id, save_output=save_output

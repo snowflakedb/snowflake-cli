@@ -9,6 +9,7 @@ from snowflake.cli._plugins.dcm.commands import (
     _check_project_owner,
 )
 from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
+from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import DCMAsset, DCMManifest, DCMTarget
 from snowflake.cli._plugins.dcm.multistep_progress import MultiStepProgress
 from snowflake.cli.api.exceptions import CliError
@@ -2530,6 +2531,65 @@ class TestDCMRawAnalyze:
         _assert_format_result(payload, json.loads(analyze_response), format_name)
 
 
+@pytest.mark.parametrize("command", ["compile", "dependencies"])
+@pytest.mark.parametrize("save_output", [False, True])
+@pytest.mark.parametrize("query_fails", [False, True])
+def test_analysis_commands_respect_manager_signature_and_output_lifecycle(
+    command,
+    save_output,
+    query_fails,
+    mock_dcm_manager,
+    mock_manifest_load,
+    mock_output_stage,
+    mock_cursor,
+    mock_connect,
+    runner,
+    tmp_path,
+):
+    response = mock_cursor(rows=[(_analyze_response(),)], columns=("result",))
+
+    def analyze(**kwargs):
+        mock_output_stage.get_recursive.assert_not_called()
+        if query_fails:
+            raise CliError("Analysis failed")
+        return response
+
+    manager = mock_dcm_manager.return_value
+    manager.raw_analyze = mock.create_autospec(
+        DCMProjectManager().raw_analyze, side_effect=analyze
+    )
+    manager.sync_local_files.return_value = "TMP_STAGE"
+    mock_manifest_load.return_value = _manifest_without_config()
+    arguments = ["dcm", command, "fooBar"]
+    if save_output:
+        arguments.append("--save-output")
+
+    with change_directory(tmp_path):
+        result = runner.invoke(arguments)
+
+    assert result.exit_code == (1 if query_fails else 0), result.output
+    if query_fails:
+        assert "Analysis failed" in result.output
+    expected_output_path = (
+        _created_output_path(mock_output_stage) if save_output else None
+    )
+    manager.raw_analyze.assert_called_once_with(
+        project_identifier=FQN.from_string("fooBar"),
+        configuration=None,
+        from_stage="TMP_STAGE",
+        variables=None,
+        output_path=expected_output_path,
+    )
+    if save_output:
+        mock_output_stage.create.assert_called_once()
+        mock_output_stage.get_recursive.assert_called_once_with(
+            stage_path=expected_output_path, dest_path=Path("out")
+        )
+    else:
+        mock_output_stage.create.assert_not_called()
+        mock_output_stage.get_recursive.assert_not_called()
+
+
 class TestDCMAnalyze:
     def test_analyze_basic_no_errors(
         self,
@@ -2558,9 +2618,7 @@ class TestDCMAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
-            command_name="compile",
-            output_folder_name="rendered_definitions",
+            output_path=None,
         )
 
     def test_analyze_with_errors_exits_with_formatted_output(
@@ -2663,9 +2721,7 @@ class TestDCMAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=["key=value"],
-            save_output=False,
-            command_name="compile",
-            output_folder_name="rendered_definitions",
+            output_path=None,
         )
 
     def test_analyze_with_target(
@@ -2707,14 +2763,13 @@ class TestDCMAnalyze:
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
-            command_name="compile",
-            output_folder_name="rendered_definitions",
+            output_path=None,
         )
 
     def test_analyze_with_save_output(
         self,
         mock_dcm_manager,
+        mock_output_stage,
         mock_multistep_progress,
         mock_manifest_load,
         runner,
@@ -2737,9 +2792,7 @@ class TestDCMAnalyze:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=True,
-            command_name="compile",
-            output_folder_name="rendered_definitions",
+            output_path=_created_output_path(mock_output_stage),
         )
 
     def test_analyze_with_save_output_saves_response(
@@ -2909,9 +2962,7 @@ class TestDCMDependencies:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=None,
-            save_output=False,
-            command_name="dependencies",
-            output_folder_name="rendered_definitions",
+            output_path=None,
         )
 
     def test_dependencies_with_variables(
@@ -2939,9 +2990,7 @@ class TestDCMDependencies:
             configuration=None,
             from_stage="TMP_STAGE",
             variables=["key=value"],
-            save_output=False,
-            command_name="dependencies",
-            output_folder_name="rendered_definitions",
+            output_path=None,
         )
 
     def test_dependencies_shown_in_help(self, runner):
