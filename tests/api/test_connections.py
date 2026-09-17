@@ -21,7 +21,7 @@ from snowflake.cli.api.connections import (
     ConnectionContext,
     OpenConnectionCache,
 )
-from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
+from snowflake.cli.api.exceptions import SnowflakeConnectionError
 from snowflake.connector.errors import DatabaseError
 
 _SECRET_SENTINEL = "do-not-log-this-secret"
@@ -156,7 +156,7 @@ def test_connection_cache_caches_failures(
 
     cached_exc = None
     for _ in range(3):
-        with pytest.raises(InvalidConnectionConfigurationError) as excinfo:
+        with pytest.raises(SnowflakeConnectionError) as excinfo:
             local_connection_cache[ctx]
         if cached_exc is None:
             cached_exc = excinfo.value
@@ -182,7 +182,7 @@ def test_connection_cache_clear_failures_allows_retry(
 
     ctx = ConnectionContext(connection_name="default")
 
-    with pytest.raises(InvalidConnectionConfigurationError):
+    with pytest.raises(SnowflakeConnectionError):
         local_connection_cache[ctx]
     assert mock_connect.call_count == 1
 
@@ -208,7 +208,7 @@ def test_connection_cache_clear_also_forgets_failures(
 
     ctx = ConnectionContext(connection_name="default")
 
-    with pytest.raises(InvalidConnectionConfigurationError):
+    with pytest.raises(SnowflakeConnectionError):
         local_connection_cache[ctx]
 
     local_connection_cache.clear()
@@ -412,7 +412,7 @@ def test_get_if_open_reports_cached_failure_as_none(
 
     ctx = ConnectionContext(connection_name="default")
 
-    with pytest.raises(InvalidConnectionConfigurationError):
+    with pytest.raises(SnowflakeConnectionError):
         local_connection_cache[ctx]
 
     assert local_connection_cache.get_if_open(ctx) is None
