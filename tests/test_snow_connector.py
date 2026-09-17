@@ -23,6 +23,7 @@ from snowflake.cli._app.snow_connector import _BufferedMirrorStream
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
+from snowflake.connector.errors import DatabaseError
 
 from tests_common.feature_flag_utils import with_feature_flags
 
@@ -190,8 +191,26 @@ def test_returns_nice_error_in_case_of_connectivity_error(runner):
     result = runner.invoke(["sql", "-q", "select 1"])
 
     assert result.exit_code == 1, result.output
-    assert "Invalid connection configuration" in result.output
+    assert "Could not connect to Snowflake" in result.output
+    assert "Invalid connection configuration" not in result.output
     assert "User is empty" in result.output
+
+
+def test_server_side_connect_failure_is_not_configuration_error(mock_connect, runner):
+    mock_connect.side_effect = DatabaseError(
+        msg=(
+            "250001 (08001): Failed to connect to DB: "
+            "example.snowflakecomputing.com:443. User is locked from Duo "
+            "Security. Contact your local system administrator."
+        ),
+        errno=250001,
+    )
+    result = runner.invoke(["sql", "-q", "select 1"])
+
+    assert result.exit_code == 1, result.output
+    assert "Could not connect to Snowflake" in result.output
+    assert "User is locked from Duo Security" in result.output
+    assert "Invalid connection configuration" not in result.output
 
 
 @mock.patch("snowflake.connector")
