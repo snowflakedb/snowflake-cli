@@ -303,7 +303,7 @@
   <dt>`--format [TABLE|JSON|JSON_EXT|CSV]`</dt>
   <dd>
   
-  Specifies the output format. Default: TABLE.
+  Specifies the output format. [env var: SNOWFLAKE_CLI_OUTPUT_FORMAT | config: cli.output_format]. Default: TABLE.
   
   </dd>
   <dt>`--verbose, -v`</dt>
@@ -657,7 +657,7 @@
   <dt>`--format [TABLE|JSON|JSON_EXT|CSV]`</dt>
   <dd>
   
-  Specifies the output format. Default: TABLE.
+  Specifies the output format. [env var: SNOWFLAKE_CLI_OUTPUT_FORMAT | config: cli.output_format]. Default: TABLE.
   
   </dd>
   <dt>`--verbose, -v`</dt>
