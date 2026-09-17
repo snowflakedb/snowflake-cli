@@ -115,6 +115,18 @@ warning when the REPL starts, which reserves the `[...]` namespace for later
 extensions. Colour directives (`[#rrggbb]`, `[bg:#rrggbb]`) are part of that
 namespace, so they are dropped rather than rendered in this version.
 
+## Default output format
+
+Commands print a table unless you pass `--format`. To change that default, set
+`output_format` in the `[cli]` section of `config.toml` or the
+`SNOWFLAKE_CLI_OUTPUT_FORMAT` environment variable. Allowed values are `TABLE`,
+`JSON`, `JSON_EXT`, and `CSV`. `--format` on the command line still wins.
+
+```toml
+[cli]
+output_format = "JSON"
+```
+
 ## Get involved
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you!

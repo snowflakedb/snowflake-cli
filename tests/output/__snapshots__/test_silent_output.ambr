@@ -124,7 +124,10 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  |                                CSV]                   format. [env var:      |
+  |                                                       SNOWFLAKE_CLI_OUTPUT_… |
+  |                                                       | config:              |
+  |                                                       cli.output_format]     |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |

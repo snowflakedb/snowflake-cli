@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* The default output format is configurable via `cli.output_format` in `config.toml` or the `SNOWFLAKE_CLI_OUTPUT_FORMAT` environment variable (`TABLE`, `JSON`, `JSON_EXT`, or `CSV`). `--format` on the command still overrides it.
 * `snow spcs service remote-build`, `remote-build-status`, and `remote-build-history` are now generally available.
 * `snow dbt deploy` now also accepts `--git-url`, recording the repository URL in the project's `last_deployed_from` metadata alongside `--git-commit`/`--git-branch`. Like those flags, it is auto-detected from the GitHub Actions environment (`GITHUB_SERVER_URL`/`GITHUB_REPOSITORY`) when not explicitly specified.
 * `snow dbt execute` now accepts the `source`, `docs`, `clean`, `debug`, `ls`, and `deps_compile` commands (for example `snow dbt execute <project> source freshness` and `snow dbt execute <project> docs generate`), matching the set of commands the Snowflake backend already supports. These previously failed with a CLI "No such command" error even though the server accepted them.
