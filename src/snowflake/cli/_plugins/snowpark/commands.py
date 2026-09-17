@@ -15,8 +15,9 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException, UsageError
@@ -42,6 +43,7 @@ from snowflake.cli._plugins.snowpark.common import (
     SnowparkObjectManager,
     StageToArtifactMapping,
     map_path_mapping_to_artifact,
+    uses_project_requirements,
     zip_and_copy_artifacts_to_deploy,
 )
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
@@ -86,6 +88,7 @@ from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
 )
 from snowflake.cli.api.exceptions import (
+    CliError,
     IncompatibleParametersError,
     SecretsWithoutExternalAccessIntegrationError,
 )
@@ -104,6 +107,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -190,6 +194,9 @@ def deploy(
         snowflake_dependencies = _read_snowflake_requirements_file(
             project_paths.snowflake_requirements
         )
+        artifact_repository_requirements = _read_artifact_repository_requirements(
+            project_paths=project_paths, snowpark_entities=snowpark_entities
+        )
         deploy_status = []
         for entity in snowpark_entities.values():
             operation_result = snowpark_manager.deploy_entity(
@@ -197,6 +204,7 @@ def deploy(
                 existing_objects=existing_objects,
                 snowflake_dependencies=snowflake_dependencies,
                 entities_to_artifact_map=entities_to_imports_map,
+                artifact_repository_requirements=artifact_repository_requirements,
             )
             deploy_status.append(operation_result)
 
@@ -329,6 +337,104 @@ def _read_snowflake_requirements_file(file_path: SecurePath):
     return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
 
 
+# An artifact repository resolves a package name and a version specifier, the way a
+# package index does. Everything else a dependency declaration can hold - a URL, a
+# repository, a local path - has no meaning for one. The parsed Requirement is not
+# enough to tell those apart: `uri` is set for "git+https://..." but not for the PEP
+# 508 "name @ https://..." form, and the "===" arbitrary-equality operator accepts
+# almost any version, so a quote survives parsing and would reach the PACKAGES clause.
+# Matching the requirement as written is what keeps both out, and lets it be forwarded
+# verbatim - an artifact repository is a package index, so "scikit-learn" has to stay
+# "scikit-learn" and its specifier has to survive. Whitespace is `\s*` so a tab
+# between name and specifier is still a legal PEP 508 requirement, not a rejection.
+# Specifiers may be parenthesized (`pkg (>=1.4)`), the other PEP 508 form.
+_PEP440_SPEC = r"(?:===|==|!=|<=|>=|~=|<|>)\s*[A-Za-z0-9][A-Za-z0-9.*+!_-]*"
+_INSTALLABLE_BY_NAME = re.compile(
+    rf"""
+    [A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?          # PEP 508 name
+    \s*
+    (?:\[\s*[A-Za-z0-9._-]+(?:\s*,\s*[A-Za-z0-9._-]+)*\s*\])?   # extras
+    (?:
+        \s*\(\s*{_PEP440_SPEC}(?:\s*,\s*{_PEP440_SPEC})*\s*\)   # parenthesized specs
+        |
+        \s*{_PEP440_SPEC}(?:\s*,\s*{_PEP440_SPEC})*             # unparenthesized specs
+    )?
+    """,
+    re.VERBOSE,
+)
+_PIP_HASH_OPTION = re.compile(r"(?:^|\s)--hash=\S+")
+
+
+def _requirement_line_for_repository(line: str) -> str:
+    """Requirement text an artifact repository can be asked for.
+
+    Drops pip `--hash=` options (`uv export`, pip-tools). A repository resolves a
+    name and specifier; it does not verify file hashes.
+    """
+    return _PIP_HASH_OPTION.sub("", line).strip()
+
+
+def _read_artifact_repository_requirements(
+    project_paths: SnowparkProjectPaths, snowpark_entities: SnowparkEntities
+) -> List[str] | None:
+    """Requirements of the project, sent as PACKAGES of artifact repository entities.
+
+    An entity that declares an artifact repository and no packages of its own is
+    deployed with the requirements of the project, so that dependencies do not have
+    to be duplicated in the project definition file.
+
+    Returns None when this feature does not apply (flag off, or no entity uses
+    project requirements). Returns a list, possibly empty, when it does: an empty
+    list must not be confused with None, or create_or_replace falls through to
+    Anaconda packages from a leftover requirements.snowflake.txt.
+    """
+    if not FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS.is_enabled():
+        return None
+
+    if not any(uses_project_requirements(e) for e in snowpark_entities.values()):
+        return None
+
+    # The same resolution build performs, so that requirements.txt and the [project]
+    # dependencies of pyproject.toml reach a repository on the same terms.
+    requirements_source = package_utils.resolve_requirements_source(
+        requirements_file=project_paths.requirements,
+        pyproject_file=project_paths.pyproject,
+    )
+    if not requirements_source or not requirements_source.requirements:
+        cli_console.warning(
+            "Entities that declare an artifact repository declare no packages, and the"
+            " project declares no dependencies in requirements.txt or under [project]"
+            " in pyproject.toml, so no packages are sent for them."
+        )
+        return []
+
+    packages = []
+    not_installable = []
+    for requirement in requirements_source.requirements:
+        # parse_line drops environment markers, so matching against r.line would
+        # forward `pandas==2.2.0 ; python_version < "3.11"` as `pandas==2.2.0`.
+        # A repository is what would have honoured the marker; reject the line
+        # as written instead. `--hash=` is stripped first: uv export / pip-tools
+        # write it, and a repository cannot verify file hashes.
+        declared = _requirement_line_for_repository(
+            getattr(requirement, "declared_line", requirement.line).strip()
+        )
+        if not declared or not _INSTALLABLE_BY_NAME.fullmatch(declared):
+            not_installable.append(
+                getattr(requirement, "declared_line", requirement.line).strip()
+            )
+        else:
+            packages.append(declared)
+    if not_installable:
+        raise CliError(
+            f"Cannot ask an artifact repository for"
+            f" {', '.join(sanitize_for_terminal(line) or '' for line in not_installable)}."
+            f" A repository resolves a package name and an optional version specifier."
+            f" Declare artifact_repository_packages for the entity instead."
+        )
+    return packages
+
+
 @app.command("build", requires_connection=True)
 @with_project_definition()
 def build(
@@ -367,7 +473,8 @@ def build(
 
     # Resolve dependencies
     if skip_dependencies:
-        _warn_if_skip_dependencies_leaves_no_packages(get_snowpark_entities(pd))
+        snowpark_entities = get_snowpark_entities(pd)
+        _warn_if_skip_dependencies_leaves_no_packages(snowpark_entities, project_paths)
         _remove_files_left_by_previous_build(project_paths)
     elif requirements_source := package_utils.resolve_requirements_source(
         requirements_file=project_paths.requirements,
@@ -453,28 +560,89 @@ def _validate_skip_dependencies_is_used_alone(
 
 def _warn_if_skip_dependencies_leaves_no_packages(
     snowpark_entities: SnowparkEntities,
+    project_paths: SnowparkProjectPaths,
 ) -> None:
     # A skipped build writes no requirements.snowflake.txt, so the packages deploy
-    # sends are only the ones declared for an artifact repository. The condition
-    # mirrors the one guarding ARTIFACT_REPOSITORY in
-    # SnowparkObjectManager.create_or_replace: without both parts the entity is
-    # created with packages=().
+    # sends are only the ones declared for an artifact repository — or, when the
+    # feature flag is on, the ones uses_project_requirements will read from
+    # requirements.txt / pyproject.toml. Those entities are not "deployed with no
+    # dependencies" when that list is non-empty; they are the pairing with
+    # --skip-dependencies. An empty list is still packages=() at deploy, so the
+    # warning still fires.
+    project_requirement_lines = _project_requirement_lines_for_skip_dependencies(
+        snowpark_entities, project_paths
+    )
     entities_without_packages = [
         key
         for key, entity in snowpark_entities.items()
-        if not (
-            entity.artifact_repository
-            and (entity.artifact_repository_packages or entity.packages)
+        if not _entity_has_packages_after_skip_dependencies(
+            entity, project_requirement_lines
         )
     ]
     if entities_without_packages:
+        if FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS.is_enabled():
+            why = (
+                "--skip-dependencies does not zip dependencies, and no packages were "
+                "found for these entities in requirements.txt, pyproject.toml, or "
+                "artifact_repository_packages, so they are deployed with no dependencies "
+                "and imports of them fail at runtime. "
+            )
+            how = (
+                "Declare artifact_repository for the entity and list the packages in "
+                "requirements.txt or pyproject.toml, or declare artifact_repository_packages "
+                "in the project definition."
+            )
+        else:
+            why = (
+                "--skip-dependencies reads neither requirements.txt nor pyproject.toml, so "
+                "these are deployed with no dependencies and imports of them fail at runtime. "
+            )
+            how = (
+                "Declare artifact_repository and packages in the project definition "
+                "to install them from an artifact repository."
+            )
         cli_console.warning(
             f"No packages are declared for: {', '.join(entities_without_packages)}. "
-            "--skip-dependencies reads neither requirements.txt nor pyproject.toml, so "
-            "these are deployed with no dependencies and imports of them fail at runtime. "
-            "Declare artifact_repository and packages in the project definition "
-            "to install them from an artifact repository."
+            f"{why}{how}"
         )
+
+
+def _project_requirement_lines_for_skip_dependencies(
+    snowpark_entities: SnowparkEntities,
+    project_paths: SnowparkProjectPaths,
+) -> List[str] | None:
+    """Requirements deploy would send for uses_project_requirements entities.
+
+    None when the feature does not apply. A list, possibly empty, when it does —
+    empty is packages=() at deploy, not "has packages".
+    """
+    if not FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS.is_enabled():
+        return None
+    if not any(uses_project_requirements(e) for e in snowpark_entities.values()):
+        return None
+    requirements_source = package_utils.resolve_requirements_source(
+        requirements_file=project_paths.requirements,
+        pyproject_file=project_paths.pyproject,
+    )
+    if not requirements_source or not requirements_source.requirements:
+        return []
+    return [
+        _requirement_line_for_repository(
+            getattr(requirement, "declared_line", requirement.line).strip()
+        )
+        for requirement in requirements_source.requirements
+    ]
+
+
+def _entity_has_packages_after_skip_dependencies(
+    entity: ProcedureEntityModel | FunctionEntityModel,
+    project_requirement_lines: List[str] | None,
+) -> bool:
+    if entity.artifact_repository and (
+        entity.artifact_repository_packages or entity.packages
+    ):
+        return True
+    return bool(project_requirement_lines) and uses_project_requirements(entity)
 
 
 def _remove_files_left_by_previous_build(
