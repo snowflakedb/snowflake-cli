@@ -25,6 +25,7 @@
 * `snow dbt execute` now accepts the `source`, `docs`, `clean`, `debug`, `ls`, and `deps_compile` commands (for example `snow dbt execute <project> source freshness` and `snow dbt execute <project> docs generate`), matching the set of commands the Snowflake backend already supports. These previously failed with a CLI "No such command" error even though the server accepted them.
 * `snow helpers clean-installer-path` cleans up the PATH entries that older macOS installers left behind in shell startup files, which can keep an outdated `snow` ahead of the current one. It reports what it would remove by default; `--apply` removes the entries and backs up every file it changes.
 * A `grants:` entry in `snowflake.yml` now accepts `user:` in place of `role:`, so `snow streamlit deploy` can grant an app to an individual user (UBAC) as well as to a role. Each entry needs exactly one of the two.
+* `snow sql` now reports `Time Elapsed: <seconds>s` after each synchronous SQL submission in the interactive REPL, including the time needed to display results.
 
 ## Fixes and improvements
 * A failed Snowflake login is reported as a connection error, not as invalid connection configuration. Server-side messages such as a Duo lockout keep their original wording instead of being wrapped as a config problem.
