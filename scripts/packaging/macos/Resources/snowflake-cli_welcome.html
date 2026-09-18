@@ -13,12 +13,28 @@ body {
 SnowflakeCLI(<span class="monospace">snow</span>) is the next generation CLI.
 </p>
 <p>
-The installer copies the <span class="monospace">Snowflake CLI</span> application bundle to the
+The installer copies the <span class="monospace">Snowflake CLI</span> application bundle to
 <span class="monospace">~/Applications</span> or
-<span class="monospace">/Applications</span> directory. The installer also adds the necessary Python library
-path to your <span class="monospace">~/.profile</span>, <span class="monospace">~/.bash_profile</span>,
-or <span class="monospace">~/.bashrc</span> file and backs up the original file as
-<span class="monospace">~/*-snowflake.bak</span>, so you can reverse the change if necessary.
+<span class="monospace">/Applications</span>.
+PATH is set for login shells only. Open a new terminal after install.
+</p>
+<p>
+A machine-wide install, including Homebrew Cask, registers
+<span class="monospace">/etc/paths.d/snowflake-cli</span>.
+It does not edit your shell startup files.
+</p>
+<p>
+An install for your account adds one PATH line to
+<span class="monospace">~/.zprofile</span> for zsh, creating it if needed.
+For bash, it updates the first existing login profile:
+<span class="monospace">~/.bash_profile</span>,
+<span class="monospace">~/.bash_login</span>, or
+<span class="monospace">~/.profile</span>.
+It does not create one.
+If none exists, or if you use another shell, add this line to your shell
+configuration:
+<span class="monospace">export
+PATH="$HOME/Applications/SnowflakeCLI.app/Contents/MacOS:$PATH"</span>
 </p>
 </body>
 </html>

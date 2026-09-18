@@ -36,6 +36,7 @@
 * A whitespace-only `role:` or `user:` in `grants:` is now treated as absent and reported, rather than emitted as a quoted blank name.
 * Upgraded snowflake-connector-python from 4.7.3 to 4.7.4.
 * `snow --info` now reports `installation_source` (`pypi`, `binary`, or `snowflake-managed`) so support and agents can see how the CLI was installed. `snow --version` is unchanged.
+* The macOS `.pkg` installer no longer appends `export PATH=` to every user startup file on each upgrade. A machine-wide install (including Homebrew Cask) writes `/etc/paths.d/snowflake-cli` and an install under `/Users/<name>/` adds one marked PATH block to `.zprofile` for zsh or updates the first existing login profile (`.bash_profile`, `.bash_login`, or `.profile`) for bash. Duplicate lines from older installers stay until you remove them yourself.
 
 
 # v3.27.0
