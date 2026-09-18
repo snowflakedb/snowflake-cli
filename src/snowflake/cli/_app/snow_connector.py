@@ -18,6 +18,7 @@ import contextlib
 import io
 import logging
 import os
+import re
 import sys
 from typing import Dict, Literal, Optional, TextIO
 
@@ -303,7 +304,49 @@ def connect_to_snowflake(
                 **connection_parameters,
             )
     except (ForbiddenError, DatabaseError) as err:
+        hint = _oauth_failure_hint(err, connection_parameters)
+        if hint:
+            raise SnowflakeConnectionError(f"{err}\n{hint}") from err
         raise SnowflakeConnectionError(err) from err
+
+
+def _oauth_failure_hint(error: DatabaseError, parameters: Dict) -> Optional[str]:
+    authenticator = str(parameters.get("authenticator", "")).upper()
+    if authenticator not in {"OAUTH", "OAUTH_AUTHORIZATION_CODE"}:
+        return None
+    oauth_error = error.errno in {390303, 390318} or (
+        error.errno == 250001
+        and re.search(
+            r"\boauth access token (?:expired|invalid)\b|\binvalid oauth access token\b",
+            error.msg,
+            re.IGNORECASE,
+        )
+    )
+    if not oauth_error:
+        return None
+    if authenticator == "OAUTH":
+        return (
+            "Snowflake CLI cannot renew a raw OAuth token supplied by its caller. "
+            "Refresh it in the application or credential provider that supplied it, "
+            "then retry. The refresh-token flag does not apply to authenticator=oauth."
+        )
+    hints = []
+    if parameters.get("oauth_enable_refresh_tokens") is not True:
+        hints.append(
+            "Silent OAuth refresh is disabled. To enable it, set "
+            "oauth_enable_refresh_tokens = true in this connection, or pass "
+            "--oauth-enable-refresh-tokens for this invocation."
+        )
+    if parameters.get("client_store_temporary_credential") is False:
+        hints.append(
+            "Credential caching is disabled. To reuse refresh tokens between "
+            "commands, set client_store_temporary_credential = true."
+        )
+    hints.append(
+        "Sign in again if no usable refresh token is available. "
+        "Enabling refresh does not restore revoked credentials."
+    )
+    return " ".join(hints)
 
 
 def _avoid_closing_the_connection_if_it_was_shared(
