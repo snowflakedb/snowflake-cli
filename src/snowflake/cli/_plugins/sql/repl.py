@@ -1,6 +1,7 @@
+import time
 from contextlib import contextmanager
 from logging import getLogger
-from typing import Iterable
+from typing import Iterable, Tuple
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.filters import Condition, is_done, is_searching
@@ -23,6 +24,7 @@ from snowflake.cli.api.cli_global_context import (
 )
 from snowflake.cli.api.config import get_config_manager
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
 from snowflake.cli.api.rendering.sql_templates import SQLTemplateSyntaxConfig
 from snowflake.cli.api.secure_path import SecurePath
@@ -40,6 +42,14 @@ def _get_history_file():
 
 HISTORY_FILE = None  # Will be set lazily
 EXIT_KEYWORDS = ("exit", "quit")
+
+
+def _print_sql_elapsed(elapsed_seconds: float) -> None:
+    output_format = get_cli_context().output_format or OutputFormat.TABLE
+    if output_format is not OutputFormat.TABLE:
+        return
+    cli_console.message(f"Time Elapsed: {elapsed_seconds:.3f}s")
+
 
 # History file path will be set when REPL is initialized
 
@@ -239,13 +249,13 @@ class Repl:
 
     def _initialize_connection(self):
         """Early connection for possible fast fail."""
-        cursor = self._execute("select current_version();")
-        res = next(iter(cursor))
+        _, cursors = self._execute("select current_version();")
+        res = next(iter(cursors))
         log.debug("REPL: Snowflake version: %s", res.fetchall()[0][0])
 
-    def _execute(self, user_input: str) -> Iterable[SnowflakeCursor]:
-        """Executes a query and returns a list of cursors."""
-        _, cursors = self._sql_manager.execute(
+    def _execute(self, user_input: str) -> Tuple[int, Iterable[SnowflakeCursor]]:
+        """Executes a query and returns the expected results count with cursors."""
+        expected_results_cnt, cursors = self._sql_manager.execute(
             query=user_input,
             files=None,
             std_in=False,
@@ -256,7 +266,7 @@ class Repl:
         )
         if self._prompt_format:
             self._session_connection = self._sql_manager.connection
-        return cursors
+        return expected_results_cnt, cursors
 
     def run(self):
         with repl_context(self):
@@ -283,18 +293,29 @@ class Repl:
                 if user_input.lower() in EXIT_KEYWORDS:
                     raise EOFError
 
+                expected_results_cnt = 0
+                started = time.monotonic()
+
                 try:
                     log.debug("executing query")
-                    cursors = self._execute(user_input)
+                    expected_results_cnt, cursors = self._execute(user_input)
                     print_result(MultipleResults(QueryResult(c) for c in cursors))
+                    elapsed = time.monotonic() - started
+
+                    if expected_results_cnt > 0:
+                        _print_sql_elapsed(elapsed)
 
                 except Exception as e:
+                    elapsed = time.monotonic() - started
                     log.debug("error occurred: %s", e)
                     cli_console.warning(f"\nError occurred: {e}")
                     # Connect failures are cached by OpenConnectionCache; drop
                     # the cache so the next query can redial after the user
                     # fixes config or a transient blip clears.
                     get_cli_context_manager().connection_cache.clear_failures()
+
+                    if expected_results_cnt > 0:
+                        _print_sql_elapsed(elapsed)
 
             except KeyboardInterrupt:  # a.k.a Ctrl-C
                 log.debug("user interrupted with Ctrl-C")
