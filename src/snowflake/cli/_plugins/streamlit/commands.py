@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import List, NamedTuple, Optional
 
 import click
 import typer
@@ -29,6 +30,7 @@ from snowflake.cli._plugins.streamlit.log_streaming import (
     validate_spcs_v2_runtime,
 )
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
+from snowflake.cli._plugins.streamlit.project_grants import add_grants
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -46,20 +48,27 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.console import CliConsole
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.exceptions import CliArgumentError, NoProjectDefinitionError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
+    MultipleResults,
     SingleQueryResult,
     StreamResult,
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
+from snowflake.cli.api.project.definition_manager import DefinitionManager
+from snowflake.cli.api.project.schemas.entities.common import Grant
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.secure_path import SecurePath
 
 app = SnowTyperFactory(
     name="streamlit",
@@ -102,20 +111,192 @@ def execute(
 
 
 @app.command("share", requires_connection=True)
+@with_project_definition(is_optional=True)
 def streamlit_share(
     name: FQN = StreamlitNameArgument,
-    to_role: str = typer.Argument(
-        ...,
+    to_role: Optional[str] = typer.Argument(
+        None,
         help="Role with which to share the Streamlit app.",
         show_default=False,
+    ),
+    to_user: Optional[List[str]] = typer.Option(
+        None,
+        "--to-user",
+        help="User with which to share the Streamlit app, instead of a role."
+        " Repeat the option to share with several users.",
+        show_default=False,
+        hidden=not FeatureFlag.ENABLE_STREAMLIT_UBAC_SHARING.is_enabled(),
+    ),
+    with_grant_option: bool = typer.Option(
+        False,
+        "--with-grant-option",
+        help="Also let the grantee share the app with others.",
+        is_flag=True,
+    ),
+    grant_location_usage: bool = typer.Option(
+        False,
+        "--grant-location-usage",
+        help="Also grant the grantee USAGE on the database and schema holding the app.",
+        is_flag=True,
     ),
     **options,
 ) -> CommandResult:
     """
     Shares a Streamlit app with another role.
     """
-    cursor = StreamlitManager().share(streamlit_name=name, to_role=to_role)
-    return SingleQueryResult(cursor)
+    # Role stays positional, so existing invocations keep working.
+    if to_role and to_user:
+        raise CliArgumentError("Share with a role or with --to-user, not both.")
+    if not to_role and not to_user:
+        raise CliArgumentError("Name the role to share with, or a user via --to-user.")
+
+    # Every share this command issues is USAGE, so the grantees are Grants.
+    def _usage(**grantee) -> Grant:
+        return Grant(privilege="USAGE", with_grant_option=with_grant_option, **grantee)
+
+    grantees = (
+        [_usage(role=to_role)]
+        if to_role
+        else [_usage(user=user) for user in to_user or []]
+    )
+    manager = StreamlitManager()
+    # A copy: `using_connection` fills in the connection's database and schema in
+    # place, and the GRANT below deliberately uses the name as given.
+    resolved = FQN(database=name.database, schema=name.schema, name=name.name)
+    resolved.using_connection(get_cli_context().connection)
+    # Located before the GRANT: reading the project definition validates the whole
+    # of snowflake.yml, and a problem in an entity unrelated to this app must not
+    # surface as a failure once the share has already gone through.
+    users = [grantee for grantee in grantees if grantee.user]
+    target = _grants_target(resolved) if users else _GrantsTarget()
+
+    cursors = manager.share(
+        streamlit_name=name,
+        grantees=grantees,
+        with_grant_option=with_grant_option,
+    )
+    _handle_location_usage(manager, resolved, grantees, grant_location_usage)
+    _record_user_grants(target, users)
+    # One grantee keeps the single-result shape this command has always returned.
+    if len(cursors) == 1:
+        return SingleQueryResult(cursors[0])
+    return MultipleResults(SingleQueryResult(cursor) for cursor in cursors)
+
+
+class _GrantsTarget(NamedTuple):
+    """The `grants:` a user share is to be recorded under, or why it cannot be.
+
+    Empty throughout means there is nothing to record against — no project file,
+    or no entity in one that names this app — and nothing to report either.
+    """
+
+    project_file: Optional[SecurePath] = None
+    entity_id: Optional[str] = None
+    reason: Optional[str] = None
+
+
+def _grants_target(name: FQN) -> _GrantsTarget:
+    """Find the entity whose `grants:` should record a share of this app.
+
+    Called before the share is issued, because the first read of
+    `project_definition` pydantic-validates the entire project file: a schema
+    error anywhere in it would otherwise be raised after the GRANT had already
+    been made, reporting a share that succeeded as a failure. Recording is a
+    convenience, so a project file that cannot be read is carried back as a
+    reason to warn about rather than raised.
+    """
+    ctx = get_cli_context()
+    try:
+        entity_id = _streamlit_entity_id(ctx.project_definition, name, ctx.connection)
+        if entity_id is None:
+            log.debug("No streamlit entity matches %s; snowflake.yml left alone", name)
+            return _GrantsTarget()
+        project_root = ctx.project_root
+    except Exception as error:
+        log.debug("Could not read the project definition", exc_info=True)
+        return _GrantsTarget(
+            reason=f"{DefinitionManager.BASE_DEFINITION_FILENAME} could not be"
+            f" read: {error}"
+        )
+    return _GrantsTarget(
+        SecurePath(project_root) / DefinitionManager.BASE_DEFINITION_FILENAME,
+        entity_id,
+    )
+
+
+def _record_user_grants(target: _GrantsTarget, users: list[Grant]) -> None:
+    """Add the user shares to `grants:` in snowflake.yml, so a redeploy keeps them.
+
+    Only user shares: a role share predates this command and writing those would
+    churn project files that never asked for it. Nothing happens outside a
+    project, or when no entity in it names this app.
+    """
+    if not users:
+        return
+    if target.reason:
+        reason: Optional[str] = target.reason
+    elif target.project_file and target.entity_id:
+        reason = add_grants(target.project_file, target.entity_id, users)
+    else:
+        return
+
+    if reason:
+        entries = "\n".join(
+            f"      - privilege: USAGE\n"
+            f"        user: {sanitize_for_terminal(grant.user or '')}"
+            for grant in users
+        )
+        cc.warning(
+            f"Could not record the share in snowflake.yml, because"
+            f" {sanitize_for_terminal(reason)}. Add it under the app's grants to keep"
+            f" the share on the next deploy:\n{entries}"
+        )
+    else:
+        cc.step(f"Recorded the share in {DefinitionManager.BASE_DEFINITION_FILENAME}.")
+
+
+def _streamlit_entity_id(project_definition, name: FQN, conn) -> Optional[str]:
+    """The id of the streamlit entity that names this app, if the project has one.
+
+    Both sides are resolved against the connection first, so a project file that
+    leaves the database and schema implicit still matches a qualified argument.
+    """
+    entities = getattr(project_definition, "entities", None) or {}
+    for entity_id, entity in entities.items():
+        if entity.get_type() != ObjectType.STREAMLIT.value.cli_name:
+            continue
+        # `entity.fqn` builds a new FQN per access, so resolving it here does not
+        # write the connection's defaults back into the project definition.
+        if entity.fqn.using_connection(conn).identifier.upper() == (
+            name.identifier.upper()
+        ):
+            return entity_id
+    return None
+
+
+def _handle_location_usage(
+    manager: StreamlitManager,
+    name: FQN,
+    grantees: list[Grant],
+    grant_location_usage: bool,
+) -> None:
+    """Grant USAGE on the app's database and schema, or say why it was not.
+
+    Opt-in rather than automatic: the database and schema hold objects beyond
+    this app, so widening access to them is a larger grant than the one asked
+    for, and the app grant itself does not need it.
+    """
+    if grant_location_usage:
+        for problem in manager.grant_location_usage(name, grantees):
+            cc.warning(problem)
+        return
+    # Only for users: a role usually reaches the app's schema already, and
+    # warning every time would be noise.
+    if any(grantee.user for grantee in grantees) and name.database:
+        cc.warning(
+            f"A user may also need USAGE on {sanitize_for_terminal(name.prefix)}"
+            " to open the app. Re-run with --grant-location-usage to grant it."
+        )
 
 
 def _default_file_callback(param_name: str):
