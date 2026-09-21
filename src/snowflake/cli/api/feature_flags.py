@@ -79,12 +79,6 @@ class FeatureFlag(FeatureFlagMixin):
         "ENFORCE_STRICT_CONFIG_PERMISSIONS", False
     )
     ENABLE_SPCS_BUILD_IMAGE = BooleanFlag("ENABLE_SPCS_BUILD_IMAGE", False)
-    ENABLE_DBT_PROJECT_ENV_VARS = BooleanFlag("ENABLE_DBT_PROJECT_ENV_VARS", False)
-    ENABLE_DBT_PROJECT_IMPORTS = BooleanFlag("ENABLE_DBT_PROJECT_IMPORTS", False)
-    ENABLE_DBT_PROJECT_WRITEBACK = BooleanFlag("ENABLE_DBT_PROJECT_WRITEBACK", False)
-    ENABLE_DBT_PROJECT_AUTO_COMPILE = BooleanFlag(
-        "ENABLE_DBT_PROJECT_AUTO_COMPILE", False
-    )
     ENABLE_DBT_GIT_METADATA = BooleanFlag("ENABLE_DBT_GIT_METADATA", True)
     # CNG (serverless COMPUTE_RESOURCE) has its own flag: app.yml v2 is now
     # generally available, but CNG is not ready yet.

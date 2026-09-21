@@ -241,7 +241,6 @@ def deploy_dbt(
         ),
         show_default=False,
         default=None,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
     force: Optional[bool] = typer.Option(
         False,
@@ -261,11 +260,9 @@ def deploy_dbt(
             f"Mutually exclusive with --unset-default-env."
         ),
         callback=_default_env_callback,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
     unset_default_env: Optional[bool] = UnsetDefaultEnvironmentOption(
         help="Unset the default environment for the dbt project. Mutually exclusive with --default-env.",
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
     external_access_integrations: Optional[list[str]] = typer.Option(
         None,
@@ -291,7 +288,6 @@ def deploy_dbt(
         show_default=False,
         help="Set the writeback default persisted on the dbt project. Omit to leave "
         "the existing setting unchanged.",
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_WRITEBACK.is_enabled(),
     ),
     auto_compile: Optional[bool] = typer.Option(
         None,
@@ -300,7 +296,6 @@ def deploy_dbt(
         help="Set whether the dbt project is compiled on deploy; persisted on the "
         "project and applied to subsequent deploys until changed. Omit to leave the "
         "existing setting unchanged.",
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_AUTO_COMPILE.is_enabled(),
     ),
     git_commit: Optional[str] = typer.Option(
         None,
@@ -418,7 +413,6 @@ def before_callback(
         "--env",
         show_default=False,
         callback=_env_callback,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
         help="Selects the target environment from env.yml at execution time. "
         "Use 'NO_ENV' to skip env.yml entirely.",
     ),
@@ -426,7 +420,6 @@ def before_callback(
         None,
         "--env-vars",
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
         help="Environment variable overrides as a YAML/JSON object, e.g. "
         '\'{"DBT_FOO": "1", "DBT_BAR": "2"}\'. '
         "Values must be strings; numbers, booleans, null, nested objects, "
@@ -441,7 +434,6 @@ def before_callback(
         False,
         "--use-shell-env-vars",
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
         help="Forward exported shell environment variables with uppercase "
         "names starting with DBT_ (excluding the DBT_ENV_SECRET_ prefix) as "
         "ENV_VARS=(); non-uppercase or otherwise invalid names are skipped. "
@@ -455,7 +447,6 @@ def before_callback(
         None,
         "--writeback/--no-writeback",
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_WRITEBACK.is_enabled(),
         help="Whether to write dbt results back for this run. Must be placed before "
         "the dbt command. Omit to use the project's default.",
     ),
@@ -463,7 +454,6 @@ def before_callback(
         [],
         "--import",
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_IMPORTS.is_enabled(),
         callback=_import_callback,
         help="Stage contents to import into the run, as an IMPORTS clause. "
         "Repeatable. Each value is a stage path (@stage/s1), a dbt snow URL "
