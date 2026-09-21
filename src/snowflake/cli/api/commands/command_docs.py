@@ -15,11 +15,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from inspect import cleandoc
 
 from click import Command
 
 DOCS_ATTRIBUTE = "__snowflake_cli_command_docs__"
+
+Span = str
+
+
+@dataclass(frozen=True)
+class Paragraph:
+    """Inline ``parts`` concatenated with no separator and no ``cleandoc``.
+
+    Wrapping newlines inside a string are kept in both MDX and ``--help``.
+    A lone bullet is not a content block.
+    """
+
+    parts: tuple[Span, ...]
+
+
+@dataclass(frozen=True)
+class PlainText(Paragraph):
+    """A usage-note paragraph. The only ``ContentBlock`` in this PR."""
+
+    pass
+
+
+ContentBlock = PlainText
 
 
 @dataclass(frozen=True)
@@ -40,17 +62,28 @@ class CommandDocs:
     """
     Command documentation declared through ``@app.command(docs=...)``.
 
-    All text fields are plain prose, not MDX. Docs pages escape them, so
-    markup written here is shown literally instead of being rendered.
+    Documentation content is structured so it can be rendered for both MDX
+    pages and terminal help.
     """
 
     related: tuple[RelatedLink, ...] = ()
-    usage_notes: str | None = None
+    usage_notes: tuple[ContentBlock, ...] | None = None
     examples: tuple[Example, ...] | None = None
 
     def __post_init__(self) -> None:
-        if self.usage_notes is not None:
-            object.__setattr__(self, "usage_notes", cleandoc(self.usage_notes))
+        if self.usage_notes is None:
+            return
+        if not isinstance(self.usage_notes, tuple):
+            raise TypeError(
+                "usage_notes must be a tuple of content blocks, "
+                f"not {type(self.usage_notes).__name__}"
+            )
+        for block in self.usage_notes:
+            if not isinstance(block, ContentBlock):
+                raise TypeError(
+                    "usage_notes entries must be content blocks, "
+                    f"not {type(block).__name__}"
+                )
 
 
 def get_command_docs(command: Command) -> CommandDocs:

@@ -20,6 +20,10 @@ from typing import Any, List, Optional
 from click import Command
 from snowflake.cli._app.dev.docs.template_utils import get_template_environment
 from snowflake.cli.api.commands.command_docs import CommandDocs, get_command_docs
+from snowflake.cli.api.commands.command_docs_rendering import (
+    mdx_escape,
+    render_usage_mdx,
+)
 from snowflake.cli.api.secure_path import SecurePath
 from typer.core import TyperArgument
 
@@ -84,13 +88,6 @@ def get_main_option(options: List[str]) -> str:
     return ""
 
 
-def mdx_escape(value: Any) -> str:
-    """Escape angle brackets so MDX does not parse them as JSX tags."""
-    if value is None:
-        return ""
-    return str(value).replace("<", "&lt;").replace(">", "&gt;")
-
-
 def collapse_whitespace(value: Optional[str]) -> str:
     """Collapses runs of whitespace, including newlines, into single spaces."""
     if value is None:
@@ -103,6 +100,7 @@ def _template_env_with_filters():
     env.filters[get_main_option.__name__] = get_main_option
     env.filters[collapse_whitespace.__name__] = collapse_whitespace
     env.filters[mdx_escape.__name__] = mdx_escape
+    env.filters[render_usage_mdx.__name__] = render_usage_mdx
     return env
 
 

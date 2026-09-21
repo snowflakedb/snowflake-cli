@@ -16,13 +16,16 @@ from __future__ import annotations
 
 from io import StringIO
 
+import pytest
 from rich.console import Console
 from rich.text import Text
 from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
     Example,
+    PlainText,
     RelatedLink,
 )
+from snowflake.cli.api.commands.command_docs_rendering import render_usage_help
 from snowflake.cli.api.commands.docs_help import (
     DOCS_BASE_URL,
     _absolute_url,
@@ -32,7 +35,6 @@ from snowflake.cli.api.commands.docs_help import (
     _panel,
     _related_list,
     _RelatedTopic,
-    _usage_notes_text,
 )
 
 _LONG_URL = (
@@ -83,18 +85,33 @@ def test_fold_at_slash_cuts_a_segment_longer_than_the_width():
     assert all(len(line) <= 20 for line in lines)
 
 
-def test_usage_notes_text_empty_versus_missing():
-    assert _usage_notes_text("").plain == ""
-    assert _usage_notes_text("\n\n").plain == ""
-    assert _usage_notes_text("One sentence.").plain == "One sentence."
+def test_render_usage_help_empty_versus_text():
+    assert _render(render_usage_help(())).strip() == ""
+    assert _render(render_usage_help((PlainText(parts=()),))).strip() == ""
+    rendered = _render(render_usage_help((PlainText(parts=("One sentence.",)),)))
+    assert rendered.strip() == "One sentence."
 
 
-def test_usage_notes_text_joins_paragraphs_but_keeps_blank_lines():
-    notes = "First line,\nsecond line.\n\nNew paragraph.\nStill it."
+def test_render_usage_help_joins_string_parts_and_keeps_angle_brackets():
+    rendered = _render(render_usage_help((PlainText(parts=("Use ", "<name>", ".")),)))
+    assert rendered.strip() == "Use <name>."
 
-    assert _usage_notes_text(notes).plain == (
-        "First line, second line.\n\nNew paragraph. Still it."
+
+def test_render_usage_help_keeps_newlines_and_separates_plain_text_blocks():
+    rendered = _render(
+        render_usage_help(
+            (
+                PlainText(parts=("First line,\nsecond line.",)),
+                PlainText(parts=("New paragraph.\nStill it.",)),
+            )
+        )
     )
+    assert rendered == "First line,\nsecond line.\n\nNew paragraph.\nStill it.\n"
+
+
+def test_render_usage_help_rejects_unknown_blocks():
+    with pytest.raises(TypeError, match="Unsupported usage-note block"):
+        render_usage_help(("not a block",))  # type: ignore[arg-type]
 
 
 def test_panel_keeps_the_title():
@@ -158,9 +175,13 @@ def test_related_list_empty_versus_one_link():
 
 def test_docs_panels_empty_versus_each_section():
     assert list(_docs_panels(CommandDocs())) == []
-    assert list(_docs_panels(CommandDocs(usage_notes=""))) == []
+    assert list(_docs_panels(CommandDocs(usage_notes=()))) == []
 
-    usage = list(_docs_panels(CommandDocs(usage_notes="Only on Tuesdays.")))
+    usage = list(
+        _docs_panels(
+            CommandDocs(usage_notes=(PlainText(parts=("Only on Tuesdays.",)),))
+        )
+    )
     examples = list(_docs_panels(CommandDocs(examples=(Example(command="snow demo"),))))
     related = list(_docs_panels(CommandDocs(related=(RelatedLink(href="/foo"),))))
 
