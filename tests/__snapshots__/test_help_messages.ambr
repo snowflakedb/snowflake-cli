@@ -31406,19 +31406,28 @@
 # name: test_help_messages[streamlit.share]
   '''
                                                                                   
-   Usage: root streamlit share [OPTIONS] NAME TO_ROLE                             
+   Usage: root streamlit share [OPTIONS] NAME [TO_ROLE]                           
                                                                                   
    Shares a Streamlit app with another role.                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name         TEXT  Identifier of the Streamlit app; for example:        |
-  |                         my_streamlit                                         |
-  |                         [required]                                           |
-  | *    to_role      TEXT  Role with which to share the Streamlit app.          |
-  |                         [required]                                           |
+  | *    name         TEXT       Identifier of the Streamlit app; for example:   |
+  |                              my_streamlit                                    |
+  |                              [required]                                      |
+  |      to_role      [TO_ROLE]  Role with which to share the Streamlit app.     |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --with-grant-option                   Also let the grantee share the app     |
+  |                                       with others.                           |
+  | --grant-location-usage                Also grant the grantee USAGE on the    |
+  |                                       database and schema holding the app.   |
+  | --project               -p      TEXT  Path where the Snowflake project is    |
+  |                                       stored. Defaults to the current        |
+  |                                       working directory.                     |
+  | --env                           TEXT  String in the format key=value.        |
+  |                                       Overrides variables from the env       |
+  |                                       section used for templates.            |
+  | --help                  -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

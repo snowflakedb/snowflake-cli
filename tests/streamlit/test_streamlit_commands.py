@@ -554,17 +554,210 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_execute.assert_any_call(expected_query)
         assert restart_calls(self.mock_execute_with_params) == []
 
-    def test_share_streamlit(self, runner, mock_streamlit_ctx):
+    @pytest.mark.parametrize(
+        "extra_args, expected_grantee",
+        [
+            (["other_role"], "ROLE other_role"),
+            (["--to-user", "AAMADHAVAN"], "USER AAMADHAVAN"),
+            # A user named after an email address is not a bare identifier.
+            (["--to-user", "first.last@example.com"], 'USER "first.last@example.com"'),
+            (
+                ["other_role", "--with-grant-option"],
+                "ROLE other_role WITH GRANT OPTION",
+            ),
+            (
+                ["--to-user", "AAMADHAVAN", "--with-grant-option"],
+                "USER AAMADHAVAN WITH GRANT OPTION",
+            ),
+        ],
+    )
+    def test_share_streamlit(
+        self, runner, mock_streamlit_ctx, extra_args, expected_grantee
+    ):
         self.mock_connector.return_value = mock_streamlit_ctx
-        role = "other_role"
 
-        result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, role])
+        result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, *extra_args])
 
         assert result.exit_code == 0, result.output
         assert (
             mock_streamlit_ctx.get_query()
-            == f"grant usage on streamlit IDENTIFIER('{STREAMLIT_NAME}') to role {role}"
+            == f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO {expected_grantee}"
         )
+
+    def test_share_streamlit_with_several_users(self, runner, mock_streamlit_ctx):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(
+            [
+                "streamlit",
+                "share",
+                STREAMLIT_NAME,
+                "--to-user",
+                "AAMADHAVAN",
+                "--to-user",
+                "CLAU",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        grant = f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO USER"
+        assert mock_streamlit_ctx.get_queries() == [
+            f"{grant} AAMADHAVAN",
+            f"{grant} CLAU",
+        ]
+
+    def test_share_streamlit_records_a_user_share_in_the_project_file(
+        self, runner, mock_streamlit_ctx, project_directory
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        with project_directory("streamlit_full_definition_v2") as root:
+            result = runner.invoke(
+                ["streamlit", "share", STREAMLIT_NAME, "--to-user", "AAMADHAVAN"]
+            )
+
+            assert result.exit_code == 0, result.output
+            assert (
+                (root / "snowflake.yml")
+                .read_text()
+                .endswith(
+                    "    - extra_file.py\n"
+                    "    grants:\n"
+                    "      - privilege: USAGE\n"
+                    "        user: AAMADHAVAN\n"
+                )
+            )
+
+    def test_share_streamlit_does_not_record_a_role_share(
+        self, runner, mock_streamlit_ctx, project_directory
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        with project_directory("streamlit_full_definition_v2") as root:
+            before = (root / "snowflake.yml").read_text()
+
+            result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, "other_role"])
+
+            assert result.exit_code == 0, result.output
+            assert (root / "snowflake.yml").read_text() == before
+
+    def test_share_streamlit_grants_location_usage(self, runner, mock_streamlit_ctx):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(
+            [
+                "streamlit",
+                "share",
+                STREAMLIT_NAME,
+                "--to-user",
+                "AAMADHAVAN",
+                "--grant-location-usage",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_streamlit_ctx.get_queries() == [
+            f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO USER AAMADHAVAN",
+            "GRANT USAGE ON DATABASE IDENTIFIER('MockDatabase') TO USER AAMADHAVAN",
+            "GRANT USAGE ON SCHEMA IDENTIFIER('MockDatabase.MockSchema') TO USER AAMADHAVAN",
+        ]
+
+    def test_share_streamlit_warns_that_a_user_may_need_location_usage(
+        self, runner, mock_streamlit_ctx
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(
+            ["streamlit", "share", STREAMLIT_NAME, "--to-user", "AAMADHAVAN"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "--grant-location-usage" in result.output
+        assert mock_streamlit_ctx.get_queries() == [
+            f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO USER AAMADHAVAN"
+        ]
+
+    def test_share_streamlit_with_a_role_does_not_warn(
+        self, runner, mock_streamlit_ctx
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, "other_role"])
+
+        assert result.exit_code == 0, result.output
+        assert "--grant-location-usage" not in result.output
+
+    def test_share_streamlit_still_reports_a_share_a_broken_project_file_cannot_record(
+        self, runner, mock_streamlit_ctx, project_directory
+    ):
+        # An invalid entity elsewhere in the file: reading the project definition
+        # validates all of it, so this used to raise after the GRANT had already
+        # been made and report a share that had succeeded as a failure.
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        with project_directory("streamlit_full_definition_v2") as root:
+            definition = root / "snowflake.yml"
+            definition.write_text(
+                definition.read_text()
+                + dedent(
+                    """\
+                      other_app:
+                        type: streamlit
+                        main_file: other.py
+                        grants:
+                          - privilege: DROP TABLE; SELECT 1
+                            role: ANALYST
+                    """
+                )
+            )
+
+            result = runner.invoke(
+                ["streamlit", "share", STREAMLIT_NAME, "--to-user", "AAMADHAVAN"]
+            )
+
+            assert result.exit_code == 0, result.output
+            assert "Could not record the share in snowflake.yml" in result.output
+            assert mock_streamlit_ctx.get_queries() == [
+                f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO USER AAMADHAVAN"
+            ]
+
+    def test_share_streamlit_sanitizes_a_user_it_cannot_record(
+        self, runner, mock_streamlit_ctx, project_directory
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        with project_directory("streamlit_full_definition_v2") as root:
+            definition = root / "snowflake.yml"
+            # An inline value has no list to append to, so recording is reported
+            # rather than done, and the name is echoed back for pasting.
+            definition.write_text(definition.read_text() + "    grants: []\n")
+
+            result = runner.invoke(
+                ["streamlit", "share", STREAMLIT_NAME, "--to-user", "\x1b[31mEVIL"]
+            )
+
+            assert result.exit_code == 0, result.output
+            assert "EVIL" in result.output
+            assert "\x1b" not in result.output
+
+    @pytest.mark.parametrize(
+        "extra_args, expected_error",
+        [
+            ([], "Name the role to share with"),
+            (["--with-grant-option"], "Name the role to share with"),
+            (["other_role", "--to-user", "AAMADHAVAN"], "not both"),
+        ],
+    )
+    def test_share_streamlit_needs_exactly_one_grantee(
+        self, runner, mock_streamlit_ctx, extra_args, expected_error
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, *extra_args])
+
+        assert result.exit_code == 1, result.output
+        assert expected_error in result.output
+        assert mock_streamlit_ctx.get_query() == ""
 
     def test_drop_streamlit(self, runner, mock_streamlit_ctx):
         self.mock_connector.return_value = mock_streamlit_ctx

@@ -213,6 +213,9 @@ _GRANTEE_RULE = "Each grant needs exactly one of role or user."
 
 class Grant(UpdatableModel):
     privilege: str = Field(title="Required privileges")
+    with_grant_option: bool = Field(
+        title="Whether the grantee may grant the privilege onward", default=False
+    )
     role: Optional[str] = Field(
         title=f"Role to grant the privilege to. {_GRANTEE_RULE}", default=None
     )
@@ -270,10 +273,11 @@ class Grant(UpdatableModel):
         return f"USER {to_identifier(cast(str, self.user))}"
 
     def get_grant_sql(self, entity_model: EntityModelBase) -> str:
-        return (
+        statement = (
             f"GRANT {self.privilege} ON {entity_model.get_type().upper()}"
             f" {entity_model.fqn.sql_identifier} TO {self.grantee_sql}"
         )
+        return f"{statement} WITH GRANT OPTION" if self.with_grant_option else statement
 
 
 class GrantBaseModel(UpdatableModel):

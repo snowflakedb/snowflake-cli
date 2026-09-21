@@ -30,6 +30,12 @@
 * A `grants:` entry in `snowflake.yml` now accepts `user:` in place of `role:`, so `snow streamlit deploy` can grant an app to an individual user (UBAC) as well as to a role. Each entry needs exactly one of the two.
 * `snow sql` now reports `Time Elapsed: <seconds>s` after each synchronous SQL submission in the interactive REPL, including the time needed to display results.
 * For the `dcm` plugin, assets defined in the manifest file are uploaded. `assets:` is a mapping of names to either `path` (one file, directory, or glob) or `paths` (a list of them), all relative to the project root.
+* A Streamlit entity in `snowflake.yml` accepts a `sharing:` list, each entry naming a `role:` or a `user:` and optionally `with_grant_option: true`. `snow streamlit deploy` grants USAGE on the app to every entry. This is the key Snowsight Workspaces already writes when an app is shared there, which the CLI previously rejected as an unsupported field.
+* `grants:` is the canonical spelling and `sharing:` the older one; a `sharing:` entry means the same as a `grants:` entry whose privilege is USAGE. Writing the same grant under both keys deploys it once rather than failing, comparing names the way Snowflake resolves them.
+* `snow streamlit share` accepts `--to-user`, sharing the app with an individual user (UBAC) rather than a role. Repeat the option to share with several users. The share is also recorded under the matching entity's `grants:` in `snowflake.yml`, so the next `snow streamlit deploy` keeps it. The role argument stays positional, so existing invocations are unaffected.
+* `snow streamlit share` accepts `--with-grant-option`, so the grantee can share the app onward.
+* `snow streamlit share` accepts `--grant-location-usage`, which also grants the grantee USAGE on the database and schema holding the app. A refusal is reported as a warning and the app grant stands, since it does not depend on those.
+* A `grants:` entry in `snowflake.yml` accepts `with_grant_option: true`, so a project file can record a share the grantee may pass on, and `snow streamlit deploy` issues it as `GRANT ... WITH GRANT OPTION`.
 
 ## Fixes and improvements
 * A failed Snowflake login is reported as a connection error, not as invalid connection configuration. Server-side messages such as a Duo lockout keep their original wording instead of being wrapped as a config problem.
