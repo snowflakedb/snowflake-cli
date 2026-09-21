@@ -21,6 +21,7 @@ from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
     CommandDocs,
     Example,
+    PlainText,
     RelatedLink,
     get_command_docs,
 )
@@ -545,20 +546,17 @@ def test_add_typer_subcommands_are_invokable(cli):
     assert sub_result.exit_code == 0, sub_result.output
 
 
-def test_command_docs_cleans_indented_usage_notes():
-    docs = CommandDocs(
-        usage_notes="""
-            First sentence.
-            Second sentence.
-            """
-    )
-    assert docs.usage_notes == "First sentence.\nSecond sentence."
-
-
 def test_command_docs_empty_versus_missing_usage_notes():
     assert CommandDocs().usage_notes is None
-    assert CommandDocs(usage_notes="").usage_notes == ""
+    assert CommandDocs(usage_notes=()).usage_notes == ()
     assert CommandDocs(usage_notes=None).usage_notes is None
+
+
+def test_command_docs_rejects_non_block_usage_notes():
+    with pytest.raises(TypeError, match="tuple of content blocks"):
+        CommandDocs(usage_notes="old string")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="entries must be content blocks"):
+        CommandDocs(usage_notes=("old string",))  # type: ignore[arg-type]
 
 
 def test_command_docs_empty_versus_missing_examples():
@@ -575,7 +573,7 @@ _DEMO_DOCS = CommandDocs(
             title="Snowflake CLI command reference",
         ),
     ),
-    usage_notes="Only usable on **Tuesdays**.",
+    usage_notes=(PlainText(parts=("Only usable on **Tuesdays**.",)),),
     examples=(
         Example(
             command="snow demo cmd_with_docs",
@@ -651,7 +649,7 @@ def test_command_docs_appear_in_help(cli, os_agnostic_snapshot):
     "docs",
     [
         CommandDocs(),
-        CommandDocs(usage_notes=""),
+        CommandDocs(usage_notes=()),
     ],
     ids=["missing-values", "empty-usage-notes"],
 )
@@ -702,7 +700,9 @@ def test_command_docs_usage_notes_are_plain_text_in_help(cli):
         "cmd",
         requires_global_options=False,
         requires_connection=False,
-        docs=CommandDocs(usage_notes="**Important:** use the `--force` flag."),
+        docs=CommandDocs(
+            usage_notes=(PlainText(parts=("**Important:** use the `--force` flag.",)),)
+        ),
     )
     def cmd():
         return MessageResult("ok")

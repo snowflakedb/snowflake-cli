@@ -342,9 +342,7 @@
   
   ## Usage notes
   
-  In the simplest use case, the prompt is a single string.
-  You can also provide a JSON file with conversation history, including multiple prompts and responses,
-  for interactive chat-style conversation.
+  In the simplest use case, the prompt is a single string. You can also provide a JSON file with conversation history, including multiple prompts and responses, for interactive chat-style conversation.
   
   ## Examples
   

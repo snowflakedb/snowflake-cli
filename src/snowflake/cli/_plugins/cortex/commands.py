@@ -35,7 +35,12 @@ from snowflake.cli._plugins.cortex.types import (
     Text,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.command_docs import CommandDocs, Example, RelatedLink
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    PlainText,
+    RelatedLink,
+)
 from snowflake.cli.api.commands.overrideable_parameter import (
     OverrideableArgument,
     OverrideableOption,
@@ -150,11 +155,16 @@ class Backend(Enum):
                 title="Snowflake Cortex",
             ),
         ),
-        usage_notes="""
-            In the simplest use case, the prompt is a single string.
-            You can also provide a JSON file with conversation history, including multiple prompts and responses,
-            for interactive chat-style conversation.
-            """,
+        usage_notes=(
+            PlainText(
+                parts=(
+                    "In the simplest use case, the prompt is a single string. "
+                    "You can also provide a JSON file with conversation history, "
+                    "including multiple prompts and responses, for interactive "
+                    "chat-style conversation.",
+                )
+            ),
+        ),
         examples=(
             Example(
                 description="Ask a question using the default model.",

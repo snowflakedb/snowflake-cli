@@ -28,6 +28,7 @@ from snowflake.cli.api.commands.command_docs import (
     RelatedLink,
     get_command_docs,
 )
+from snowflake.cli.api.commands.command_docs_rendering import render_usage_help
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from typer.core import TyperCommand
@@ -62,27 +63,11 @@ class SnowTyperCommand(TyperCommand):
 
 def _docs_panels(docs: CommandDocs) -> Iterator[Panel]:
     if docs.usage_notes:
-        yield _panel("Usage notes", _usage_notes_text(docs.usage_notes))
+        yield _panel("Usage notes", render_usage_help(docs.usage_notes))
     if docs.examples:
         yield _panel("Examples", Group(*_example_lines(docs.examples)))
     if docs.related:
         yield _panel("Related topics", _related_list(docs.related))
-
-
-def _usage_notes_text(usage_notes: str) -> Text:
-    """
-    Re-flows the notes for the terminal.
-
-    The field holds plain prose, so it is never parsed as markup. A single newline is
-    a wrap in the source rather than in the output, so paragraphs are joined
-    and left for the console to wrap; blank lines keep their break.
-    """
-    sanitized = sanitize_for_terminal(usage_notes) or ""
-    paragraphs = (
-        " ".join(line.strip() for line in paragraph.split("\n") if line.strip())
-        for paragraph in sanitized.split("\n\n")
-    )
-    return Text("\n\n".join(paragraph for paragraph in paragraphs if paragraph))
 
 
 def _panel(title: str, renderable: RenderableType) -> Panel:

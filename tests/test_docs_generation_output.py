@@ -34,8 +34,10 @@ from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
     CommandDocs,
     Example,
+    PlainText,
     RelatedLink,
 )
+from snowflake.cli.api.commands.command_docs_rendering import render_usage_mdx
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 from typer.main import get_command
 
@@ -308,6 +310,29 @@ def test_command_help_angle_brackets_are_escaped():
     assert "Runs the <object> command." not in overview
 
 
+def test_render_usage_mdx_empty_versus_plain_text():
+    assert render_usage_mdx(()) == ""
+    assert render_usage_mdx((PlainText(parts=()),)) == ""
+    assert (
+        render_usage_mdx(
+            (
+                PlainText(parts=("Use <name>.",)),
+                PlainText(parts=("Second paragraph.",)),
+            )
+        )
+        == "Use &lt;name&gt;.\n\nSecond paragraph."
+    )
+    assert (
+        render_usage_mdx((PlainText(parts=("Use ", "<name>", ".")),))
+        == "Use &lt;name&gt;."
+    )
+
+
+def test_render_usage_mdx_rejects_unknown_blocks():
+    with pytest.raises(TypeError, match="Unsupported usage-note block"):
+        render_usage_mdx(("not a block",))  # type: ignore[arg-type]
+
+
 def test_additional_section_empty_versus_missing():
     assert _additional_section({}, "Usage notes") is None
     assert _additional_section({"additional_sections": []}, "Usage notes") is None
@@ -326,10 +351,12 @@ def test_page_usage_notes_fallback_empty_versus_missing():
     assert _page_usage_notes_fallback(CommandDocs(), params) == "From the <docstring>."
     assert _page_usage_notes_fallback(CommandDocs(), {}) is None
     assert (
-        _page_usage_notes_fallback(CommandDocs(usage_notes="From CommandDocs."), params)
+        _page_usage_notes_fallback(
+            CommandDocs(usage_notes=(PlainText(parts=("From CommandDocs.",)),)), params
+        )
         is None
     )
-    assert _page_usage_notes_fallback(CommandDocs(usage_notes=""), params) is None
+    assert _page_usage_notes_fallback(CommandDocs(usage_notes=()), params) is None
 
 
 def test_page_examples_fallback_empty_versus_missing():
@@ -372,8 +399,8 @@ def test_render_command_page_with_structured_docs(snapshot):
             ),
         ),
         usage_notes=(
-            "Use `--force` to skip the prompt.\n\n"
-            "The <object_name> object must already exist."
+            PlainText(parts=("Use `--force` to skip the prompt.",)),
+            PlainText(parts=("The <object_name> object must already exist.",)),
         ),
         examples=(
             Example(
@@ -469,7 +496,7 @@ def test_empty_command_docs_usage_notes_do_not_fall_back_to_docstring():
         """
 
     command = get_command(app)
-    setattr(command.callback, DOCS_ATTRIBUTE, CommandDocs(usage_notes=""))
+    setattr(command.callback, DOCS_ATTRIBUTE, CommandDocs(usage_notes=()))
     rendered = _command_page_markdown(command, ["git", "setup"])
     assert "## Usage notes" not in rendered
     assert "From the docstring." not in rendered
@@ -518,7 +545,7 @@ def test_command_docs_usage_notes_win_over_docstring():
     setattr(
         command.callback,
         DOCS_ATTRIBUTE,
-        CommandDocs(usage_notes="From CommandDocs."),
+        CommandDocs(usage_notes=(PlainText(parts=("From CommandDocs.",)),)),
     )
     rendered = _command_page_markdown(command, ["git", "setup"])
     assert "From CommandDocs." in rendered
