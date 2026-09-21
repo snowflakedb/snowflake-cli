@@ -14,6 +14,7 @@
 
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 from unittest import mock
 
 import pytest
@@ -26,6 +27,7 @@ from snowflake.cli._app.dev.docs.commands_docs_generator import (
     _page_examples_fallback,
     _page_usage_notes_fallback,
     _split_docstring,
+    collapse_whitespace,
     mdx_escape,
 )
 from snowflake.cli.api.commands.command_docs import (
@@ -231,6 +233,79 @@ def test_flags_have_default_values(runner, temporary_directory, snapshot):
 )
 def test_mdx_escape(value, expected):
     assert mdx_escape(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, ""),
+        ("", ""),
+        ("   \n  ", ""),
+        ("plain text", "plain text"),
+        ("first line\nsecond line", "first line second line"),
+        ("\n    indented.\n    continued.\n    ", "indented. continued."),
+    ],
+)
+def test_collapse_whitespace(value, expected):
+    assert collapse_whitespace(value) == expected
+
+
+def test_option_metavar_angle_brackets_are_escaped():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("list")
+    def list_(
+        in_scope: tuple[str, str] = typer.Option(
+            (None, None),
+            "--in",
+            help="Specifies the scope of this command.",
+        ),
+    ):
+        """Lists objects."""
+
+    page = _command_page_markdown(get_command(app), ["plugin", "list"])
+    assert "<em>&lt;TEXT TEXT&gt;...</em>" in page
+    assert "<em><TEXT TEXT>...</em>" not in page
+
+
+def test_multiline_argument_help_renders_as_a_single_line():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("describe")
+    def describe(
+        identifier: Optional[str] = typer.Argument(
+            None,
+            help="""
+                Identifier of the object. Example: MY_DB.MY_SCHEMA.MY_OBJECT.
+                Optional if `--target` is defined in the manifest.
+            """,
+        ),
+    ):
+        """Describes an object."""
+
+    page = _command_page_markdown(get_command(app), ["plugin", "describe"])
+    arguments = page[page.index("## Arguments") : page.index("## Options")]
+    help_line = next(
+        line
+        for line in arguments.splitlines()
+        if line.startswith("Identifier of the object.")
+    )
+    assert "  " not in help_line
+    assert help_line.endswith("is defined in the manifest.")
+
+
+def test_command_help_angle_brackets_are_escaped():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("demo")
+    def demo():
+        """Runs the <object> command."""
+
+    overview = _command_page_markdown(get_command(app), ["plugin", "demo"]).split(
+        "## Syntax"
+    )[0]
+    assert "Runs the &lt;object&gt; command." in overview
+    assert "Runs the <object> command." not in overview
 
 
 def test_additional_section_empty_versus_missing():

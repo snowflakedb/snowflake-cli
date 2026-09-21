@@ -91,9 +91,17 @@ def mdx_escape(value: Any) -> str:
     return str(value).replace("<", "&lt;").replace(">", "&gt;")
 
 
+def collapse_whitespace(value: Optional[str]) -> str:
+    """Collapses runs of whitespace, including newlines, into single spaces."""
+    if value is None:
+        return ""
+    return " ".join(str(value).split())
+
+
 def _template_env_with_filters():
     env = get_template_environment()
     env.filters[get_main_option.__name__] = get_main_option
+    env.filters[collapse_whitespace.__name__] = collapse_whitespace
     env.filters[mdx_escape.__name__] = mdx_escape
     return env
 
