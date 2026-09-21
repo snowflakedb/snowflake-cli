@@ -12,18 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helpers to regenerate CLI command pages and copy them into snowflake-prod-docs.
+"""Regenerate CLI command pages and copy them into snowflake-prod-docs.
+
+Release helper: run ``snow --docs-pages`` in this repo and copy mapped pages
+into a local snowflake-prod-docs checkout.
+
+Docs repo path: ``--docs-repo`` or the ``SNOWFLAKE_PROD_DOCS`` environment
+variable (flag wins).
 
 Mapping: ``scripts/command_docs_paths.yaml``. Only listed pages are copied.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import yaml
@@ -32,6 +39,64 @@ DOCS_REPO_ENV = "SNOWFLAKE_PROD_DOCS"
 CLI_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MAPPING = Path(__file__).resolve().parent / "command_docs_paths.yaml"
 PAGES_DIR = Path("gen_docs") / "pages"
+
+GeneratePages = Callable[[Path], Path]
+
+
+def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Regenerate command-reference MDX and copy mapped pages into "
+            "a local snowflake-prod-docs checkout."
+        )
+    )
+    parser.add_argument(
+        "--docs-repo",
+        type=Path,
+        help=f"Path to a snowflake-prod-docs git checkout. Overrides {DOCS_REPO_ENV}.",
+    )
+    parser.add_argument(
+        "--mapping",
+        type=Path,
+        default=DEFAULT_MAPPING,
+        help="YAML mapping of generated pages to docs-repo paths.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Generate and print planned copies without writing the docs repo.",
+    )
+    return parser.parse_args(argv)
+
+
+def run(
+    argv: Sequence[str] | None = None,
+    *,
+    env: Mapping[str, str] | None = None,
+    generate: GeneratePages | None = None,
+    cli_root: Path = CLI_ROOT,
+) -> None:
+    """Copy mapped command-reference pages into snowflake-prod-docs."""
+    if generate is None:
+        generate = generate_pages
+    args = parse_args(argv)
+    environ = env if env is not None else os.environ
+
+    docs_repo = resolve_docs_repo(args.docs_repo, environ)
+    mapping = load_mapping(args.mapping)
+    pages_root = generate(cli_root)
+    changed = copy_mapped_pages(pages_root, docs_repo, mapping, dry_run=args.dry_run)
+    if not changed:
+        print("No command-reference pages changed.")
+        return
+    if args.dry_run:
+        print(f"Dry run: {len(changed)} file(s) would be updated.")
+        return
+    print(f"Copied {len(changed)} file(s).")
+
+
+def main() -> None:
+    run()
 
 
 def resolve_docs_repo(
@@ -141,3 +206,7 @@ def _require_relative(label: str, value: str) -> Path:
     if path.is_absolute() or path.anchor or ".." in path.parts or path.parts == ():
         _die(f"{label} must be a relative path without '..': {value!r}")
     return path
+
+
+if __name__ == "__main__":
+    main()
