@@ -5821,81 +5821,138 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --source                                     TEXT  Path to directory         |
-  |                                                    containing dbt files to   |
-  |                                                    deploy. Defaults to       |
-  |                                                    current working           |
-  |                                                    directory.                |
-  | --profiles-dir                               TEXT  Path to directory         |
-  |                                                    containing profiles.yml   |
-  |                                                    or                        |
-  |                                                    dbt_projects_profiles.yml |
-  |                                                    (the latter takes         |
-  |                                                    precedence and is staged  |
-  |                                                    under its own name).      |
-  |                                                    Defaults to directory     |
-  |                                                    provided in --source or   |
-  |                                                    current working directory |
-  | --force                        --no-force          Recreates the dbt project |
-  |                                                    object with CREATE OR     |
-  |                                                    REPLACE DBT PROJECT. This |
-  |                                                    removes all existing      |
-  |                                                    versions and run history. |
-  |                                                    [default: no-force]       |
-  | --default-target                             TEXT  Default target for the    |
-  |                                                    dbt project. Mutually     |
-  |                                                    exclusive with            |
-  |                                                    --unset-default-target.   |
-  | --unset-default-target                             Unset the default target  |
-  |                                                    for the dbt project.      |
-  |                                                    Mutually exclusive with   |
-  |                                                    --default-target.         |
-  | --external-access-integr…                    TEXT  External access           |
-  |                                                    integration to be used by |
-  |                                                    the dbt object.           |
-  | --install-local-deps                               Sets                      |
-  |                                                    EXTERNAL_ACCESS_INTEGRAT… |
-  |                                                    = () on the dbt project.  |
-  |                                                    Snowflake still runs dbt  |
-  |                                                    deps at compile; Hub or   |
-  |                                                    Git packages in           |
-  |                                                    packages.yml still need   |
-  |                                                    network access.           |
-  | --dbt-version                                TEXT  dbt Core version to use   |
-  |                                                    for the project, for      |
-  |                                                    example '1.10.15'. Full   |
-  |                                                    list of supported         |
-  |                                                    versions can be found at  |
-  |                                                    https://docs.snowflake.c… |
-  | --git-commit                                 TEXT  Git commit hash to record |
-  |                                                    in last_deployed_from     |
-  |                                                    metadata when deploying   |
-  |                                                    from a plain stage (e.g.  |
-  |                                                    SnowCLI temp stage). In   |
-  |                                                    GitHub Actions it is      |
-  |                                                    auto-detected when not    |
-  |                                                    provided.                 |
-  | --git-branch                                 TEXT  Git branch name to record |
-  |                                                    in last_deployed_from     |
-  |                                                    metadata when deploying   |
-  |                                                    from a plain stage (e.g.  |
-  |                                                    SnowCLI temp stage). In   |
-  |                                                    GitHub Actions it is      |
-  |                                                    auto-detected when not    |
-  |                                                    provided.                 |
-  | --git-url                                    TEXT  Git repository URL to     |
-  |                                                    record in                 |
-  |                                                    last_deployed_from        |
-  |                                                    metadata when deploying   |
-  |                                                    from a plain stage (e.g.  |
-  |                                                    SnowCLI temp stage). In   |
-  |                                                    GitHub Actions it is      |
-  |                                                    auto-detected from        |
-  |                                                    GITHUB_SERVER_URL and     |
-  |                                                    GITHUB_REPOSITORY when    |
-  |                                                    not provided.             |
-  | --help                     -h                      Show this message and     |
-  |                                                    exit.                     |
+  | --source                                          TEXT  Path to directory    |
+  |                                                         containing dbt files |
+  |                                                         to deploy. Defaults  |
+  |                                                         to current working   |
+  |                                                         directory.           |
+  | --profiles-dir                                    TEXT  Path to directory    |
+  |                                                         containing           |
+  |                                                         profiles.yml or      |
+  |                                                         dbt_projects_profil… |
+  |                                                         (the latter takes    |
+  |                                                         precedence and is    |
+  |                                                         staged under its own |
+  |                                                         name). Defaults to   |
+  |                                                         directory provided   |
+  |                                                         in --source or       |
+  |                                                         current working      |
+  |                                                         directory            |
+  | --env-file-dir                                    TEXT  Path to directory    |
+  |                                                         containing env.yml.  |
+  |                                                         If provided, the     |
+  |                                                         file is injected     |
+  |                                                         into the deployed    |
+  |                                                         project root,        |
+  |                                                         overwriting any      |
+  |                                                         env.yml present in   |
+  |                                                         --source.            |
+  | --force                   --no-force                    Recreates the dbt    |
+  |                                                         project object with  |
+  |                                                         CREATE OR REPLACE    |
+  |                                                         DBT PROJECT. This    |
+  |                                                         removes all existing |
+  |                                                         versions and run     |
+  |                                                         history.             |
+  |                                                         [default: no-force]  |
+  | --default-target                                  TEXT  Default target for   |
+  |                                                         the dbt project.     |
+  |                                                         Mutually exclusive   |
+  |                                                         with                 |
+  |                                                         --unset-default-tar… |
+  | --unset-default-tar…                                    Unset the default    |
+  |                                                         target for the dbt   |
+  |                                                         project. Mutually    |
+  |                                                         exclusive with       |
+  |                                                         --default-target.    |
+  | --default-env                                     TEXT  Default environment  |
+  |                                                         for the dbt project. |
+  |                                                         Selects the          |
+  |                                                         environment block    |
+  |                                                         from env.yml that    |
+  |                                                         the project compiles |
+  |                                                         and executes with by |
+  |                                                         default. Mutually    |
+  |                                                         exclusive with       |
+  |                                                         --unset-default-env. |
+  | --unset-default-env                                     Unset the default    |
+  |                                                         environment for the  |
+  |                                                         dbt project.         |
+  |                                                         Mutually exclusive   |
+  |                                                         with --default-env.  |
+  | --external-access-i…                              TEXT  External access      |
+  |                                                         integration to be    |
+  |                                                         used by the dbt      |
+  |                                                         object.              |
+  | --install-local-deps                                    Sets                 |
+  |                                                         EXTERNAL_ACCESS_INT… |
+  |                                                         = () on the dbt      |
+  |                                                         project. Snowflake   |
+  |                                                         still runs dbt deps  |
+  |                                                         at compile; Hub or   |
+  |                                                         Git packages in      |
+  |                                                         packages.yml still   |
+  |                                                         need network access. |
+  | --dbt-version                                     TEXT  dbt Core version to  |
+  |                                                         use for the project, |
+  |                                                         for example          |
+  |                                                         '1.10.15'. Full list |
+  |                                                         of supported         |
+  |                                                         versions can be      |
+  |                                                         found at             |
+  |                                                         https://docs.snowfl… |
+  | --default-writeback       --no-default-writeb…          Set the writeback    |
+  |                                                         default persisted on |
+  |                                                         the dbt project.     |
+  |                                                         Omit to leave the    |
+  |                                                         existing setting     |
+  |                                                         unchanged.           |
+  | --auto-compile            --no-auto-compile             Set whether the dbt  |
+  |                                                         project is compiled  |
+  |                                                         on deploy; persisted |
+  |                                                         on the project and   |
+  |                                                         applied to           |
+  |                                                         subsequent deploys   |
+  |                                                         until changed. Omit  |
+  |                                                         to leave the         |
+  |                                                         existing setting     |
+  |                                                         unchanged.           |
+  | --git-commit                                      TEXT  Git commit hash to   |
+  |                                                         record in            |
+  |                                                         last_deployed_from   |
+  |                                                         metadata when        |
+  |                                                         deploying from a     |
+  |                                                         plain stage (e.g.    |
+  |                                                         SnowCLI temp stage). |
+  |                                                         In GitHub Actions it |
+  |                                                         is auto-detected     |
+  |                                                         when not provided.   |
+  | --git-branch                                      TEXT  Git branch name to   |
+  |                                                         record in            |
+  |                                                         last_deployed_from   |
+  |                                                         metadata when        |
+  |                                                         deploying from a     |
+  |                                                         plain stage (e.g.    |
+  |                                                         SnowCLI temp stage). |
+  |                                                         In GitHub Actions it |
+  |                                                         is auto-detected     |
+  |                                                         when not provided.   |
+  | --git-url                                         TEXT  Git repository URL   |
+  |                                                         to record in         |
+  |                                                         last_deployed_from   |
+  |                                                         metadata when        |
+  |                                                         deploying from a     |
+  |                                                         plain stage (e.g.    |
+  |                                                         SnowCLI temp stage). |
+  |                                                         In GitHub Actions it |
+  |                                                         is auto-detected     |
+  |                                                         from                 |
+  |                                                         GITHUB_SERVER_URL    |
+  |                                                         and                  |
+  |                                                         GITHUB_REPOSITORY    |
+  |                                                         when not provided.   |
+  | --help                -h                                Show this message    |
+  |                                                         and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -6363,16 +6420,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -6566,16 +6692,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -6769,16 +6964,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -6972,16 +7236,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7175,16 +7508,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7378,16 +7780,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7581,16 +8052,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7784,16 +8324,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7987,16 +8596,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8190,16 +8868,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8393,16 +9140,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8596,16 +9412,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8799,16 +9684,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -9002,16 +9956,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -9205,16 +10228,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -9408,16 +10500,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -9611,16 +10772,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -9814,16 +11044,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -10017,16 +11316,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -28587,16 +29955,85 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --run-async        --no-run-async          Run dbt command asynchronously    |
-  |                                            and check it's result later.      |
-  |                                            [default: no-run-async]           |
-  | --dbt-version                        TEXT  dbt Core version to use for       |
-  |                                            execution (ephemeral, does not    |
-  |                                            change project configuration).    |
-  |                                            Full list of supported versions   |
-  |                                            can be found at                   |
-  |                                            https://docs.snowflake.com/en/us… |
-  | --help         -h                          Show this message and exit.       |
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
