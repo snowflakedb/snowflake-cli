@@ -21,11 +21,21 @@ authenticator configured for it.
 Objects are created in a throwaway schema inside the connection's database and
 addressed with fully qualified names, because every `runner.invoke_*` call opens
 its own session — `USE SCHEMA` does not carry over between invocations.
+
+The JVM (`language: java` / `language: scala`) tests that actually run a bundle
+need a prebuilt jar, which this repository does not ship. Point
+`SNOWFLAKE_CLI_TEST_CODE_BUNDLE_JVM_DIR` at a directory holding
+`scos-jvm-hello_2.12-1.0.0.jar` and `scos-jvm-args_2.12-1.0.0.jar` (the
+monorepo's `Snowfort/tests/snowpark/code_bundle/data/code_bundle_scos_jvm_wh`)
+to run them; without it they skip. The JVM tests that do not execute a bundle
+run everywhere, because a code bundle is created without the server validating
+its artifacts.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -1000,3 +1010,292 @@ def test_history_result_limit(runner):
     rows = _history(runner, ["--result-limit", "1"])
     assert len(rows) <= 1
     assert json.dumps(rows), "history output must be JSON serializable"
+
+
+# ---------------------------------------------------------------------------
+# JVM code bundles (`language: java` / `language: scala`)
+#
+# A JVM bundle ships jars declared under `properties.java_dependencies.jars`
+# and is executed with `--entrypoint <fully.qualified.MainClass>` rather than a
+# file path. The server reports the bundle as LANGUAGE_TYPE JAVA or SCALA in
+# `bundle history` according to the spec's `language`, and the same jar runs
+# under either value.
+# ---------------------------------------------------------------------------
+
+JVM_DIR_ENV_VAR = "SNOWFLAKE_CLI_TEST_CODE_BUNDLE_JVM_DIR"
+HELLO_JAR = "scos-jvm-hello_2.12-1.0.0.jar"
+HELLO_CLASS = "com.snowflake.scos.test.ScosJvmHelloApp"
+ARGS_JAR = "scos-jvm-args_2.12-1.0.0.jar"
+ARGS_CLASS = "com.snowflake.scos.test.ScosJvmArgsApp"
+
+
+def _jvm_bundle_yml(jars: List[str], language: str = "java") -> str:
+    jar_lines = "".join(f"        - {jar}\n" for jar in jars)
+    return (
+        "bundle:\n"
+        "  type: spark\n"
+        "  compute_type: warehouse\n"
+        f"  language: {language}\n"
+        "  compute_options:\n"
+        '    runtime_version: "1.29"\n'
+        '    language_version: "2.12"\n'
+        "  properties:\n"
+        "    java_dependencies:\n"
+        "      jars:\n" + jar_lines
+    )
+
+
+@pytest.fixture
+def jvm_jar_dir() -> Path:
+    """Directory holding the prebuilt JVM test jars, or skip the test."""
+    configured = os.environ.get(JVM_DIR_ENV_VAR, "")
+    if not configured:
+        pytest.skip(f"{JVM_DIR_ENV_VAR} is not set: no JVM code bundle jars available")
+    jar_dir = Path(configured)
+    missing = [jar for jar in (HELLO_JAR, ARGS_JAR) if not (jar_dir / jar).is_file()]
+    if missing:
+        pytest.skip(f"{jar_dir} does not contain {', '.join(missing)}")
+    return jar_dir
+
+
+@pytest.fixture
+def java_bundle_source(tmp_path) -> Path:
+    """Local Java project: a binary artifact, plus build output to exclude."""
+    source = tmp_path / "java_project"
+    (source / "target" / "classes").mkdir(parents=True)
+
+    (source / "code_bundle.yaml").write_text(_jvm_bundle_yml(["app.jar"]))
+    # Not a loadable jar - these tests only need bytes that are not text.
+    (source / "app.jar").write_bytes(bytes(range(256)) * 8)
+    (source / "README.md").write_text("how to build this bundle\n")
+    (source / "target" / "app.jar.orig").write_bytes(b"\x00\x01stale build\xff")
+    (source / "target" / "classes" / "App.class").write_bytes(b"\xca\xfe\xba\xbe stale")
+    return source
+
+
+@pytest.mark.integration
+def test_create_java_bundle_keeps_binary_artifacts_intact(
+    runner, bundle_schema, java_bundle_source, tmp_path
+):
+    """A jar survives the temporary-stage upload byte for byte.
+
+    Uploads go through `StageManager.put(..., auto_compress=False)`, so what the
+    bundle stores has to be the original bytes rather than a gzipped copy.
+    """
+    bundle = f"{bundle_schema}.java_binary_cb"
+
+    result = runner.invoke_with_connection(
+        [
+            "bundle",
+            "create",
+            bundle,
+            "--source",
+            str(java_bundle_source),
+            "--exclude",
+            "target",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert _version_files(runner, bundle) == [
+        "README.md",
+        "app.jar",
+        "code_bundle.yaml",
+    ]
+
+    download_dir = tmp_path / "downloaded"
+    download_dir.mkdir()
+    result = runner.invoke_with_connection_json(
+        [
+            "stage",
+            "copy",
+            f"snow://code bundle/{bundle}/versions/version$1/app.jar",
+            str(download_dir),
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert (download_dir / "app.jar").read_bytes() == (
+        java_bundle_source / "app.jar"
+    ).read_bytes()
+
+
+@pytest.mark.integration
+def test_create_java_bundle_excludes_build_output(
+    runner, bundle_schema, java_bundle_source
+):
+    """`--exclude` patterns match each path component, so a build tree drops out."""
+    bundle = f"{bundle_schema}.java_exclude_cb"
+
+    result = runner.invoke_with_connection(
+        [
+            "bundle",
+            "create",
+            bundle,
+            "--source",
+            str(java_bundle_source),
+            "--exclude",
+            "*.class",
+            "--exclude",
+            "*.orig",
+            "--exclude",
+            "README.md",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    # `target/` itself is not excluded, only its contents match the patterns, so
+    # the directory contributes no files at all.
+    assert _version_files(runner, bundle) == ["app.jar", "code_bundle.yaml"]
+
+
+@pytest.mark.integration
+def test_execute_java_bundle_records_java_language_and_entrypoint(
+    runner, bundle_schema, java_bundle_source
+):
+    """The class entrypoint and `language: java` reach the server.
+
+    This runs without a loadable jar: the execution is expected to fail, and the
+    failure itself proves the entrypoint was delivered verbatim, because the JVM
+    class loader names the class it could not find.
+    """
+    bundle = f"{bundle_schema}.java_meta_cb"
+    execution_name = f"cli_it_java_meta_{uuid.uuid4().hex[:8]}"
+    entrypoint = "com.example.NoSuchApp"
+
+    result = runner.invoke_with_connection(
+        [
+            "bundle",
+            "create",
+            bundle,
+            "--source",
+            str(java_bundle_source),
+            "--exclude",
+            "target",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke_with_connection(
+        [
+            "bundle",
+            "execute",
+            bundle,
+            "--entrypoint",
+            entrypoint,
+            "--execution-name",
+            execution_name,
+            "--async",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    query_id = _query_id_from_async_output(result.output)
+
+    rows = _history(runner, ["--execution-name", execution_name])
+    assert len(rows) == 1, rows
+    assert rows[0]["QUERY_ID"] == query_id
+    assert rows[0]["ENTRYPOINT"] == entrypoint
+    assert rows[0]["LANGUAGE_TYPE"] == "JAVA"
+    assert rows[0]["BUNDLE_TYPE"] == "SPARK"
+    assert rows[0]["COMPUTE_TYPE"] == "WAREHOUSE"
+
+    # --language-types filters on that same value.
+    rows = _history(
+        runner, ["--execution-name", execution_name, "--language-types", "JAVA"]
+    )
+    assert [row["QUERY_ID"] for row in rows] == [query_id]
+    rows = _history(
+        runner, ["--execution-name", execution_name, "--language-types", "PYTHON"]
+    )
+    assert rows == []
+
+    assert _wait_for_terminal_status(runner, query_id) != "SUCCESS"
+    rows = _history(runner, ["--execution-name", execution_name])
+    assert entrypoint in rows[0]["ERROR_MESSAGE"], rows[0]["ERROR_MESSAGE"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("language", ["java", "scala"])
+def test_execute_jvm_bundle_runs_main_class(
+    runner, bundle_schema, jvm_jar_dir, tmp_path, language
+):
+    """End-to-end JVM run: the jar's main class writes its result table."""
+    source = tmp_path / f"{language}_hello"
+    source.mkdir()
+    (source / "code_bundle.yaml").write_text(_jvm_bundle_yml([HELLO_JAR], language))
+    (source / HELLO_JAR).write_bytes((jvm_jar_dir / HELLO_JAR).read_bytes())
+
+    bundle = f"{bundle_schema}.{language}_hello_cb"
+    result_table = f"{bundle_schema}.{language}_hello_result"
+    execution_name = f"cli_it_{language}_hello_{uuid.uuid4().hex[:8]}"
+
+    result = runner.invoke_with_connection(
+        ["bundle", "create", bundle, "--source", str(source)]
+    )
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke_passthrough_with_connection(
+        [
+            "bundle",
+            "execute",
+            bundle,
+            "--entrypoint",
+            HELLO_CLASS,
+            "--execution-name",
+            execution_name,
+            "--async",
+        ],
+        passthrough_args=["--", result_table],
+    )
+    assert result.exit_code == 0, result.output
+    query_id = _query_id_from_async_output(result.output)
+
+    assert _wait_for_terminal_status(runner, query_id) == "SUCCESS"
+    assert _sql(runner, f"select result from {result_table}") == [
+        {"RESULT": "SCOS_JVM_OK"}
+    ]
+
+    rows = _history(runner, ["--execution-name", execution_name])
+    assert len(rows) == 1, rows
+    assert rows[0]["ENTRYPOINT"] == HELLO_CLASS
+    assert rows[0]["LANGUAGE_TYPE"] == language.upper()
+    assert rows[0]["STATUS"] in {"DONE", "SUCCESS"}, rows[0]["STATUS"]
+
+
+@pytest.mark.integration
+def test_execute_java_bundle_passes_arguments_to_main_class(
+    runner, bundle_schema, jvm_jar_dir, tmp_path
+):
+    """Arguments after `--` arrive as separate `args[]` tokens, unsplit."""
+    source = tmp_path / "java_args"
+    source.mkdir()
+    (source / "code_bundle.yaml").write_text(_jvm_bundle_yml([ARGS_JAR]))
+    (source / ARGS_JAR).write_bytes((jvm_jar_dir / ARGS_JAR).read_bytes())
+
+    bundle = f"{bundle_schema}.java_args_cb"
+    result_table = f"{bundle_schema}.java_args_result"
+    execution_name = f"cli_it_java_args_{uuid.uuid4().hex[:8]}"
+    # The echo app takes the table name first, then one row per remaining token.
+    arguments = ["--flag", "value with space", "--count", "42"]
+
+    result = runner.invoke_with_connection(
+        ["bundle", "create", bundle, "--source", str(source)]
+    )
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke_passthrough_with_connection(
+        [
+            "bundle",
+            "execute",
+            bundle,
+            "--entrypoint",
+            ARGS_CLASS,
+            "--execution-name",
+            execution_name,
+            "--async",
+        ],
+        passthrough_args=["--", result_table, *arguments],
+    )
+    assert result.exit_code == 0, result.output
+    query_id = _query_id_from_async_output(result.output)
+
+    assert _wait_for_terminal_status(runner, query_id) == "SUCCESS"
+    rows = _sql(runner, f"select idx, arg from {result_table} order by idx")
+    assert [row["ARG"] for row in rows] == arguments
