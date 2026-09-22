@@ -21,12 +21,15 @@ from typing import Optional, Protocol
 from packaging.version import InvalidVersion, Version
 from snowflake.cli import __about__
 from snowflake.cli.__about__ import CLIInstallationSource
+from snowflake.cli._plugins.upgrade.layout import ManagedLayout
+from snowflake.cli._plugins.upgrade.repo import HttpRepo
 from snowflake.cli.api.exceptions import CliError
 
 STATUS_REFUSED = "refused"
 STATUS_ALREADY_CURRENT = "already_current"
 STATUS_NEW_MAJOR = "new_major"
 STATUS_DRY_RUN = "dry_run"
+STATUS_UPGRADED = "upgraded"
 
 INSTALL_SH_COMMAND = (
     "curl -LsS https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh | sh"
@@ -41,7 +44,7 @@ DOWNLOAD_NOT_AVAILABLE = (
 
 
 class VersionSource(Protocol):
-    """Latest published snowflake-managed version. PR-D replaces the stub with HTTPS."""
+    """Latest published snowflake-managed version. HttpRepo also materializes tarballs."""
 
     def latest_version(self) -> str:
         ...
@@ -54,14 +57,17 @@ class UnimplementedVersionSource:
         )
 
 
-_version_source: VersionSource = UnimplementedVersionSource()
+_version_source: Optional[VersionSource] = None
 
 
 def get_version_source() -> VersionSource:
+    global _version_source
+    if _version_source is None:
+        _version_source = HttpRepo()
     return _version_source
 
 
-def set_version_source(source: VersionSource) -> None:
+def set_version_source(source: Optional[VersionSource]) -> None:
     global _version_source
     _version_source = source
 
@@ -113,7 +119,7 @@ def refuse_result() -> UpgradeDecision:
 
 
 def evaluate_managed_upgrade(*, dry_run: bool) -> UpgradeDecision:
-    """Gate + version-compare for a snowflake-managed install. Does not download."""
+    """Gate, version-compare, and (unless dry-run) download + retarget."""
     channel = _channel()
     current = _current_version()
     latest = get_version_source().latest_version()
@@ -156,7 +162,28 @@ def evaluate_managed_upgrade(*, dry_run: bool) -> UpgradeDecision:
             message=f"Would upgrade {current} → {latest}.",
         )
 
-    raise CliError(DOWNLOAD_NOT_AVAILABLE)
+    return apply_upgrade(current=current, latest=latest)
+
+
+def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
+    source = get_version_source()
+    materialize = getattr(source, "materialize", None)
+    if not callable(materialize):
+        raise CliError(DOWNLOAD_NOT_AVAILABLE)
+
+    layout = ManagedLayout()
+    materialize(latest, layout)
+    shim_target = layout.retarget(latest)
+    return UpgradeDecision(
+        payload={
+            "channel": _channel(),
+            "status": STATUS_UPGRADED,
+            "from": current,
+            "to": latest,
+            "shim_target": str(shim_target),
+        },
+        message=f"Upgraded {current} → {latest}.",
+    )
 
 
 def plan_upgrade(*, dry_run: bool) -> UpgradeDecision:
