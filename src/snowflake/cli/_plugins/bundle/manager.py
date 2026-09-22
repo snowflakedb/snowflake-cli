@@ -247,7 +247,10 @@ class CodeBundleManager(SqlExecutionMixin):
             ):
                 continue
             relative_path = file_path.relative_to(root_path)
-            stage_subdir = str(relative_path.parent)
+            # as_posix() rather than str(): on Windows str() yields "venv\\lib",
+            # and a backslash in a stage path is dropped by the server, so the
+            # file would land in "venvlib/" instead of "venv/lib/".
+            stage_subdir = relative_path.parent.as_posix()
             if stage_subdir == ".":
                 stage_dest = f"@{stage_name}"
             else:
