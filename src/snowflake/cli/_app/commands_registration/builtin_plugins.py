@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from snowflake.cli._plugins.auth import plugin_spec as auth_plugin_spec
-from snowflake.cli._plugins.bundle import plugin_spec as bundle_plugin_spec
 from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli._plugins.cortex import plugin_spec as cortex_plugin_spec
 from snowflake.cli._plugins.custom_images import (
@@ -35,6 +34,7 @@ from snowflake.cli._plugins.spcs import plugin_spec as spcs_plugin_spec
 from snowflake.cli._plugins.sql import plugin_spec as sql_plugin_spec
 from snowflake.cli._plugins.stage import plugin_spec as stage_plugin_spec
 from snowflake.cli._plugins.streamlit import plugin_spec as streamlit_plugin_spec
+from snowflake.cli._plugins.upgrade import plugin_spec as upgrade_plugin_spec
 from snowflake.cli._plugins.workspace import plugin_spec as workspace_plugin_spec
 
 
@@ -42,7 +42,6 @@ from snowflake.cli._plugins.workspace import plugin_spec as workspace_plugin_spe
 def get_builtin_plugin_name_to_plugin_spec():
     plugin_specs = {
         "auth": auth_plugin_spec,
-        "bundle": bundle_plugin_spec,
         "connection": connection_plugin_spec,
         "helpers": migrate_plugin_spec,
         "spcs": spcs_plugin_spec,
@@ -63,6 +62,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "plugin": plugin_plugin_spec,
         "dbt": dbt_plugin_spec,
         "logs": logs_plugin_spec,
+        "upgrade": upgrade_plugin_spec,
     }
 
     return plugin_specs
