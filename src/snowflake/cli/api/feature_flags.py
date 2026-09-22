@@ -92,3 +92,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_COMMAND_DOCS_IN_HELP = BooleanFlag("ENABLE_COMMAND_DOCS_IN_HELP", False)
 
     ENABLE_FEATURE_STORE = BooleanFlag("ENABLE_FEATURE_STORE", False)
+    ENABLE_SNOW_UPGRADE = BooleanFlag("ENABLE_SNOW_UPGRADE", False)
