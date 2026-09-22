@@ -615,7 +615,7 @@ def test_alter_add_version_rejects_mismatched_source(
         ["bundle", "alter", bundle, "--add-version", f"@{stage}/app"]
     )
     assert result.exit_code == 1, result.output
-    assert "must match existing notebook project source" in result.output
+    assert "must match existing notebook project source" in _error_text(result.output)
 
 
 @pytest.mark.integration
@@ -849,10 +849,16 @@ def test_execute_async_then_cancel(runner, bundle_schema, local_bundle_source):
 
     result = runner.invoke_with_connection(["bundle", "cancel", query_id])
     assert result.exit_code == 0, result.output
-    assert query_id in result.output
-    assert "terminated" in result.output
-
-    assert _wait_for_terminal_status(runner, query_id) != "SUCCESS"
+    # The entrypoint is short, so it can reach a terminal state before the
+    # cancel lands. Both replies are correct behaviour for `cancel`; only the
+    # "not currently executing" wording omits the query id.
+    cancel_text = _error_text(result.output)
+    if "not currently executing" in cancel_text:
+        assert _wait_for_terminal_status(runner, query_id) in TERMINAL_STATUSES
+    else:
+        assert query_id in cancel_text, result.output
+        assert "terminated" in cancel_text, result.output
+        assert _wait_for_terminal_status(runner, query_id) != "SUCCESS"
 
 
 @pytest.mark.integration
@@ -964,21 +970,29 @@ def test_history_filters(runner, bundle_schema, local_bundle_source):
         assert rows[0]["DATABASE_NAME"] == database.upper()
         assert rows[0]["SCHEMA_NAME"] == schema.upper()
 
-        # A --status filter that does not match the execution excludes it.
-        # The filter takes the values CODE_BUNDLE_HISTORY accepts (pending,
+        # --status takes the values CODE_BUNDLE_HISTORY accepts (pending,
         # running, done, succeeded, failed, cancelled, canceled, deleted),
         # which are not the values of the STATUS column it returns.
+        #
+        # The execution is driven to a terminal state before asserting on the
+        # filter. Asserting "running matches / succeeded excludes" while it is
+        # still in flight is a race: a short entrypoint finishes first and the
+        # two assertions swap over.
+        assert _wait_for_terminal_status(runner, query_id) == "SUCCESS"
+
         rows = _history(
             runner,
             ["--execution-name", execution_name, "--status", "succeeded"],
         )
-        assert [row["QUERY_ID"] for row in rows] == []
-
-        rows = _history(
-            runner,
-            ["--execution-name", execution_name, "--status", "running"],
-        )
         assert [row["QUERY_ID"] for row in rows] == [query_id]
+
+        # A status the execution never reached excludes it.
+        for status in ("running", "cancelled"):
+            rows = _history(
+                runner,
+                ["--execution-name", execution_name, "--status", status],
+            )
+            assert [row["QUERY_ID"] for row in rows] == [], status
 
         # An execution name that was never used yields no rows.
         rows = _history(runner, ["--execution-name", f"no_such_{execution_name}"])
@@ -1175,11 +1189,20 @@ def test_execute_java_bundle_records_java_language_and_entrypoint(
             "--async",
         ]
     )
-    assert result.exit_code == 0, result.output
-    query_id = _query_id_from_async_output(result.output)
+    # Not every driver honours the async submission; the universal driver runs
+    # it synchronously, so the deliberate class-load failure surfaces here
+    # rather than on a later status poll. Either way the entrypoint reached the
+    # server, which is what this test asserts, and the history row proves it.
+    if result.exit_code == 0:
+        query_id = _query_id_from_async_output(result.output)
+    else:
+        assert entrypoint in _error_text(result.output), result.output
+        query_id = None
 
     rows = _history(runner, ["--execution-name", execution_name])
     assert len(rows) == 1, rows
+    if query_id is None:
+        query_id = rows[0]["QUERY_ID"]
     assert rows[0]["QUERY_ID"] == query_id
     assert rows[0]["ENTRYPOINT"] == entrypoint
     assert rows[0]["LANGUAGE_TYPE"] == "JAVA"

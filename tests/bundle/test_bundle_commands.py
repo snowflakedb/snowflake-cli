@@ -1885,8 +1885,10 @@ def test_upload_directory_quotes_hostile_file_name(mock_execute_query, tmp_path)
     )
 
     query = mock_execute_query.call_args[0][0]
-    assert f"file://{tmp_path}/it''s; DROP TABLE x.py'" in query
+    # Only the quoting is asserted, not the path prefix: on Windows the
+    # separators are backslashes and get doubled by the SQL escaping.
     assert query.startswith("put 'file://")
+    assert "it''s; DROP TABLE x.py'" in query
 
 
 @mock.patch.object(StageManager, "execute_query")
@@ -1930,6 +1932,6 @@ def test_upload_directory_plain_name_stays_unquoted(mock_execute_query, tmp_path
 
     query = mock_execute_query.call_args[0][0]
     assert query == (
-        f"put file://{tmp_path}/app.py @my_stage "
+        f"put file://{tmp_path / 'app.py'} @my_stage "
         "auto_compress=false parallel=4 overwrite=False"
     )
