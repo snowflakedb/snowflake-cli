@@ -22,20 +22,14 @@ Objects are created in a throwaway schema inside the connection's database and
 addressed with fully qualified names, because every `runner.invoke_*` call opens
 its own session — `USE SCHEMA` does not carry over between invocations.
 
-The JVM (`language: java` / `language: scala`) tests that actually run a bundle
-need a prebuilt jar, which this repository does not ship. Point
-`SNOWFLAKE_CLI_TEST_CODE_BUNDLE_JVM_DIR` at a directory holding
-`scos-jvm-hello_2.12-1.0.0.jar` and `scos-jvm-args_2.12-1.0.0.jar` (the
-monorepo's `Snowfort/tests/snowpark/code_bundle/data/code_bundle_scos_jvm_wh`)
-to run them; without it they skip. The JVM tests that do not execute a bundle
-run everywhere, because a code bundle is created without the server validating
-its artifacts.
+The JVM (`language: java` / `language: scala`) tests execute a real jar. Those
+jars live in `tests_integration/test_data/code_bundle_jvm/`, together with their
+sources and rebuild instructions; see the README there.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import time
 import uuid
 from pathlib import Path
@@ -1022,7 +1016,7 @@ def test_history_result_limit(runner):
 # under either value.
 # ---------------------------------------------------------------------------
 
-JVM_DIR_ENV_VAR = "SNOWFLAKE_CLI_TEST_CODE_BUNDLE_JVM_DIR"
+JVM_DATA_DIR = "code_bundle_jvm"
 HELLO_JAR = "scos-jvm-hello_2.12-1.0.0.jar"
 HELLO_CLASS = "com.snowflake.scos.test.ScosJvmHelloApp"
 ARGS_JAR = "scos-jvm-args_2.12-1.0.0.jar"
@@ -1046,15 +1040,11 @@ def _jvm_bundle_yml(jars: List[str], language: str = "java") -> str:
 
 
 @pytest.fixture
-def jvm_jar_dir() -> Path:
-    """Directory holding the prebuilt JVM test jars, or skip the test."""
-    configured = os.environ.get(JVM_DIR_ENV_VAR, "")
-    if not configured:
-        pytest.skip(f"{JVM_DIR_ENV_VAR} is not set: no JVM code bundle jars available")
-    jar_dir = Path(configured)
-    missing = [jar for jar in (HELLO_JAR, ARGS_JAR) if not (jar_dir / jar).is_file()]
-    if missing:
-        pytest.skip(f"{jar_dir} does not contain {', '.join(missing)}")
+def jvm_jar_dir(test_root_path) -> Path:
+    """In-repo directory holding the prebuilt JVM test jars."""
+    jar_dir = Path(test_root_path) / "test_data" / JVM_DATA_DIR
+    for jar in (HELLO_JAR, ARGS_JAR):
+        assert (jar_dir / jar).is_file(), f"missing test artifact: {jar_dir / jar}"
     return jar_dir
 
 
