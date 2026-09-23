@@ -30,6 +30,24 @@ REFERENCE_TEXT: dict[str, str] = {
 
 
 @dataclass(frozen=True)
+class Code:
+    """Inline code literal (MDX wraps ``value`` in backticks; do not add your own).
+
+    Angle brackets in ``value`` stay raw so placeholders like ``<key>`` survive.
+    Downstream call site: ``code("--target")``.
+    """
+
+    value: str
+
+    def __post_init__(self) -> None:
+        if "`" in self.value:
+            raise ValueError(
+                f"code value {self.value!r} must not contain backticks; "
+                "MDX wraps the literal in backticks for you"
+            )
+
+
+@dataclass(frozen=True)
 class Ref:
     """Prod-docs substitution key (``sfvariables.txt`` ``|name|`` → MDX ``%name%``).
 
@@ -46,7 +64,7 @@ class Ref:
             )
 
 
-Span = str | Ref
+Span = str | Code | Ref
 
 
 @dataclass(frozen=True)

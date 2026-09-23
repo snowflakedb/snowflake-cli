@@ -21,6 +21,7 @@ from rich.console import Group, RenderableType
 from rich.text import Text as RichText
 from snowflake.cli.api.commands.command_docs import (
     REFERENCE_TEXT,
+    Code,
     ContentBlock,
     Paragraph,
     PlainText,
@@ -28,6 +29,8 @@ from snowflake.cli.api.commands.command_docs import (
     Span,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
+
+STYLE_INLINE_CODE = "markdown.code"
 
 
 def mdx_escape(value: Any) -> str:
@@ -38,6 +41,9 @@ def mdx_escape(value: Any) -> str:
 
 
 def _render_span_mdx(span: Span) -> str:
+    if isinstance(span, Code):
+        # No mdx_escape: ``-D "<key>=<value>"`` stays a code span, not ``&lt;...&gt;``.
+        return f"`{span.value}`"
     if isinstance(span, Ref):
         return f"%{span.name}%"
     return mdx_escape(span)
@@ -62,7 +68,11 @@ def _render_spans_help(spans: Sequence[Span]) -> RichText:
     """Renders inline spans as Rich text for the terminal."""
     rendered = RichText()
     for part in spans:
-        if isinstance(part, Ref):
+        if isinstance(part, Code):
+            rendered.append(
+                sanitize_for_terminal(part.value) or "", style=STYLE_INLINE_CODE
+            )
+        elif isinstance(part, Ref):
             rendered.append(REFERENCE_TEXT.get(part.name, ""))
         else:
             rendered.append(sanitize_for_terminal(part) or "")
