@@ -1,5 +1,4 @@
 import os
-from contextlib import contextmanager
 from textwrap import dedent
 from types import SimpleNamespace
 from unittest import mock
@@ -14,26 +13,7 @@ from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.formats import OutputFormat
 
-
-@pytest.fixture(name="repl")
-def make_repl(mock_cursor):
-    mocked_cursor = [
-        mock_cursor(
-            rows=[("1",)],
-            columns=["1"],
-        ),
-    ]
-
-    with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursor):
-        manager = SqlManager()
-        repl = Repl(manager)
-
-        setattr(repl, "_history", mock.Mock())
-        repl.history.get_strings.return_value = ["SELECT 1;", "SELECT 2;"]
-
-        repl.session.prompt = mock.Mock(return_value="mocked_prompt_result")
-
-        yield repl
+from tests.sql.conftest import run_repl, sql_output_settings
 
 
 def test_execute_returns_expected_results_count_with_cursors(repl):
@@ -81,40 +61,13 @@ def test_repl_prints_one_elapsed_footer_per_input(repl, capsys, mock_cursor):
     assert "Time Elapsed: 0.500s" in output
 
 
-@pytest.fixture(name="compiling_repl")
-def make_compiling_repl(mock_cursor):
-    """REPL whose SqlManager compiles input for real but never talks to Snowflake.
-
-    Needed for cases where the expected results count must come from the real
-    statement compiler instead of a stubbed `_execute`.
-    """
-    mocked_cursors = [mock_cursor(rows=[("1",)], columns=["1"])]
-    connection = mock.MagicMock()
-    connection.cursor.return_value.sfqid = "01b0-async"
-
-    with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursors):
-        repl = Repl(SqlManager(connection=connection))
-        repl.session.prompt = mock.Mock()
-
-        yield repl
-
-
-def _run_repl(repl, user_inputs, monotonic_values=(0.0, 0.5)):
-    """Drives one REPL session over `user_inputs` with a deterministic clock."""
-    with mock.patch.object(repl, "_initialize_connection"), mock.patch(
-        "snowflake.cli._plugins.sql.repl.time.monotonic",
-        side_effect=monotonic_values,
-    ), mock.patch.object(repl.session, "prompt", side_effect=iter(user_inputs)):
-        repl.run()
-
-
 def test_repl_prints_elapsed_after_result_rendering_error(repl, capsys):
     """Statements ran before rendering blew up, so the timing is still reported."""
     with mock.patch(
         "snowflake.cli._plugins.sql.repl.print_result",
         side_effect=Exception("query failed"),
     ):
-        _run_repl(repl, ("select 1;", "exit", "y"))
+        run_repl(repl, ("select 1;", "exit", "y"))
 
     output = capsys.readouterr().out
     assert "Error occurred: query failed" in output
@@ -130,7 +83,7 @@ def test_repl_prints_elapsed_after_execution_error(repl, capsys):
         yield
 
     with mock.patch.object(repl, "_execute", return_value=(1, failing_cursors())):
-        _run_repl(repl, ("select 1;", "exit", "y"))
+        run_repl(repl, ("select 1;", "exit", "y"))
 
     output = capsys.readouterr().out
     assert "Error occurred: execution failed" in output
@@ -140,7 +93,7 @@ def test_repl_prints_elapsed_after_execution_error(repl, capsys):
 
 def test_repl_skips_elapsed_when_compilation_fails(repl, capsys):
     """Compilation fails before a results count exists — nothing was timed."""
-    _run_repl(repl, ("select <% missing %>;", "exit", "y"))
+    run_repl(repl, ("select <% missing %>;", "exit", "y"))
 
     output = capsys.readouterr().out
     assert "Error occurred: SQL rendering error" in output
@@ -149,7 +102,7 @@ def test_repl_skips_elapsed_when_compilation_fails(repl, capsys):
 
 def test_repl_skips_elapsed_when_no_statements_found(repl, capsys):
     """A comment-only submission compiles to nothing — no query time to report."""
-    _run_repl(repl, ("-- just a comment", "exit", "y"))
+    run_repl(repl, ("-- just a comment", "exit", "y"))
 
     output = capsys.readouterr().out
     assert "Error occurred: No SQL statements found to execute." in output
@@ -158,7 +111,7 @@ def test_repl_skips_elapsed_when_no_statements_found(repl, capsys):
 
 def test_repl_skips_elapsed_for_empty_input(repl, capsys):
     """Empty and whitespace-only submissions are skipped before timing starts — nothing was timed."""
-    _run_repl(repl, ("", "   ", "exit", "y"))
+    run_repl(repl, ("", "   ", "exit", "y"))
 
     output = capsys.readouterr().out
     assert "Time Elapsed" not in output
@@ -166,14 +119,14 @@ def test_repl_skips_elapsed_for_empty_input(repl, capsys):
 
 def test_repl_skips_elapsed_for_repl_command_only_input(compiling_repl, capsys):
     """A `!command` runs no SQL, so there is no query time to report."""
-    _run_repl(compiling_repl, ("!queries help", "exit", "y"))
+    run_repl(compiling_repl, ("!queries help", "exit", "y"))
 
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
 def test_repl_skips_elapsed_for_async_only_input(compiling_repl, capsys):
     """An async statement only schedules work — the REPL never waits for it."""
-    _run_repl(compiling_repl, ("select 1;>", "exit", "y"))
+    run_repl(compiling_repl, ("select 1;>", "exit", "y"))
 
     output = capsys.readouterr().out
     assert "01b0-async" in output
@@ -184,7 +137,7 @@ def test_repl_prints_one_elapsed_footer_for_mixed_sync_and_command_input(
     compiling_repl, capsys
 ):
     """One synchronous statement alongside a `!command` yields one footer."""
-    _run_repl(compiling_repl, ("select 1; !queries help;", "exit", "y"))
+    run_repl(compiling_repl, ("select 1; !queries help;", "exit", "y"))
 
     output = capsys.readouterr().out
     assert output.count("Time Elapsed") == 1
@@ -195,7 +148,7 @@ def test_repl_prints_one_elapsed_footer_for_mixed_sync_and_async_input(
     compiling_repl, capsys
 ):
     """A sync statement plus an async one still yields one footer — only sync waits."""
-    _run_repl(compiling_repl, ("select 1; select 2;>", "exit", "y"))
+    run_repl(compiling_repl, ("select 1; select 2;>", "exit", "y"))
 
     output = capsys.readouterr().out
     assert "01b0-async" in output
@@ -212,7 +165,7 @@ def test_repl_times_only_the_query_that_survives_an_interrupt(
     with mock.patch.object(
         repl, "_execute", side_effect=(KeyboardInterrupt, (len(cursors), cursors))
     ) as mocked_execute:
-        _run_repl(
+        run_repl(
             repl,
             ("select 1;", "select 2;", "exit", "y"),
             # The interrupted submission only consumes its start reading, so a
@@ -228,7 +181,7 @@ def test_repl_times_only_the_query_that_survives_an_interrupt(
 
 def test_repl_prints_independent_elapsed_footers_for_successive_queries(repl, capsys):
     """Each submission gets its own clock; the second does not inherit the first."""
-    _run_repl(
+    run_repl(
         repl,
         ("select 1;", "select 2;", "exit", "y"),
         monotonic_values=(0.0, 0.1, 1.0, 1.4),
@@ -249,7 +202,7 @@ def test_repl_skips_elapsed_when_rendering_is_interrupted(repl, capsys, mock_cur
         "snowflake.cli._plugins.sql.repl.print_result",
         side_effect=(KeyboardInterrupt, None),
     ), mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)):
-        _run_repl(
+        run_repl(
             repl,
             ("select 1;", "select 2;", "exit", "y"),
             monotonic_values=(0.0, 10.0, 10.25),
@@ -1103,23 +1056,8 @@ def test_prompt_format_unknown_token_warning_skipped_for_one_shot(mock_manager, 
     assert "future-token" not in result.output
 
 
-@contextmanager
-def _output_settings(output_format, silent):
-    """Applies output settings to the CLI context and restores the previous ones."""
-    manager = get_cli_context_manager()
-    previous_format = manager.output_format
-    previous_silent = manager.silent
-    manager.output_format = output_format
-    manager.silent = silent
-    try:
-        yield
-    finally:
-        manager.output_format = previous_format
-        manager.silent = previous_silent
-
-
 def test_print_sql_elapsed_table_not_silent(capsys):
-    with _output_settings(OutputFormat.TABLE, silent=False):
+    with sql_output_settings(OutputFormat.TABLE, silent=False):
         _print_sql_elapsed(0.123)
 
     assert "Time Elapsed: 0.123s" in capsys.readouterr().out
@@ -1130,14 +1068,14 @@ def test_print_sql_elapsed_table_not_silent(capsys):
     (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
 )
 def test_print_sql_elapsed_skips_non_table_formats(output_format, capsys):
-    with _output_settings(output_format, silent=False):
+    with sql_output_settings(output_format, silent=False):
         _print_sql_elapsed(0.123)
 
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
 def test_print_sql_elapsed_table_silent(capsys):
-    with _output_settings(OutputFormat.TABLE, silent=True):
+    with sql_output_settings(OutputFormat.TABLE, silent=True):
         _print_sql_elapsed(0.123)
 
     assert "Time Elapsed" not in capsys.readouterr().out
@@ -1149,15 +1087,15 @@ def test_print_sql_elapsed_table_silent(capsys):
 )
 def test_repl_skips_elapsed_for_structured_output(output_format, repl, capsys):
     """A footer would corrupt machine-readable output, so the loop prints none."""
-    with _output_settings(output_format, silent=False):
-        _run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
+    with sql_output_settings(output_format, silent=False):
+        run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
 
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
 def test_repl_skips_elapsed_when_silent(repl, capsys):
     """Silent mode hides the footer even though the table format allows it."""
-    with _output_settings(OutputFormat.TABLE, silent=True):
-        _run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
+    with sql_output_settings(OutputFormat.TABLE, silent=True):
+        run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
 
     assert "Time Elapsed" not in capsys.readouterr().out

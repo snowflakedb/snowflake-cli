@@ -10,6 +10,7 @@ from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
+from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
 from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
@@ -298,8 +299,10 @@ class Repl:
 
                 try:
                     log.debug("executing query")
-                    expected_results_cnt, cursors = self._execute(user_input)
-                    print_result(MultipleResults(QueryResult(c) for c in cursors))
+                    with sql_client_query_span() as gate:
+                        expected_results_cnt, cursors = self._execute(user_input)
+                        gate.record = expected_results_cnt > 0
+                        print_result(MultipleResults(QueryResult(c) for c in cursors))
                     elapsed = time.monotonic() - started
 
                     if expected_results_cnt > 0:

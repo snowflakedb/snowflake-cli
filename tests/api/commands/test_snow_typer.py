@@ -17,6 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
     CommandDocs,
@@ -33,7 +34,7 @@ from snowflake.cli.api.commands.snow_typer import (
     SortedTyperGroup,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import EmptyResult, MessageResult
 from typer.main import get_command
 from typer.testing import CliRunner
 
@@ -712,3 +713,34 @@ def test_command_docs_usage_notes_are_plain_text_in_help(cli):
     assert result.exit_code == 0, result.output
     assert "**Important:**" in result.output
     assert "`--force`" in result.output
+
+
+def test_process_result_concludes_deferred_span_on_success():
+    metrics = get_cli_context().metrics
+    with metrics.span("sql.client_query") as span:
+        span.defer()
+
+    SnowTyper.process_result(EmptyResult())
+
+    completed = metrics.completed_spans
+    assert len(completed) == 1
+    assert completed[0]["name"] == "sql.client_query"
+    assert completed[0]["error"] is None
+
+
+def test_process_result_concludes_deferred_span_on_print_error(monkeypatch):
+    metrics = get_cli_context().metrics
+    with metrics.span("sql.client_query") as span:
+        span.defer()
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("print failed")
+
+    monkeypatch.setattr("snowflake.cli._app.printing.print_result", boom)
+
+    with pytest.raises(RuntimeError, match="print failed"):
+        SnowTyper.process_result(MessageResult("x"))
+
+    completed = metrics.completed_spans
+    assert len(completed) == 1
+    assert completed[0]["error"] == "RuntimeError"
