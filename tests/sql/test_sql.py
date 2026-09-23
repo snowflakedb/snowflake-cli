@@ -359,6 +359,16 @@ def test_old_template_syntax_causes_warning(mock_execute_query, runner):
 
 
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
+def test_malformed_template_syntax_error(mock_execute_query, runner):
+    # GH#3160: malformed template syntax is a rendering error, not an
+    # unexpected exception, and nothing is executed.
+    result = runner.invoke(["sql", "-q", "select <% foo"])
+    assert result.exit_code == 1
+    assert "SQL rendering error" in result.output
+    mock_execute_query.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_mixed_template_syntax_error(mock_execute_query, runner):
     result = runner.invoke(
         ["sql", "-q", "select <% aaa %>.&{ bbb }", "-D", "aaa=foo", "-D", "bbb=bar"]
