@@ -80,7 +80,7 @@ class Paragraph:
 
 @dataclass(frozen=True)
 class PlainText(Paragraph):
-    """A usage-note paragraph. The only ``ContentBlock`` in this PR."""
+    """A paragraph of inline spans. Used in usage notes and example descriptions."""
 
     pass
 
@@ -90,9 +90,22 @@ ContentBlock = PlainText
 
 @dataclass(frozen=True)
 class Example:
+    """A command example for docs pages and ``--help``.
+
+    ``description`` is a ``PlainText`` paragraph of spans (same ``Code`` / ``Ref``
+    as usage notes), not a bare string.
+    """
+
     command: str
-    description: str | None = None
+    description: PlainText | None = None
     output: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.description is not None and not isinstance(self.description, PlainText):
+            raise TypeError(
+                "description must be a PlainText paragraph, "
+                f"not {type(self.description).__name__}"
+            )
 
 
 @dataclass(frozen=True)

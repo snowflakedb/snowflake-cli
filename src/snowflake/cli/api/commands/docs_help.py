@@ -28,7 +28,10 @@ from snowflake.cli.api.commands.command_docs import (
     RelatedLink,
     get_command_docs,
 )
-from snowflake.cli.api.commands.command_docs_rendering import render_usage_help
+from snowflake.cli.api.commands.command_docs_rendering import (
+    render_paragraph_help,
+    render_usage_help,
+)
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from typer.core import TyperCommand
@@ -84,7 +87,7 @@ def _example_lines(examples: Sequence[Example]) -> Iterator[RenderableType]:
         if position:
             yield Text("")
         if example.description:
-            yield Text(sanitize_for_terminal(example.description))
+            yield render_paragraph_help(example.description)
         yield Text(sanitize_for_terminal(example.command), style=STYLE_EXAMPLE_COMMAND)
         if example.output:
             yield Text(

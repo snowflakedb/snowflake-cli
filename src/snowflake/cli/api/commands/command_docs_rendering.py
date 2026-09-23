@@ -49,7 +49,7 @@ def _render_span_mdx(span: Span) -> str:
     return mdx_escape(span)
 
 
-def _render_paragraph_mdx(paragraph: Paragraph) -> str:
+def render_paragraph_mdx(paragraph: Paragraph) -> str:
     return "".join(_render_span_mdx(span) for span in paragraph.parts)
 
 
@@ -60,7 +60,7 @@ def render_usage_mdx(blocks: Sequence[ContentBlock]) -> str:
 
 def _render_usage_block_mdx(block: ContentBlock) -> str:
     if isinstance(block, PlainText):
-        return _render_paragraph_mdx(block)
+        return render_paragraph_mdx(block)
     raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
 
 
@@ -79,7 +79,7 @@ def _render_spans_help(spans: Sequence[Span]) -> RichText:
     return rendered
 
 
-def _render_paragraph_help(paragraph: Paragraph) -> RichText:
+def render_paragraph_help(paragraph: Paragraph) -> RichText:
     return _render_spans_help(paragraph.parts)
 
 
@@ -91,5 +91,5 @@ def render_usage_help(blocks: Sequence[ContentBlock]) -> RenderableType:
             raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
         if renderables:
             renderables.append(RichText(""))
-        renderables.append(_render_paragraph_help(block))
+        renderables.append(render_paragraph_help(block))
     return Group(*renderables)

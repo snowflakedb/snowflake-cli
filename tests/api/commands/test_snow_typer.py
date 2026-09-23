@@ -566,6 +566,11 @@ def test_command_docs_empty_versus_missing_examples():
     assert CommandDocs(examples=None).examples is None
 
 
+def test_example_rejects_string_description():
+    with pytest.raises(TypeError, match="PlainText paragraph"):
+        Example(command="snow foo", description="Ask a question")  # type: ignore[arg-type]
+
+
 _DEMO_DOCS = CommandDocs(
     related=(
         RelatedLink(href="/developer-guide/snowflake-cli/index"),
@@ -578,7 +583,7 @@ _DEMO_DOCS = CommandDocs(
     examples=(
         Example(
             command="snow demo cmd_with_docs",
-            description="Run the command.",
+            description=PlainText(parts=("Run the command.",)),
             output="done",
         ),
         Example(command="snow demo cmd_with_docs --again"),

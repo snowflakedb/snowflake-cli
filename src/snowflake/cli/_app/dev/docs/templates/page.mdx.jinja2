@@ -85,7 +85,7 @@ None
 ## Examples
 {%- for example in docs.examples %}
 
-- {% if example.description %}{{ example.description | mdx_escape }}
+- {% if example.description %}{{ example.description | render_paragraph_mdx }}
   {% endif %}```snowcli
   {{ example.command }}
   ```

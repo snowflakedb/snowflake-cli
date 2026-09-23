@@ -167,7 +167,9 @@ class Backend(Enum):
         ),
         examples=(
             Example(
-                description="Ask a question using the default model.",
+                description=PlainText(
+                    parts=("Ask a question using the default model.",)
+                ),
                 command=(
                     'snow cortex complete "Is 5 more than 4? Please answer using one '
                     'word without a period." -c snowhouse'
@@ -175,7 +177,9 @@ class Backend(Enum):
                 output="Yes",
             ),
             Example(
-                description="Ask a question using a specified model.",
+                description=PlainText(
+                    parts=("Ask a question using a specified model.",)
+                ),
                 command=(
                     'snow cortex complete "Is 5 more than 4? Please answer using one '
                     'word without a period." -c snowhouse --model deepseek-r1'
