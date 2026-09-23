@@ -46,7 +46,7 @@
 * Grantee names in `grants:` are quoted only where SQL requires it, so a role or user whose name is not a bare identifier — an email address, for instance — no longer produces a syntax error.
 * A `privilege:` in `grants:` is now validated: it must be a privilege name — one or more unquoted-identifier words, such as `USAGE` or `IMPORTED PRIVILEGES`. Anything else is rejected before the project file is used.
 * A whitespace-only `role:` or `user:` in `grants:` is now treated as absent and reported, rather than emitted as a quoted blank name.
-* Upgraded snowflake-connector-python from 4.7.3 to 4.7.4.
+* Upgraded snowflake-connector-python from 4.7.3 to 4.7.5.
 * `snow --info` now reports `installation_source` (`pypi`, `binary`, or `snowflake-managed`) so support and agents can see how the CLI was installed. `snow --version` is unchanged.
 * The macOS `.pkg` installer no longer appends `export PATH=` to every user startup file on each upgrade. A machine-wide install (including Homebrew Cask) writes `/etc/paths.d/snowflake-cli` and an install under `/Users/<name>/` adds one marked PATH block to `.zprofile` for zsh or updates the first existing login profile (`.bash_profile`, `.bash_login`, or `.profile`) for bash. Duplicate lines from older installers stay until you remove them yourself.
 * OAuth connection failures now explain when silent refresh or credential caching is disabled, or when a raw token must be renewed by the application that supplied it. Authentication defaults and retry behavior are unchanged.
