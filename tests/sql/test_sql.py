@@ -392,10 +392,29 @@ def test_execution_fails_if_unknown_variable(runner, query):
         # Test templating is ignored
         ("&{ foo }", "&{ foo }"),
         ("select *  from &{ foo } join bar", "select *  from &{ foo } join bar"),
+        # Test braced form without spaces is normalized
+        ("&{foo}", "&{ foo }"),
+        # An ampersand embedded inside a word is literal text, not a variable (GH#2714)
+        ("SELECT 'Principal&Interest'", "SELECT 'Principal&Interest'"),
+        ("COMMENT = 'principal&interest'", "COMMENT = 'principal&interest'"),
+        ("select a&b from t", "select a&b from t"),
+        ("select * from t where c='a&b'", "select * from t where c='a&b'"),
     ],
 )
 def test_snowsql_compatibility(text, expected):
     assert transpile_snowsql_templates(text) == expected
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
+def test_ampersand_inside_word_is_not_a_template_variable(mock_execute_query, runner):
+    # Regression test for GH#2714: `&` embedded in a word (for example in a
+    # DDL COMMENT or synonym like `Principal&Interest`) must not trigger
+    # SnowSQL template rendering.
+    query = "SELECT 'Principal&Interest'"
+    result = runner.invoke(["sql", "-q", query])
+    assert result.exit_code == 0, result.output
+    assert "SQL template rendering error" not in result.output
+    mock_execute_query.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
 @pytest.mark.parametrize("template_start,template_end", [("&{", "}"), ("<%", "%>")])
