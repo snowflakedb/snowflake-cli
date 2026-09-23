@@ -20,7 +20,33 @@ from click import Command
 
 DOCS_ATTRIBUTE = "__snowflake_cli_command_docs__"
 
-Span = str
+# Subset of ``sphinx/source/sfvariables.txt`` in snowflake-prod-docs. A new
+# ``Ref("name")`` needs a matching entry here for ``--help`` to expand it.
+REFERENCE_TEXT: dict[str, str] = {
+    "dcm": "DCM Projects",
+    "dcm-object": "DCM project",
+    "sf-cli": "Snowflake CLI",
+}
+
+
+@dataclass(frozen=True)
+class Ref:
+    """Prod-docs substitution key (``sfvariables.txt`` ``|name|`` → MDX ``%name%``).
+
+    Not free text. Downstream call site: ``ref("dcm-object")``.
+    """
+
+    name: str
+
+    def __post_init__(self) -> None:
+        if self.name not in REFERENCE_TEXT:
+            raise ValueError(
+                f"unknown prod-docs reference {self.name!r}; "
+                "add a matching entry to REFERENCE_TEXT in command_docs.py"
+            )
+
+
+Span = str | Ref
 
 
 @dataclass(frozen=True)

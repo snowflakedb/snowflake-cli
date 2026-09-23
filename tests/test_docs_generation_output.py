@@ -35,6 +35,7 @@ from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
     Example,
     PlainText,
+    Ref,
     RelatedLink,
 )
 from snowflake.cli.api.commands.command_docs_rendering import render_usage_mdx
@@ -331,6 +332,13 @@ def test_render_usage_mdx_empty_versus_plain_text():
 def test_render_usage_mdx_rejects_unknown_blocks():
     with pytest.raises(TypeError, match="Unsupported usage-note block"):
         render_usage_mdx(("not a block",))  # type: ignore[arg-type]
+
+
+def test_render_usage_mdx_reference():
+    assert (
+        render_usage_mdx((PlainText(parts=("Create a ", Ref(name="dcm-object"), ".")),))
+        == "Create a %dcm-object%."
+    )
 
 
 def test_additional_section_empty_versus_missing():

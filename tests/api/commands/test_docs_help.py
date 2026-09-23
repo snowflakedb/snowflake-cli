@@ -23,6 +23,7 @@ from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
     Example,
     PlainText,
+    Ref,
     RelatedLink,
 )
 from snowflake.cli.api.commands.command_docs_rendering import render_usage_help
@@ -95,6 +96,25 @@ def test_render_usage_help_empty_versus_text():
 def test_render_usage_help_joins_string_parts_and_keeps_angle_brackets():
     rendered = _render(render_usage_help((PlainText(parts=("Use ", "<name>", ".")),)))
     assert rendered.strip() == "Use <name>."
+
+
+def test_render_usage_help_expands_known_reference():
+    rendered = _render(
+        render_usage_help(
+            (PlainText(parts=("Create a ", Ref(name="dcm-object"), ".")),)
+        )
+    )
+
+    assert rendered.strip() == "Create a DCM project."
+
+
+def test_ref_accepts_known_name():
+    assert Ref(name="dcm-object").name == "dcm-object"
+
+
+def test_ref_rejects_unknown_name():
+    with pytest.raises(ValueError, match="unknown prod-docs reference"):
+        Ref(name="unknown")
 
 
 def test_render_usage_help_keeps_newlines_and_separates_plain_text_blocks():

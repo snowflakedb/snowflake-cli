@@ -19,7 +19,14 @@ from typing import Any
 
 from rich.console import Group, RenderableType
 from rich.text import Text as RichText
-from snowflake.cli.api.commands.command_docs import ContentBlock, Paragraph, PlainText
+from snowflake.cli.api.commands.command_docs import (
+    REFERENCE_TEXT,
+    ContentBlock,
+    Paragraph,
+    PlainText,
+    Ref,
+    Span,
+)
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 
@@ -30,8 +37,14 @@ def mdx_escape(value: Any) -> str:
     return str(value).replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _render_span_mdx(span: Span) -> str:
+    if isinstance(span, Ref):
+        return f"%{span.name}%"
+    return mdx_escape(span)
+
+
 def _render_paragraph_mdx(paragraph: Paragraph) -> str:
-    return "".join(mdx_escape(part) for part in paragraph.parts)
+    return "".join(_render_span_mdx(span) for span in paragraph.parts)
 
 
 def render_usage_mdx(blocks: Sequence[ContentBlock]) -> str:
@@ -45,9 +58,19 @@ def _render_usage_block_mdx(block: ContentBlock) -> str:
     raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
 
 
+def _render_spans_help(spans: Sequence[Span]) -> RichText:
+    """Renders inline spans as Rich text for the terminal."""
+    rendered = RichText()
+    for part in spans:
+        if isinstance(part, Ref):
+            rendered.append(REFERENCE_TEXT.get(part.name, ""))
+        else:
+            rendered.append(sanitize_for_terminal(part) or "")
+    return rendered
+
+
 def _render_paragraph_help(paragraph: Paragraph) -> RichText:
-    value = "".join(str(part) for part in paragraph.parts)
-    return RichText(sanitize_for_terminal(value) or "")
+    return _render_spans_help(paragraph.parts)
 
 
 def render_usage_help(blocks: Sequence[ContentBlock]) -> RenderableType:
