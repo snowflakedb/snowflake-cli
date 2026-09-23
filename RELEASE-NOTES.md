@@ -61,6 +61,7 @@
 * OAuth connection failures now explain when silent refresh or credential caching is disabled, or when a raw token must be renewed by the application that supplied it. Authentication defaults and retry behavior are unchanged.
 * Leaving the `snow sql` REPL (and one-shot `snow sql` that only scheduled async queries) now completes as a successful command, so the upgrade banner may appear on exit, matching other `snow` commands.
 * Enter now submits a semicolon-terminated `snow sql` REPL buffer regardless of cursor position. Ctrl+J still inserts a newline.
+* On non-English Windows installations, the built-in SYSTEM and Administrators accounts are now recognized by their localized names, so config file permission checks no longer report them as unauthorized users.
 
 
 # v3.27.0
