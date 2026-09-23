@@ -88,6 +88,18 @@ class PlainText(Paragraph):
 ContentBlock = PlainText
 
 
+def plain_text(*parts: Span) -> PlainText:
+    return PlainText(parts=parts)
+
+
+def code(value: str) -> Code:
+    return Code(value=value)
+
+
+def ref(name: str) -> Ref:
+    return Ref(name=name)
+
+
 @dataclass(frozen=True)
 class Example:
     """A command example for docs pages and ``--help``.

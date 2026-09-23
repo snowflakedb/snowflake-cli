@@ -20,11 +20,16 @@ import typer
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
+    Code,
     CommandDocs,
     Example,
     PlainText,
+    Ref,
     RelatedLink,
+    code,
     get_command_docs,
+    plain_text,
+    ref,
 )
 from snowflake.cli.api.commands.docs_help import SnowTyperCommand
 from snowflake.cli.api.commands.snow_typer import (
@@ -569,6 +574,13 @@ def test_command_docs_empty_versus_missing_examples():
 def test_example_rejects_string_description():
     with pytest.raises(TypeError, match="PlainText paragraph"):
         Example(command="snow foo", description="Ask a question")  # type: ignore[arg-type]
+
+
+def test_command_docs_content_helpers():
+    assert plain_text("See ", ref("dcm-object"), ".") == PlainText(
+        parts=("See ", Ref(name="dcm-object"), ".")
+    )
+    assert code("--target") == Code(value="--target")
 
 
 _DEMO_DOCS = CommandDocs(
