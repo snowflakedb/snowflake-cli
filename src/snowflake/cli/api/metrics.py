@@ -13,12 +13,15 @@
 # limitations under the License.
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from heapq import nsmallest
 from typing import ClassVar, Dict, Iterator, List, Optional, Set
+
+log = logging.getLogger(__name__)
 
 
 class CLIMetricsInvalidUsageError(RuntimeError):
@@ -144,6 +147,8 @@ class CLIMetricsSpan:
     # private state
     # start time of the step from a performance counter in order to calculate execution time
     _start_time: float = field(init=False, default_factory=time.perf_counter)
+    _discarded: bool = field(init=False, default=False)
+    _deferred: bool = field(init=False, default=False)
 
     def __hash__(self) -> int:
         return hash(self.span_id)
@@ -179,6 +184,28 @@ class CLIMetricsSpan:
             self.error = error
 
         self.execution_time = time.perf_counter() - self._start_time
+
+    @property
+    def is_discarded(self) -> bool:
+        return self._discarded
+
+    @property
+    def is_deferred(self) -> bool:
+        return self._deferred
+
+    def discard(self) -> None:
+        """Omit this span from completed_spans. Child spans are ignored."""
+        if self.parent is not None:
+            log.debug("Ignoring discard of child span %s", self.name)
+            return
+        self._discarded = True
+
+    def defer(self) -> None:
+        """Finish later via conclude_deferred_spans(). Child spans are ignored."""
+        if self.parent is not None:
+            log.debug("Ignoring defer of child span %s", self.name)
+            return
+        self._deferred = True
 
     def to_dict(self) -> Dict:
         """
@@ -274,10 +301,28 @@ class CLIMetrics:
             new_span.finish(error=err)
             raise
         else:
-            new_span.finish()
+            if not new_span.is_deferred:
+                new_span.finish()
         finally:
-            self._completed_spans.append(new_span)
-            self._in_progress_spans.remove(new_span)
+            # Deferred spans stay in-progress until conclude_deferred_spans(),
+            # except on exception: finish() already ran and process_result
+            # (the usual conclude path) does not run on command failure.
+            if new_span.is_discarded:
+                self._in_progress_spans.remove(new_span)
+            elif new_span.is_deferred and new_span.error is None:
+                pass
+            else:
+                self._completed_spans.append(new_span)
+                self._in_progress_spans.remove(new_span)
+
+    def conclude_deferred_spans(self, error: Optional[BaseException] = None) -> None:
+        for span in list(self._in_progress_spans):
+            if not span.is_deferred:
+                continue
+            span.finish(error=error)
+            if not span.is_discarded:
+                self._completed_spans.append(span)
+            self._in_progress_spans.remove(span)
 
     @property
     def counters(self) -> Dict[str, int]:

@@ -22,6 +22,7 @@ from typing import List, Optional
 
 import typer
 from click import UsageError
+from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
     require_string_prompt_format,
@@ -42,6 +43,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
+    EmptyResult,
     MultipleResults,
     QueryResult,
 )
@@ -252,31 +254,28 @@ def execute_sql(
             no_prompt_exit_repl=no_prompt_exit_repl,
             prompt_format=prompt_format,
         ).run()
-        sys.exit(0)
+        return EmptyResult()
 
     manager = SqlManager()
 
-    expected_results_cnt, cursors = manager.execute(
-        query,
-        files,
-        std_in,
-        data=data,
-        retain_comments=retain_comments,
-        single_transaction=single_transaction,
-        template_syntax_config=template_syntax_config,
-        local_only=local_only,
-    )
-    if expected_results_cnt == 0:
-        # case expected if input only scheduled async queries
-        list(cursors)  # evaluate the result to schedule potential async queries
-        # ends gracefully with no message for consistency with snowsql.
-        sys.exit(0)
-
-    if expected_results_cnt == 1:
-        # evaluate the result to schedule async queries
-        results = list(cursors)
-        if not results:
-            return sys.exit(0)
-        return QueryResult(results[0])
-
-    return MultipleResults((QueryResult(c) for c in cursors))
+    with sql_client_query_span(defer_if_recorded=True) as gate:
+        expected_results_cnt, cursors = manager.execute(
+            query,
+            files,
+            std_in,
+            data=data,
+            retain_comments=retain_comments,
+            single_transaction=single_transaction,
+            template_syntax_config=template_syntax_config,
+            local_only=local_only,
+        )
+        gate.record = expected_results_cnt > 0
+        if expected_results_cnt == 0:
+            list(cursors)
+            return EmptyResult()
+        if expected_results_cnt == 1:
+            results = list(cursors)
+            if not results:
+                return EmptyResult()
+            return QueryResult(results[0])
+        return MultipleResults((QueryResult(c) for c in cursors))

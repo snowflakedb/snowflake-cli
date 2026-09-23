@@ -175,14 +175,20 @@ class SnowTyper(typer.Typer):
     def process_result(result):
         """Command result processor"""
         from snowflake.cli._app.printing import print_result
+        from snowflake.cli.api.cli_global_context import get_cli_context
 
         # Because we still have commands like "logs" that do not return anything.
         # We should improve it in future.
-        if not result:
-            return
-        if not isinstance(result, CommandResult):
-            raise CommandReturnTypeError(type(result))
-        print_result(result)
+        try:
+            if result:
+                if not isinstance(result, CommandResult):
+                    raise CommandReturnTypeError(type(result))
+                print_result(result)
+        except BaseException as err:
+            get_cli_context().metrics.conclude_deferred_spans(error=err)
+            raise
+        else:
+            get_cli_context().metrics.conclude_deferred_spans()
 
     @staticmethod
     def exception_handler(exception: Exception, execution: ExecutionMetadata):
