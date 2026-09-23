@@ -12104,7 +12104,7 @@
                                                                                   
    Usage: root dcm describe [OPTIONS] [IDENTIFIER]                                
                                                                                   
-   Provides description of a DCM Project.                                         
+   Provides a description of a DCM Project.                                       
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
@@ -12280,7 +12280,7 @@
   +- Options --------------------------------------------------------------------+
   | *  --deployment          TEXT  Name or alias of the deployment to drop. For  |
   |                                names containing '$', use single quotes to    |
-  |                                prevent shell expansion (e.g.,                |
+  |                                prevent shell expansion (for example,         |
   |                                'DEPLOYMENT$1'). If both the deployment name  |
   |                                and the alias match two different             |
   |                                deployments, the deployment name match has    |
@@ -12604,7 +12604,7 @@
                                                                                   
    Usage: root dcm list-deployments [OPTIONS] [IDENTIFIER]                        
                                                                                   
-   Lists deployments of given DCM Project.                                        
+   Lists deployments of a given DCM Project.                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   identifier      [IDENTIFIER]  Identifier of DCM Project. Example:          |
@@ -13978,12 +13978,12 @@
   | deploy             Deploys local project changes to Snowflake by creating,   |
   |                    altering, or dropping objects to match your definition    |
   |                    files.                                                    |
-  | describe           Provides description of a DCM Project.                    |
+  | describe           Provides a description of a DCM Project.                  |
   | drop               Drops a DCM Project. All the objects deployed and managed |
   |                    by this project won't be dropped.                         |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
-  | list-deployments   Lists deployments of given DCM Project.                   |
+  | list-deployments   Lists deployments of a given DCM Project.                 |
   | plan               Shows what objects would be created, altered, or dropped  |
   |                    by the deploy command, without applying any changes.      |
   | purge              Drops all the objects managed by the DCM Project, but     |
@@ -32196,12 +32196,12 @@
   | deploy             Deploys local project changes to Snowflake by creating,   |
   |                    altering, or dropping objects to match your definition    |
   |                    files.                                                    |
-  | describe           Provides description of a DCM Project.                    |
+  | describe           Provides a description of a DCM Project.                  |
   | drop               Drops a DCM Project. All the objects deployed and managed |
   |                    by this project won't be dropped.                         |
   | drop-deployment    Drops a deployment from the DCM Project.                  |
   | list               Lists all available DCM Projects.                         |
-  | list-deployments   Lists deployments of given DCM Project.                   |
+  | list-deployments   Lists deployments of a given DCM Project.                 |
   | plan               Shows what objects would be created, altered, or dropped  |
   |                    by the deploy command, without applying any changes.      |
   | purge              Drops all the objects managed by the DCM Project, but     |
