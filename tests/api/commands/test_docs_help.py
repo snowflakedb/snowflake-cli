@@ -169,7 +169,11 @@ def test_example_lines_empty_versus_optional_fields():
     full = list(
         _example_lines(
             (
-                Example(command="snow a", description="First", output="out"),
+                Example(
+                    command="snow a",
+                    description=PlainText(parts=("First",)),
+                    output="out",
+                ),
                 Example(command="snow b"),
             )
         )
@@ -181,6 +185,28 @@ def test_example_lines_empty_versus_optional_fields():
         "",
         "snow b",
     ]
+
+
+def test_example_description_renders_spans():
+    (description, _) = _example_lines(
+        (
+            Example(
+                command="snow dcm describe MY_PROJECT",
+                description=PlainText(
+                    parts=(
+                        "Describe ",
+                        Code(value="MY_PROJECT"),
+                        " as a ",
+                        Ref(name="dcm-object"),
+                        ".",
+                    )
+                ),
+            ),
+        )
+    )
+
+    assert description.plain == "Describe MY_PROJECT as a DCM project."
+    assert [span.style for span in description.spans] == [STYLE_INLINE_CODE]
 
 
 def test_related_topic_untitled_is_the_url():

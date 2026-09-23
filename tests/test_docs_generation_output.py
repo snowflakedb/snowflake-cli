@@ -39,7 +39,10 @@ from snowflake.cli.api.commands.command_docs import (
     Ref,
     RelatedLink,
 )
-from snowflake.cli.api.commands.command_docs_rendering import render_usage_mdx
+from snowflake.cli.api.commands.command_docs_rendering import (
+    render_paragraph_mdx,
+    render_usage_mdx,
+)
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 from typer.main import get_command
 
@@ -355,6 +358,24 @@ def test_render_usage_mdx_reference():
     )
 
 
+def test_render_paragraph_mdx_empty_versus_mixed_spans():
+    assert render_paragraph_mdx(PlainText(parts=())) == ""
+    assert (
+        render_paragraph_mdx(
+            PlainText(
+                parts=(
+                    "Preview ",
+                    Code(value="MY_TABLE"),
+                    " in a ",
+                    Ref(name="dcm-object"),
+                    ".",
+                )
+            )
+        )
+        == "Preview `MY_TABLE` in a %dcm-object%."
+    )
+
+
 def test_additional_section_empty_versus_missing():
     assert _additional_section({}, "Usage notes") is None
     assert _additional_section({"additional_sections": []}, "Usage notes") is None
@@ -427,7 +448,9 @@ def test_render_command_page_with_structured_docs(snapshot):
         examples=(
             Example(
                 command="snow plugin demo MY_OBJECT",
-                description="The following example executes the <object_name> object:",
+                description=PlainText(
+                    parts=("The following example executes the <object_name> object:",)
+                ),
                 output="Object <MY_OBJECT> executed.",
             ),
             Example(
