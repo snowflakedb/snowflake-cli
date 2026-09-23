@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.28.0
+
+## Deprecations
+
+## New additions
 * `snow feature` is now available in preview. This command group manages declarative feature-store objects in Snowflake (`init`, `sync`, `plan`, `apply`, `list`, `describe`, `online-service` (`status`/`create`/`drop`), `ingest`, `query`). It is hidden by default; enable it with the `ENABLE_FEATURE_STORE` feature flag (`SNOWFLAKE_CLI_FEATURES_ENABLE_FEATURE_STORE=true` or `[cli.features] enable_feature_store = true` in `config.toml`). It requires the `snowflake-ml-python[feature_store]` library.
 * Environment variable support for dbt projects is now generally available. `snow dbt deploy` accepts `--env-file-dir`, which injects an `env.yml` from outside the project source into the deployed project root, and `--default-env` / `--unset-default-env`, which set or clear the environment block from `env.yml` that the project compiles and executes with by default. `snow dbt execute` accepts `--env` to select an environment at execution time (`NO_ENV` skips `env.yml` entirely), `--env-vars` to override individual variables with a YAML/JSON object of uppercase `DBT_*` keys and string values, and `--use-shell-env-vars` to forward exported `DBT_*` shell variables, which `--env-vars` overrides on collision. Variables passed either way appear in the query text and query history, so keep credentials in the `secrets:` block of `env.yml` instead.
 * Writeback and auto-compile settings for dbt projects are now generally available. `snow dbt deploy` accepts `--default-writeback` / `--no-default-writeback` and `--auto-compile` / `--no-auto-compile`, which set and persist on the project whether results are written back and whether it is compiled on deploy; omit them to leave the existing setting unchanged. `snow dbt execute` accepts `--writeback` / `--no-writeback` to override writeback for a single run (place it before the dbt command).
