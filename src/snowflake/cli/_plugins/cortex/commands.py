@@ -38,8 +38,8 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
     Example,
-    PlainText,
     RelatedLink,
+    plain_text,
 )
 from snowflake.cli.api.commands.overrideable_parameter import (
     OverrideableArgument,
@@ -156,20 +156,16 @@ class Backend(Enum):
             ),
         ),
         usage_notes=(
-            PlainText(
-                parts=(
-                    "In the simplest use case, the prompt is a single string. "
-                    "You can also provide a JSON file with conversation history, "
-                    "including multiple prompts and responses, for interactive "
-                    "chat-style conversation.",
-                )
+            plain_text(
+                "In the simplest use case, the prompt is a single string. "
+                "You can also provide a JSON file with conversation history, "
+                "including multiple prompts and responses, for interactive "
+                "chat-style conversation.",
             ),
         ),
         examples=(
             Example(
-                description=PlainText(
-                    parts=("Ask a question using the default model.",)
-                ),
+                description=plain_text("Ask a question using the default model."),
                 command=(
                     'snow cortex complete "Is 5 more than 4? Please answer using one '
                     'word without a period." -c snowhouse'
@@ -177,9 +173,7 @@ class Backend(Enum):
                 output="Yes",
             ),
             Example(
-                description=PlainText(
-                    parts=("Ask a question using a specified model.",)
-                ),
+                description=plain_text("Ask a question using a specified model."),
                 command=(
                     'snow cortex complete "Is 5 more than 4? Please answer using one '
                     'word without a period." -c snowhouse --model deepseek-r1'
