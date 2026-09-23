@@ -66,6 +66,14 @@ from snowflake.cli._plugins.object.command_aliases import add_object_command_ali
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    RelatedLink,
+    code,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.flags import (
     ForceOption,
     IdentifierType,
@@ -217,6 +225,22 @@ optional_dcm_identifier = typer.Argument(
     show_default=False,
     click_type=IdentifierType(),
 )
+
+
+_DCM_RELATED = (
+    RelatedLink(href="/developer-guide/snowflake-cli/index"),
+    RelatedLink(href="/developer-guide/snowflake-cli/data-pipelines/dcm-projects"),
+    RelatedLink(
+        href="/developer-guide/snowflake-cli/command-reference/dcm-commands/overview"
+    ),
+    RelatedLink(href="/user-guide/dcm-projects/dcm-projects-overview"),
+)
+
+
+def _dcm_related(href: str | None = None):
+    if href is None:
+        return _DCM_RELATED
+    return (*_DCM_RELATED, RelatedLink(href=href))
 
 
 _ACCOUNT_GUIDANCE = "The current session account is required to match the manifest target's account_identifier."
@@ -389,6 +413,44 @@ add_object_command_aliases(
     ommit_commands=["create", "drop", "describe"],
     terse_option=terse_option,
     limit_option=limit_option,
+    list_docs=CommandDocs(
+        related=_dcm_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm list"),
+                " command lists all available ",
+                ref("dcm-object"),
+                " objects.",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm list",
+                description=plain_text(
+                    "List all available ",
+                    ref("dcm-object"),
+                    " objects:",
+                ),
+            ),
+            Example(
+                command='snow dcm list --like "MY_PROJECT%"',
+                description=plain_text(
+                    "List ",
+                    ref("dcm-object"),
+                    " objects whose names match a pattern:",
+                ),
+            ),
+            Example(
+                command="snow dcm list --in database MY_DB",
+                description=plain_text(
+                    "List ",
+                    ref("dcm-object"),
+                    " objects in a specific database:",
+                ),
+            ),
+        ),
+    ),
 )
 
 
@@ -667,7 +729,67 @@ def raw_analyze(
         return reporter.process(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_dcm_related(
+            "/user-guide/dcm-projects/dcm-projects-use"
+            "#label-dcm-projects-create-object"
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm create"),
+                " command creates a ",
+                ref("dcm-object"),
+                " object in Snowflake if one does not exist. The ",
+                ref("dcm-object"),
+                " object is created in the current session's database and schema, or in "
+                "those specified with ",
+                code("snow dcm"),
+                " command options.",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm create",
+                description=plain_text(
+                    "Create a ",
+                    ref("dcm-object"),
+                    " object in Snowflake where the project name is specified in the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm create --target DEV",
+                description=plain_text(
+                    "Create a ",
+                    ref("dcm-object"),
+                    " object in Snowflake where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm create MY_DB.MY_SCHEMA.MY_PROJECT",
+                description=plain_text(
+                    "Create a ",
+                    ref("dcm-object"),
+                    " object with an explicit fully qualified name:",
+                ),
+            ),
+            Example(
+                command="snow dcm create --if-not-exists",
+                description=plain_text(
+                    "Create a ",
+                    ref("dcm-object"),
+                    " object in Snowflake only if it does not already exist:",
+                ),
+            ),
+        ),
+    ),
+)
 def create(
     identifier: Optional[FQN] = optional_dcm_identifier,
     if_not_exists: bool = IfNotExistsOption(
@@ -708,7 +830,63 @@ def create(
     return MessageResult(f"DCM Project '{project_id}' successfully created.")
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_dcm_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm drop"),
+                " command drops a ",
+                ref("dcm-object"),
+                " object. This command deletes the ",
+                ref("dcm-object"),
+                " object and its deployment history. Objects deployed by this project "
+                "are not dropped along with it.",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm drop",
+                description=plain_text(
+                    "Drop a ",
+                    ref("dcm-object"),
+                    " object, where the project name is specified in the target "
+                    "identified by the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm drop --target DEV",
+                description=plain_text(
+                    "Drop a ",
+                    ref("dcm-object"),
+                    " object where the name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm drop MY_DB.MY_SCHEMA.MY_PROJECT",
+                description=plain_text(
+                    "Drop a ",
+                    ref("dcm-object"),
+                    " object with an explicit fully qualified name:",
+                ),
+            ),
+            Example(
+                command="snow dcm drop --if-exists",
+                description=plain_text(
+                    "Drop a ",
+                    ref("dcm-object"),
+                    " object only if it exists:",
+                ),
+            ),
+        ),
+    ),
+)
 def drop(
     identifier: Optional[FQN] = optional_dcm_identifier,
     if_exists: bool = IfExistsOption(help="Do nothing if the project does not exist."),
@@ -732,7 +910,52 @@ def drop(
     return result
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_dcm_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm describe"),
+                " command describes a single ",
+                ref("dcm-object"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm describe",
+                description=plain_text(
+                    "Describe a ",
+                    ref("dcm-object"),
+                    " object with the default options, where the project name is "
+                    "specified in the target identified by the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm describe --target DEV",
+                description=plain_text(
+                    "Describe a ",
+                    ref("dcm-object"),
+                    " object where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm describe MY_DB.MY_SCHEMA.MY_PROJECT",
+                description=plain_text(
+                    "Describe a ",
+                    ref("dcm-object"),
+                    " object with an explicit fully qualified name:",
+                ),
+            ),
+        ),
+    ),
+)
 def describe(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
@@ -740,7 +963,7 @@ def describe(
     **options,
 ):
     """
-    Provides description of a DCM Project.
+    Provides a description of a DCM Project.
     """
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
@@ -748,7 +971,59 @@ def describe(
     return QueryResult(ObjectManager().describe(object_type="dcm", fqn=project_id))
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_dcm_related(
+            "/user-guide/dcm-projects/dcm-projects-monitor"
+            "#label-dcm-projects-deployment-history"
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm list-deployments"),
+                " command lists all deployments of a given ",
+                ref("dcm-object"),
+                ". Each deployment has a name (for example, ",
+                code("DEPLOYMENT$1"),
+                ") and optionally an alias that was specified during deployment.",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm list-deployments",
+                description=plain_text(
+                    "List all deployments for a ",
+                    ref("dcm-object"),
+                    " object, where the project name is specified in the target "
+                    "identified by the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm list-deployments --target DEV",
+                description=plain_text(
+                    "List deployments for a ",
+                    ref("dcm-object"),
+                    " object, where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm list-deployments MY_DB.MY_SCHEMA.MY_PROJECT",
+                description=plain_text(
+                    "List deployments of the ",
+                    code("MY_PROJECT"),
+                    " ",
+                    ref("dcm-object"),
+                    " object:",
+                ),
+            ),
+        ),
+    ),
+)
 def list_deployments(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
@@ -756,7 +1031,7 @@ def list_deployments(
     **options,
 ):
     """
-    Lists deployments of given DCM Project.
+    Lists deployments of a given DCM Project.
     """
     context = _resolve_context_with_optional_manifest(from_location, identifier, target)
     project_id = context.project_identifier
@@ -766,13 +1041,86 @@ def list_deployments(
     return QueryResult(results)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_dcm_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm drop-deployment"),
+                " command drops a specified deployment of a ",
+                ref("dcm-object"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm drop-deployment --deployment MY_DEPLOYMENT",
+                description=plain_text(
+                    "Drop a deployment with alias ",
+                    code("MY_DEPLOYMENT"),
+                    " from ",
+                    ref("dcm-object"),
+                    ", where the project name is specified in the target identified "
+                    "by the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command=(
+                    "snow dcm drop-deployment --target DEV --deployment MY_DEPLOYMENT"
+                ),
+                description=plain_text(
+                    "Drop a deployment with alias ",
+                    code("MY_DEPLOYMENT"),
+                    " from ",
+                    ref("dcm-object"),
+                    ", where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command=(
+                    "snow dcm drop-deployment MY_DB.MY_SCHEMA.MY_PROJECT "
+                    "--deployment MY_DEPLOYMENT"
+                ),
+                description=plain_text(
+                    "Drop a deployment with alias ",
+                    code("MY_DEPLOYMENT"),
+                    " from the ",
+                    code("MY_PROJECT"),
+                    " ",
+                    ref("dcm-object"),
+                    " object:",
+                ),
+            ),
+            Example(
+                command=(
+                    "snow dcm drop-deployment --deployment 'DEPLOYMENT$1' --if-exists"
+                ),
+                description=plain_text(
+                    "Drop a deployment named ",
+                    code("DEPLOYMENT$1"),
+                    " from ",
+                    ref("dcm-object"),
+                    " if it exists (note: use single quotes to prevent shell "
+                    "expansion of ",
+                    code("$"),
+                    "):",
+                ),
+            ),
+        ),
+    ),
+)
 def drop_deployment(
     identifier: Optional[FQN] = optional_dcm_identifier,
     deployment: str = typer.Option(
         ...,
         "--deployment",
-        help="Name or alias of the deployment to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'DEPLOYMENT$1'). If both the deployment name and the alias match two different deployments, the deployment name match has higher precedence.",
+        help="Name or alias of the deployment to drop. For names containing '$', use single quotes to prevent shell expansion (for example, 'DEPLOYMENT$1'). If both the deployment name and the alias match two different deployments, the deployment name match has higher precedence.",
         show_default=False,
     ),
     if_exists: bool = IfExistsOption(

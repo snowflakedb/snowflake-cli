@@ -30,6 +30,7 @@ from snowflake.cli._app.dev.docs.commands_docs_generator import (
     collapse_whitespace,
     mdx_escape,
 )
+from snowflake.cli._plugins.dcm.commands import app as dcm_app
 from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
     Code,
@@ -595,6 +596,34 @@ def test_command_docs_usage_notes_win_over_docstring():
     rendered = _command_page_markdown(command, ["git", "setup"])
     assert "From CommandDocs." in rendered
     assert "From the docstring." not in rendered
+
+
+_DCM_COMMAND_PAGES = (
+    "create",
+    "describe",
+    "drop-deployment",
+    "drop",
+    "list-deployments",
+    "list",
+)
+
+_EXPECTED_DCM_PAGE_SECTIONS = (
+    "<RelatedTopics>",
+    "## Syntax",
+    "## Arguments",
+    "## Options",
+    "## Usage notes",
+    "## Examples",
+)
+
+
+def test_dcm_command_pages_have_expected_sections():
+    group = get_command(dcm_app.create_instance())
+
+    for name in _DCM_COMMAND_PAGES:
+        page = _command_page_markdown(group.commands[name], ["dcm", name])
+        for section in _EXPECTED_DCM_PAGE_SECTIONS:
+            assert section in page
 
 
 def test_docs_pages_include_cortex_complete_command_docs(
