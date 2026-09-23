@@ -32,6 +32,7 @@ from snowflake.cli._app.dev.docs.commands_docs_generator import (
 )
 from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
+    Code,
     CommandDocs,
     Example,
     PlainText,
@@ -332,6 +333,19 @@ def test_render_usage_mdx_empty_versus_plain_text():
 def test_render_usage_mdx_rejects_unknown_blocks():
     with pytest.raises(TypeError, match="Unsupported usage-note block"):
         render_usage_mdx(("not a block",))  # type: ignore[arg-type]
+
+
+def test_render_usage_mdx_code_span_keeps_angle_brackets_unescaped():
+    assert (
+        render_usage_mdx(
+            (
+                PlainText(
+                    parts=("Pass ", Code(value='-D "<key>=<value>"'), " to set it.")
+                ),
+            )
+        )
+        == 'Pass `-D "<key>=<value>"` to set it.'
+    )
 
 
 def test_render_usage_mdx_reference():

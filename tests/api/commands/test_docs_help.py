@@ -20,13 +20,17 @@ import pytest
 from rich.console import Console
 from rich.text import Text
 from snowflake.cli.api.commands.command_docs import (
+    Code,
     CommandDocs,
     Example,
     PlainText,
     Ref,
     RelatedLink,
 )
-from snowflake.cli.api.commands.command_docs_rendering import render_usage_help
+from snowflake.cli.api.commands.command_docs_rendering import (
+    STYLE_INLINE_CODE,
+    render_usage_help,
+)
 from snowflake.cli.api.commands.docs_help import (
     DOCS_BASE_URL,
     _absolute_url,
@@ -96,6 +100,21 @@ def test_render_usage_help_empty_versus_text():
 def test_render_usage_help_joins_string_parts_and_keeps_angle_brackets():
     rendered = _render(render_usage_help((PlainText(parts=("Use ", "<name>", ".")),)))
     assert rendered.strip() == "Use <name>."
+
+
+def test_render_usage_help_styles_a_code_span():
+    blocks = (PlainText(parts=("Pass ", Code(value="--target"), " to pick a target.")),)
+    (paragraph,) = render_usage_help(blocks).renderables
+
+    assert paragraph.plain == "Pass --target to pick a target."
+    assert [(span.start, span.end, span.style) for span in paragraph.spans] == [
+        (5, 13, STYLE_INLINE_CODE)
+    ]
+
+
+def test_code_rejects_backticks_in_value():
+    with pytest.raises(ValueError, match="must not contain backticks"):
+        Code(value="`rm -rf`")
 
 
 def test_render_usage_help_expands_known_reference():
