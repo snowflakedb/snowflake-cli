@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import json
+import sys
 from unittest import mock
 
+import pytest
 from snowflake.cli._app.telemetry import CLITelemetryField, TelemetryEvent
 from snowflake.cli._plugins.sql.client_query_span import SQL_CLIENT_QUERY_SPAN
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
@@ -156,6 +158,13 @@ def test_repl_exit_is_command_success(
     assert not any(e["message"].get("error_type") == "SystemExit" for e in error_events)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "CliRunner plus DummyOutput does not reliably fire Click's result_callback, "
+        "so the stderr_warning spy stays at 0 calls"
+    ),
+)
 @mock.patch("snowflake.cli._app.version_check.cli_console.stderr_warning")
 @mock.patch("snowflake.cli._app.version_check._banner_shown", False)
 @mock.patch(
