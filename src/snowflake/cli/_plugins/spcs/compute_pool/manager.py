@@ -162,3 +162,6 @@ class ComputePoolManager(SqlExecutionMixin):
 
     def status(self, pool_name: str):
         return self.execute_query(f"call system$get_compute_pool_status('{pool_name}')")
+
+    def show_instance_families(self) -> SnowflakeCursor:
+        return self.execute_query("show compute pool instance families")

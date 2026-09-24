@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Add `snow spcs compute-pool show-instance-families` command.
 
 ## Fixes and improvements
 
