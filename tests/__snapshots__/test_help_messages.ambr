@@ -31608,6 +31608,8 @@
    Upgrade the snowflake-managed distribution of Snowflake CLI.                   
                                                                                   
   +- Options --------------------------------------------------------------------+
+  | --revert             Point the shim at the previous snowflake-managed        |
+  |                      version.                                                |
   | --dry-run            Show what would change without downloading or           |
   |                      retargeting the shim.                                   |
   | --help     -h        Show this message and exit.                             |

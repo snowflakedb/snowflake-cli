@@ -37,6 +37,7 @@ from snowflake.cli._plugins.upgrade.manager import (
     STATUS_ALREADY_CURRENT,
     STATUS_DRY_RUN,
     STATUS_NEW_MAJOR,
+    STATUS_REVERTED,
     STATUS_UPGRADED,
     UnimplementedVersionSource,
 )
@@ -349,3 +350,111 @@ def test_dry_run_does_not_write(
     assert layout.current_version() == "3.12.0"
     assert not layout.version_dir("3.13.1").exists()
     _assert_shim(layout, "3.12.0")
+
+
+def test_upgrade_gc_keeps_only_current_and_previous(
+    runner, monkeypatch, managed_home, tmp_path, httpserver
+):
+    _enable_managed(monkeypatch, "3.12.0")
+    layout = ManagedLayout(managed_home)
+    for version in ("3.10.0", "3.11.0", "3.12.0"):
+        source = managed_home.parent / f"src-{version}"
+        _write_fake_binary(source, version)
+        layout.install_binary(version, source)
+        layout.retarget(version)
+    assert layout.version_dir("3.10.0").is_dir()
+    assert layout.version_dir("3.11.0").is_dir()
+
+    _serve_release(httpserver, tmp_path, "3.13.1")
+    _use_repo(httpserver)
+    result = runner.invoke(["upgrade", "--format", "JSON"])
+    assert result.exit_code == 0, result.output
+    payload = _parse_json(result.output)
+    assert payload["status"] == STATUS_UPGRADED
+
+    assert layout.current_version() == "3.13.1"
+    assert layout.previous_version() == "3.12.0"
+    assert not layout.version_dir("3.10.0").exists()
+    assert not layout.version_dir("3.11.0").exists()
+    assert layout.version_dir("3.12.0").is_dir()
+    assert layout.version_dir("3.13.1").is_dir()
+    _assert_shim(layout, "3.13.1")
+
+
+def test_revert_retargets_previous_without_fetching(
+    runner, monkeypatch, managed_home, tmp_path, httpserver
+):
+    _enable_managed(monkeypatch, "3.12.0")
+    layout = _seed_current(managed_home, "3.12.0")
+    _serve_release(httpserver, tmp_path, "3.13.1")
+    _use_repo(httpserver)
+
+    upgraded = runner.invoke(["upgrade", "--format", "JSON"])
+    assert upgraded.exit_code == 0, upgraded.output
+    assert _parse_json(upgraded.output)["status"] == STATUS_UPGRADED
+    _assert_shim(layout, "3.13.1")
+
+    manager.set_version_source(UnimplementedVersionSource())
+    result = runner.invoke(["upgrade", "--revert", "--format", "JSON"])
+    assert result.exit_code == 0, result.output
+    payload = _parse_json(result.output)
+    assert payload["channel"] == "snowflake-managed"
+    assert payload["status"] == STATUS_REVERTED
+    assert payload["from"] == "3.13.1"
+    assert payload["to"] == "3.12.0"
+    assert Path(payload["shim_target"]) == layout.binary_path("3.12.0")
+    assert layout.current_version() == "3.12.0"
+    assert layout.previous_version() == "3.13.1"
+    _assert_shim(layout, "3.12.0")
+
+
+def test_revert_without_previous_errors(runner, monkeypatch, managed_home):
+    _enable_managed(monkeypatch, "3.12.0")
+    layout = _seed_current(managed_home, "3.12.0")
+    result = runner.invoke(["upgrade", "--revert"])
+    assert result.exit_code == 1
+    assert "No previous snowflake-managed version" in result.output
+    assert layout.current_version() == "3.12.0"
+    _assert_shim(layout, "3.12.0")
+
+
+def test_revert_does_not_touch_snowflake_config(
+    runner, monkeypatch, managed_home, snowflake_home
+):
+    config = snowflake_home / "config.toml"
+    connections = snowflake_home / "connections.toml"
+    config.write_text("sentinel = true\n")
+    connections.write_text("keep-me = 1\n")
+
+    _enable_managed(monkeypatch, "3.13.1")
+    layout = _seed_current(managed_home, "3.12.0")
+    newer = managed_home.parent / "src-3.13.1"
+    _write_fake_binary(newer, "3.13.1")
+    layout.install_binary("3.13.1", newer)
+    layout.retarget("3.13.1")
+
+    result = runner.invoke(["upgrade", "--revert"])
+    assert result.exit_code == 0, result.output
+    assert "Reverted 3.13.1 → 3.12.0." in result.output
+    assert config.read_text() == "sentinel = true\n"
+    assert connections.read_text() == "keep-me = 1\n"
+    _assert_shim(layout, "3.12.0")
+
+
+def test_revert_dry_run_does_not_write(runner, monkeypatch, managed_home):
+    _enable_managed(monkeypatch, "3.13.1")
+    layout = _seed_current(managed_home, "3.12.0")
+    newer = managed_home.parent / "src-3.13.1"
+    _write_fake_binary(newer, "3.13.1")
+    layout.install_binary("3.13.1", newer)
+    layout.retarget("3.13.1")
+
+    result = runner.invoke(["upgrade", "--revert", "--dry-run", "--format", "JSON"])
+    assert result.exit_code == 0, result.output
+    payload = _parse_json(result.output)
+    assert payload["status"] == STATUS_DRY_RUN
+    assert payload["from"] == "3.13.1"
+    assert payload["to"] == "3.12.0"
+    assert layout.current_version() == "3.13.1"
+    assert layout.previous_version() == "3.12.0"
+    _assert_shim(layout, "3.13.1")
