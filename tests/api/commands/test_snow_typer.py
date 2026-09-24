@@ -20,12 +20,16 @@ import typer
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
+    Bullet,
+    BulletList,
     Code,
     CommandDocs,
     Example,
     PlainText,
     Ref,
     RelatedLink,
+    bullet,
+    bullet_list,
     code,
     get_command_docs,
     plain_text,
@@ -563,6 +567,12 @@ def test_command_docs_rejects_non_block_usage_notes():
         CommandDocs(usage_notes="old string")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="entries must be content blocks"):
         CommandDocs(usage_notes=("old string",))  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="entries must be content blocks"):
+        CommandDocs(usage_notes=(bullet("Lone bullet."),))  # type: ignore[arg-type]
+
+    assert CommandDocs(usage_notes=(bullet_list(bullet("Listed.")),)) == CommandDocs(
+        usage_notes=(BulletList(items=(Bullet(parts=("Listed.",)),)),)
+    )
 
 
 def test_command_docs_empty_versus_missing_examples():
@@ -579,6 +589,9 @@ def test_example_rejects_string_description():
 def test_command_docs_content_helpers():
     assert plain_text("See ", ref("dcm-object"), ".") == PlainText(
         parts=("See ", Ref(name="dcm-object"), ".")
+    )
+    assert bullet_list(bullet("First.")) == BulletList(
+        items=(Bullet(parts=("First.",)),)
     )
     assert code("--target") == Code(value="--target")
 

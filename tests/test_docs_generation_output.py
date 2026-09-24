@@ -33,6 +33,8 @@ from snowflake.cli._app.dev.docs.commands_docs_generator import (
 from snowflake.cli._plugins.dcm.commands import app as dcm_app
 from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
+    Bullet,
+    BulletList,
     Code,
     CommandDocs,
     Example,
@@ -356,6 +358,57 @@ def test_render_usage_mdx_reference():
     assert (
         render_usage_mdx((PlainText(parts=("Create a ", Ref(name="dcm-object"), ".")),))
         == "Create a %dcm-object%."
+    )
+
+
+def test_render_usage_mdx_bullet_list():
+    assert (
+        render_usage_mdx(
+            (
+                PlainText(parts=("Changes:",)),
+                BulletList(
+                    items=(
+                        Bullet(parts=("Creates <new> objects.",)),
+                        Bullet(parts=("Alters existing objects.",)),
+                    )
+                ),
+            )
+        )
+        == "Changes:\n\n- Creates &lt;new&gt; objects.\n- Alters existing objects."
+    )
+
+
+def test_render_usage_mdx_bullet_list_with_mixed_spans():
+    assert (
+        render_usage_mdx(
+            (
+                BulletList(
+                    items=(
+                        Bullet(
+                            parts=(
+                                "Exit code ",
+                                Code(value="0"),
+                                " if all tests pass.",
+                            )
+                        ),
+                    )
+                ),
+            )
+        )
+        == "- Exit code `0` if all tests pass."
+    )
+
+
+def test_render_usage_mdx_bullet_list_wraps_multiline_items():
+    assert (
+        render_usage_mdx(
+            (
+                BulletList(
+                    items=(Bullet(parts=("First line,\nsecond line.",)),),
+                ),
+            )
+        )
+        == "- First line,\n  second line."
     )
 
 
