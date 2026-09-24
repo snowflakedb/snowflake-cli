@@ -20,6 +20,8 @@ import pytest
 from rich.console import Console
 from rich.text import Text
 from snowflake.cli.api.commands.command_docs import (
+    Bullet,
+    BulletList,
     Code,
     CommandDocs,
     Example,
@@ -151,6 +153,51 @@ def test_render_usage_help_keeps_newlines_and_separates_plain_text_blocks():
 def test_render_usage_help_rejects_unknown_blocks():
     with pytest.raises(TypeError, match="Unsupported usage-note block"):
         render_usage_help(("not a block",))  # type: ignore[arg-type]
+
+
+def test_render_usage_help_renders_bullets():
+    rendered = _render(
+        render_usage_help(
+            (
+                PlainText(parts=("Changes:",)),
+                BulletList(
+                    items=(
+                        Bullet(parts=("Creates new objects.",)),
+                        Bullet(parts=("Alters existing objects.",)),
+                    )
+                ),
+            )
+        )
+    )
+
+    assert [line.rstrip() for line in rendered.splitlines()] == [
+        "Changes:",
+        "",
+        "• Creates new objects.",
+        "• Alters existing objects.",
+    ]
+
+
+def test_render_usage_help_styles_spans_inside_a_bullet():
+    blocks = (
+        BulletList(
+            items=(
+                Bullet(
+                    parts=(
+                        "Exit code ",
+                        Code(value="0"),
+                        " if all tests pass.",
+                    )
+                ),
+            )
+        ),
+    )
+    table = render_usage_help(blocks).renderables[0]
+    (bullet_cell,) = table.columns[1].cells
+    assert bullet_cell.plain == "Exit code 0 if all tests pass."
+    assert [(span.start, span.end, span.style) for span in bullet_cell.spans] == [
+        (10, 11, STYLE_INLINE_CODE)
+    ]
 
 
 def test_panel_keeps_the_title():

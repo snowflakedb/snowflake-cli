@@ -18,9 +18,11 @@ from collections.abc import Sequence
 from typing import Any
 
 from rich.console import Group, RenderableType
+from rich.table import Table
 from rich.text import Text as RichText
 from snowflake.cli.api.commands.command_docs import (
     REFERENCE_TEXT,
+    BulletList,
     Code,
     ContentBlock,
     Paragraph,
@@ -53,6 +55,10 @@ def render_paragraph_mdx(paragraph: Paragraph) -> str:
     return "".join(_render_span_mdx(span) for span in paragraph.parts)
 
 
+def _render_bullet_mdx(item: Paragraph) -> str:
+    return f"- {render_paragraph_mdx(item).replace(chr(10), chr(10) + '  ')}"
+
+
 def render_usage_mdx(blocks: Sequence[ContentBlock]) -> str:
     """Renders structured usage-note blocks as an MDX-ready body."""
     return "\n\n".join(_render_usage_block_mdx(block) for block in blocks)
@@ -61,6 +67,8 @@ def render_usage_mdx(blocks: Sequence[ContentBlock]) -> str:
 def _render_usage_block_mdx(block: ContentBlock) -> str:
     if isinstance(block, PlainText):
         return render_paragraph_mdx(block)
+    if isinstance(block, BulletList):
+        return "\n".join(_render_bullet_mdx(item) for item in block.items)
     raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
 
 
@@ -83,13 +91,26 @@ def render_paragraph_help(paragraph: Paragraph) -> RichText:
     return _render_spans_help(paragraph.parts)
 
 
+def _render_bullet_list_help(block: BulletList) -> Table:
+    table = Table.grid(padding=(0, 1, 0, 0))
+    table.add_column(width=1, no_wrap=True)
+    table.add_column(no_wrap=False)
+    for item in block.items:
+        table.add_row("•", render_paragraph_help(item))
+    return table
+
+
 def render_usage_help(blocks: Sequence[ContentBlock]) -> RenderableType:
     """Renders structured usage-note blocks as a Rich panel body."""
     renderables: list[RenderableType] = []
     for block in blocks:
-        if not isinstance(block, PlainText):
+        if isinstance(block, PlainText):
+            content: RenderableType = render_paragraph_help(block)
+        elif isinstance(block, BulletList):
+            content = _render_bullet_list_help(block)
+        else:
             raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
         if renderables:
             renderables.append(RichText(""))
-        renderables.append(render_paragraph_help(block))
+        renderables.append(content)
     return Group(*renderables)

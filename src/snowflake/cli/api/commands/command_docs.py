@@ -85,11 +85,37 @@ class PlainText(Paragraph):
     pass
 
 
-ContentBlock = PlainText
+@dataclass(frozen=True)
+class Bullet(Paragraph):
+    """One list item: a paragraph of spans (``Code`` / ``Ref``), not a ``ContentBlock``.
+
+    Pass to ``bullet_list``; do not put a lone ``Bullet`` in ``usage_notes``.
+    Downstream call site: ``bullet("Exit code ", code("0"), " if all tests pass")``.
+    """
+
+    pass
+
+
+@dataclass(frozen=True)
+class BulletList:
+    """A ``ContentBlock`` of bullet items for usage notes."""
+
+    items: tuple[Bullet, ...]
+
+
+ContentBlock = PlainText | BulletList
 
 
 def plain_text(*parts: Span) -> PlainText:
     return PlainText(parts=parts)
+
+
+def bullet(*parts: Span) -> Bullet:
+    return Bullet(parts=parts)
+
+
+def bullet_list(*items: Bullet) -> BulletList:
+    return BulletList(items=items)
 
 
 def code(value: str) -> Code:
