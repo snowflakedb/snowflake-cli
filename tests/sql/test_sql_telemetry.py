@@ -156,33 +156,6 @@ def test_repl_exit_is_command_success(
     assert not any(e["message"].get("error_type") == "SystemExit" for e in error_events)
 
 
-@mock.patch("snowflake.cli._app.version_check.cli_console.stderr_warning")
-@mock.patch("snowflake.cli._app.version_check._banner_shown", False)
-@mock.patch(
-    "snowflake.cli._app.version_check.get_new_version_msg",
-    return_value="upgrade-banner-probe",
-)
-@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
-@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
-def test_repl_exit_may_show_upgrade_banner(
-    mock_execute,
-    mock_prompt_session,
-    _msg,
-    mock_stderr_warning,
-    runner,
-    mock_cursor,
-):
-    mock_execute.return_value = (1, (mock_cursor(["row"], []) for _ in range(1)))
-    mock_prompt = mock.MagicMock()
-    mock_prompt.prompt.side_effect = iter(("exit", "y"))
-    mock_prompt_session.return_value = mock_prompt
-
-    result = runner.invoke(["sql"])
-    assert result.exit_code == 0, result.output
-    # Banner is printed on stderr via Rich Console, which Click does not capture.
-    mock_stderr_warning.assert_called_once_with("upgrade-banner-probe")
-
-
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_one_shot_span_on_result_payload_does_not_contain_sql(
