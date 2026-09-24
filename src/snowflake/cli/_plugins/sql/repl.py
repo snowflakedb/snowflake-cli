@@ -141,21 +141,17 @@ class Repl:
             Execution priority:
             1. Exit keywords (exit, quit) - execute immediately
             2. REPL commands (starting with !) - execute immediately
-            3. SQL with trailing semicolon - execute immediately
+            3. Semicolon-terminated buffer - execute immediately, whatever the
+               cursor position; Ctrl+J inserts a new line instead
             4. All other input - add new line for multi-line editing
             """
             buffer = event.app.current_buffer
-            buffer_text = buffer.text
-            stripped_text = buffer_text.strip()
+            stripped_text = buffer.text.strip()
 
             if stripped_text:
                 log.debug("evaluating repl input")
-                cursor_position = buffer.cursor_position
                 ends_with_semicolon = stripped_text.endswith(";")
                 is_command = detect_command(stripped_text) is not None
-
-                meaningful_content_end = len(buffer_text.rstrip())
-                cursor_at_meaningful_end = cursor_position >= meaningful_content_end
 
                 if stripped_text.lower() in EXIT_KEYWORDS:
                     log.debug("exit keyword detected %r", stripped_text)
@@ -165,8 +161,8 @@ class Repl:
                     log.debug("command detected, submitting input")
                     buffer.validate_and_handle()
 
-                elif ends_with_semicolon and cursor_at_meaningful_end:
-                    log.debug("semicolon detected, submitting input")
+                elif ends_with_semicolon:
+                    log.debug("semicolon-terminated buffer, submitting input")
                     buffer.validate_and_handle()
 
                 else:
