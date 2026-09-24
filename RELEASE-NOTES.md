@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for LOG_LEVEL, METRIC_LEVEL and TRACE_LEVEL
 
 ## Fixes and improvements
 
