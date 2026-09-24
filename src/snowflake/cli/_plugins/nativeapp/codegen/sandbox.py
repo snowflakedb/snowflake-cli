@@ -262,6 +262,10 @@ class SandboxEnvBuilder(EnvBuilder):
         Parameters:
             path (Path): The directory in which the sandbox environment will be created.
         """
+        # On macOS, python-build-standalone (used by hatch/uv) embeds
+        # @executable_path/../lib/libpythonX.Y.dylib. Copying the binary into the venv
+        # breaks dyld resolution; symlinking lets macOS resolve it to the original location.
+        kwargs.setdefault("symlinks", sys.platform == "darwin")
         super().__init__(**kwargs)
         self.path = path
         self._context: Any = None  # cached context
