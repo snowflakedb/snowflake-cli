@@ -10,10 +10,14 @@ builds the binary with the distribution embedded.
 Run this script from the project root dir.
 """
 
+import argparse
 import contextlib
+import hashlib
 import json
 import os
+import platform
 import subprocess
+import sys
 import tarfile
 import tempfile
 from pathlib import Path
@@ -26,6 +30,22 @@ INSTALLATION_SOURCE_VARIABLE = "INSTALLATION_SOURCE"
 # BINARY is the existing pkg / MSI / deb / rpm stamp. SNOWFLAKE_MANAGED is the
 # curl|sh tarball channel. Default stays BINARY so those jobs are unchanged.
 INSTALLATION_SOURCE_STAMPS = ("BINARY", "SNOWFLAKE_MANAGED")
+INSTALLATION_SOURCE_ENV = "SNOWFLAKE_CLI_INSTALLATION_SOURCE"
+PACK_MANAGED_TARBALL_ENV = "SNOWFLAKE_CLI_PACK_MANAGED_TARBALL"
+# uname / platform.machine() → tarball os/arch (Cortex mapping).
+MANAGED_OS_NAMES = {
+    "darwin": "darwin",
+    "linux": "linux",
+    "windows": "windows",
+}
+MANAGED_ARCH_NAMES = {
+    "x86_64": "amd64",
+    "amd64": "amd64",
+    "aarch64": "arm64",
+    "arm64": "arm64",
+}
+MANAGED_TARBALL_OS = frozenset({"darwin", "linux", "windows"})
+MANAGED_TARBALL_ARCH = frozenset({"amd64", "arm64"})
 
 
 def rewrite_installation_source_assignment(
@@ -43,6 +63,99 @@ def rewrite_installation_source_assignment(
         f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.PYPI",
         f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.{source}",
     )
+
+
+def resolve_installation_source_stamp(env: dict | None = None) -> str:
+    values = os.environ if env is None else env
+    source = values.get(INSTALLATION_SOURCE_ENV, "BINARY")
+    if source not in INSTALLATION_SOURCE_STAMPS:
+        raise ValueError(
+            f"installation source stamp must be one of {INSTALLATION_SOURCE_STAMPS}, got {source!r}"
+        )
+    return source
+
+
+def should_pack_managed_tarball(source: str, env: dict | None = None) -> bool:
+    if source != "SNOWFLAKE_MANAGED":
+        return False
+    values = os.environ if env is None else env
+    return values.get(PACK_MANAGED_TARBALL_ENV, "1") != "0"
+
+
+def managed_platform(
+    system: str | None = None, machine: str | None = None
+) -> tuple[str, str]:
+    os_key = (system or platform.system()).lower()
+    arch_key = (machine or platform.machine()).lower()
+    if os_key not in MANAGED_OS_NAMES:
+        raise ValueError(f"unsupported snowflake-managed os {os_key!r}")
+    if arch_key not in MANAGED_ARCH_NAMES:
+        raise ValueError(f"unsupported snowflake-managed arch {arch_key!r}")
+    return MANAGED_OS_NAMES[os_key], MANAGED_ARCH_NAMES[arch_key]
+
+
+def managed_tarball_name(version: str, os_name: str, arch: str) -> str:
+    return f"snowflake-cli-{version}-{os_name}-{arch}.tar.gz"
+
+
+def managed_manifest_fragment_name(os_name: str, arch: str) -> str:
+    return f"manifest-{os_name}-{arch}.json"
+
+
+def managed_binary_arcname(os_name: str) -> str:
+    return "snow.exe" if os_name == "windows" else "snow"
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def pack_managed_tarball(
+    binary_path: Path,
+    dest_dir: Path,
+    version: str,
+    os_name: str,
+    arch: str,
+) -> tuple[Path, Path, dict]:
+    """Write snowflake-cli-<ver>-<os>-<arch>.tar.gz plus a Releng merge fragment.
+
+    The archive has the binary at the root as ``snow`` (or ``snow.exe`` on
+    Windows) so install.sh / snow upgrade can unwrap it. Checksum is SHA-256
+    of the tarball, Cortex-parity, fail closed on the client.
+    """
+    if os_name not in MANAGED_TARBALL_OS:
+        raise ValueError(f"unsupported snowflake-managed os {os_name!r}")
+    if arch not in MANAGED_TARBALL_ARCH:
+        raise ValueError(f"unsupported snowflake-managed arch {arch!r}")
+    if not binary_path.is_file():
+        raise FileNotFoundError(f"managed binary not found: {binary_path}")
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    tarball_name = managed_tarball_name(version, os_name, arch)
+    tarball = dest_dir / tarball_name
+    with tarfile.open(tarball, "w:gz") as tar:
+        tar.add(binary_path, arcname=managed_binary_arcname(os_name))
+    checksum = sha256_file(tarball)
+    fragment = {
+        "packages": {
+            os_name: {
+                arch: {
+                    "name": tarball_name,
+                    "checksum": checksum,
+                }
+            }
+        }
+    }
+    fragment_path = dest_dir / managed_manifest_fragment_name(os_name, arch)
+    fragment_path.write_text(json.dumps(fragment, indent=2) + "\n")
+    return tarball, fragment_path, fragment
 
 
 @contextlib.contextmanager
@@ -281,14 +394,33 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     return Path(completed_proc.stderr.decode().split()[-1])
 
 
-def main():
+def _pack_existing_binary(args: argparse.Namespace) -> None:
+    binary_path = args.pack_tarball
+    version = args.version or ProjectSettings.get_project_version()
+    if args.os_name and args.arch:
+        os_name, arch = args.os_name, args.arch
+    else:
+        detected_os, detected_arch = managed_platform()
+        os_name = args.os_name or detected_os
+        arch = args.arch or detected_arch
+    dest_dir = args.dest_dir or (PROJECT_ROOT / "dist")
+    tarball, fragment_path, _fragment = pack_managed_tarball(
+        binary_path, dest_dir, version, os_name, arch
+    )
+    print("-> managed tarball:", tarball)
+    print("-> manifest fragment:", fragment_path)
+
+
+def build_isolated_binary() -> Path | None:
+    source = resolve_installation_source_stamp()
     settings = ProjectSettings()
     print("Installing Python distribution to TMP dir...")
     hatch_install_python(settings.python_tmp_dir, settings.python_version)
     print("-> installed")
 
     print(f"Installing project into Python distribution...")
-    with override_is_installation_source_variable():
+    print(f"-> installation source stamp: {source}")
+    with override_is_installation_source_variable(source):
         pip_install_project(str(settings.python_dist_exe))
     print("-> installed")
 
@@ -304,6 +436,48 @@ def main():
     )
     if binary_location:
         print("-> binary location:", binary_location)
+        if should_pack_managed_tarball(source):
+            os_name, arch = managed_platform()
+            dest = PROJECT_ROOT / "dist"
+            tarball, fragment_path, _fragment = pack_managed_tarball(
+                binary_location, dest, settings.project_version, os_name, arch
+            )
+            print("-> managed tarball:", tarball)
+            print("-> manifest fragment:", fragment_path)
+    return binary_location
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--pack-tarball",
+        type=Path,
+        help="Pack an already-built (and, on macOS, already-signed) binary.",
+    )
+    parser.add_argument("--version", help="CLI version for the tarball filename.")
+    parser.add_argument(
+        "--os-name",
+        choices=sorted(MANAGED_TARBALL_OS),
+        help="Tarball os (darwin|linux|windows). Default: this host.",
+    )
+    parser.add_argument(
+        "--arch",
+        choices=sorted(MANAGED_TARBALL_ARCH),
+        help="Tarball arch (amd64|arm64). Default: this host.",
+    )
+    parser.add_argument(
+        "--dest-dir",
+        type=Path,
+        help="Directory for the tarball and manifest fragment (default: dist/).",
+    )
+    args = parser.parse_args(argv)
+    if args.pack_tarball is not None:
+        _pack_existing_binary(args)
+        return
+    binary_location = build_isolated_binary()
+    if binary_location is None:
+        print("error: hatch binary build produced no output", file=sys.stderr)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
