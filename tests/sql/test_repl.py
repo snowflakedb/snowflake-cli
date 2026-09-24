@@ -547,6 +547,13 @@ class TestReplPasteHandling:
                 return binding.handler
         raise AssertionError("Enter handler not found")
 
+    def _find_control_j_handler(self, key_bindings):
+        """Find the Control+J handler from key bindings."""
+        for binding in key_bindings.bindings:
+            if binding.keys == (Keys.ControlJ,):
+                return binding.handler
+        raise AssertionError("ControlJ handler not found")
+
     def test_bracketed_paste_strips_trailing_newlines(self, repl, mock_app_buffer):
         """Test that bracketed paste strips trailing newlines from pasted content."""
         app, buffer = mock_app_buffer
@@ -652,8 +659,8 @@ class TestReplPasteHandling:
         expected_sql_with_newline = "SELECT 1\n"
         assert buffer.text == expected_sql_with_newline
 
-    def test_enter_key_with_cursor_in_middle_adds_newline(self, repl, mock_app_buffer):
-        """Test Enter key adds newline when cursor is not at meaningful content end."""
+    def test_enter_key_with_cursor_in_middle_submits(self, repl, mock_app_buffer):
+        """Test Enter key submits a semicolon-terminated buffer from any cursor."""
         app, buffer = mock_app_buffer
         key_bindings = repl._setup_key_bindings()  # noqa: SLF001
 
@@ -661,6 +668,7 @@ class TestReplPasteHandling:
         cursor_in_middle_position = 3
         buffer.text = complete_sql
         buffer.cursor_position = cursor_in_middle_position
+        buffer.validate_and_handle = mock.MagicMock()
 
         enter_event = mock.MagicMock()
         enter_event.app = app
@@ -668,8 +676,67 @@ class TestReplPasteHandling:
         enter_handler = self._find_enter_handler(key_bindings)
         enter_handler(enter_event)
 
-        expected_sql_with_newline_in_middle = "SEL\nECT 1;"
-        assert buffer.text == expected_sql_with_newline_in_middle
+        buffer.validate_and_handle.assert_called_once()
+        assert buffer.text == complete_sql
+
+    def test_enter_key_with_cursor_on_earlier_line_submits(self, repl, mock_app_buffer):
+        """Test Enter key submits a multiline buffer with the cursor on an earlier line."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        multiline_sql = "SELECT 1,\n  2\nFROM dual;"
+        buffer.text = multiline_sql
+        buffer.cursor_position = len("SELECT 1,")
+        buffer.validate_and_handle = mock.MagicMock()
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        buffer.validate_and_handle.assert_called_once()
+        assert buffer.text == multiline_sql
+
+    def test_enter_key_with_incomplete_input_in_middle_adds_newline(
+        self, repl, mock_app_buffer
+    ):
+        """Test Enter key inserts a newline at the cursor for incomplete input."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        incomplete_sql = "SELECT 1"
+        buffer.text = incomplete_sql
+        buffer.cursor_position = 3
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        assert buffer.text == "SEL\nECT 1"
+
+    def test_control_j_adds_newline_to_semicolon_terminated_input(
+        self, repl, mock_app_buffer
+    ):
+        """Test Ctrl+J inserts a newline instead of submitting complete input."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        complete_sql = "SELECT 1;"
+        buffer.text = complete_sql
+        buffer.cursor_position = len(complete_sql)
+        buffer.validate_and_handle = mock.MagicMock()
+
+        control_j_event = mock.MagicMock()
+        control_j_event.app = app
+
+        control_j_handler = self._find_control_j_handler(key_bindings)
+        control_j_handler(control_j_event)
+
+        assert buffer.text == "SELECT 1;\n"
+        buffer.validate_and_handle.assert_not_called()
 
     def test_enter_key_handles_exit_keywords(self, repl, mock_app_buffer):
         """Test Enter key handles exit keywords correctly."""
