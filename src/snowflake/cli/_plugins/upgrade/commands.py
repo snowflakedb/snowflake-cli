@@ -38,6 +38,11 @@ app = _UpgradeTyperFactory(
 
 @app.command(name="upgrade", requires_connection=False)
 def upgrade(
+    revert: bool = typer.Option(
+        False,
+        "--revert",
+        help="Point the shim at the previous snowflake-managed version.",
+    ),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
@@ -47,7 +52,7 @@ def upgrade(
 ) -> CommandResult:
     """Upgrade the snowflake-managed distribution of Snowflake CLI."""
     suppress_new_version_banner()
-    decision = plan_upgrade(dry_run=dry_run)
+    decision = plan_upgrade(dry_run=dry_run, revert=revert)
     if get_cli_context().output_format.is_json:
         return ObjectResult(decision.payload)
     return MessageResult(decision.message)

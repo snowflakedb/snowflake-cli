@@ -71,6 +71,7 @@ def test_upgrade_help_is_callable_when_hidden(runner):
     result = runner.invoke(["upgrade", "--help"])
     assert result.exit_code == 0, result.output
     assert "--dry-run" in result.output
+    assert "--revert" in result.output
     assert "snowflake-managed" in result.output
 
 
@@ -180,6 +181,15 @@ def test_dry_run_does_not_bypass_refuse(runner):
     assert result.exit_code == 0, result.output
     payload = _parse_json(result.output)
     assert payload["status"] == STATUS_REFUSED
+
+
+def test_revert_refuses_pypi(runner):
+    result = runner.invoke(["upgrade", "--revert", "--format", "JSON"])
+    assert result.exit_code == 0, result.output
+    payload = _parse_json(result.output)
+    assert payload["status"] == STATUS_REFUSED
+    assert payload["channel"] == "pypi"
+    assert "install_command" in payload
 
 
 def test_version_unchanged_by_upgrade_command(runner):
