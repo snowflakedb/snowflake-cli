@@ -14,7 +14,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -73,3 +76,159 @@ def test_rewrite_requires_assignment():
     packaging = _load_packaging_module()
     with pytest.raises(RuntimeError, match="INSTALLATION_SOURCE"):
         packaging.rewrite_installation_source_assignment("VERSION = '1.0.0'")
+
+
+def test_resolve_stamp_defaults_to_binary():
+    packaging = _load_packaging_module()
+    assert packaging.resolve_installation_source_stamp(env={}) == "BINARY"
+
+
+def test_resolve_stamp_from_env():
+    packaging = _load_packaging_module()
+    assert (
+        packaging.resolve_installation_source_stamp(
+            env={"SNOWFLAKE_CLI_INSTALLATION_SOURCE": "SNOWFLAKE_MANAGED"}
+        )
+        == "SNOWFLAKE_MANAGED"
+    )
+
+
+def test_resolve_stamp_rejects_native():
+    packaging = _load_packaging_module()
+    with pytest.raises(ValueError, match="installation source stamp"):
+        packaging.resolve_installation_source_stamp(
+            env={"SNOWFLAKE_CLI_INSTALLATION_SOURCE": "native"}
+        )
+
+
+def test_env_stamp_rewrites_about_to_snowflake_managed():
+    packaging = _load_packaging_module()
+    about = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "snowflake"
+        / "cli"
+        / "__about__.py"
+    ).read_text()
+    source = packaging.resolve_installation_source_stamp(
+        env={"SNOWFLAKE_CLI_INSTALLATION_SOURCE": "SNOWFLAKE_MANAGED"}
+    )
+    rewritten = packaging.rewrite_installation_source_assignment(about, source=source)
+    assert "INSTALLATION_SOURCE = CLIInstallationSource.SNOWFLAKE_MANAGED" in rewritten
+    assert "INSTALLATION_SOURCE = CLIInstallationSource.PYPI" not in rewritten
+    binary = packaging.rewrite_installation_source_assignment(about)
+    assert "INSTALLATION_SOURCE = CLIInstallationSource.BINARY" in binary
+
+
+def test_should_pack_managed_tarball():
+    packaging = _load_packaging_module()
+    assert packaging.should_pack_managed_tarball("BINARY", env={}) is False
+    assert packaging.should_pack_managed_tarball("SNOWFLAKE_MANAGED", env={}) is True
+    assert (
+        packaging.should_pack_managed_tarball(
+            "SNOWFLAKE_MANAGED",
+            env={"SNOWFLAKE_CLI_PACK_MANAGED_TARBALL": "0"},
+        )
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    "system,machine,os_name,arch",
+    [
+        ("Linux", "x86_64", "linux", "amd64"),
+        ("linux", "amd64", "linux", "amd64"),
+        ("Darwin", "arm64", "darwin", "arm64"),
+        ("darwin", "aarch64", "darwin", "arm64"),
+        ("Windows", "AMD64", "windows", "amd64"),
+    ],
+)
+def test_managed_platform_mapping(system, machine, os_name, arch):
+    packaging = _load_packaging_module()
+    assert packaging.managed_platform(system, machine) == (os_name, arch)
+
+
+def test_pack_managed_tarball_unix_root_binary(tmp_path):
+    packaging = _load_packaging_module()
+    binary = tmp_path / "snow"
+    binary.write_bytes(b"fake-snow")
+    binary.chmod(0o755)
+    dest = tmp_path / "dist"
+    tarball, fragment_path, fragment = packaging.pack_managed_tarball(
+        binary, dest, "3.13.1", "linux", "amd64"
+    )
+    assert tarball.name == "snowflake-cli-3.13.1-linux-amd64.tar.gz"
+    assert fragment_path.name == "manifest-linux-amd64.json"
+    checksum = hashlib.sha256(tarball.read_bytes()).hexdigest()
+    assert fragment == {
+        "packages": {
+            "linux": {
+                "amd64": {
+                    "name": tarball.name,
+                    "checksum": checksum,
+                }
+            }
+        }
+    }
+    assert json.loads(fragment_path.read_text()) == fragment
+    with tarfile.open(tarball, "r:gz") as tar:
+        names = tar.getnames()
+        assert "snow" in names
+        extracted = tar.extractfile("snow")
+        assert extracted is not None
+        assert extracted.read() == b"fake-snow"
+
+
+def test_pack_managed_tarball_windows_arcname(tmp_path):
+    packaging = _load_packaging_module()
+    binary = tmp_path / "snow.exe"
+    binary.write_bytes(b"fake-snow-exe")
+    dest = tmp_path / "dist"
+    tarball, _fragment_path, fragment = packaging.pack_managed_tarball(
+        binary, dest, "3.13.1", "windows", "amd64"
+    )
+    assert tarball.name == "snowflake-cli-3.13.1-windows-amd64.tar.gz"
+    assert fragment["packages"]["windows"]["amd64"]["name"] == tarball.name
+    with tarfile.open(tarball, "r:gz") as tar:
+        assert "snow.exe" in tar.getnames()
+        extracted = tar.extractfile("snow.exe")
+        assert extracted is not None
+        assert extracted.read() == b"fake-snow-exe"
+
+
+def test_main_exits_when_hatch_produces_no_binary(monkeypatch):
+    packaging = _load_packaging_module()
+    monkeypatch.setattr(packaging, "build_isolated_binary", lambda: None)
+    with pytest.raises(SystemExit) as excinfo:
+        packaging.main([])
+    assert excinfo.value.code == 1
+
+
+def test_pack_tarball_cli(tmp_path):
+    packaging = _load_packaging_module()
+    binary = tmp_path / "snow"
+    binary.write_bytes(b"cli-snow")
+    dest = tmp_path / "out"
+    packaging.main(
+        [
+            "--pack-tarball",
+            str(binary),
+            "--version",
+            "3.12.0",
+            "--os-name",
+            "darwin",
+            "--arch",
+            "arm64",
+            "--dest-dir",
+            str(dest),
+        ]
+    )
+    tarball = dest / "snowflake-cli-3.12.0-darwin-arm64.tar.gz"
+    fragment = dest / "manifest-darwin-arm64.json"
+    assert tarball.is_file()
+    assert fragment.is_file()
+    payload = json.loads(fragment.read_text())
+    assert (
+        payload["packages"]["darwin"]["arm64"]["checksum"]
+        == hashlib.sha256(tarball.read_bytes()).hexdigest()
+    )
