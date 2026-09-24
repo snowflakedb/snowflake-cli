@@ -1422,7 +1422,7 @@ def test_latest_metrics(mock_execute_query, runner, snapshot):
         "                select \n"
         "                    *,\n"
         "                    row_number() over (\n"
-        "                        partition by record['metric']['name'] \n"
+        "                        partition by COALESCE(record['name'], record['metric']['name']) \n"
         "                        order by timestamp desc\n"
         "                    ) as rank\n"
         "                from event_table_db.data_schema.snowservices_logs\n"
@@ -2762,3 +2762,80 @@ def test_build_image_hidden_by_default(runner):
     result = runner.invoke(["spcs", "service", "--help"])
     assert result.exit_code == 0
     assert "build-image" not in result.output
+
+
+@patch(EXECUTE_QUERY)
+def test_latest_metrics_next_gen_event_table_shape(mock_execute_query, runner):
+    # Next-gen event tables flatten record.metric.{name,unit} onto record and store
+    # scalar gauge/sum VALUE as a tagged object; the formatter must read both shapes.
+    mock_execute_query.side_effect = [
+        [{"key": "EVENT_TABLE", "value": "snowflake.telemetry.data"}],
+        Mock(
+            fetchall=lambda: [
+                (
+                    datetime(2024, 12, 10, 18, 53, 21, 809000),
+                    datetime(2024, 12, 10, 18, 52, 51, 809000),
+                    None,
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.name": "LOG_EVENT",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "METRIC",
+                    json.dumps({"name": "container.cpu.usage", "unit": "cpu"}),
+                    None,
+                    json.dumps({"double_value": 0.0005}),
+                    None,
+                ),
+                (
+                    datetime(2024, 12, 10, 18, 53, 21, 809000),
+                    datetime(2024, 12, 10, 18, 52, 51, 809000),
+                    None,
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.name": "LOG_EVENT",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "METRIC",
+                    json.dumps(
+                        {"metric": {"name": "container.memory.usage", "unit": "By"}}
+                    ),
+                    None,
+                    "1048576",
+                    None,
+                ),
+            ]
+        ),
+    ]
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "metrics",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--format",
+            "json",
+        ]
+    )
+
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+    rows = json.loads(result.output)
+    assert [(r["METRIC NAME"], r["METRIC VALUE"]) for r in rows] == [
+        ("container.cpu.usage", "0.0005"),
+        ("container.memory.usage", "1048576"),
+    ]
