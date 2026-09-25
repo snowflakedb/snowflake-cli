@@ -120,6 +120,11 @@ def resolve_docs_repo(
     return path
 
 
+def command_page_rel_path(command_path: Sequence[str]) -> Path:
+    """Relative path under ``gen_docs/pages`` for a terminal command."""
+    return Path(*command_path).with_suffix(".mdx")
+
+
 def load_mapping(path: Path) -> list[tuple[Path, Path]]:
     if not path.is_file():
         _die(f"Mapping file not found: {path}")

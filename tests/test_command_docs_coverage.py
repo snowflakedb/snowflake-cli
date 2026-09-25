@@ -14,13 +14,20 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Iterator
+from pathlib import Path
 from typing import List
 
 import pytest
 from click import Command
 from snowflake.cli._app.dev.docs.commands_docs_generator import _command_page_markdown
 from snowflake.cli.api.commands.command_docs import has_explicit_command_docs
+
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+sys.path.insert(0, str(_SCRIPTS_DIR))
+
+import publish_command_docs as pcd  # noqa: E402
 
 # Terminal commands that do not get a per-command CommandDocs page in prod-docs.
 _COMMAND_DOCS_EXEMPT_PATHS: frozenset[tuple[str, ...]] = frozenset(
@@ -275,3 +282,32 @@ def test_command_docs_coverage(runner, get_click_context):
 
     assert not section_errors, "\n".join(section_errors)
     assert not missing, "Commands missing docs=CommandDocs(...):\n" + "\n".join(missing)
+
+
+def test_command_docs_paths_coverage(runner, get_click_context):
+    runner.invoke(["--help"])
+
+    mapping = pcd.load_mapping(pcd.DEFAULT_MAPPING)
+    command_page_paths = {
+        pcd.command_page_rel_path(path)
+        for path, _command in _iter_terminal_commands(get_click_context().command)
+    }
+    mapped_pages = {source for source, _dest in mapping}
+
+    missing = []
+    stale_keys = sorted(mapped_pages - command_page_paths)
+
+    for path, _command in _iter_terminal_commands(get_click_context().command):
+        if _is_command_docs_exempt(path):
+            continue
+        page_key = pcd.command_page_rel_path(path)
+        if page_key not in mapped_pages:
+            missing.append(f"snow {' '.join(path)} ({page_key.as_posix()})")
+
+    assert not stale_keys, (
+        "Stale command_docs_paths.yaml entries (no matching command page):\n"
+        + "\n".join(page.as_posix() for page in stale_keys)
+    )
+    assert (
+        not missing
+    ), "Commands missing command_docs_paths.yaml entries:\n" + "\n".join(missing)
