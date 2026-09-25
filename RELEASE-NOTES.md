@@ -62,6 +62,7 @@
 * OAuth connection failures now explain when silent refresh or credential caching is disabled, or when a raw token must be renewed by the application that supplied it. Authentication defaults and retry behavior are unchanged.
 * Leaving the `snow sql` REPL (and one-shot `snow sql` that only scheduled async queries) now completes as a successful command, so the upgrade banner may appear on exit, matching other `snow` commands.
 * Enter now submits a semicolon-terminated `snow sql` REPL buffer regardless of cursor position. Ctrl+J still inserts a newline.
+* `snow sql` no longer treats an ampersand embedded inside a word (for example `Principal&Interest` in a comment or string literal) as a SnowSQL template variable. Such statements now run as written instead of failing with `SQL template rendering error: ... is undefined`.
 
 
 # v3.27.0
