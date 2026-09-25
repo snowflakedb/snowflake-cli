@@ -67,10 +67,14 @@ from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.command_docs import (
+    PUBLIC_PREVIEW,
     CommandDocs,
     Example,
     RelatedLink,
+    bullet,
+    bullet_list,
     code,
+    note,
     plain_text,
     ref,
 )
@@ -574,7 +578,84 @@ def _confirm_purge(project_id: FQN) -> None:
             )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_dcm_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm purge"),
+                " command drops every Snowflake object managed by the specified ",
+                ref("dcm-object"),
+                " object, but does not drop the ",
+                ref("dcm-object"),
+                " object itself. The operation is recorded in the project's deployment "
+                "history and prints the computed changeset on completion.",
+            ),
+            plain_text(
+                "Use the ",
+                code("--save-output"),
+                " option to save the purge results to a local ",
+                code("out/purge.json"),
+                " file.",
+            ),
+            note(
+                "The command prompts for confirmation before dropping managed objects. "
+                "Use ",
+                code("--force"),
+                " to skip the prompt (for example, in CI/CD pipelines).",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm purge",
+                description=plain_text(
+                    "Purge a ",
+                    ref("dcm-object"),
+                    " object with the default options, where the project name is "
+                    "specified in the target identified by the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm purge --target DEV",
+                description=plain_text(
+                    "Purge a ",
+                    ref("dcm-object"),
+                    " object where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm purge MY_DB.MY_SCHEMA.MY_PROJECT",
+                description=plain_text(
+                    "Purge a ",
+                    ref("dcm-object"),
+                    " object with an explicit fully qualified name:",
+                ),
+            ),
+            Example(
+                command="snow dcm purge --force",
+                description=plain_text(
+                    "Purge a ",
+                    ref("dcm-object"),
+                    " object without the confirmation prompt:",
+                ),
+            ),
+            Example(
+                command="snow dcm purge --save-output",
+                description=plain_text(
+                    "Purge a ",
+                    ref("dcm-object"),
+                    " object and save the output locally:",
+                ),
+            ),
+        ),
+    ),
+)
 def purge(
     identifier: Optional[FQN] = optional_dcm_identifier,
     alias: Optional[str] = alias_option,
@@ -629,7 +710,107 @@ def purge(
         return reporter.process(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_dcm_related(
+            "/user-guide/dcm-projects/dcm-projects-use#label-dcm-projects-plan"
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm plan"),
+                " command validates a ",
+                ref("dcm-object"),
+                " object and simulates what would happen if the ",
+                code("deploy"),
+                " command were executed, printing the computed changeset as a result. "
+                "No Snowflake objects are created, altered, or dropped when you run "
+                "this command.",
+            ),
+            note(
+                "This command automatically uploads local source SQL files to a "
+                "temporary stage in Snowflake so their content impacts the final "
+                "result of the operation."
+            ),
+            plain_text(
+                "Use the ",
+                code("--save-output"),
+                " option to save the plan results to a local ",
+                code("out/plan.json"),
+                " file.",
+            ),
+            plain_text(
+                "Use ",
+                code("--delta"),
+                " during active development to get faster feedback on incremental "
+                "changes. Because it skips unchanged definitions, it doesn't detect "
+                "changes that happened outside of ",
+                ref("dcm"),
+                " on your account since the last deployment. Always run a full ",
+                code("snow dcm plan"),
+                " before deploying.",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm plan",
+                description=plain_text(
+                    "Plan a ",
+                    ref("dcm-object"),
+                    " object with the default options, where the project name is "
+                    "specified in the target identified by the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm plan --target DEV",
+                description=plain_text(
+                    "Plan a ",
+                    ref("dcm-object"),
+                    " where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm plan MY_DB.MY_SCHEMA.MY_PROJECT",
+                description=plain_text(
+                    "Plan a ",
+                    ref("dcm-object"),
+                    " object with an explicit fully qualified name:",
+                ),
+            ),
+            Example(
+                command="snow dcm plan --target DEV --variable db_name=jdoe",
+                description=plain_text(
+                    "Plan a ",
+                    ref("dcm-object"),
+                    " using local files, where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest and set the value for the ",
+                    code("db_name"),
+                    " variable:",
+                ),
+            ),
+            Example(
+                command="snow dcm plan --save-output",
+                description=plain_text(
+                    "Plan a ",
+                    ref("dcm-object"),
+                    " object and save the plan output locally:",
+                ),
+            ),
+            Example(
+                command="snow dcm plan --delta",
+                description=plain_text(
+                    "Plan only the definitions that changed since the last deployment:",
+                ),
+            ),
+        ),
+    ),
+)
 @mock_dcm_response("plan")
 def plan(
     identifier: Optional[FQN] = optional_dcm_identifier,
@@ -1162,6 +1343,84 @@ def drop_deployment(
 @app.command(
     requires_connection=True,
     hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+    docs=CommandDocs(
+        related=_dcm_related(
+            "/user-guide/dcm-projects/dcm-projects-pipelines"
+            "#label-dcm-projects-pipelines-preview"
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm preview"),
+                " command returns rows from any table, view, or dynamic table defined "
+                "in your ",
+                ref("dcm-object"),
+                " object. This command is useful for:",
+            ),
+            bullet_list(
+                bullet("Testing your definitions before deployment"),
+                bullet("Verifying data after deployment"),
+                bullet("Previewing views that reference templated table names"),
+            ),
+            note(
+                "This command automatically uploads local source SQL files to a "
+                "temporary stage in Snowflake so their content impacts the final "
+                "result of the operation."
+            ),
+            plain_text(
+                "The ",
+                code("--object"),
+                " option is required and specifies the fully qualified name of the table, view, or dynamic table to be previewed. You can use the ",
+                code("--limit"),
+                " option to restrict the number of rows returned.",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm preview --object MY_DB.PUBLIC.MY_TABLE",
+                description=plain_text(
+                    "Preview data from the table named ",
+                    code("MY_DB.PUBLIC.MY_TABLE"),
+                    " for a ",
+                    ref("dcm-object"),
+                    " object, where the project name is specified in the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm preview --target DEV --object MY_DB.PUBLIC.MY_TABLE",
+                description=plain_text(
+                    "Preview data where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command=(
+                    "snow dcm preview MY_DB.MY_SCHEMA.MY_PROJECT "
+                    "--object MY_DB.PUBLIC.MY_TABLE"
+                ),
+                description=plain_text(
+                    "Preview data from a ",
+                    ref("dcm-object"),
+                    " object with an explicit fully qualified name:",
+                ),
+            ),
+            Example(
+                command="snow dcm preview --object MY_DB.PUBLIC.MY_VIEW --limit 10",
+                description=plain_text("Preview with a row limit:"),
+            ),
+            Example(
+                command=(
+                    "snow dcm preview --object MY_DB.PUBLIC.MY_VIEW "
+                    "-D \"source_table='MY_DB.PUBLIC.SOURCE'\""
+                ),
+                description=plain_text("Preview with variable substitution:"),
+            ),
+        ),
+        banners=(PUBLIC_PREVIEW,),
+    ),
 )
 def preview(
     identifier: Optional[FQN] = optional_dcm_identifier,
@@ -1283,6 +1542,81 @@ def _process_test_outcomes(
 @app.command(
     requires_connection=True,
     hidden=not FeatureFlag.ENABLE_DCM_PREVIEW_FEATURES.is_enabled(),
+    docs=CommandDocs(
+        related=_dcm_related(
+            "/user-guide/dcm-projects/dcm-projects-pipelines"
+            "#label-dcm-projects-pipelines-test"
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm test"),
+                " command runs all expectations (data metric functions) defined in "
+                "your ",
+                ref("dcm-object"),
+                " object. Expectations are data quality rules that validate conditions "
+                "on your tables.",
+            ),
+            plain_text(
+                "Run this command after your tasks and dynamic tables have finished "
+                "processing new data. TEST evaluates the current state of the data in "
+                "your environment, so running it before your pipelines have processed "
+                "the latest transformation logic may produce results that don't "
+                "reflect your latest changes."
+            ),
+            plain_text("The command returns:"),
+            bullet_list(
+                bullet("Exit code ", code("0"), " if all tests pass"),
+                bullet("Exit code ", code("1"), " if any test fails"),
+            ),
+            plain_text(
+                "Use the ",
+                code("--save-output"),
+                " option to save the test results to a local ",
+                code("out/test.json"),
+                " file.",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm test",
+                description=plain_text(
+                    "Test all expectations in a ",
+                    ref("dcm-object"),
+                    " object, where the project name is specified in the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm test --target DEV",
+                description=plain_text(
+                    "Test all expectations in a ",
+                    ref("dcm-object"),
+                    " where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm test MY_DB.MY_SCHEMA.MY_PROJECT",
+                description=plain_text(
+                    "Test all expectations in a ",
+                    ref("dcm-object"),
+                    " object with an explicit fully qualified name:",
+                ),
+            ),
+            Example(
+                command="snow dcm test --save-output",
+                description=plain_text(
+                    "Test and save the results to the ",
+                    code("out/"),
+                    " directory:",
+                ),
+            ),
+        ),
+        banners=(PUBLIC_PREVIEW,),
+    ),
 )
 @mock_dcm_response("test")
 def test(
