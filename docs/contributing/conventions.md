@@ -132,8 +132,40 @@ checking suffixes, building paths).
 
 ## Terminal output safety
 
-Never print values from Snowflake server responses or user config directly to the
-terminal. They may contain ANSI escape sequences or terminal control characters.
+Never print values from Snowflake server responses, user SQL, or other untrusted
+text through `cli_console.message()`. That method parses Rich markup
+(`Text.from_markup`). A token such as `[/x]` in the string raises
+`MarkupError` and can abort the command before the rest of the work runs.
+
+**`cli_console.plain_message(...)`** — use this for any full line that is not
+authored as Rich markup by the CLI. That includes SQL, container logs, object
+names, job status from the server, and any f-string that interpolates those.
+It prints the text literally, sanitizes ANSI/ESC, adds a newline, respects
+`--silent`, and on `CliConsole` follows `phase()` / `indented()` padding the
+same way `message()` does.
+
+```python
+# WRONG — message() parses Rich markup
+cli_console.message(sql_text)
+cli_console.message(log_line)
+cli_console.message(f"Dropped stage {stage}")
+
+# CORRECT
+cli_console.plain_message(sql_text)
+cli_console.plain_message(log_line)
+cli_console.plain_message(f"Dropped stage {stage}")
+```
+
+**`cli_console.message(...)`** — only for CLI-authored strings that
+intentionally contain Rich markup (for example `[green]✓ Edited SQL...[/green]`).
+
+**`cli_console.styled_message(...)`** — fragment printer (`end=""`, no markup
+parse). Use it for in-line styled pieces (DCM reporters), not for whole lines
+of untrusted text.
+
+`step()` / `warning()` do not parse markup, but they also do not sanitize ANSI.
+If the string includes a server or user value, sanitize it (or use
+`plain_message` when you do not need the step/warning style):
 
 ```python
 # WRONG

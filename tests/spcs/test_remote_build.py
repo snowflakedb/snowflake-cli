@@ -777,6 +777,74 @@ class TestRemoteBuildCliSuccess:
     @patch(_COMMANDS_REMOTE_BUILD_MANAGER)
     @patch(_STAGE_PUT)
     @patch(_STAGE_EXECUTE_QUERY)
+    def test_remote_build_streams_markup_like_log_lines(
+        self,
+        mock_stage_exec,
+        mock_stage_put,
+        mock_rb_manager_class,
+        mock_svc_manager_class,
+        mock_obj_manager_class,
+        mock_sleep,
+        runner,
+        temporary_directory,
+    ):
+        """SQL-streamed build logs must not be parsed as Rich markup."""
+        ctx = _make_build_context(Path(temporary_directory))
+        mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+        mock_rb_manager = Mock()
+        mock_rb_manager_class.return_value = mock_rb_manager
+        mock_rb_manager.create_remote_builder.return_value = "remote_build_markup"
+
+        running_status = RemoteBuildJobStatus.from_dict(
+            {
+                **_SAMPLE_JOB,
+                "job_name": "remote_build_markup",
+                "job_status": "RUNNING",
+            }
+        )
+        done_status = RemoteBuildJobStatus.from_dict(
+            {**_SAMPLE_JOB, "job_name": "remote_build_markup", "job_status": "DONE"}
+        )
+        mock_rb_manager.get_remote_builder.side_effect = [running_status, done_status]
+
+        mock_svc_manager = Mock()
+        mock_svc_manager_class.return_value = mock_svc_manager
+        mock_svc_manager.logs.return_value = [
+            "2026-07-11T00:00:01Z failed tag [/x] not found"
+        ]
+
+        mock_obj_manager = Mock()
+        mock_obj_manager_class.return_value = mock_obj_manager
+
+        result = runner.invoke(
+            [
+                "spcs",
+                "service",
+                "remote-build",
+                "--build-context-dir",
+                str(ctx),
+                "--location",
+                "my_db.my_schema.my_repo",
+                "--name",
+                "my_image",
+                "--image-tag",
+                "v1.0",
+                "--stage",
+                "test_db.public.test_stage",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "failed tag [/x] not found" in result.output
+
+    @patch("time.sleep")
+    @patch(_COMMANDS_OBJECT_MANAGER)
+    @patch(_COMMANDS_SERVICE_MANAGER)
+    @patch(_COMMANDS_REMOTE_BUILD_MANAGER)
+    @patch(_STAGE_PUT)
+    @patch(_STAGE_EXECUTE_QUERY)
     def test_remote_build_forwards_validation_profile(
         self,
         mock_stage_exec,

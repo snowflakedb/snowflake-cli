@@ -63,3 +63,39 @@ def test_console_base_class(capsys):
 
     out, _ = capsys.readouterr()
     assert out == "Enter\nb\nc\nd\ne\nf\ng\nExit\n"
+
+
+def test_plain_message_default_prints_markup_literally_and_strips_ansi(capsys):
+    class TConsole(AbstractConsole):
+        @contextmanager
+        def phase(self, enter_message: str, exit_message: str):
+            yield self.step
+
+        @contextmanager
+        def indented(self):
+            yield
+
+        def step(self, message: str):
+            pass
+
+        def warning(self, message: str):
+            pass
+
+        def message(self, message: str):
+            pass
+
+        def panel(self, message: str):
+            pass
+
+        @contextmanager
+        def spinner(self):
+            yield
+
+        def styled_message(self, message: str, style: str = ""):
+            pass
+
+    TConsole().plain_message("tag \033[31m[/x]\033[0m here")
+
+    out, _ = capsys.readouterr()
+    assert out == "tag [/x] here\n"
+    assert "\x1b" not in out

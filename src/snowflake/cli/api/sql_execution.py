@@ -359,5 +359,5 @@ class SqlExecutionMixin(SqlExecutor):
 
 class VerboseCursor(SnowflakeCursor):
     def execute(self, command: str, *args, **kwargs):
-        cli_console.message(command)
+        cli_console.plain_message(command)
         super().execute(command, *args, **kwargs)

@@ -2757,6 +2757,80 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
     ), f"Root-level upload missing. Stage paths: {stage_paths}"
 
 
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.put",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+def test_build_image_cli_streams_markup_like_log_lines(
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """Build logs are untrusted text and must not be parsed as Rich markup."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM python:3.10-alpine\n")
+
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [
+            "failed tag [/x] not found",
+            ("__TERMINAL_STATUS__", "DONE"),
+        ]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "failed tag [/x] not found" in result.output
+
+
 def test_build_image_hidden_by_default(runner):
     """Test that build-image command is hidden by default (feature flag disabled)."""
     result = runner.invoke(["spcs", "service", "--help"])

@@ -897,7 +897,7 @@ def build_image(
                 current_status = result_row["status"]
 
             if current_status:
-                cli_console.message(f"Current job status: {current_status}")
+                cli_console.plain_message(f"Current job status: {current_status}")
 
             # Only wait if status is PENDING, otherwise logs should be available
             if current_status and current_status != "PENDING":
@@ -939,17 +939,16 @@ def build_image(
                 ):
                     final_status = log_entry[1]
                     break
-                # Otherwise it's a log line
-                cli_console.message(log_entry)
+                cli_console.plain_message(log_entry)
 
         except KeyboardInterrupt:
             cli_console.warning(
                 f"\nBuild job '{job_name}' is still running in the background."
             )
-            cli_console.message(
+            cli_console.plain_message(
                 f"Use 'snow spcs service logs {job_name} --container-name main --instance-id 0' to view logs."
             )
-            cli_console.message(
+            cli_console.plain_message(
                 f"Use 'snow spcs service status {job_name}' to check status."
             )
             if use_temporary_stage:
@@ -966,7 +965,7 @@ def build_image(
         cli_console.warning(
             f"Job did not start within {max_wait_time}s (status: {current_status or 'UNKNOWN'})"
         )
-        cli_console.message(
+        cli_console.plain_message(
             f"Use 'snow spcs service status {job_name}' to check status."
         )
         if use_temporary_stage:
@@ -985,7 +984,9 @@ def build_image(
     # Display final status message
     cli_console.message("")  # Empty line after logs
     if final_status == "DONE":
-        cli_console.message(f"✓ Image build job '{job_name}' completed successfully.")
+        cli_console.plain_message(
+            f"✓ Image build job '{job_name}' completed successfully."
+        )
     elif final_status == "FAILED":
         cli_console.warning(f"✗ Image build job '{job_name}' failed.")
     elif final_status == "CANCELLED":
@@ -998,7 +999,7 @@ def build_image(
         try:
             object_manager = ObjectManager()
             object_manager.drop(object_type="stage", fqn=stage_fqn, if_exists=True)
-            cli_console.message(f"✓ Dropped stage {stage}")
+            cli_console.plain_message(f"✓ Dropped stage {stage}")
         except ProgrammingError as e:
             cli_console.warning(f"Failed to clean up stage: {e}")
     else:
@@ -1008,7 +1009,7 @@ def build_image(
             stage_manager.remove(
                 stage_name=stage_fqn.identifier, path=build_context_stage_path
             )
-            cli_console.message(
+            cli_console.plain_message(
                 f"✓ Removed build context files from {stage}/{build_context_stage_path}"
             )
         except ProgrammingError as e:
@@ -1244,7 +1245,7 @@ def remote_build(
             f"\nRemote build job '{assigned_job_name}' was already submitted; its status "
             "could not be confirmed (see error below)."
         )
-        cli_console.message(
+        cli_console.plain_message(
             "Once resolved, check its status with: "
             f"snow spcs service remote-build-status --job-name {assigned_job_name}"
         )
@@ -1262,10 +1263,10 @@ def remote_build(
         cli_console.warning(
             f"\nRemote build job '{assigned_job_name}' is still running in the background."
         )
-        cli_console.message(
+        cli_console.plain_message(
             f"Use 'snow spcs service remote-build-status --job-name {assigned_job_name}' to check its progress."
         )
-        cli_console.message(
+        cli_console.plain_message(
             f"Use 'snow spcs service logs {assigned_job_name} --container-name main --instance-id 0' to view logs."
         )
         if use_temporary_stage:
@@ -1284,7 +1285,7 @@ def remote_build(
 
     cli_console.message("")
     if final_job_status == RemoteBuildStatus.DONE:
-        cli_console.message(
+        cli_console.plain_message(
             f"✓ Remote build job '{assigned_job_name}' completed successfully."
         )
     elif final_job_status == RemoteBuildStatus.FAILED:
@@ -1562,7 +1563,9 @@ def _wait_for_remote_build_completion(
                     current_status is None
                     or job_info.job_status != current_status.job_status
                 ):
-                    cli_console.message(f"Current job status: {job_info.job_status}")
+                    cli_console.plain_message(
+                        f"Current job status: {job_info.job_status}"
+                    )
                 current_status = job_info
                 if job_info.is_terminal:
                     return current_status, False
@@ -1595,7 +1598,7 @@ def _wait_for_remote_build_completion(
                     dedup_records = new_logs_only(prev_log_records, new_log_records)
                     if dedup_records:
                         for log in dedup_records:
-                            cli_console.message(
+                            cli_console.plain_message(
                                 filter_log_timestamp(log, include_timestamps=False)
                             )
                         since_timestamp = dedup_records[-1].split(" ", 1)[0]
@@ -1643,7 +1646,7 @@ def _cleanup_stage(
         try:
             object_manager = ObjectManager()
             object_manager.drop(object_type="stage", fqn=stage_fqn, if_exists=True)
-            cli_console.message(f"✓ Dropped stage {stage}")
+            cli_console.plain_message(f"✓ Dropped stage {stage}")
         except ProgrammingError as e:
             cli_console.warning(f"Failed to clean up stage: {e}")
     else:
@@ -1652,7 +1655,7 @@ def _cleanup_stage(
             stage_manager.remove(
                 stage_name=stage_fqn.identifier, path=build_context_stage_path
             )
-            cli_console.message(
+            cli_console.plain_message(
                 f"✓ Removed build context files from {stage}/{build_context_stage_path}"
             )
         except ProgrammingError as e:
