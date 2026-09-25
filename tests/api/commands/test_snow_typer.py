@@ -22,15 +22,17 @@ from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
     PUBLIC_PREVIEW,
     PUBLIC_PREVIEW_NO_GOV,
+    Admonition,
+    AdmonitionType,
     Bullet,
     BulletList,
     Code,
     CommandDocs,
     Example,
-    Note,
     PlainText,
     Ref,
     RelatedLink,
+    admonition,
     bullet,
     bullet_list,
     code,
@@ -619,7 +621,15 @@ def test_command_docs_content_helpers():
     assert bullet_list(bullet("First.")) == BulletList(
         items=(Bullet(parts=("First.",)),)
     )
-    assert note("Take care.") == Note(parts=("Take care.",))
+    assert note("Take care.") == Admonition(parts=("Take care.",))
+    assert admonition(AdmonitionType.CAUTION, "Be careful.") == Admonition(
+        parts=("Be careful.",), admonition_type=AdmonitionType.CAUTION
+    )
+    assert admonition(AdmonitionType.WARNING, "Watch out.") == Admonition(
+        parts=("Watch out.",), admonition_type=AdmonitionType.WARNING
+    )
+    with pytest.raises(ValueError):
+        AdmonitionType("custom")
     assert code("--target") == Code(value="--target")
     assert link("#label", "Deploying") == RelatedLink(href="#label", title="Deploying")
     assert link("#label") == RelatedLink(href="#label", title="")

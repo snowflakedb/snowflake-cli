@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 from click import Command
 
@@ -27,6 +28,23 @@ REFERENCE_TEXT: dict[str, str] = {
     "dcm-object": "DCM project",
     "sf-cli": "Snowflake CLI",
 }
+
+
+class AdmonitionType(str, Enum):
+    """Matches ``AdmonitionType`` in snowflake-prod-docs."""
+
+    NOTE = "note"
+    WARNING = "warning"
+    TIP = "tip"
+    IMPORTANT = "important"
+    CAUTION = "caution"
+    ATTENTION = "attention"
+    DANGER = "danger"
+    HINT = "hint"
+    ERROR = "error"
+    SFEDITION = "sfedition"
+    PREVIEW = "preview"
+    NEW = "new"
 
 
 @dataclass(frozen=True)
@@ -92,13 +110,17 @@ class PlainText(Paragraph):
 
 
 @dataclass(frozen=True)
-class Note(Paragraph):
-    """A ``ContentBlock`` note: a paragraph of spans (``Code`` / ``Ref``).
+class Admonition(Paragraph):
+    """A ``ContentBlock`` admonition: a paragraph of spans (``Code`` / ``Ref``).
 
-    Downstream call site: ``note("The command prompts...", code("--force"), ...)``.
+    Downstream call sites: ``admonition(AdmonitionType.CAUTION, "Be careful.")`` /
+    ``note("The command prompts...", code("--force"), ...)``.
     """
 
-    pass
+    admonition_type: AdmonitionType = AdmonitionType.NOTE
+    title: str | None = None
+    title_suffix: str | None = None
+    title_href: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,15 +141,31 @@ class BulletList:
     items: tuple[Bullet, ...]
 
 
-ContentBlock = PlainText | BulletList | Note
+ContentBlock = PlainText | BulletList | Admonition
 
 
 def plain_text(*parts: Span) -> PlainText:
     return PlainText(parts=parts)
 
 
-def note(*parts: Span) -> Note:
-    return Note(parts=parts)
+def admonition(
+    admonition_type: AdmonitionType,
+    *parts: Span,
+    title: str | None = None,
+    title_suffix: str | None = None,
+    title_href: str | None = None,
+) -> Admonition:
+    return Admonition(
+        parts=parts,
+        admonition_type=admonition_type,
+        title=title,
+        title_suffix=title_suffix,
+        title_href=title_href,
+    )
+
+
+def note(*parts: Span) -> Admonition:
+    return admonition(AdmonitionType.NOTE, *parts)
 
 
 def bullet(*parts: Span) -> Bullet:

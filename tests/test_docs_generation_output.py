@@ -35,12 +35,13 @@ from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
     PUBLIC_PREVIEW,
     PUBLIC_PREVIEW_NO_GOV,
+    Admonition,
+    AdmonitionType,
     Bullet,
     BulletList,
     Code,
     CommandDocs,
     Example,
-    Note,
     PlainText,
     Ref,
     RelatedLink,
@@ -443,7 +444,7 @@ def test_render_usage_mdx_link_empty_versus_titled():
 def test_render_usage_mdx_note_with_inline_content():
     assert render_usage_mdx(
         (
-            Note(
+            Admonition(
                 parts=(
                     "Use ",
                     Code(value="--force"),
@@ -593,6 +594,34 @@ def test_render_command_page_keeps_usage_note_links_out_of_related_topics():
     assert "See [Deploying](#label-dcm-projects-deploy)." in rendered
     assert "#label-dcm-projects-deploy" not in related
     assert "[](/developer-guide/snowflake-cli/index)" in related
+
+
+def test_render_usage_mdx_admonition_title_attributes_are_passed_through():
+    assert render_usage_mdx(
+        (
+            Admonition(
+                parts=("Available to all accounts.",),
+                admonition_type=AdmonitionType.PREVIEW,
+                title="Preview Feature",
+                title_suffix="— Open",
+                title_href="/release-notes/preview-features",
+            ),
+        )
+    ) == (
+        '<Admonition type="preview" title="Preview Feature" '
+        'titleSuffix="— Open" titleHref="/release-notes/preview-features">\n\n'
+        "Available to all accounts.\n\n"
+        "</Admonition>"
+    )
+
+
+def test_render_usage_mdx_admonition_type_is_passed_through():
+    assert render_usage_mdx(
+        (Admonition(parts=("Be careful.",), admonition_type=AdmonitionType.CAUTION),)
+    ) == ('<Admonition type="caution">\n\n' "Be careful.\n\n" "</Admonition>")
+    assert render_usage_mdx(
+        (Admonition(parts=("Watch out.",), admonition_type=AdmonitionType.WARNING),)
+    ) == ('<Admonition type="warning">\n\n' "Watch out.\n\n" "</Admonition>")
 
 
 def test_render_command_page_with_public_preview_banner():

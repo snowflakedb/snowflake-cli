@@ -20,12 +20,13 @@ import pytest
 from rich.console import Console
 from rich.text import Text
 from snowflake.cli.api.commands.command_docs import (
+    Admonition,
+    AdmonitionType,
     Bullet,
     BulletList,
     Code,
     CommandDocs,
     Example,
-    Note,
     PlainText,
     Ref,
     RelatedLink,
@@ -242,7 +243,7 @@ def test_render_usage_help_renders_note_with_inline_content():
     rendered = _render(
         render_usage_help(
             (
-                Note(
+                Admonition(
                     parts=(
                         "Use ",
                         Code(value="--force"),
@@ -259,7 +260,12 @@ def test_render_usage_help_renders_note_with_inline_content():
 
 
 def test_render_usage_help_bolds_only_the_note_prefix():
-    blocks = (Note(parts=("Use ", Code(value="--force"), " please.")),)
+    blocks = (
+        Admonition(
+            parts=("Use ", Code(value="--force"), " please."),
+            admonition_type=AdmonitionType.NOTE,
+        ),
+    )
     (note_text,) = render_usage_help(blocks).renderables
 
     assert note_text.plain == "Note: Use --force please."
@@ -267,6 +273,32 @@ def test_render_usage_help_bolds_only_the_note_prefix():
         (0, 6, "bold"),
         (10, 17, STYLE_INLINE_CODE),
     ]
+
+
+def test_render_usage_help_renders_admonition_labels():
+    caution_rendered = _render(
+        render_usage_help(
+            (
+                Admonition(
+                    parts=("Be careful.",), admonition_type=AdmonitionType.CAUTION
+                ),
+            )
+        )
+    )
+    warning_rendered = _render(
+        render_usage_help(
+            (Admonition(parts=("Watch out.",), admonition_type=AdmonitionType.WARNING),)
+        )
+    )
+    preview_rendered = _render(
+        render_usage_help(
+            (Admonition(parts=("Preview.",), admonition_type=AdmonitionType.PREVIEW),)
+        )
+    )
+
+    assert caution_rendered.strip() == "Caution: Be careful."
+    assert warning_rendered.strip() == "Warning: Watch out."
+    assert preview_rendered.strip() == "Preview Feature: Preview."
 
 
 def test_panel_keeps_the_title():

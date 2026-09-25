@@ -22,10 +22,11 @@ from rich.table import Table
 from rich.text import Text as RichText
 from snowflake.cli.api.commands.command_docs import (
     REFERENCE_TEXT,
+    Admonition,
+    AdmonitionType,
     BulletList,
     Code,
     ContentBlock,
-    Note,
     Paragraph,
     PlainText,
     Ref,
@@ -35,6 +36,21 @@ from snowflake.cli.api.commands.command_docs import (
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 STYLE_INLINE_CODE = "markdown.code"
+ADMONITION_HELP_LABELS: dict[AdmonitionType, str] = {
+    AdmonitionType.NOTE: "Note",
+    AdmonitionType.WARNING: "Warning",
+    AdmonitionType.TIP: "Tip",
+    AdmonitionType.IMPORTANT: "Important",
+    AdmonitionType.CAUTION: "Caution",
+    AdmonitionType.ATTENTION: "Attention",
+    AdmonitionType.DANGER: "Danger",
+    AdmonitionType.HINT: "Hint",
+    AdmonitionType.ERROR: "Error",
+    AdmonitionType.SFEDITION: "Standard Edition Feature",
+    AdmonitionType.PREVIEW: "Preview Feature",
+    AdmonitionType.NEW: "New Feature",
+}
+assert set(ADMONITION_HELP_LABELS) == set(AdmonitionType)
 
 
 def mdx_escape(value: Any) -> str:
@@ -63,10 +79,21 @@ def _render_bullet_mdx(item: Paragraph) -> str:
     return f"- {render_paragraph_mdx(item).replace(chr(10), chr(10) + '  ')}"
 
 
-def _render_note_mdx(note: Note) -> str:
+def _render_admonition_opening_tag(block: Admonition) -> str:
+    attrs = [f'type="{block.admonition_type}"']
+    if block.title is not None:
+        attrs.append(f'title="{mdx_escape(block.title)}"')
+    if block.title_suffix is not None:
+        attrs.append(f'titleSuffix="{mdx_escape(block.title_suffix)}"')
+    if block.title_href is not None:
+        attrs.append(f'titleHref="{mdx_escape(block.title_href)}"')
+    return f"<Admonition {' '.join(attrs)}>"
+
+
+def _render_admonition_mdx(block: Admonition) -> str:
     return (
-        '<Admonition type="note">\n\n'
-        f"{render_paragraph_mdx(note)}\n\n"
+        f"{_render_admonition_opening_tag(block)}\n\n"
+        f"{render_paragraph_mdx(block)}\n\n"
         "</Admonition>"
     )
 
@@ -81,8 +108,8 @@ def _render_usage_block_mdx(block: ContentBlock) -> str:
         return render_paragraph_mdx(block)
     if isinstance(block, BulletList):
         return "\n".join(_render_bullet_mdx(item) for item in block.items)
-    if isinstance(block, Note):
-        return _render_note_mdx(block)
+    if isinstance(block, Admonition):
+        return _render_admonition_mdx(block)
     raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
 
 
@@ -120,10 +147,11 @@ def _render_bullet_list_help(block: BulletList) -> Table:
     return table
 
 
-def _render_note_help(note: Note) -> RichText:
+def _render_admonition_help(block: Admonition) -> RichText:
+    label = ADMONITION_HELP_LABELS[block.admonition_type]
     rendered = RichText()
-    rendered.append("Note: ", style="bold")
-    rendered.append_text(render_paragraph_help(note))
+    rendered.append(f"{label}: ", style="bold")
+    rendered.append_text(render_paragraph_help(block))
     return rendered
 
 
@@ -135,8 +163,8 @@ def render_usage_help(blocks: Sequence[ContentBlock]) -> RenderableType:
             content: RenderableType = render_paragraph_help(block)
         elif isinstance(block, BulletList):
             content = _render_bullet_list_help(block)
-        elif isinstance(block, Note):
-            content = _render_note_help(block)
+        elif isinstance(block, Admonition):
+            content = _render_admonition_help(block)
         else:
             raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
         if renderables:
