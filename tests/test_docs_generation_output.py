@@ -679,6 +679,70 @@ def test_render_command_page_without_banners():
     assert "<PublicPreviewNoGov />" not in rendered
 
 
+def test_render_usage_mdx_include_emits_component_tag():
+    from snowflake.cli.api.commands.command_docs import DBT_DEPLOY_FORCE_WARNING
+
+    assert render_usage_mdx((DBT_DEPLOY_FORCE_WARNING,)) == "<DbtDeployForceWarning />"
+
+
+def test_render_command_page_with_usage_note_include():
+    from snowflake.cli.api.commands.command_docs import DBT_DEPLOY_FORCE_WARNING
+
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(usage_notes=(DBT_DEPLOY_FORCE_WARNING,)),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    assert (
+        "import DbtDeployForceWarning from "
+        "'INCLUDE/text/dbt-deploy-force-warning.mdx'" in rendered
+    )
+    usage_notes = rendered.split("## Usage notes", maxsplit=1)[1]
+    assert "<DbtDeployForceWarning />" in usage_notes
+    assert "<Admonition" not in usage_notes
+
+
+def test_render_command_page_collects_banner_and_usage_note_includes():
+    from snowflake.cli.api.commands.command_docs import (
+        DBT_DEPLOY_FORCE_WARNING,
+        PUBLIC_PREVIEW,
+    )
+
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(
+            related=(RelatedLink(href="/foo", title="Foo"),),
+            banners=(PUBLIC_PREVIEW,),
+            usage_notes=(DBT_DEPLOY_FORCE_WARNING,),
+        ),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    public_preview_import = (
+        "import PublicPreview from " "'INCLUDE/text/sidebars/basic/public-preview.mdx'"
+    )
+    dbt_warning_import = (
+        "import DbtDeployForceWarning from "
+        "'INCLUDE/text/dbt-deploy-force-warning.mdx'"
+    )
+    assert rendered.count(public_preview_import) == 1
+    assert rendered.count(dbt_warning_import) == 1
+
+    related_end = rendered.index("</RelatedTopics>")
+    banner_pos = rendered.index("<PublicPreview />")
+    assert banner_pos > related_end
+
+    usage_notes = rendered.split("## Usage notes", maxsplit=1)[1]
+    assert "<DbtDeployForceWarning />" in usage_notes
+
+
 def test_docs_pages_empty_extras_for_command_without_docs(runner, temporary_directory):
     result = runner.invoke(["--docs-pages"])
     assert result.exit_code == 0, result.output

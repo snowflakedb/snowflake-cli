@@ -301,6 +301,14 @@ def test_render_usage_help_renders_admonition_labels():
     assert preview_rendered.strip() == "Preview Feature: Preview."
 
 
+def test_render_usage_help_renders_include_help_content():
+    from snowflake.cli.api.commands.command_docs import DBT_DEPLOY_FORCE_WARNING
+
+    rendered = _render(render_usage_help((DBT_DEPLOY_FORCE_WARNING,)))
+
+    assert "Warning: Don't use --force unless you intentionally" in rendered
+
+
 def test_panel_keeps_the_title():
     panel = _panel("Usage notes", Text("hi"))
 

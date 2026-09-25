@@ -141,9 +141,6 @@ class BulletList:
     items: tuple[Bullet, ...]
 
 
-ContentBlock = PlainText | BulletList | Admonition
-
-
 def plain_text(*parts: Span) -> PlainText:
     return PlainText(parts=parts)
 
@@ -212,11 +209,24 @@ class Example:
 class Include:
     """Prod-docs MDX component imported from an ``INCLUDE/`` fragment.
 
-    ``help`` content for terminal rendering will be added in a follow-up change.
+    Page MDX renders ``<tag />``; ``--help`` renders ``help_content`` when set.
     """
 
     tag: str
     path: str
+    help_content: tuple[ContentBlock, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if self.help_content is None:
+            return
+        for block in self.help_content:
+            if isinstance(block, Include):
+                raise TypeError(
+                    "Include help_content cannot contain nested Include blocks"
+                )
+
+
+ContentBlock = PlainText | BulletList | Admonition | Include
 
 
 PUBLIC_PREVIEW = Include(
@@ -226,6 +236,24 @@ PUBLIC_PREVIEW = Include(
 PUBLIC_PREVIEW_NO_GOV = Include(
     tag="PublicPreviewNoGov",
     path="INCLUDE/text/sidebars/basic/public-preview-no-gov.mdx",
+)
+DBT_DEPLOY_FORCE_WARNING = Include(
+    tag="DbtDeployForceWarning",
+    path="INCLUDE/text/dbt-deploy-force-warning.mdx",
+    help_content=(
+        admonition(
+            AdmonitionType.WARNING,
+            "Don't use ",
+            code("--force"),
+            " unless you intentionally want to recreate the dbt project object. In ",
+            code("snow dbt deploy"),
+            ", ",
+            code("--force"),
+            " runs ",
+            code("CREATE OR REPLACE DBT PROJECT"),
+            ", which may remove run history.",
+        ),
+    ),
 )
 
 
@@ -241,6 +269,16 @@ def unique_includes(
         seen.add(include.path)
         unique.append(include)
     return tuple(unique)
+
+
+def collect_page_includes(docs: CommandDocs) -> tuple[Include, ...]:
+    """Collects banner and usage-note includes for deduped MDX import lines."""
+    includes: list[Include] = list(docs.banners)
+    if docs.usage_notes is not None:
+        for block in docs.usage_notes:
+            if isinstance(block, Include):
+                includes.append(block)
+    return unique_includes(tuple(includes))
 
 
 @dataclass(frozen=True)
@@ -291,6 +329,11 @@ class CommandDocs:
                 raise TypeError(
                     f"{field_name} entries must be content blocks, "
                     f"not {type(block).__name__}"
+                )
+            if isinstance(block, Include) and not block.help_content:
+                raise TypeError(
+                    f"{field_name} Include entries must set help_content for "
+                    "--help rendering"
                 )
 
 

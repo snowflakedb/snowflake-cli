@@ -21,8 +21,8 @@ from click import Command
 from snowflake.cli._app.dev.docs.template_utils import get_template_environment
 from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
+    collect_page_includes,
     get_command_docs,
-    unique_includes,
 )
 from snowflake.cli.api.commands.command_docs_rendering import (
     mdx_escape,
@@ -167,7 +167,7 @@ def _command_page_markdown(command: Command, path: List) -> str:
         "arguments": arguments,
         "path": path,
         "docs": docs,
-        "banner_imports": unique_includes(docs.banners),
+        "page_imports": collect_page_includes(docs),
         "help": command_help_params.get("help", ""),
         "usage_notes_fallback": _page_usage_notes_fallback(docs, command_help_params),
         "examples_fallback": _page_examples_fallback(docs, command_help_params),

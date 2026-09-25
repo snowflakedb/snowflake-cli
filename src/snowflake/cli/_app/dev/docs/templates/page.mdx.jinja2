@@ -4,8 +4,8 @@ title: snow{% for part in path %} {{ part }}{% endfor %}
 description: ''
 ---
 
-{% for banner in banner_imports -%}
-import {{ banner.tag }} from '{{ banner.path }}'
+{% for include in page_imports -%}
+import {{ include.tag }} from '{{ include.path }}'
 {% endfor -%}
 import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
 

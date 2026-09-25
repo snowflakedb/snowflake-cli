@@ -27,6 +27,7 @@ from snowflake.cli.api.commands.command_docs import (
     BulletList,
     Code,
     ContentBlock,
+    Include,
     Paragraph,
     PlainText,
     Ref,
@@ -80,7 +81,7 @@ def _render_bullet_mdx(item: Paragraph) -> str:
 
 
 def _render_admonition_opening_tag(block: Admonition) -> str:
-    attrs = [f'type="{block.admonition_type}"']
+    attrs = [f'type="{block.admonition_type.value}"']
     if block.title is not None:
         attrs.append(f'title="{mdx_escape(block.title)}"')
     if block.title_suffix is not None:
@@ -98,6 +99,10 @@ def _render_admonition_mdx(block: Admonition) -> str:
     )
 
 
+def _render_include_mdx(block: Include) -> str:
+    return f"<{block.tag} />"
+
+
 def render_usage_mdx(blocks: Sequence[ContentBlock]) -> str:
     """Renders structured usage-note blocks as an MDX-ready body."""
     return "\n\n".join(_render_usage_block_mdx(block) for block in blocks)
@@ -110,6 +115,8 @@ def _render_usage_block_mdx(block: ContentBlock) -> str:
         return "\n".join(_render_bullet_mdx(item) for item in block.items)
     if isinstance(block, Admonition):
         return _render_admonition_mdx(block)
+    if isinstance(block, Include):
+        return _render_include_mdx(block)
     raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
 
 
@@ -165,6 +172,10 @@ def render_usage_help(blocks: Sequence[ContentBlock]) -> RenderableType:
             content = _render_bullet_list_help(block)
         elif isinstance(block, Admonition):
             content = _render_admonition_help(block)
+        elif isinstance(block, Include):
+            if block.help_content is None:
+                raise TypeError("Include blocks in usage notes must set help_content")
+            content = render_usage_help(block.help_content)
         else:
             raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
         if renderables:

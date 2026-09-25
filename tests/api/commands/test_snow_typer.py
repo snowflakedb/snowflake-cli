@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.command_docs import (
     Code,
     CommandDocs,
     Example,
+    Include,
     PlainText,
     Ref,
     RelatedLink,
@@ -582,6 +583,30 @@ def test_command_docs_rejects_non_include_banners():
         CommandDocs(banners="PublicPreview")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="entries must be Include values"):
         CommandDocs(banners=("PublicPreview",))  # type: ignore[arg-type]
+
+
+def test_command_docs_rejects_usage_note_include_without_help():
+    with pytest.raises(TypeError, match="Include entries must set help_content"):
+        CommandDocs(
+            usage_notes=(
+                Include(tag="DbtDeployForceWarning", path="INCLUDE/text/foo.mdx"),
+            )
+        )
+
+
+def test_include_rejects_nested_include_in_help_content():
+    with pytest.raises(TypeError, match="nested Include blocks"):
+        Include(
+            tag="Outer",
+            path="INCLUDE/text/outer.mdx",
+            help_content=(
+                Include(
+                    tag="Inner",
+                    path="INCLUDE/text/inner.mdx",
+                    help_content=(plain_text("inner"),),
+                ),
+            ),
+        )
 
 
 def test_command_docs_empty_versus_missing_usage_notes():
