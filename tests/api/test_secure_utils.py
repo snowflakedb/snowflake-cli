@@ -23,6 +23,7 @@ from snowflake.cli.api.secure_utils import (
     _get_windows_username,
     _get_windows_whitelisted_users,
     _icacls,
+    _resolve_windows_account_name,
     _windows_restrict_file_permissions,
     get_windows_permission_warning,
     windows_get_not_whitelisted_users_with_access,
@@ -430,3 +431,59 @@ def test_get_windows_permission_warning_strips_ansi(tmp_path):
     assert "\x1B" not in result
     assert "Everyone" in result
     assert r"CONTOSO\bob" in result
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Win32 SID lookup succeeds on Windows")
+def test_resolve_windows_account_name_returns_none_without_win32():
+    # Outside Windows there is no advapi32; the lookup must fail closed to
+    # None instead of raising, so callers fall back to the English names.
+    assert _resolve_windows_account_name("S-1-5-18") is None
+
+
+def test_whitelist_includes_localized_builtin_names():
+    # GH#2743: the well-known SIDs resolve to localized names on non-English
+    # Windows; those names must join the whitelist.
+    with (
+        _mock_username(),
+        patch(
+            "snowflake.cli.api.secure_utils._resolve_windows_account_name",
+            side_effect=["Système", "Administrateurs"],
+        ),
+    ):
+        whitelisted = _get_windows_whitelisted_users()
+    assert "Système" in whitelisted
+    assert "Administrateurs" in whitelisted
+
+
+def test_whitelist_falls_back_to_english_when_sid_lookup_fails():
+    with (
+        _mock_username(),
+        patch(
+            "snowflake.cli.api.secure_utils._resolve_windows_account_name",
+            return_value=None,
+        ),
+    ):
+        whitelisted = _get_windows_whitelisted_users()
+    assert "SYSTEM" in whitelisted
+    assert "Administrators" in whitelisted
+
+
+def test_localized_system_and_administrators_not_flagged():
+    # GH#2743: on non-English Windows the built-in accounts keep their
+    # localized names in icacls output; they must not be reported as
+    # unauthorized users.
+    output = _build_icacls_output(
+        "BUILTIN\\Administrateurs:(F)",
+        "AUTORITE NT\\Système:(F)",
+        "CONTOSO\\bob:(F)",
+    )
+    with (
+        _mock_icacls(output),
+        _mock_username(),
+        patch(
+            "snowflake.cli.api.secure_utils._resolve_windows_account_name",
+            side_effect=["Système", "Administrateurs"],
+        ),
+    ):
+        result = windows_get_not_whitelisted_users_with_access(_FILE_PATH)
+    assert result == []

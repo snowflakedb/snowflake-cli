@@ -83,6 +83,82 @@ def _strip_windows_domain_prefix(name: str) -> str:
     return name.rsplit("\\", 1)[-1]
 
 
+# Well-known SIDs of the whitelisted built-in principals. Resolving them
+# through the OS yields the localized account names (for example `Système` and
+# `Administrateurs` on French Windows), which hardcoded English names miss.
+_SYSTEM_SID = "S-1-5-18"
+_ADMINISTRATORS_SID = "S-1-5-32-544"
+
+
+def _resolve_windows_account_name(sid: str) -> str | None:
+    """
+    Resolve a well-known Windows SID to its local account name via Win32 API.
+
+    Uses ctypes so no extra dependency is needed. Returns None on
+    non-Windows platforms or when the lookup fails; callers fall back to the
+    hardcoded English names.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+        advapi32.ConvertStringSidToSidW.argtypes = [
+            wintypes.LPCWSTR,
+            ctypes.POINTER(ctypes.c_void_p),
+        ]
+        advapi32.ConvertStringSidToSidW.restype = wintypes.BOOL
+        advapi32.LookupAccountSidW.argtypes = [
+            wintypes.LPCWSTR,
+            ctypes.c_void_p,
+            wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD),
+            wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD),
+            ctypes.POINTER(wintypes.DWORD),
+        ]
+        advapi32.LookupAccountSidW.restype = wintypes.BOOL
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+        sid_ptr = ctypes.c_void_p()
+        if not advapi32.ConvertStringSidToSidW(sid, ctypes.byref(sid_ptr)):
+            return None
+        try:
+            name_size = wintypes.DWORD(0)
+            domain_size = wintypes.DWORD(0)
+            sid_type = wintypes.DWORD()
+            # First call with null buffers only reports the required sizes.
+            advapi32.LookupAccountSidW(
+                None,
+                sid_ptr,
+                None,
+                ctypes.byref(name_size),
+                None,
+                ctypes.byref(domain_size),
+                ctypes.byref(sid_type),
+            )
+            if not name_size.value:
+                return None
+            name = ctypes.create_unicode_buffer(name_size.value)
+            domain = ctypes.create_unicode_buffer(max(domain_size.value, 1))
+            if not advapi32.LookupAccountSidW(
+                None,
+                sid_ptr,
+                name,
+                ctypes.byref(name_size),
+                domain,
+                ctypes.byref(domain_size),
+                ctypes.byref(sid_type),
+            ):
+                return None
+            return name.value or None
+        finally:
+            kernel32.LocalFree(sid_ptr)
+    except Exception:
+        log.debug("Could not resolve Windows SID %s to an account name", sid)
+        return None
+
+
 def _get_windows_whitelisted_users():
     # Only principals whose access is unavoidable belong here: SYSTEM and the
     # Administrators group can bypass the ACL anyway (take-ownership,
@@ -95,13 +171,26 @@ def _get_windows_whitelisted_users():
     # S-1-5-2) is any principal authenticated over the network. Neither has
     # ACL-bypassing authority, so a read ACE for either is a real and revocable
     # exposure of the cleartext credentials in the config file.
-    return [
+    whitelisted = [
         "SYSTEM",
         "Administrators",
         "Administrator",
         "Domain Admins",
         _strip_windows_domain_prefix(_get_windows_username()),
     ]
+    # On non-English Windows the built-in accounts above keep localized names
+    # in icacls output (e.g. `Système`/`Administrateurs` on French Windows).
+    # Resolve the well-known SIDs so those installs are not warned about
+    # principals nobody can remove (see GH#2743).
+    seen = {w.casefold() for w in whitelisted}
+    for sid in (_SYSTEM_SID, _ADMINISTRATORS_SID):
+        localized = _resolve_windows_account_name(sid)
+        if localized:
+            short_name = _strip_windows_domain_prefix(localized)
+            if short_name.casefold() not in seen:
+                seen.add(short_name.casefold())
+                whitelisted.append(short_name)
+    return whitelisted
 
 
 def _icacls(path: Path, *args: str, failure_msg: str | None = None) -> str:
