@@ -26,6 +26,12 @@ from urllib.parse import urlparse
 
 import requests
 from snowflake.cli._plugins.upgrade.layout import ManagedLayout, validate_version
+from snowflake.cli._plugins.upgrade.trust import (
+    DEFAULT_PUBLIC_KEY_PEM,
+    MANIFEST_SIG_NAME,
+    MISSING_SIGNATURE_MESSAGE,
+    verify_manifest_signature,
+)
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -93,10 +99,18 @@ def _validated_repo_base(value: str) -> str:
 
 
 class HttpRepo:
-    """sfc-repo client: pointer, manifest, tarball, SHA-256, extract."""
+    """sfc-repo client: pointer, signed manifest, tarball, SHA-256, extract."""
 
-    def __init__(self, base_url: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        *,
+        public_key_pem: Optional[bytes] = None,
+    ) -> None:
         self.base_url = (base_url or default_repo_base()).rstrip("/")
+        self._public_key_pem = (
+            public_key_pem if public_key_pem is not None else DEFAULT_PUBLIC_KEY_PEM
+        )
 
     def latest_version(self) -> str:
         url = f"{self.base_url}/{POINTER_NAME}"
@@ -141,8 +155,18 @@ class HttpRepo:
 
     def _package_for(self, version: str, os_name: str, arch: str) -> dict:
         url = f"{self.base_url}/{version}/{MANIFEST_NAME}"
+        sig_url = f"{self.base_url}/{version}/{MANIFEST_SIG_NAME}"
+        manifest_bytes = _http_get_bytes(url, timeout=POINTER_TIMEOUT_SECONDS)
+        signature = _http_get_bytes(
+            sig_url,
+            timeout=POINTER_TIMEOUT_SECONDS,
+            missing_message=MISSING_SIGNATURE_MESSAGE,
+        )
+        verify_manifest_signature(
+            manifest_bytes, signature, public_key_pem=self._public_key_pem
+        )
         try:
-            manifest = json.loads(_http_get_text(url, timeout=POINTER_TIMEOUT_SECONDS))
+            manifest = json.loads(manifest_bytes)
         except json.JSONDecodeError as exc:
             raise CliError(f"Invalid {MANIFEST_NAME} at {url}.") from exc
         return _package_entry(manifest, os_name, arch)
@@ -188,12 +212,22 @@ def _normalize_checksum(value: str) -> str:
 
 
 def _http_get_text(url: str, timeout: float) -> str:
+    return _http_get_bytes(url, timeout=timeout).decode("utf-8")
+
+
+def _http_get_bytes(
+    url: str, timeout: float, *, missing_message: Optional[str] = None
+) -> bytes:
     try:
         response = requests.get(url, timeout=timeout)
+        if response.status_code == 404 and missing_message is not None:
+            raise CliError(missing_message)
         response.raise_for_status()
+    except CliError:
+        raise
     except requests.RequestException as exc:
         raise CliError(f"Failed to fetch {url}: {exc}") from exc
-    return response.text
+    return response.content
 
 
 def _download_file(url: str, dest: Path) -> str:

@@ -52,9 +52,14 @@ from snowflake.cli._plugins.upgrade.repo import (
     repo_arch,
     repo_os,
 )
+from snowflake.cli._plugins.upgrade.trust import (
+    MANIFEST_SIG_NAME,
+    sign_manifest,
+)
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.secure_path import SecurePath
 
+from tests.upgrade.manifest_signing import generate_test_rsa_keypair
 from tests_common import IS_WINDOWS
 
 
@@ -70,6 +75,11 @@ def managed_home(tmp_path, monkeypatch):
     root = tmp_path / "snowflake-cli"
     monkeypatch.setenv(MANAGED_HOME_ENV, str(root))
     return root
+
+
+@pytest.fixture
+def repo_keys():
+    return generate_test_rsa_keypair()
 
 
 def _write_fake_binary(path: Path, version: str) -> Path:
@@ -106,9 +116,12 @@ def _serve_release(
     httpserver: HTTPServer,
     tmp_path: Path,
     version: str,
+    repo_keys: tuple[bytes, bytes],
     *,
     checksum: Optional[str] = None,
     tarball: Optional[bytes] = None,
+    serve_sig: bool = True,
+    corrupt_sig: bool = False,
 ) -> str:
     binary_name = ManagedLayout().binary_name()
     data, digest = _tarball_bytes(tmp_path, version, binary_name)
@@ -116,19 +129,38 @@ def _serve_release(
         data = tarball
         digest = hashlib.sha256(data).hexdigest()
     filename = _package_filename(version)
-    _serve_pointer(httpserver, version)
-    httpserver.expect_request(f"/{version}/{MANIFEST_NAME}").respond_with_json(
-        {
-            "packages": {
-                repo_os(): {
-                    repo_arch(): {
-                        "name": filename,
-                        "checksum": checksum if checksum is not None else digest,
+    body = (
+        json.dumps(
+            {
+                "packages": {
+                    repo_os(): {
+                        repo_arch(): {
+                            "name": filename,
+                            "checksum": checksum if checksum is not None else digest,
+                        }
                     }
                 }
-            }
-        }
+            },
+            indent=2,
+        )
+        + "\n"
+    ).encode()
+    _serve_pointer(httpserver, version)
+    httpserver.expect_request(f"/{version}/{MANIFEST_NAME}").respond_with_data(
+        body, content_type="application/json"
     )
+    if serve_sig:
+        private_pem, _ = repo_keys
+        signature = sign_manifest(body, private_pem)
+        if corrupt_sig:
+            signature = b"\x00" * len(signature)
+        httpserver.expect_request(f"/{version}/{MANIFEST_SIG_NAME}").respond_with_data(
+            signature, content_type="application/octet-stream"
+        )
+    else:
+        httpserver.expect_request(f"/{version}/{MANIFEST_SIG_NAME}").respond_with_data(
+            b"", status=404
+        )
     httpserver.expect_request(f"/{version}/{filename}").respond_with_data(
         data, content_type="application/gzip"
     )
@@ -142,8 +174,11 @@ def _enable_managed(monkeypatch, version: str = "3.12.0") -> None:
     monkeypatch.setattr(__about__, "VERSION", version)
 
 
-def _use_repo(httpserver: HTTPServer) -> HttpRepo:
-    repo = HttpRepo(base_url=httpserver.url_for("/").rstrip("/"))
+def _use_repo(httpserver: HTTPServer, repo_keys: tuple[bytes, bytes]) -> HttpRepo:
+    _, public_pem = repo_keys
+    repo = HttpRepo(
+        base_url=httpserver.url_for("/").rstrip("/"), public_key_pem=public_pem
+    )
     manager.set_version_source(repo)
     return repo
 
@@ -246,12 +281,12 @@ def test_bad_managed_repo_env_fails_only_when_source_is_used(monkeypatch):
 
 
 def test_upgrade_happy_path_retargets_shim(
-    runner, monkeypatch, managed_home, tmp_path, httpserver
+    runner, monkeypatch, managed_home, tmp_path, httpserver, repo_keys
 ):
     _enable_managed(monkeypatch, "3.12.0")
     layout = _seed_current(managed_home, "3.12.0")
-    _serve_release(httpserver, tmp_path, "3.13.1")
-    _use_repo(httpserver)
+    _serve_release(httpserver, tmp_path, "3.13.1", repo_keys)
+    _use_repo(httpserver, repo_keys)
 
     result = runner.invoke(["upgrade", "--format", "JSON"])
     assert result.exit_code == 0, result.output
@@ -268,16 +303,48 @@ def test_upgrade_happy_path_retargets_shim(
 
 
 def test_checksum_mismatch_does_not_write(
-    runner, monkeypatch, managed_home, tmp_path, httpserver
+    runner, monkeypatch, managed_home, tmp_path, httpserver, repo_keys
 ):
     _enable_managed(monkeypatch)
     layout = _seed_current(managed_home, "3.12.0")
-    _serve_release(httpserver, tmp_path, "3.13.1", checksum="0" * 64)
-    _use_repo(httpserver)
+    _serve_release(httpserver, tmp_path, "3.13.1", repo_keys, checksum="0" * 64)
+    _use_repo(httpserver, repo_keys)
 
     result = runner.invoke(["upgrade"])
     assert result.exit_code == 1
     assert "Checksum mismatch" in result.output
+    assert layout.current_version() == "3.12.0"
+    assert not layout.version_dir("3.13.1").exists()
+    _assert_shim(layout, "3.12.0")
+
+
+def test_missing_manifest_signature_fails_closed(
+    runner, monkeypatch, managed_home, tmp_path, httpserver, repo_keys
+):
+    _enable_managed(monkeypatch)
+    layout = _seed_current(managed_home, "3.12.0")
+    _serve_release(httpserver, tmp_path, "3.13.1", repo_keys, serve_sig=False)
+    _use_repo(httpserver, repo_keys)
+
+    result = runner.invoke(["upgrade"])
+    assert result.exit_code == 1
+    assert "Missing signature for manifest.json" in result.output
+    assert layout.current_version() == "3.12.0"
+    assert not layout.version_dir("3.13.1").exists()
+    _assert_shim(layout, "3.12.0")
+
+
+def test_invalid_manifest_signature_fails_closed(
+    runner, monkeypatch, managed_home, tmp_path, httpserver, repo_keys
+):
+    _enable_managed(monkeypatch)
+    layout = _seed_current(managed_home, "3.12.0")
+    _serve_release(httpserver, tmp_path, "3.13.1", repo_keys, corrupt_sig=True)
+    _use_repo(httpserver, repo_keys)
+
+    result = runner.invoke(["upgrade"])
+    assert result.exit_code == 1
+    assert "Invalid signature on manifest.json" in result.output
     assert layout.current_version() == "3.12.0"
     assert not layout.version_dir("3.13.1").exists()
     _assert_shim(layout, "3.12.0")
@@ -302,12 +369,12 @@ def test_truncated_body_fails_closed(tmp_path):
 
 
 def test_new_major_from_pointer_does_not_download(
-    runner, monkeypatch, managed_home, httpserver
+    runner, monkeypatch, managed_home, httpserver, repo_keys
 ):
     _enable_managed(monkeypatch)
     layout = _seed_current(managed_home, "3.12.0")
     _serve_pointer(httpserver, "4.0.0")
-    _use_repo(httpserver)
+    _use_repo(httpserver, repo_keys)
 
     result = runner.invoke(["upgrade", "--format", "JSON"])
     assert result.exit_code == 0, result.output
@@ -319,12 +386,12 @@ def test_new_major_from_pointer_does_not_download(
 
 
 def test_already_current_from_pointer_does_not_download(
-    runner, monkeypatch, managed_home, httpserver
+    runner, monkeypatch, managed_home, httpserver, repo_keys
 ):
     _enable_managed(monkeypatch, "3.12.0")
     layout = _seed_current(managed_home, "3.12.0")
     _serve_pointer(httpserver, "3.12.0")
-    _use_repo(httpserver)
+    _use_repo(httpserver, repo_keys)
 
     result = runner.invoke(["upgrade", "--format", "JSON"])
     assert result.exit_code == 0, result.output
@@ -334,12 +401,12 @@ def test_already_current_from_pointer_does_not_download(
 
 
 def test_dry_run_does_not_write(
-    runner, monkeypatch, managed_home, tmp_path, httpserver
+    runner, monkeypatch, managed_home, tmp_path, httpserver, repo_keys
 ):
     _enable_managed(monkeypatch)
     layout = _seed_current(managed_home, "3.12.0")
     _serve_pointer(httpserver, "3.13.1")
-    _use_repo(httpserver)
+    _use_repo(httpserver, repo_keys)
 
     result = runner.invoke(["upgrade", "--dry-run", "--format", "JSON"])
     assert result.exit_code == 0, result.output
@@ -353,7 +420,7 @@ def test_dry_run_does_not_write(
 
 
 def test_upgrade_gc_keeps_only_current_and_previous(
-    runner, monkeypatch, managed_home, tmp_path, httpserver
+    runner, monkeypatch, managed_home, tmp_path, httpserver, repo_keys
 ):
     _enable_managed(monkeypatch, "3.12.0")
     layout = ManagedLayout(managed_home)
@@ -365,8 +432,8 @@ def test_upgrade_gc_keeps_only_current_and_previous(
     assert layout.version_dir("3.10.0").is_dir()
     assert layout.version_dir("3.11.0").is_dir()
 
-    _serve_release(httpserver, tmp_path, "3.13.1")
-    _use_repo(httpserver)
+    _serve_release(httpserver, tmp_path, "3.13.1", repo_keys)
+    _use_repo(httpserver, repo_keys)
     result = runner.invoke(["upgrade", "--format", "JSON"])
     assert result.exit_code == 0, result.output
     payload = _parse_json(result.output)
@@ -382,12 +449,12 @@ def test_upgrade_gc_keeps_only_current_and_previous(
 
 
 def test_revert_retargets_previous_without_fetching(
-    runner, monkeypatch, managed_home, tmp_path, httpserver
+    runner, monkeypatch, managed_home, tmp_path, httpserver, repo_keys
 ):
     _enable_managed(monkeypatch, "3.12.0")
     layout = _seed_current(managed_home, "3.12.0")
-    _serve_release(httpserver, tmp_path, "3.13.1")
-    _use_repo(httpserver)
+    _serve_release(httpserver, tmp_path, "3.13.1", repo_keys)
+    _use_repo(httpserver, repo_keys)
 
     upgraded = runner.invoke(["upgrade", "--format", "JSON"])
     assert upgraded.exit_code == 0, upgraded.output

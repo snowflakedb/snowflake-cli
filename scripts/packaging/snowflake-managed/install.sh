@@ -41,6 +41,7 @@ BINARY_NAME="snow"
 DEFAULT_REPO_BASE="https://sfc-repo.snowflakecomputing.com/snowflake-cli"
 POINTER_NAME="stable_version.txt"
 MANIFEST_NAME="manifest.json"
+MANIFEST_SIG_NAME="manifest.json.sig"
 PATH_BEGIN="# snowflake-cli snowflake-managed PATH begin"
 PATH_END="# snowflake-cli snowflake-managed PATH end"
 
@@ -183,17 +184,60 @@ parse_manifest_json() {
     fi
 }
 
+write_manifest_pubkey() {
+    if [ -n "${SNOWFLAKE_CLI_MANAGED_MANIFEST_PUBKEY_FILE:-}" ]; then
+        echo "$SNOWFLAKE_CLI_MANAGED_MANIFEST_PUBKEY_FILE"
+        return 0
+    fi
+    cat > "$TEMP_DIR/managed_manifest.pub.pem" <<'EOF'
+-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAmecfO6u7BbYw16AHXhDy
+MOGlJop5LZ08eZrsVswXlps+19CtIEJQQJZPjTKDAqDay0+TpNfj0ErberXW4pRl
+WTHV1IsRrMBZQwj+Rx7wfcIBCnctMvXVinCTQxDCG6QVEIvyntSi/shju7ktWeON
+GT4deCy7ZnTnE2abtK8sre+sbNAy5UbPiiAWULcoXmmpI/upQhGWDYsugMGdUQAm
+aA3u/QzoH/PwH8pClZWUJfbid05U51rUV6WzScb6PZP0PK9JYcSVTHZscmGCYkY3
+LrlCNZ+zMy1JCnp2B0cWzwaHoHFBmAACUMJLHz1NtQyRbHcLekKSgr5CIMMNIZmV
+rDYYTrGxnqfph6RMCVBd1RuzcXSVZhxTI2o93r0GR/7J+tr1GmY003dfuuWlHsBa
++zKA8NyJDCnq7atW96AnnH78VQ+PuwMxEzmkgbi50lmAtGZuBpRtQn5ySWnaVKG1
+S2qBnPgiPWLJ7r7cViK0ZL5Mk8z0hkLXBDlop9MVea9LV9x1evFDkgoC49Gn5g4Z
+yqwTODl1tnE7/i47SKfqZl6lTnhbYLlUYYGt1pFmOp8w98ycCNynSFwAKKPr48FJ
+uUCg4ucODyWnSw5d7xVnaUbqiHCj7QgPGWR5ssyFnlYHJD8os319nd/0xgvopeeX
+nPViy3zvEUsQyDblLYH2jQMCAwEAAQ==
+-----END PUBLIC KEY-----
+EOF
+    echo "$TEMP_DIR/managed_manifest.pub.pem"
+}
+
+verify_manifest_signature() {
+    local manifest=$1
+    local sig=$2
+    local pubkey
+    pubkey=$(write_manifest_pubkey)
+    if ! openssl dgst -sha256 -verify "$pubkey" -signature "$sig" "$manifest" >/dev/null 2>&1; then
+        print_error "Invalid signature on manifest.json. Refusing to install."
+        return 1
+    fi
+    return 0
+}
+
 download_manifest() {
     local version=$1
     local manifest_url
+    local sig_url
     manifest_url="$(repo_version_dir "$version")${MANIFEST_NAME}"
-    local result
-    if ! result=$(curl -fsSL "$manifest_url" 2>&1); then
+    sig_url="$(repo_version_dir "$version")${MANIFEST_SIG_NAME}"
+    if ! curl -fsSL "$manifest_url" -o "$TEMP_DIR/manifest.json"; then
         print_error "Failed to download manifest from $manifest_url"
-        print_error "$result"
         return 1
     fi
-    echo "$result"
+    if ! curl -fsSL "$sig_url" -o "$TEMP_DIR/manifest.json.sig"; then
+        print_error "Missing signature for manifest.json. Refusing to install unsigned snowflake-managed package."
+        return 1
+    fi
+    if ! verify_manifest_signature "$TEMP_DIR/manifest.json" "$TEMP_DIR/manifest.json.sig"; then
+        return 1
+    fi
+    cat "$TEMP_DIR/manifest.json"
 }
 
 show_spinner() {
@@ -256,6 +300,10 @@ check_dependencies() {
     fi
     if ! command -v curl > /dev/null 2>&1; then
         print_error "curl is required but not installed"
+        exit 1
+    fi
+    if ! command -v openssl > /dev/null 2>&1; then
+        print_error "openssl is required to verify the snowflake-managed manifest signature"
         exit 1
     fi
 }

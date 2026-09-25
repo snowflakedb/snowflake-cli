@@ -38,6 +38,10 @@ $BinaryName = "snow.exe"
 $DefaultRepoBase = "https://sfc-repo.snowflakecomputing.com/snowflake-cli"
 $PointerName = "stable_version.txt"
 $ManifestName = "manifest.json"
+$ManifestSigName = "manifest.json.sig"
+# RSA-4096 n/e matching managed_manifest.pub.pem (PowerShell 5.1 has no ImportFromPem).
+$ManifestModulusB64 = "mecfO6u7BbYw16AHXhDyMOGlJop5LZ08eZrsVswXlps+19CtIEJQQJZPjTKDAqDay0+TpNfj0ErberXW4pRlWTHV1IsRrMBZQwj+Rx7wfcIBCnctMvXVinCTQxDCG6QVEIvyntSi/shju7ktWeONGT4deCy7ZnTnE2abtK8sre+sbNAy5UbPiiAWULcoXmmpI/upQhGWDYsugMGdUQAmaA3u/QzoH/PwH8pClZWUJfbid05U51rUV6WzScb6PZP0PK9JYcSVTHZscmGCYkY3LrlCNZ+zMy1JCnp2B0cWzwaHoHFBmAACUMJLHz1NtQyRbHcLekKSgr5CIMMNIZmVrDYYTrGxnqfph6RMCVBd1RuzcXSVZhxTI2o93r0GR/7J+tr1GmY003dfuuWlHsBa+zKA8NyJDCnq7atW96AnnH78VQ+PuwMxEzmkgbi50lmAtGZuBpRtQn5ySWnaVKG1S2qBnPgiPWLJ7r7cViK0ZL5Mk8z0hkLXBDlop9MVea9LV9x1evFDkgoC49Gn5g4ZyqwTODl1tnE7/i47SKfqZl6lTnhbYLlUYYGt1pFmOp8w98ycCNynSFwAKKPr48FJuUCg4ucODyWnSw5d7xVnaUbqiHCj7QgPGWR5ssyFnlYHJD8os319nd/0xgvopeeXnPViy3zvEUsQyDblLYH2jQM="
+$ManifestExponentB64 = "AQAB"
 
 function Get-LongPath {
     param([string]$Path)
@@ -144,18 +148,56 @@ function Get-PlatformInfo {
     return @{ OS = $os; Arch = $arch }
 }
 
-function Get-Manifest {
-    param([string]$Version)
-    $manifestUrl = (Get-RepoVersionDir $Version) + $ManifestName
+function Test-ManifestSignature {
+    param([string]$ManifestPath, [string]$SigPath)
+    $data = [System.IO.File]::ReadAllBytes((Get-Item -LiteralPath $ManifestPath).FullName)
+    $sig = [System.IO.File]::ReadAllBytes((Get-Item -LiteralPath $SigPath).FullName)
+    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
+    $params = New-Object System.Security.Cryptography.RSAParameters
+    $params.Modulus = [Convert]::FromBase64String($script:ManifestModulusB64)
+    $params.Exponent = [Convert]::FromBase64String($script:ManifestExponentB64)
+    $rsa.ImportParameters($params)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
     try {
-        $response = Invoke-WebRequest -Uri $manifestUrl -UseBasicParsing
-        return $response.Content | ConvertFrom-Json
+        $hash = $sha.ComputeHash($data)
+        $oid = [System.Security.Cryptography.CryptoConfig]::MapNameToOID("SHA256")
+        return $rsa.VerifyHash($hash, $oid, $sig)
+    }
+    finally {
+        $sha.Dispose()
+        $rsa.PersistKeyInCsp = $false
+        $rsa.Clear()
+    }
+}
+
+function Get-Manifest {
+    param([string]$Version, [string]$TempDir)
+    $base = Get-RepoVersionDir $Version
+    $manifestUrl = $base + $ManifestName
+    $sigUrl = $base + $ManifestSigName
+    $manifestPath = Join-Path $TempDir "manifest.json"
+    $sigPath = Join-Path $TempDir "manifest.json.sig"
+    try {
+        Invoke-WebRequest -Uri $manifestUrl -OutFile $manifestPath -UseBasicParsing
     }
     catch {
         Write-ErrorMsg "Failed to download manifest from $manifestUrl"
         Write-ErrorMsg $_.Exception.Message
         exit 1
     }
+    try {
+        Invoke-WebRequest -Uri $sigUrl -OutFile $sigPath -UseBasicParsing
+    }
+    catch {
+        Write-ErrorMsg "Missing signature for manifest.json. Refusing to install unsigned snowflake-managed package."
+        Write-ErrorMsg $_.Exception.Message
+        exit 1
+    }
+    if (-not (Test-ManifestSignature $manifestPath $sigPath)) {
+        Write-ErrorMsg "Invalid signature on manifest.json. Refusing to install."
+        exit 1
+    }
+    return (Get-Content -Raw -LiteralPath $manifestPath) | ConvertFrom-Json
 }
 
 function Get-PackageInfo {
@@ -337,25 +379,25 @@ function Invoke-SnowflakeCliInstall {
     Assert-ManagedVersion $version
     Write-Success "Latest version: $version"
 
-    Write-Host "Downloading manifest..."
-    $manifest = Get-Manifest $version
-
-    $packageInfo = Get-PackageInfo $manifest $platform.OS $platform.Arch
-    if (-not $packageInfo) {
-        Write-ErrorMsg "Snowflake CLI is not available for your platform: $($platform.OS)-$($platform.Arch)"
-        exit 1
-    }
-
-    $tarName = $packageInfo.TarName
-    $expectedChecksum = $packageInfo.Checksum
-    Assert-PackageName $tarName
-    Write-Success "Found package: $tarName"
-
     $randomNum = Get-Random
     $tempDir = Join-Path (Get-LongPath $env:TEMP) "snowflake-cli-install-$randomNum"
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
     try {
+        Write-Host "Downloading manifest..."
+        $manifest = Get-Manifest $version $tempDir
+
+        $packageInfo = Get-PackageInfo $manifest $platform.OS $platform.Arch
+        if (-not $packageInfo) {
+            Write-ErrorMsg "Snowflake CLI is not available for your platform: $($platform.OS)-$($platform.Arch)"
+            exit 1
+        }
+
+        $tarName = $packageInfo.TarName
+        $expectedChecksum = $packageInfo.Checksum
+        Assert-PackageName $tarName
+        Write-Success "Found package: $tarName"
+
         $baseUrl = Get-RepoVersionDir $version
         $encodedTarName = Get-UrlEncodedVersion $tarName
         $tarUrl = $baseUrl + $encodedTarName

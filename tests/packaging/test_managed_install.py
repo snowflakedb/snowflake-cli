@@ -27,8 +27,11 @@ from pathlib import Path
 
 import pytest
 from pytest_httpserver import HTTPServer
+from snowflake.cli._plugins.upgrade.trust import MANIFEST_SIG_NAME, sign_manifest
 
-pytestmark = pytest.mark.skipif(
+from tests.upgrade.manifest_signing import generate_test_rsa_keypair
+
+requires_posix_shell = pytest.mark.skipif(
     sys.platform == "win32",
     reason="install.sh needs a POSIX shell; Windows uses install.ps1.",
 )
@@ -68,13 +71,19 @@ def _tarball_bytes(tmp_path: Path, version: str) -> tuple[bytes, str]:
 
 
 def _serve_release(
-    httpserver: HTTPServer, tmp_path: Path, version: str, *, checksum: str | None = None
+    httpserver: HTTPServer,
+    tmp_path: Path,
+    version: str,
+    private_pem: bytes,
+    *,
+    checksum: str | None = None,
+    serve_sig: bool = True,
+    package_name: str | None = None,
 ) -> str:
     os_name, arch = _repo_os_arch()
     data, digest = _tarball_bytes(tmp_path, version)
-    filename = f"snowflake-cli-{version}-{os_name}-{arch}.tar.gz"
-    httpserver.expect_request("/stable_version.txt").respond_with_data(f"{version}\n")
-    httpserver.expect_request(f"/{version}/manifest.json").respond_with_data(
+    filename = package_name or f"snowflake-cli-{version}-{os_name}-{arch}.tar.gz"
+    body = (
         json.dumps(
             {
                 "packages": {
@@ -86,18 +95,39 @@ def _serve_release(
                     }
                 }
             }
-        ),
-        content_type="application/json",
+        )
+    ).encode()
+    httpserver.expect_request("/stable_version.txt").respond_with_data(f"{version}\n")
+    httpserver.expect_request(f"/{version}/manifest.json").respond_with_data(
+        body, content_type="application/json"
     )
-    httpserver.expect_request(f"/{version}/{filename}").respond_with_data(
-        data, content_type="application/gzip"
-    )
+    if serve_sig:
+        httpserver.expect_request(f"/{version}/{MANIFEST_SIG_NAME}").respond_with_data(
+            sign_manifest(body, private_pem),
+            content_type="application/octet-stream",
+        )
+    else:
+        httpserver.expect_request(f"/{version}/{MANIFEST_SIG_NAME}").respond_with_data(
+            b"", status=404
+        )
+    if package_name is None or "/" not in package_name:
+        httpserver.expect_request(f"/{version}/{filename}").respond_with_data(
+            data, content_type="application/gzip"
+        )
     return digest
+
+
+def _test_keys(tmp_path: Path) -> tuple[bytes, Path]:
+    private_pem, public_pem = generate_test_rsa_keypair()
+    pub_file = tmp_path / "test-manifest.pub.pem"
+    pub_file.write_bytes(public_pem)
+    return private_pem, pub_file
 
 
 def _run_install(
     tmp_path: Path,
     httpserver: HTTPServer,
+    pubkey_file: Path,
     *,
     extra_env: dict[str, str] | None = None,
     check: bool = True,
@@ -109,6 +139,7 @@ def _run_install(
     env["SHELL"] = "/bin/bash"
     env["NON_INTERACTIVE"] = "1"
     env["SNOWFLAKE_CLI_MANAGED_REPO"] = httpserver.url_for("/").rstrip("/")
+    env["SNOWFLAKE_CLI_MANAGED_MANIFEST_PUBKEY_FILE"] = str(pubkey_file)
     env.pop("SNOWFLAKE_CLI_MANAGED_HOME", None)
     env.pop("XDG_DATA_HOME", None)
     env.pop("SKIP_PATH_PROMPT", None)
@@ -131,11 +162,17 @@ def _run_install(
     return result
 
 
+def _powershell_bin() -> str | None:
+    return shutil.which("pwsh") or shutil.which("powershell")
+
+
+@requires_posix_shell
 def test_install_sh_exists_and_is_executable():
     assert INSTALL_SH.is_file()
     assert os.access(INSTALL_SH, os.X_OK)
 
 
+@requires_posix_shell
 def test_install_sh_shellcheck():
     shellcheck = shutil.which("shellcheck")
     if shellcheck is None:
@@ -149,11 +186,13 @@ def test_install_sh_shellcheck():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+@requires_posix_shell
 def test_install_sh_against_fake_repo_leaves_working_shim(
     tmp_path: Path, httpserver: HTTPServer
 ):
-    _serve_release(httpserver, tmp_path, "3.13.1")
-    result = _run_install(tmp_path, httpserver)
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    result = _run_install(tmp_path, httpserver, pub_file)
 
     home = tmp_path / "home"
     root = home / ".local" / "share" / "snowflake-cli"
@@ -184,11 +223,15 @@ def test_install_sh_against_fake_repo_leaves_working_shim(
     assert f'export PATH="{bin_dir}:$PATH"' in result.stdout or bin_dir in result.stdout
 
 
+@requires_posix_shell
 def test_install_sh_prints_export_path_when_skip_path_prompt(
     tmp_path: Path, httpserver: HTTPServer
 ):
-    _serve_release(httpserver, tmp_path, "3.13.1")
-    result = _run_install(tmp_path, httpserver, extra_env={"SKIP_PATH_PROMPT": "1"})
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    result = _run_install(
+        tmp_path, httpserver, pub_file, extra_env={"SKIP_PATH_PROMPT": "1"}
+    )
     home = tmp_path / "home"
     bin_dir = home / ".local" / "share" / "snowflake-cli" / "bin"
     assert f'export PATH="{bin_dir}:$PATH"' in result.stdout
@@ -196,6 +239,7 @@ def test_install_sh_prints_export_path_when_skip_path_prompt(
     assert "SKIP_PATH_PROMPT" in result.stdout
 
 
+@requires_posix_shell
 @pytest.mark.parametrize(
     "version",
     ["../../.bashrc", "../evil", "bin", "3.13.1/../../tmp", "3.13.1\\win"],
@@ -203,8 +247,9 @@ def test_install_sh_prints_export_path_when_skip_path_prompt(
 def test_install_sh_rejects_unsanitized_version(
     tmp_path: Path, httpserver: HTTPServer, version: str
 ):
+    _, pub_file = _test_keys(tmp_path)
     httpserver.expect_request("/stable_version.txt").respond_with_data(f"{version}\n")
-    result = _run_install(tmp_path, httpserver, check=False)
+    result = _run_install(tmp_path, httpserver, pub_file, check=False)
     assert result.returncode != 0
     combined = result.stdout + result.stderr
     assert "Invalid snowflake-managed version" in combined
@@ -214,27 +259,20 @@ def test_install_sh_rejects_unsanitized_version(
     assert not (root / "bin" / "snow").exists()
 
 
+@requires_posix_shell
 def test_install_sh_rejects_path_traversal_package_name(
     tmp_path: Path, httpserver: HTTPServer
 ):
-    os_name, arch = _repo_os_arch()
-    httpserver.expect_request("/stable_version.txt").respond_with_data("3.13.1\n")
-    httpserver.expect_request("/3.13.1/manifest.json").respond_with_data(
-        json.dumps(
-            {
-                "packages": {
-                    os_name: {
-                        arch: {
-                            "name": "../../evil.tar.gz",
-                            "checksum": "0" * 64,
-                        }
-                    }
-                }
-            }
-        ),
-        content_type="application/json",
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(
+        httpserver,
+        tmp_path,
+        "3.13.1",
+        private_pem,
+        package_name="../../evil.tar.gz",
+        checksum="0" * 64,
     )
-    result = _run_install(tmp_path, httpserver, check=False)
+    result = _run_install(tmp_path, httpserver, pub_file, check=False)
     assert result.returncode != 0
     combined = result.stdout + result.stderr
     assert "Invalid package name" in combined
@@ -242,11 +280,13 @@ def test_install_sh_rejects_path_traversal_package_name(
     assert not (home / ".local" / "share" / "snowflake-cli" / "bin" / "snow").exists()
 
 
+@requires_posix_shell
 def test_install_sh_checksum_mismatch_fail_closed(
     tmp_path: Path, httpserver: HTTPServer
 ):
-    _serve_release(httpserver, tmp_path, "3.13.1", checksum="0" * 64)
-    result = _run_install(tmp_path, httpserver, check=False)
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem, checksum="0" * 64)
+    result = _run_install(tmp_path, httpserver, pub_file, check=False)
     assert result.returncode != 0
     combined = result.stdout + result.stderr
     assert "Checksum mismatch" in combined
@@ -255,8 +295,23 @@ def test_install_sh_checksum_mismatch_fail_closed(
     assert not shim.exists()
 
 
+@requires_posix_shell
+def test_install_sh_missing_signature_fail_closed(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem, serve_sig=False)
+    result = _run_install(tmp_path, httpserver, pub_file, check=False)
+    assert result.returncode != 0
+    combined = result.stdout + result.stderr
+    assert "unsigned snowflake-managed package" in combined
+    home = tmp_path / "home"
+    shim = home / ".local" / "share" / "snowflake-cli" / "bin" / "snow"
+    assert not shim.exists()
+
+
 def test_install_ps1_is_snowflake_managed_not_cortex():
-    text = INSTALL_PS1.read_text()
+    text = INSTALL_PS1.read_text(encoding="utf-8")
     assert "snowflake-cli" in text
     assert 'BinaryName = "snow.exe"' in text
     assert "LOCALAPPDATA" in text
@@ -265,5 +320,31 @@ def test_install_ps1_is_snowflake_managed_not_cortex():
     assert "snow.exe" in text
     assert "Assert-ManagedVersion" in text
     assert "Assert-PackageName" in text
+    assert "Test-ManifestSignature" in text
+    assert "ManifestSigName" in text
     assert "native" not in text.lower()
     assert "self-managed" not in text.lower()
+
+
+def test_install_ps1_parses():
+    shell = _powershell_bin()
+    if shell is None:
+        pytest.skip("PowerShell is not installed")
+    ps_path = "'" + str(INSTALL_PS1).replace("'", "''") + "'"
+    script = (
+        "$errors = $null\n"
+        f"$null = [System.Management.Automation.Language.Parser]::ParseFile("
+        f"{ps_path}, [ref]$null, [ref]$errors)\n"
+        "if ($errors) {\n"
+        "  $errors | ForEach-Object { $_.ToString() }\n"
+        "  exit 1\n"
+        "}\n"
+    )
+    result = subprocess.run(
+        [shell, "-NoProfile", "-NonInteractive", "-Command", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
