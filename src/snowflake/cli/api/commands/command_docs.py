@@ -64,7 +64,13 @@ class Ref:
             )
 
 
-Span = str | Code | Ref
+@dataclass(frozen=True)
+class RelatedLink:
+    href: str
+    title: str = ""
+
+
+Span = str | Code | Ref | RelatedLink
 
 
 @dataclass(frozen=True)
@@ -140,6 +146,10 @@ def ref(name: str) -> Ref:
     return Ref(name=name)
 
 
+def link(href: str, title: str = "") -> RelatedLink:
+    return RelatedLink(href=href, title=title)
+
+
 @dataclass(frozen=True)
 class Example:
     """A command example for docs pages and ``--help``.
@@ -158,12 +168,6 @@ class Example:
                 "description must be a PlainText paragraph, "
                 f"not {type(self.description).__name__}"
             )
-
-
-@dataclass(frozen=True)
-class RelatedLink:
-    href: str
-    title: str = ""
 
 
 @dataclass(frozen=True)

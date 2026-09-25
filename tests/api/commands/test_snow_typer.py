@@ -35,6 +35,7 @@ from snowflake.cli.api.commands.command_docs import (
     bullet_list,
     code,
     get_command_docs,
+    link,
     note,
     plain_text,
     ref,
@@ -620,6 +621,8 @@ def test_command_docs_content_helpers():
     )
     assert note("Take care.") == Note(parts=("Take care.",))
     assert code("--target") == Code(value="--target")
+    assert link("#label", "Deploying") == RelatedLink(href="#label", title="Deploying")
+    assert link("#label") == RelatedLink(href="#label", title="")
 
 
 _DEMO_DOCS = CommandDocs(

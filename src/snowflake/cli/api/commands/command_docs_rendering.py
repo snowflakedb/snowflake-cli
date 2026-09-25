@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.command_docs import (
     Paragraph,
     PlainText,
     Ref,
+    RelatedLink,
     Span,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -49,6 +50,8 @@ def _render_span_mdx(span: Span) -> str:
         return f"`{span.value}`"
     if isinstance(span, Ref):
         return f"%{span.name}%"
+    if isinstance(span, RelatedLink):
+        return f"[{mdx_escape(span.title)}]({span.href})"
     return mdx_escape(span)
 
 
@@ -92,7 +95,13 @@ def _render_spans_help(spans: Sequence[Span]) -> RichText:
                 sanitize_for_terminal(part.value) or "", style=STYLE_INLINE_CODE
             )
         elif isinstance(part, Ref):
-            rendered.append(REFERENCE_TEXT.get(part.name, ""))
+            rendered.append(REFERENCE_TEXT.get(part.name, f"%{part.name}%"))
+        elif isinstance(part, RelatedLink):
+            rendered.append(
+                sanitize_for_terminal(part.title)
+                or sanitize_for_terminal(part.href)
+                or ""
+            )
         else:
             rendered.append(sanitize_for_terminal(part) or "")
     return rendered

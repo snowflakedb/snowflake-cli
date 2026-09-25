@@ -201,6 +201,43 @@ def test_render_usage_help_styles_spans_inside_a_bullet():
     ]
 
 
+def test_render_usage_help_renders_link_title_and_ignores_href():
+    rendered = _render(
+        render_usage_help(
+            (
+                PlainText(
+                    parts=(
+                        "See ",
+                        RelatedLink(
+                            href="/user-guide/dcm-projects/dcm-projects-use#label-dcm-projects-deploy",
+                            title="Deploying DCM projects",
+                        ),
+                        ".",
+                    )
+                ),
+            )
+        )
+    )
+
+    assert rendered.strip() == "See Deploying DCM projects."
+    assert "http" not in rendered
+    assert "#" not in rendered
+
+
+def test_render_usage_help_link_without_title_prints_the_href():
+    rendered = _render(
+        render_usage_help(
+            (
+                PlainText(
+                    parts=("See ", RelatedLink(href="#label-dcm-projects-deploy"), ".")
+                ),
+            )
+        )
+    )
+
+    assert rendered.strip() == "See #label-dcm-projects-deploy."
+
+
 def test_render_usage_help_renders_note_with_inline_content():
     rendered = _render(
         render_usage_help(

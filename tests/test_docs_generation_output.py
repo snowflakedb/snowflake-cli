@@ -415,6 +415,31 @@ def test_render_usage_mdx_bullet_list_wraps_multiline_items():
     )
 
 
+def test_render_usage_mdx_link_empty_versus_titled():
+    assert (
+        render_usage_mdx(
+            (PlainText(parts=(RelatedLink(href="#label-dcm-projects-deploy"),)),)
+        )
+        == "[](#label-dcm-projects-deploy)"
+    )
+    assert (
+        render_usage_mdx(
+            (
+                PlainText(
+                    parts=(
+                        "See ",
+                        RelatedLink(
+                            href="#label-dcm-projects-deploy", title="the <deploy> docs"
+                        ),
+                        ".",
+                    )
+                ),
+            )
+        )
+        == "See [the &lt;deploy&gt; docs](#label-dcm-projects-deploy)."
+    )
+
+
 def test_render_usage_mdx_note_with_inline_content():
     assert render_usage_mdx(
         (
@@ -543,6 +568,31 @@ def test_render_command_page_with_structured_docs(snapshot):
     assert "The &lt;object_name&gt; object must already exist." in rendered
     assert "Object <MY_OBJECT> executed." in rendered
     assert rendered == snapshot
+
+
+def test_render_command_page_keeps_usage_note_links_out_of_related_topics():
+    docs = CommandDocs(
+        related=(RelatedLink(href="/developer-guide/snowflake-cli/index"),),
+        usage_notes=(
+            PlainText(
+                parts=(
+                    "See ",
+                    RelatedLink(href="#label-dcm-projects-deploy", title="Deploying"),
+                    ".",
+                )
+            ),
+        ),
+    )
+    command = _demo_click_command()
+    setattr(command.callback, DOCS_ATTRIBUTE, docs)
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+    related = rendered[
+        rendered.index("<RelatedTopics>") : rendered.index("</RelatedTopics>")
+    ]
+
+    assert "See [Deploying](#label-dcm-projects-deploy)." in rendered
+    assert "#label-dcm-projects-deploy" not in related
+    assert "[](/developer-guide/snowflake-cli/index)" in related
 
 
 def test_render_command_page_with_public_preview_banner():
