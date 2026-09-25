@@ -74,6 +74,7 @@ from snowflake.cli.api.commands.command_docs import (
     bullet,
     bullet_list,
     code,
+    link,
     note,
     plain_text,
     ref,
@@ -491,7 +492,125 @@ def _run_server_poll(
     return ServerPoll(manager.connection, progress, server_steps, sfqid).run()
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_dcm_related(
+            "/user-guide/dcm-projects/dcm-projects-use" "#label-dcm-projects-deploy"
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dcm deploy"),
+                " command deploys local project changes to Snowflake by creating, "
+                "altering, or dropping objects to match definition files.",
+            ),
+            plain_text(
+                "When you deploy a ",
+                ref("dcm-object"),
+                ", the following actions are performed:",
+            ),
+            bullet_list(
+                bullet(
+                    "Objects that are defined but don't exist yet are created.",
+                ),
+                bullet(
+                    "Objects that already exist but differ from the current "
+                    "definition are altered.",
+                ),
+                bullet(
+                    "Objects that already exist and there are no differences "
+                    "between their state and definition stay unchanged.",
+                ),
+                bullet(
+                    "Objects that already exist but are no longer defined are "
+                    "dropped.",
+                ),
+                bullet(
+                    "Objects that existed before, and their definitions were "
+                    "recently added into ",
+                    ref("dcm-object"),
+                    ", are added to objects managed by this ",
+                    ref("dcm-object"),
+                    ".",
+                ),
+            ),
+            note(
+                "This command automatically uploads local source SQL files to a "
+                "temporary stage in Snowflake so their content impacts the final "
+                "result of the operation."
+            ),
+            plain_text(
+                "Use the ",
+                code("--save-output"),
+                " option to save the deployment results to a local ",
+                code("out/deploy.json"),
+                " file.",
+            ),
+            plain_text(
+                "For more information about the deployment process, see ",
+                link("#label-dcm-projects-deploy", "Deploying DCM projects"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow dcm deploy",
+                description=plain_text(
+                    "Deploy a ",
+                    ref("dcm-object"),
+                    " object with the default options, where the project name is "
+                    "specified in the target identified by the ",
+                    code("default_target"),
+                    " property in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm deploy --target DEV",
+                description=plain_text(
+                    "Deploy a ",
+                    ref("dcm-object"),
+                    " object where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest:",
+                ),
+            ),
+            Example(
+                command="snow dcm deploy MY_DB.MY_SCHEMA.MY_PROJECT",
+                description=plain_text(
+                    "Deploy a ",
+                    ref("dcm-object"),
+                    " object with an explicit fully qualified name:",
+                ),
+            ),
+            Example(
+                command=(
+                    "snow dcm deploy --target DEV --variable \"db_name='jdoe'\" "
+                    "--alias 'v3'"
+                ),
+                description=plain_text(
+                    "Deploy a ",
+                    ref("dcm-object"),
+                    " project where the project name is specified in the ",
+                    code("DEV"),
+                    " target in the manifest, specify the value for the ",
+                    code("db_name"),
+                    " variable, and set the deployment alias to ",
+                    code("v3"),
+                    ":",
+                ),
+            ),
+            Example(
+                command="snow dcm deploy --from /path/to/project --save-output",
+                description=plain_text(
+                    "Deploy a ",
+                    ref("dcm-object"),
+                    " object from a specific directory and save output:",
+                ),
+            ),
+        ),
+    ),
+)
 def deploy(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
