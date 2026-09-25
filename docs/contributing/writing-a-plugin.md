@@ -374,6 +374,47 @@ register_decorator("with_my_decorator", lambda: with_my_decorator)
 
 ---
 
+## Forwarding unrecognised arguments
+
+A command that hands arguments on to something else — a script, a bundle, a
+subprocess — has to tell Click not to reject them. Set
+`CommandDef.context_settings`, which the bridge forwards to the Click command,
+and declare a variadic parameter for them to land in:
+
+```python
+CommandDef(
+    name="execute",
+    help="Execute a bundle at the given entrypoint.",
+    handler_method="execute",
+    requires_connection=True,
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    params=(
+        ParamDef(name="identifier", type=FQN, kind=ParamKind.ARGUMENT, help="..."),
+        # Declared last, so Click fills the fixed arguments before this one.
+        ParamDef(
+            name="arguments",
+            type=Optional[List[str]],
+            kind=ParamKind.ARGUMENT,
+            help="Arguments forwarded to the bundle.",
+            default=None,
+            show_default=False,
+        ),
+    ),
+)
+```
+
+`ignore_unknown_options` is what lets a bare `--custom-arg` through instead of
+failing as an unknown option; Click's `--` separator works either way. An
+`Optional[List[str]]` argument is variadic, so the handler receives the leftover
+tokens as a `list` — and `None`, not an empty sequence, when nothing was passed.
+Type the handler parameter accordingly and treat the empty case explicitly.
+
+Prefer this over reading `ctx.args`: the forwarded arguments then appear in
+`--help` as part of the declared surface, which is the point of the
+interface-first split.
+
+---
+
 ## Reference example
 
 The cookiecutter template under [`plugin-template/`](../../plugin-template) is

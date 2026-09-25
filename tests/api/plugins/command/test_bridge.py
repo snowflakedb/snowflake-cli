@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import pytest
+import typer
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.plugins.command import (
     CommandPath,
@@ -350,3 +351,52 @@ class TestDecoratorOrder:
         # ("rec_inner") wraps the raw function first and "rec_outer" wraps that:
         # the resulting structure is outer(inner(fn)).
         assert applied == ["inner", "outer"]
+
+
+class TestContextSettings:
+    """``CommandDef.context_settings`` is forwarded to the Click command."""
+
+    @staticmethod
+    def _build(context_settings):
+        spec = CommandGroupSpec(
+            name="ctx-plugin",
+            help="A plugin.",
+            commands=(
+                CommandDef(
+                    name="run",
+                    help="Run.",
+                    handler_method="run",
+                    context_settings=context_settings,
+                ),
+                # A group holding a single command collapses into a bare Click
+                # command, so a second one keeps `group.commands` addressable.
+                CommandDef(name="other", help="Other.", handler_method="other"),
+            ),
+        )
+
+        class Handler(CommandHandler):
+            def run(self) -> CommandResult:
+                return MessageResult("ok")
+
+            def other(self) -> CommandResult:
+                return MessageResult("ok")
+
+        group = typer.main.get_command(
+            build_command_spec(spec, Handler()).typer_instance
+        )
+        return group.commands["run"]
+
+    def test_settings_reach_the_click_command(self):
+        command = self._build(
+            {"allow_extra_args": True, "ignore_unknown_options": True}
+        )
+        assert command.context_settings == {
+            "allow_extra_args": True,
+            "ignore_unknown_options": True,
+        }
+
+    def test_omitting_settings_leaves_click_defaults(self):
+        # None is the default, and must not be passed through as an empty dict:
+        # Click would still accept it, but a command that never asked for custom
+        # settings should be built exactly as before this field existed.
+        assert self._build(None).context_settings == {}
