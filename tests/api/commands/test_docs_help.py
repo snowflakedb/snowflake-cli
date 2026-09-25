@@ -25,6 +25,7 @@ from snowflake.cli.api.commands.command_docs import (
     Code,
     CommandDocs,
     Example,
+    Note,
     PlainText,
     Ref,
     RelatedLink,
@@ -197,6 +198,37 @@ def test_render_usage_help_styles_spans_inside_a_bullet():
     assert bullet_cell.plain == "Exit code 0 if all tests pass."
     assert [(span.start, span.end, span.style) for span in bullet_cell.spans] == [
         (10, 11, STYLE_INLINE_CODE)
+    ]
+
+
+def test_render_usage_help_renders_note_with_inline_content():
+    rendered = _render(
+        render_usage_help(
+            (
+                Note(
+                    parts=(
+                        "Use ",
+                        Code(value="--force"),
+                        " with this ",
+                        Ref(name="dcm-object"),
+                        ".",
+                    )
+                ),
+            )
+        )
+    )
+
+    assert rendered.strip() == "Note: Use --force with this DCM project."
+
+
+def test_render_usage_help_bolds_only_the_note_prefix():
+    blocks = (Note(parts=("Use ", Code(value="--force"), " please.")),)
+    (note_text,) = render_usage_help(blocks).renderables
+
+    assert note_text.plain == "Note: Use --force please."
+    assert [(span.start, span.end, span.style) for span in note_text.spans] == [
+        (0, 6, "bold"),
+        (10, 17, STYLE_INLINE_CODE),
     ]
 
 

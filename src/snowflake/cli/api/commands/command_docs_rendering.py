@@ -25,6 +25,7 @@ from snowflake.cli.api.commands.command_docs import (
     BulletList,
     Code,
     ContentBlock,
+    Note,
     Paragraph,
     PlainText,
     Ref,
@@ -59,6 +60,14 @@ def _render_bullet_mdx(item: Paragraph) -> str:
     return f"- {render_paragraph_mdx(item).replace(chr(10), chr(10) + '  ')}"
 
 
+def _render_note_mdx(note: Note) -> str:
+    return (
+        '<Admonition type="note">\n\n'
+        f"{render_paragraph_mdx(note)}\n\n"
+        "</Admonition>"
+    )
+
+
 def render_usage_mdx(blocks: Sequence[ContentBlock]) -> str:
     """Renders structured usage-note blocks as an MDX-ready body."""
     return "\n\n".join(_render_usage_block_mdx(block) for block in blocks)
@@ -69,6 +78,8 @@ def _render_usage_block_mdx(block: ContentBlock) -> str:
         return render_paragraph_mdx(block)
     if isinstance(block, BulletList):
         return "\n".join(_render_bullet_mdx(item) for item in block.items)
+    if isinstance(block, Note):
+        return _render_note_mdx(block)
     raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
 
 
@@ -100,6 +111,13 @@ def _render_bullet_list_help(block: BulletList) -> Table:
     return table
 
 
+def _render_note_help(note: Note) -> RichText:
+    rendered = RichText()
+    rendered.append("Note: ", style="bold")
+    rendered.append_text(render_paragraph_help(note))
+    return rendered
+
+
 def render_usage_help(blocks: Sequence[ContentBlock]) -> RenderableType:
     """Renders structured usage-note blocks as a Rich panel body."""
     renderables: list[RenderableType] = []
@@ -108,6 +126,8 @@ def render_usage_help(blocks: Sequence[ContentBlock]) -> RenderableType:
             content: RenderableType = render_paragraph_help(block)
         elif isinstance(block, BulletList):
             content = _render_bullet_list_help(block)
+        elif isinstance(block, Note):
+            content = _render_note_help(block)
         else:
             raise TypeError(f"Unsupported usage-note block: {type(block).__name__}")
         if renderables:

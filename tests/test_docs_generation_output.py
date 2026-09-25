@@ -38,6 +38,7 @@ from snowflake.cli.api.commands.command_docs import (
     Code,
     CommandDocs,
     Example,
+    Note,
     PlainText,
     Ref,
     RelatedLink,
@@ -409,6 +410,26 @@ def test_render_usage_mdx_bullet_list_wraps_multiline_items():
             )
         )
         == "- First line,\n  second line."
+    )
+
+
+def test_render_usage_mdx_note_with_inline_content():
+    assert render_usage_mdx(
+        (
+            Note(
+                parts=(
+                    "Use ",
+                    Code(value="--force"),
+                    " with this ",
+                    Ref(name="dcm-object"),
+                    ".",
+                )
+            ),
+        )
+    ) == (
+        '<Admonition type="note">\n\n'
+        "Use `--force` with this %dcm-object%.\n\n"
+        "</Admonition>"
     )
 
 

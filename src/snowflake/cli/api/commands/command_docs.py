@@ -86,6 +86,16 @@ class PlainText(Paragraph):
 
 
 @dataclass(frozen=True)
+class Note(Paragraph):
+    """A ``ContentBlock`` note: a paragraph of spans (``Code`` / ``Ref``).
+
+    Downstream call site: ``note("The command prompts...", code("--force"), ...)``.
+    """
+
+    pass
+
+
+@dataclass(frozen=True)
 class Bullet(Paragraph):
     """One list item: a paragraph of spans (``Code`` / ``Ref``), not a ``ContentBlock``.
 
@@ -103,11 +113,15 @@ class BulletList:
     items: tuple[Bullet, ...]
 
 
-ContentBlock = PlainText | BulletList
+ContentBlock = PlainText | BulletList | Note
 
 
 def plain_text(*parts: Span) -> PlainText:
     return PlainText(parts=parts)
+
+
+def note(*parts: Span) -> Note:
+    return Note(parts=parts)
 
 
 def bullet(*parts: Span) -> Bullet:

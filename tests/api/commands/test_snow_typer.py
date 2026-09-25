@@ -25,6 +25,7 @@ from snowflake.cli.api.commands.command_docs import (
     Code,
     CommandDocs,
     Example,
+    Note,
     PlainText,
     Ref,
     RelatedLink,
@@ -32,6 +33,7 @@ from snowflake.cli.api.commands.command_docs import (
     bullet_list,
     code,
     get_command_docs,
+    note,
     plain_text,
     ref,
 )
@@ -593,6 +595,7 @@ def test_command_docs_content_helpers():
     assert bullet_list(bullet("First.")) == BulletList(
         items=(Bullet(parts=("First.",)),)
     )
+    assert note("Take care.") == Note(parts=("Take care.",))
     assert code("--target") == Code(value="--target")
 
 
