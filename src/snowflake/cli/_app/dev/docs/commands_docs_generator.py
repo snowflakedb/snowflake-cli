@@ -19,7 +19,11 @@ from typing import Any, List, Optional
 
 from click import Command
 from snowflake.cli._app.dev.docs.template_utils import get_template_environment
-from snowflake.cli.api.commands.command_docs import CommandDocs, get_command_docs
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    get_command_docs,
+    unique_includes,
+)
 from snowflake.cli.api.commands.command_docs_rendering import (
     mdx_escape,
     render_paragraph_mdx,
@@ -163,6 +167,7 @@ def _command_page_markdown(command: Command, path: List) -> str:
         "arguments": arguments,
         "path": path,
         "docs": docs,
+        "banner_imports": unique_includes(docs.banners),
         "help": command_help_params.get("help", ""),
         "usage_notes_fallback": _page_usage_notes_fallback(docs, command_help_params),
         "examples_fallback": _page_examples_fallback(docs, command_help_params),

@@ -4,6 +4,9 @@ title: snow{% for part in path %} {{ part }}{% endfor %}
 description: ''
 ---
 
+{% for banner in banner_imports -%}
+import {{ banner.tag }} from '{{ banner.path }}'
+{% endfor -%}
 import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
 
 # snow{% for part in path %} {{ part }}{% endfor %}
@@ -16,6 +19,10 @@ import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
 </RelatedTopics>
 
 {% endif -%}
+{% for banner in docs.banners -%}
+<{{ banner.tag }} />
+
+{% endfor -%}
 {{ help | collapse_whitespace | mdx_escape }}
 
 ## Syntax

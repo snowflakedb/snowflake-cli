@@ -167,6 +167,41 @@ class RelatedLink:
 
 
 @dataclass(frozen=True)
+class Include:
+    """Prod-docs MDX component imported from an ``INCLUDE/`` fragment.
+
+    ``help`` content for terminal rendering will be added in a follow-up change.
+    """
+
+    tag: str
+    path: str
+
+
+PUBLIC_PREVIEW = Include(
+    tag="PublicPreview",
+    path="INCLUDE/text/sidebars/basic/public-preview.mdx",
+)
+PUBLIC_PREVIEW_NO_GOV = Include(
+    tag="PublicPreviewNoGov",
+    path="INCLUDE/text/sidebars/basic/public-preview-no-gov.mdx",
+)
+
+
+def unique_includes(
+    includes: tuple[Include, ...],
+) -> tuple[Include, ...]:
+    """Returns ``includes`` with duplicate ``path`` values removed."""
+    seen: set[str] = set()
+    unique: list[Include] = []
+    for include in includes:
+        if include.path in seen:
+            continue
+        seen.add(include.path)
+        unique.append(include)
+    return tuple(unique)
+
+
+@dataclass(frozen=True)
 class CommandDocs:
     """
     Command documentation declared through ``@app.command(docs=...)``.
@@ -176,21 +211,43 @@ class CommandDocs:
     """
 
     related: tuple[RelatedLink, ...] = ()
+    banners: tuple[Include, ...] = ()
     usage_notes: tuple[ContentBlock, ...] | None = None
     examples: tuple[Example, ...] | None = None
 
     def __post_init__(self) -> None:
+        self._validate_includes(self.banners, "banners")
         if self.usage_notes is None:
             return
-        if not isinstance(self.usage_notes, tuple):
+        self._validate_content_blocks(self.usage_notes, "usage_notes")
+
+    def _validate_includes(
+        self, includes: tuple[Include, ...], field_name: str
+    ) -> None:
+        if not isinstance(includes, tuple):
             raise TypeError(
-                "usage_notes must be a tuple of content blocks, "
-                f"not {type(self.usage_notes).__name__}"
+                f"{field_name} must be a tuple of includes, "
+                f"not {type(includes).__name__}"
             )
-        for block in self.usage_notes:
+        for include in includes:
+            if not isinstance(include, Include):
+                raise TypeError(
+                    f"{field_name} entries must be Include values, "
+                    f"not {type(include).__name__}"
+                )
+
+    def _validate_content_blocks(
+        self, blocks: tuple[ContentBlock, ...], field_name: str
+    ) -> None:
+        if not isinstance(blocks, tuple):
+            raise TypeError(
+                f"{field_name} must be a tuple of content blocks, "
+                f"not {type(blocks).__name__}"
+            )
+        for block in blocks:
             if not isinstance(block, ContentBlock):
                 raise TypeError(
-                    "usage_notes entries must be content blocks, "
+                    f"{field_name} entries must be content blocks, "
                     f"not {type(block).__name__}"
                 )
 

@@ -33,6 +33,8 @@ from snowflake.cli._app.dev.docs.commands_docs_generator import (
 from snowflake.cli._plugins.dcm.commands import app as dcm_app
 from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
+    PUBLIC_PREVIEW,
+    PUBLIC_PREVIEW_NO_GOV,
     Bullet,
     BulletList,
     Code,
@@ -541,6 +543,61 @@ def test_render_command_page_with_structured_docs(snapshot):
     assert "The &lt;object_name&gt; object must already exist." in rendered
     assert "Object <MY_OBJECT> executed." in rendered
     assert rendered == snapshot
+
+
+def test_render_command_page_with_public_preview_banner():
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(
+            related=(RelatedLink(href="/foo", title="Foo"),),
+            banners=(PUBLIC_PREVIEW,),
+        ),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    assert (
+        "import PublicPreview from "
+        "'INCLUDE/text/sidebars/basic/public-preview.mdx'" in rendered
+    )
+    assert "<PublicPreview />" in rendered
+    related_end = rendered.index("</RelatedTopics>")
+    banner_pos = rendered.index("<PublicPreview />")
+    assert banner_pos > related_end
+
+
+def test_render_command_page_with_public_preview_no_gov_banner():
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(
+            related=(RelatedLink(href="/foo", title="Foo"),),
+            banners=(PUBLIC_PREVIEW_NO_GOV,),
+        ),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    assert (
+        "import PublicPreviewNoGov from "
+        "'INCLUDE/text/sidebars/basic/public-preview-no-gov.mdx'" in rendered
+    )
+    assert "<PublicPreviewNoGov />" in rendered
+    related_end = rendered.index("</RelatedTopics>")
+    banner_pos = rendered.index("<PublicPreviewNoGov />")
+    assert banner_pos > related_end
+
+
+def test_render_command_page_without_banners():
+    rendered = _command_page_markdown(_demo_click_command(), ["plugin", "demo"])
+
+    assert "import PublicPreview from " not in rendered
+    assert "<PublicPreview />" not in rendered
+    assert "import PublicPreviewNoGov from " not in rendered
+    assert "<PublicPreviewNoGov />" not in rendered
 
 
 def test_docs_pages_empty_extras_for_command_without_docs(runner, temporary_directory):

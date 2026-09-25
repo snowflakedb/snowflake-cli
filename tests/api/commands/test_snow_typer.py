@@ -20,6 +20,8 @@ import typer
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.command_docs import (
     DOCS_ATTRIBUTE,
+    PUBLIC_PREVIEW,
+    PUBLIC_PREVIEW_NO_GOV,
     Bullet,
     BulletList,
     Code,
@@ -36,6 +38,7 @@ from snowflake.cli.api.commands.command_docs import (
     note,
     plain_text,
     ref,
+    unique_includes,
 )
 from snowflake.cli.api.commands.docs_help import SnowTyperCommand
 from snowflake.cli.api.commands.snow_typer import (
@@ -556,6 +559,26 @@ def test_add_typer_subcommands_are_invokable(cli):
 
     sub_result = cli(app)(["sub", "sub_cmd", "--help"])
     assert sub_result.exit_code == 0, sub_result.output
+
+
+def test_command_docs_empty_versus_missing_banners():
+    assert CommandDocs().banners == ()
+    assert CommandDocs(banners=()).banners == ()
+
+
+def test_unique_includes_deduplicates_by_path():
+    assert unique_includes((PUBLIC_PREVIEW, PUBLIC_PREVIEW)) == (PUBLIC_PREVIEW,)
+    assert unique_includes((PUBLIC_PREVIEW, PUBLIC_PREVIEW_NO_GOV)) == (
+        PUBLIC_PREVIEW,
+        PUBLIC_PREVIEW_NO_GOV,
+    )
+
+
+def test_command_docs_rejects_non_include_banners():
+    with pytest.raises(TypeError, match="tuple of includes"):
+        CommandDocs(banners="PublicPreview")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="entries must be Include values"):
+        CommandDocs(banners=("PublicPreview",))  # type: ignore[arg-type]
 
 
 def test_command_docs_empty_versus_missing_usage_notes():
