@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import urlopen
 
-from jinja2 import UndefinedError
+from jinja2 import TemplateError
 from snowflake.cli._plugins.sql.repl_commands import (
     ReplCommand,
     UnknownCommandError,
@@ -251,7 +251,11 @@ def parse_statement(
         statement = source
         for operator in operators:
             statement = operator(statement)
-    except UndefinedError as e:
+    except TemplateError as e:
+        # TemplateError is the common parent of UndefinedError (unknown
+        # variable) and TemplateSyntaxError (malformed template syntax), so
+        # both are reported through the same channel instead of escaping as
+        # an unexpected exception (see GH#3160).
         error_msg = f"SQL template rendering error: {e}"
         return ParsedStatement(source, StatementType.UNKNOWN, source, error_msg)
 
