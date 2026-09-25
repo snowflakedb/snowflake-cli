@@ -90,10 +90,16 @@ def _example_lines(examples: Sequence[Example]) -> Iterator[RenderableType]:
             yield render_paragraph_help(example.description)
         yield Text(sanitize_for_terminal(example.command), style=STYLE_EXAMPLE_COMMAND)
         if example.output:
-            yield Text(
-                f"Output: {sanitize_for_terminal(example.output)}",
-                style=STYLE_EXAMPLE_OUTPUT,
-            )
+            output = sanitize_for_terminal(example.output)
+            if output and "\n" in output:
+                yield Text("Output:", style=STYLE_EXAMPLE_OUTPUT)
+                for line in output.splitlines():
+                    yield Text(line, style=STYLE_EXAMPLE_OUTPUT, no_wrap=True)
+            else:
+                yield Text(
+                    f"Output: {output}",
+                    style=STYLE_EXAMPLE_OUTPUT,
+                )
 
 
 class _RelatedTopic:

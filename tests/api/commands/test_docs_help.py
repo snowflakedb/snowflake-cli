@@ -343,6 +343,29 @@ def test_example_lines_empty_versus_optional_fields():
     ]
 
 
+def test_example_lines_multiline_output():
+    lines = list(
+        _example_lines(
+            (
+                Example(
+                    command="snow logs foo",
+                    output="""\
+╭─ Error ──
+│ oops
+╰─────────""",
+                ),
+            )
+        )
+    )
+    assert [line.plain for line in lines] == [
+        "snow logs foo",
+        "Output:",
+        "╭─ Error ──",
+        "│ oops",
+        "╰─────────",
+    ]
+
+
 def test_example_description_renders_spans():
     (description, _) = _example_lines(
         (

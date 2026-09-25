@@ -55,10 +55,14 @@ assert set(ADMONITION_HELP_LABELS) == set(AdmonitionType)
 
 
 def mdx_escape(value: Any) -> str:
-    """Escapes angle brackets so MDX does not parse prose as JSX tags."""
+    """Escape MDX/JSX-sensitive characters in prose (option help, fallbacks, etc.)."""
     if value is None:
         return ""
-    return str(value).replace("<", "&lt;").replace(">", "&gt;")
+    text = str(value)
+    text = text.replace("<", "&lt;").replace(">", "&gt;")
+    # MDX treats `{expr}` as inline JSX; prod-docs escape literal braces in prose.
+    text = text.replace("{", r"\{").replace("}", r"\}")
+    return text
 
 
 def _render_span_mdx(span: Span) -> str:

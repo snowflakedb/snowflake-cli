@@ -243,6 +243,7 @@ def test_flags_have_default_values(runner, temporary_directory, snapshot):
         ("plain text", "plain text"),
         ("<system_temporary_directory>", "&lt;system_temporary_directory&gt;"),
         ("before <value> after", "before &lt;value&gt; after"),
+        ("ALTER STAGE {name} REFRESH", r"ALTER STAGE \{name\} REFRESH"),
     ],
 )
 def test_mdx_escape(value, expected):
