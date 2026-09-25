@@ -337,6 +337,22 @@ class CommandDocs:
                 )
 
 
+def _lookup_command_docs(command: Command) -> CommandDocs | None:
+    """Return ``CommandDocs`` from ``docs=`` on the callback chain, if declared."""
+    candidate = getattr(command, "callback", None)
+    while candidate is not None:
+        docs = getattr(candidate, DOCS_ATTRIBUTE, None)
+        if isinstance(docs, CommandDocs):
+            return docs
+        candidate = getattr(candidate, "__wrapped__", None)
+    return None
+
+
+def has_explicit_command_docs(command: Command) -> bool:
+    """Return whether ``docs=`` was passed to ``@app.command()``."""
+    return _lookup_command_docs(command) is not None
+
+
 def get_command_docs(command: Command) -> CommandDocs:
     """
     Reads the metadata declared through ``@app.command(docs=...)``.
@@ -348,10 +364,4 @@ def get_command_docs(command: Command) -> CommandDocs:
     need sections (pages, ``--help``) should look at the fields, not at
     whether the object was declared.
     """
-    candidate = getattr(command, "callback", None)
-    while candidate is not None:
-        docs = getattr(candidate, DOCS_ATTRIBUTE, None)
-        if isinstance(docs, CommandDocs):
-            return docs
-        candidate = getattr(candidate, "__wrapped__", None)
-    return CommandDocs()
+    return _lookup_command_docs(command) or CommandDocs()

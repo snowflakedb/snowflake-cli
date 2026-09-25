@@ -38,6 +38,7 @@ from snowflake.cli.api.commands.command_docs import (
     bullet_list,
     code,
     get_command_docs,
+    has_explicit_command_docs,
     link,
     note,
     plain_text,
@@ -720,6 +721,13 @@ def test_command_docs_are_readable_off_the_click_command():
     assert not hasattr(group.commands["cmd_without_docs"].callback, DOCS_ATTRIBUTE)
     assert get_command_docs(group.commands["cmd_with_docs"]) == _DEMO_DOCS
     assert get_command_docs(group.commands["cmd_without_docs"]) == CommandDocs()
+
+
+def test_has_explicit_command_docs():
+    group = get_command(_app_with_docs().create_instance())
+
+    assert has_explicit_command_docs(group.commands["cmd_with_docs"])
+    assert not has_explicit_command_docs(group.commands["cmd_without_docs"])
 
 
 def test_command_docs_do_not_appear_in_help_by_default(cli):
