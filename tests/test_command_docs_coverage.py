@@ -71,14 +71,6 @@ _COMMAND_DOCS_MIGRATION_PENDING_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("app", "version", "list"),
         # auth
         ("auth", "oidc", "read-token"),
-        # connection
-        ("connection", "add"),
-        ("connection", "generate-jwt"),
-        ("connection", "generate-workload-identity-token"),
-        ("connection", "list"),
-        ("connection", "remove"),
-        ("connection", "set-default"),
-        ("connection", "test"),
         # cortex
         # custom-image
         ("custom-image", "validate"),

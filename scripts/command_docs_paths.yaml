@@ -15,6 +15,13 @@
 # Maps pages written by `snow --docs-pages` (under gen_docs/pages/) to paths in
 # a local snowflake-prod-docs checkout. Only listed commands are copied.
 
+connection/add.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/add-connection.mdx
+connection/generate-jwt.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/generate-jwt.mdx
+connection/generate-workload-identity-token.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/generate-workload-identity-token.mdx
+connection/list.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/list-connections.mdx
+connection/remove.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/remove-connection.mdx
+connection/set-default.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/set-default-connection.mdx
+connection/test.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/test-connection.mdx
 cortex/complete.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/complete.mdx
 cortex/extract-answer.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/extract-answer.mdx
 cortex/sentiment.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/sentiment.mdx

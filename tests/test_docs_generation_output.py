@@ -748,17 +748,17 @@ def test_docs_pages_empty_extras_for_command_without_docs(runner, temporary_dire
     assert result.exit_code == 0, result.output
 
     page_path = (
-        Path(temporary_directory) / "gen_docs" / "pages" / "connection" / "list.mdx"
+        Path(temporary_directory) / "gen_docs" / "pages" / "object" / "describe.mdx"
     )
     assert page_path.exists()
     content = page_path.read_text(encoding="utf-8")
     assert content.startswith("---\n")
-    assert "title: snow connection list" in content
+    assert "title: snow object describe" in content
     assert "description: ''" in content
     assert (
         "import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'" in content
     )
-    assert "# snow connection list" in content
+    assert "# snow object describe" in content
     assert "<Help />" in content
     assert "## Syntax" in content
     assert "## Arguments" in content
