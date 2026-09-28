@@ -284,6 +284,16 @@ DBT_LIVE_VERSION_REQUIRED = Include(
         ),
     ),
 )
+PYTHON_EXECUTE_VERSION_SUPPORT = Include(
+    tag="PythonExecuteVersionSupport",
+    path="INCLUDE/developer-guide/snowflake-cli/_include/python-execute-version-support.mdx",
+    help_content=(
+        note(
+            ref("sf-cli"),
+            " does not support executing Python files for Python versions 3.12 and above.",
+        ),
+    ),
+)
 
 
 def unique_includes(

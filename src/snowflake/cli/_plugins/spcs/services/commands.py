@@ -136,7 +136,7 @@ show_all_columns_option = typer.Option(
 events_container_name_option = typer.Option(
     None,
     "--container-name",
-    help="Narrow events to this container. Requires --instance-id.",
+    help="Narrow events to this container. Requires `--instance-id`.",
     show_default=False,
 )
 
@@ -475,6 +475,208 @@ def logs(
 
 @app.command(
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/command-reference/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
+                "spcs command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/service-commands/overview",
+                "service commands",
+            ),
+            link("/developer-guide/snowpark-container-services/working-with-services"),
+            link("/developer-guide/snowpark-container-services/monitoring-services"),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "Only the ",
+                code("name"),
+                " argument is required. By default, the command returns all "
+                "platform events for the service.",
+            ),
+            plain_text("Use the scope filters to narrow the results:"),
+            bullet_list(
+                bullet(
+                    code("--instance-id <ID>"),
+                    " returns events for a single service instance.",
+                ),
+                bullet(
+                    code("--container-name <name>"),
+                    " returns events for a single container. This option requires ",
+                    code("--instance-id"),
+                    ".",
+                ),
+            ),
+            plain_text(
+                "You can use the ",
+                code("--since"),
+                " and ",
+                code("--until"),
+                " time-based filters to return events for a specified period of time. "
+                "You can specify the time as a relative time, such as ",
+                code("1h"),
+                " (hour) or ",
+                code("2d"),
+                " (days).",
+            ),
+            plain_text(
+                "You can use the ",
+                code("--first"),
+                " and ",
+                code("--last"),
+                " options to return only a specified number of events. Note that these "
+                "options are mutually exclusive.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Retrieve all events for a service (service, service instance, "
+                    "and container events):"
+                ),
+                command="snow spcs service events LOG_EVENT",
+                output=(
+                    "+----------------------------+---------------+-------------+"
+                    "--------------+-------------+----------------+----------+"
+                    "--------------------------------+"
+                    "---------------------------------------------------------------+\n"
+                    "| TIMESTAMP                  | DATABASE NAME | SCHEMA NAME | "
+                    "SERVICE NAME | INSTANCE ID | CONTAINER NAME | SEVERITY | "
+                    "EVENT NAME                     | EVENT VALUE                   "
+                    "                                |\n"
+                    "+----------------------------+---------------+-------------+"
+                    "--------------+-------------+----------------+----------+"
+                    "--------------------------------+"
+                    "---------------------------------------------------------------+\n"
+                    "| 2024-12-14 22:27:25.420489 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | N/A         | N/A            | INFO     | "
+                    'SERVICE.STATUS_CHANGE          | {"message": "Service is ready", '
+                    '"status": "RUNNING"}          |\n'
+                    "| 2024-12-14 22:27:25.630550 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0           | N/A            | INFO     | "
+                    'SERVICE_INSTANCE.STATUS_CHANGE | {"message": "Service instance '
+                    'is running", "status": "READY"} |\n'
+                    "| 2024-12-14 22:27:26.100000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0           | log-printer    | INFO     | "
+                    'CONTAINER.STATUS_CHANGE        | {"message": "Running", '
+                    '"status": "READY"}                     |\n'
+                    "+----------------------------+---------------+-------------+"
+                    "--------------+-------------+----------------+----------+"
+                    "--------------------------------+"
+                    "---------------------------------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Retrieve events for a single service instance:"
+                ),
+                command="snow spcs service events LOG_EVENT --instance-id 0",
+            ),
+            Example(
+                description=plain_text("Retrieve events for a single container:"),
+                command=(
+                    "snow spcs service events LOG_EVENT --instance-id 0 "
+                    "--container-name log-printer"
+                ),
+            ),
+            Example(
+                description=plain_text("Retrieve only the first or last N events:"),
+                command=(
+                    "snow spcs service events LOG_EVENT --first 5\n"
+                    "snow spcs service events LOG_EVENT --last 5"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Fetch events newer than the last five minutes:"
+                ),
+                command="snow spcs service events LOG_EVENT --since '5 minutes'",
+            ),
+            Example(
+                description=plain_text("Fetch events older than one hour:"),
+                command="snow spcs service events LOG_EVENT --until '1 hour'",
+            ),
+            Example(
+                description=plain_text(
+                    "Retrieve the raw event-table columns (",
+                    code("RESOURCE_ATTRIBUTES"),
+                    ", ",
+                    code("SCOPE"),
+                    ", ",
+                    code("RECORD"),
+                    ", ",
+                    code("VALUE"),
+                    ", and so on) instead of the summarized columns:",
+                ),
+                command="snow spcs service events LOG_EVENT --all",
+                output=(
+                    "+----------------------+-----------------+----------------------+-------+----------+----------------------+---------------------+------------------+-------------+----------------------+-------------------+---------------------+-----------+\n"
+                    "| TIMESTAMP            | START_TIMESTAMP | OBSERVED_TIMESTAMP   | TRACE | RESOURCE | RESOURCE_ATTRIBUTES  | SCOPE               | SCOPE_ATTRIBUTES | RECORD_TYPE | RECORD               | RECORD_ATTRIBUTES | VALUE               | EXEMPLARS |\n"
+                    "+----------------------+-----------------+----------------------+-------+----------+----------------------+---------------------+------------------+-------------+----------------------+-------------------+---------------------+-----------+\n"
+                    "| 2024-12-14           | None            | 2024-12-14           | None  | None     | {                    | {                   | None             | EVENT       | {                    | None              | {                   | None      |\n"
+                    '| 22:27:26.100000      |                 | 22:27:26.100000      |       |          |                      |   "name":           |                  |             |   "name":            |                   |   "message":        |           |\n'
+                    '|                      |                 |                      |       |          | "snow.compute_pool.i | "snow.spcs.platform |                  |             | "CONTAINER.STATUS_CH |                   | "Running",          |           |\n'
+                    '|                      |                 |                      |       |          | d": 48,              | "                   |                  |             | ANGE",               |                   |   "status": "READY" |           |\n'
+                    "|                      |                 |                      |       |          |                      | }                   |                  |             |                      |                   | }                   |           |\n"
+                    '|                      |                 |                      |       |          | "snow.compute_pool.n |                     |                  |             | "severity_number":   |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | ame": "MYPOOL",      |                     |                  |             | 9,                   |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          |                      |                     |                  |             |   "severity_text":   |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | "snow.database.id":  |                     |                  |             | "INFO"               |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          | 161,                 |                     |                  |             | }                    |                   |                     |           |\n"
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.database.name" |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | : "TESTDB",          |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          |   "snow.schema.id":  |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          | 12441,               |                     |                  |             |                      |                   |                     |           |\n"
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.schema.name":  |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | "PUBLIC",            |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.contai |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | ner.name":           |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | "log-printer",       |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.id":   |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          | 2143,                |                     |                  |             |                      |                   |                     |           |\n"
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.instan |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | ce": "0",            |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.name": |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          |  "LOG_EVENT",        |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.type": |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          |  "SERVICE"           |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          | }                    |                     |                  |             |                      |                   |                     |           |\n"
+                    "+----------------------+-----------------+----------------------+-------+----------+----------------------+---------------------+------------------+-------------+----------------------+-------------------+---------------------+-----------+\n"
+                ),
+            ),
+            Example(
+                description=plain_text("Retrieve events formatted for JSON output:"),
+                command="snow spcs service events LOG_EVENT --last 1 --format json",
+                output=(
+                    "[\n"
+                    "    {\n"
+                    '        "TIMESTAMP": "2024-12-14T22:27:25.420489",\n'
+                    '        "DATABASE NAME": "TESTDB",\n'
+                    '        "SCHEMA NAME": "PUBLIC",\n'
+                    '        "SERVICE NAME": "LOG_EVENT",\n'
+                    '        "INSTANCE ID": "N/A",\n'
+                    '        "CONTAINER NAME": "N/A",\n'
+                    '        "SEVERITY": "INFO",\n'
+                    '        "EVENT NAME": "SERVICE.STATUS_CHANGE",\n'
+                    '        "EVENT VALUE": "{\\n  \\"message\\": \\"Service is ready\\",'
+                    '\\n  \\"status\\": \\"RUNNING\\"\\n}"\n'
+                    "    }\n"
+                    "]"
+                ),
+            ),
+        ),
+    ),
 )
 def events(
     name: FQN = ServiceNameArgument,
@@ -485,29 +687,17 @@ def events(
     first: Optional[int] = typer.Option(
         default=None,
         show_default=False,
-        help="Fetch only the first N events. Cannot be used with --last.",
+        help="Fetch only the first N events. Cannot be used with `--last`.",
     ),
     last: Optional[int] = typer.Option(
         default=None,
         show_default=False,
-        help="Fetch only the last N events. Cannot be used with --first.",
+        help="Fetch only the last N events. Cannot be used with `--first`.",
     ),
     show_all_columns: bool = show_all_columns_option,
     **options,
 ):
-    """
-    Retrieve platform events for a service.
-
-    By default, all platform events for the service are returned. The following
-    filters narrow the results:
-
-    * --instance-id restricts events to a single service instance.
-    * --container-name restricts events to a single container (requires
-      --instance-id).
-    * --since / --until restrict events to a time window, in Snowflake interval
-      syntax.
-    * --first / --last return only the first / last N events.
-    """
+    """Retrieve platform events for a service."""
 
     if first is not None and last is not None:
         raise IncompatibleParametersError(["--first", "--last"])

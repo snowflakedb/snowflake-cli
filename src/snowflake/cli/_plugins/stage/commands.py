@@ -35,6 +35,16 @@ from snowflake.cli._plugins.stage.manager import (
 )
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    PYTHON_EXECUTE_VERSION_SUPPORT,
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
@@ -90,7 +100,127 @@ def stage_list_files(
     return QueryResult(cursor)
 
 
-@app.command("copy", requires_connection=True)
+@app.command(
+    "copy",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/stage-commands/overview"
+            ),
+            link("/developer-guide/snowflake-cli/stages/manage-stages"),
+        ),
+        usage_notes=(
+            plain_text(
+                "One of ",
+                code("SOURCE_PATH"),
+                " or ",
+                code("DESTINATION_PATH"),
+                " must be a local directory, while the other should be a directory "
+                "in the Snowflake stage. The stage path must start with ",
+                code("@"),
+                ". For example:",
+            ),
+            bullet_list(
+                bullet(
+                    code("snow stage copy @my_stage dir/"),
+                    " - copies files from ",
+                    code("my_stage"),
+                    " stage to the local ",
+                    code("dir"),
+                    " directory.",
+                ),
+                bullet(
+                    code("snow stage copy dir/ @my_stage"),
+                    " - copies files from the local ",
+                    code("dir"),
+                    " directory to ",
+                    code("my_stage"),
+                    ".",
+                ),
+            ),
+            plain_text(
+                "You can specify multiple files matching a regular expression by using "
+                "a glob pattern for the ",
+                code("source_path"),
+                " argument. You must enclose the glob pattern in single or double "
+                "quotes.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "To copy files from the local machine to a stage, use a command "
+                    "similar to the following:"
+                ),
+                command="snow stage copy local_example_app @example_app_stage/app",
+                output=(
+                    "put file:///.../local_example_app/* @example_app_stage/app4 "
+                    "auto_compress=false parallel=4 overwrite=False\n"
+                    "+--------------------------------------------------------------------------------------\n"
+                    "| source           | target           | source_size | target_size | "
+                    "source_compression...\n"
+                    "|------------------+------------------+-------------+-------------+"
+                    "--------------------\n"
+                    "| environment.yml  | environment.yml  | 62          | 0           | "
+                    "NONE             ...\n"
+                    "| snowflake.yml    | snowflake.yml    | 252         | 0           | "
+                    "NONE             ...\n"
+                    "| streamlit_app.py | streamlit_app.py | 109         | 0           | "
+                    "NONE             ...\n"
+                    "+--------------------------------------------------------------------------------------"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "To download files from a stage to a local directory, use a command "
+                    "similar to the following:"
+                ),
+                command=(
+                    "mkdir local_app_backup\n"
+                    "snow stage copy @example_app_stage/app local_app_backup"
+                ),
+                output=(
+                    "get @example_app_stage/app file:///.../local_app_backup/ parallel=4\n"
+                    "+------------------------------------------------+\n"
+                    "| file             | size | status     | message |\n"
+                    "|------------------+------+------------+---------|\n"
+                    "| environment.yml  | 62   | DOWNLOADED |         |\n"
+                    "| snowflake.yml    | 252  | DOWNLOADED |         |\n"
+                    "| streamlit_app.py | 109  | DOWNLOADED |         |\n"
+                    "+------------------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "The following example copies all ",
+                    code(".txt"),
+                    " files in a directory to a stage.",
+                ),
+                command='snow stage copy "testdir/*.txt" @TEST_STAGE_3',
+                output=(
+                    "put file:///.../testdir/*.txt @TEST_STAGE_3 auto_compress=false "
+                    "parallel=4 overwrite=False\n"
+                    "+------------------------------------------------------------------------------------------------------------+\n"
+                    "| source | target | source_size | target_size | source_compression | "
+                    "target_compression | status   | message |\n"
+                    "|--------+--------+-------------+-------------+--------------------+"
+                    "--------------------+----------+---------|\n"
+                    "| b1.txt | b1.txt | 3           | 16          | NONE               "
+                    "| NONE               | UPLOADED |         |\n"
+                    "| b2.txt | b2.txt | 3           | 16          | NONE               "
+                    "| NONE               | UPLOADED |         |\n"
+                    "+------------------------------------------------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def copy(
     source_path: str = typer.Argument(
         help="Source path for copy operation. Can be either stage path or local. You can use a glob pattern for local files but the pattern has to be enclosed in quotes.",
@@ -225,7 +355,154 @@ def stage_diff(
         return None  # don't print any output
 
 
-@app.command("execute", requires_connection=True)
+@app.command(
+    "execute",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/stage-commands/overview"
+            ),
+            link("/developer-guide/snowflake-cli/stages/manage-stages"),
+        ),
+        usage_notes=(
+            PYTHON_EXECUTE_VERSION_SUPPORT,
+            plain_text(
+                "The command searches for files with a ",
+                code(".sql"),
+                " extension in the specified ",
+                code("STAGE_PATH"),
+                " and executes ",
+                code("EXECUTE IMMEDIATE"),
+                " on each of them. ",
+                code("STAGE_PATH"),
+                " can be:",
+            ),
+            bullet_list(
+                bullet(
+                    "Only a stage name, such as ",
+                    code("@scripts"),
+                    ", which executes all ",
+                    code(".sql"),
+                    " files from the stage.",
+                ),
+                bullet(
+                    "Glob-like pattern, such as ",
+                    code("@scripts/dir/*"),
+                    ", which executes ",
+                    code(".sql"),
+                    " files from the ",
+                    code("dir"),
+                    " directory.",
+                ),
+                bullet(
+                    "Direct file path, such as ",
+                    code("@scripts/script.sql"),
+                    ", which executes only the ",
+                    code("script.sql"),
+                    " file from the ",
+                    code("scripts"),
+                    ".",
+                ),
+            ),
+            plain_text(
+                "The ",
+                code("--silent"),
+                " options hides intermediate messages with file execution results.",
+            ),
+            plain_text(
+                "When using Jinja templates for the SQL files, you can pass template "
+                "variables using ",
+                code("-D"),
+                " (or ",
+                code("--variable"),
+                ") option, such as ",
+                code('-D "<key>=<value>"'),
+                ". You must enclose string values in single quotes (",
+                code("''"),
+                ").",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Specify only a stage name to execute all ",
+                    code(".sql"),
+                    " files in the stage:",
+                ),
+                command='snow stage execute "@scripts"',
+                output=(
+                    "SUCCESS - scripts/script1.sql\n"
+                    "SUCCESS - scripts/script2.sql\n"
+                    "SUCCESS - scripts/dir/script.sql\n"
+                    "+------------------------------------------+\n"
+                    "| File                   | Status  | Error |\n"
+                    "|------------------------+---------+-------|\n"
+                    "| scripts/script1.sql    | SUCCESS | None  |\n"
+                    "| scripts/script2.sql    | SUCCESS | None  |\n"
+                    "| scripts/dir/script.sql | SUCCESS | None  |\n"
+                    "+------------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Specify a glob-like pattern to execute all ",
+                    code(".sql"),
+                    " files in the ",
+                    code("dir"),
+                    " directory:",
+                ),
+                command='snow stage execute "@scripts/dir/*"',
+                output=(
+                    "SUCCESS - scripts/dir/script.sql\n"
+                    "+------------------------------------------+\n"
+                    "| File                   | Status  | Error |\n"
+                    "|------------------------+---------+-------|\n"
+                    "| scripts/dir/script.sql | SUCCESS | None  |\n"
+                    "+------------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Specify a glob-like pattern to execute only ",
+                    code(".sql"),
+                    " files in the ",
+                    code("dir"),
+                    ' directory that begin with "script", followed by one character:',
+                ),
+                command='snow stage execute "@scripts/script?.sql"',
+                output=(
+                    "SUCCESS - scripts/script1.sql\n"
+                    "SUCCESS - scripts/script2.sql\n"
+                    "+---------------------------------------+\n"
+                    "| File                | Status  | Error |\n"
+                    "|---------------------+---------+-------|\n"
+                    "| scripts/script1.sql | SUCCESS | None  |\n"
+                    "| scripts/script2.sql | SUCCESS | None  |\n"
+                    "+---------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Specify a direct file path with the ", code("--silent"), " option:"
+                ),
+                command='snow stage execute "@scripts/script1.sql" --silent',
+                output=(
+                    "+---------------------------------------+\n"
+                    "| File                | Status  | Error |\n"
+                    "|---------------------+---------+-------|\n"
+                    "| scripts/script1.sql | SUCCESS | None  |\n"
+                    "+---------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def execute(
     stage_path: str = typer.Argument(
         ...,

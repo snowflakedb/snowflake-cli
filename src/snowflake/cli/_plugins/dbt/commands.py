@@ -39,9 +39,12 @@ from snowflake.cli._plugins.object.command_aliases import add_object_command_ali
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.stage.commands import copy as stage_copy
 from snowflake.cli.api.commands.command_docs import (
+    DBT_DEPLOY_FORCE_WARNING,
     DBT_LIVE_VERSION_REQUIRED,
     CommandDocs,
     Example,
+    bullet,
+    bullet_list,
     code,
     link,
     plain_text,
@@ -338,6 +341,184 @@ def _github_actions_git_metadata() -> tuple[
 @app.command(
     "deploy",
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/execute/overview"
+            ),
+            link("/developer-guide/snowflake-cli/command-reference/dbt-commands/list"),
+            link("/developer-guide/snowflake-cli/data-pipelines/dbt-projects"),
+            link(
+                "/developer-guide/snowflake-cli/data-pipelines/dbt-projects#label-snow"
+                + "cli-snow-dbt-deploy"
+            ),
+        ),
+        banners=(DBT_LIVE_VERSION_REQUIRED,),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dbt deploy"),
+                " command uploads local files to a temporary stage and either creates "
+                "a new object or replaces the existing object's live version in a "
+                "single operation. A valid dbt project object must contain ",
+                code("dbt_project.yml"),
+                " and one of the supported profile files:",
+            ),
+            bullet_list(
+                bullet(
+                    code("dbt_project.yml"),
+                    ": A standard dbt configuration file that specifies the profile "
+                    "to use.",
+                ),
+                bullet(
+                    link(
+                        "/user-guide/data-engineering/dbt-projects-on-snowflake-best-practices#label-dbt-projects-profiles-file",
+                        "dbt_projects_profiles.yml",
+                    ),
+                    " or ",
+                    code("profiles.yml"),
+                    ": A dbt connection profile definition referenced in ",
+                    code("dbt_project.yml"),
+                    ". The selected profile file must define the database, role, "
+                    "schema, and type. If both files are present, Snowflake uses ",
+                    code("dbt_projects_profiles.yml"),
+                    " and ignores ",
+                    code("profiles.yml"),
+                    " during deployment, compilation, and subsequent commands.",
+                ),
+                bullet(
+                    "By default, dbt Projects on Snowflake uses your target schema (",
+                    code("target.schema"),
+                    ") specified from your dbt environment or profile. When you "
+                    "execute a dbt project object, dbt attempts to create the target "
+                    "schema specified in the profile file if it doesn't already exist. "
+                    "For more information, see ",
+                    link(
+                        "/user-guide/data-engineering/dbt-projects-on-snowflake-schema-customization"
+                    ),
+                    ".",
+                ),
+            ),
+            plain_text(
+                "A profile defines ",
+                code("target"),
+                ", ",
+                code("outputs"),
+                ", and per-output fields such as ",
+                code("database"),
+                ", ",
+                code("role"),
+                ", ",
+                code("schema"),
+                ", ",
+                code("warehouse"),
+                ", and ",
+                code("type: snowflake"),
+                ".",
+            ),
+            plain_text(
+                "When ",
+                code("snow dbt deploy"),
+                " runs in GitHub Actions, Snowflake CLI automatically captures the "
+                "commit and branch. For other CI runners, explicitly pass ",
+                code("--git-commit"),
+                " and ",
+                code("--git-branch"),
+                " to preserve this source metadata.",
+            ),
+            DBT_DEPLOY_FORCE_WARNING,
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Deploy a dbt project named ", code("jaffle_shop"), ":"
+                ),
+                command="snow dbt deploy jaffle_shop",
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project with automatic compilation disabled. Useful for ",
+                    link(
+                        "/user-guide/data-engineering/dbt-projects-on-snowflake-slim-ci-defer-to-prod",
+                        "optimizing Slim CI workflows",
+                    ),
+                    ":",
+                ),
+                command="snow dbt deploy jaffle_shop --no-auto-compile",
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy from a CI runner and record the source commit and branch. "
+                    "Snowflake CLI captures this information automatically when "
+                    "deploying from GitHub Actions:"
+                ),
+                command=(
+                    "snow dbt deploy jaffle_shop \\\n"
+                    '  --git-commit "<commit_sha>" \\\n'
+                    '  --git-branch "<branch_name>"'
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project named ",
+                    code("jaffle_shop"),
+                    " from a specified directory, using a profile file from a "
+                    "separate directory:",
+                ),
+                command=(
+                    "snow dbt deploy jaffle_shop --source /path/to/dbt/directory "
+                    "--profiles-dir ~/my_profiles/"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project named ",
+                    code("jaffle_shop"),
+                    " from a specified directory, supplying a profile file from "
+                    "outside the project, setting a default target, and enabling ",
+                    link(
+                        "/developer-guide/external-network-access/creating-using-external-network-access",
+                        "external access integrations",
+                    ),
+                    ":",
+                ),
+                command=(
+                    "snow dbt deploy jaffle_shop --source /path/to/dbt/directory \\\n"
+                    "  --profiles-dir ~/my_profiles/ \\\n"
+                    "  --default-target dev \\\n"
+                    "  --external-access-integration dbthub-integration \\\n"
+                    "  --external-access-integration github-integration"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project named ",
+                    code("jaffle_shop"),
+                    " and set a specific dbt runtime version:",
+                ),
+                command="snow dbt deploy jaffle_shop --dbt-version '1.11.11'",
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project named ",
+                    code("jaffle_shop"),
+                    ", pull in an ",
+                    code("env.yml"),
+                    " file from a separate directory, and set the default environment "
+                    "for compilation and later executions:",
+                ),
+                command=(
+                    "snow dbt deploy jaffle_shop --source /path/to/dbt/directory \\\n"
+                    "  --env-file-dir /path/to/env/directory \\\n"
+                    "  --default-env prod"
+                ),
+            ),
+        ),
+    ),
 )
 def deploy_dbt(
     name: FQN = DBTNameArgument,
@@ -446,13 +627,7 @@ def deploy_dbt(
     ),
     **options,
 ) -> CommandResult:
-    """
-    Upload local dbt project files and create or update a DBT project object on Snowflake.
-
-    Examples:
-        snow dbt deploy PROJECT
-        snow dbt deploy PROJECT --source=/Users/jdoe/project
-    """
+    """Upload local dbt project files and create or update a dbt project object on Snowflake."""
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     env_file_path = SecurePath(env_file_dir) if env_file_dir else None

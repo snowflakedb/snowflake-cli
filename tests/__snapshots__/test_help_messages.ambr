@@ -5811,11 +5811,8 @@
                                                                                   
    Usage: root dbt deploy [OPTIONS] NAME                                          
                                                                                   
-   Upload local dbt project files and create or update a DBT project object on    
+   Upload local dbt project files and create or update a dbt project object on    
    Snowflake.                                                                     
-                                                                                  
-   Examples: snow dbt deploy PROJECT snow dbt deploy PROJECT                      
-   --source=/Users/jdoe/project                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
@@ -11755,7 +11752,7 @@
   |            object's live version. This command behaves exactly like snow     |
   |            stage copy; it's provided as a convenience when working with dbt  |
   |            project files.                                                    |
-  | deploy     Upload local dbt project files and create or update a DBT project |
+  | deploy     Upload local dbt project files and create or update a dbt project |
   |            object on Snowflake.                                              |
   | describe   Provides description of dbt project.                              |
   | drop       Drops dbt project with given name.                                |
@@ -25350,16 +25347,6 @@
                                                                                   
    Retrieve platform events for a service.                                        
                                                                                   
-   By default, all platform events for the service are returned. The following    
-   filters narrow the results:                                                    
-                                                                                  
-    • --instance-id restricts events to a single service instance.                
-    • --container-name restricts events to a single container (requires           
-      --instance-id).                                                             
-    • --since / --until restrict events to a time window, in Snowflake interval   
-      syntax.                                                                     
-    • --first / --last return only the first / last N events.                     
-                                                                                  
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -32147,7 +32134,7 @@
   |            object's live version. This command behaves exactly like snow     |
   |            stage copy; it's provided as a convenience when working with dbt  |
   |            project files.                                                    |
-  | deploy     Upload local dbt project files and create or update a DBT project |
+  | deploy     Upload local dbt project files and create or update a dbt project |
   |            object on Snowflake.                                              |
   | describe   Provides description of dbt project.                              |
   | drop       Drops dbt project with given name.                                |
