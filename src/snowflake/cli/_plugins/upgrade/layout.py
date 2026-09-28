@@ -36,8 +36,16 @@ UNIX_SHIM_NAME = "snow"
 WINDOWS_CMD_SHIM_NAME = "snow.cmd"
 CURRENT_POINTER_NAME = ".current"
 PREVIOUS_POINTER_NAME = ".previous"
+MACHINE_ID_NAME = ".machine-id"
+UPGRADE_LOCK_NAME = ".upgrade.lock"
 RESERVED_ROOT_NAMES = frozenset(
-    {BIN_DIRNAME, CURRENT_POINTER_NAME, PREVIOUS_POINTER_NAME}
+    {
+        BIN_DIRNAME,
+        CURRENT_POINTER_NAME,
+        PREVIOUS_POINTER_NAME,
+        MACHINE_ID_NAME,
+        UPGRADE_LOCK_NAME,
+    }
 )
 _VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _QUOTED_PATH_RE = re.compile(r'"([^"]+)"')
@@ -124,6 +132,14 @@ class ManagedLayout:
     @property
     def previous_pointer(self) -> Path:
         return self.root / PREVIOUS_POINTER_NAME
+
+    @property
+    def machine_id_path(self) -> Path:
+        return self.root / MACHINE_ID_NAME
+
+    @property
+    def upgrade_lock_path(self) -> Path:
+        return self.root / UPGRADE_LOCK_NAME
 
     def version_dir(self, version: str) -> Path:
         return self.root / validate_version(version)

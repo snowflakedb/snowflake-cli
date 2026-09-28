@@ -250,3 +250,18 @@ def test_invalid_version_is_rejected(managed_home):
         layout.install_binary("../evil", source)
     with pytest.raises(CliError, match="Invalid snowflake-managed version"):
         layout.install_binary("bin", source)
+    with pytest.raises(CliError, match="Invalid snowflake-managed version"):
+        layout.install_binary(".machine-id", source)
+    with pytest.raises(CliError, match="Invalid snowflake-managed version"):
+        layout.install_binary(".upgrade.lock", source)
+
+
+def test_reserved_root_names_include_machine_id_and_lock():
+    from snowflake.cli._plugins.upgrade.layout import (
+        MACHINE_ID_NAME,
+        RESERVED_ROOT_NAMES,
+        UPGRADE_LOCK_NAME,
+    )
+
+    assert MACHINE_ID_NAME in RESERVED_ROOT_NAMES
+    assert UPGRADE_LOCK_NAME in RESERVED_ROOT_NAMES
