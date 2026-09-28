@@ -36,7 +36,8 @@
   | snowpark       Manages procedures and functions.                             |
   | spcs           Manages Snowpark Container Services compute pools, services,  |
   |                image registries, and image repositories.                     |
-  | sql            Executes Snowflake query.                                     |
+  | sql            Executes SQL statements against Snowflake interactively or    |
+  |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
@@ -28456,22 +28457,8 @@
                                                                                   
    Usage: root sql [OPTIONS]                                                      
                                                                                   
-   Executes Snowflake query.                                                      
-                                                                                  
-   Use either query, filename or input option.                                    
-                                                                                  
-   Query to execute can be specified using query option, filename option (all     
-   queries from file will be executed) or via stdin by piping output from other   
-   command. For example cat my.sql | snow sql -i.                                 
-                                                                                  
-   With no query source, opens an interactive REPL. The prompt stays ' > ' unless 
-   you set --prompt-format, for example --prompt-format                           
-   "[user]#[warehouse]@[database].[schema]> ". Placeholders: [user], [host],      
-   [account], [role], [warehouse], [database], [schema], [connection] (the -c     
-   connection name). They update after USE. Set a quoted prompt_format in the     
-   [cli] section of config.toml to make a format the default.                     
-                                                                                  
-   The command supports variable substitution that happens on client-side.        
+   Executes SQL statements against Snowflake interactively or from a query, file, 
+   or standard input.                                                             
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --query            -q                     TEXT              Query to         |
@@ -31685,7 +31672,8 @@
   | snowpark       Manages procedures and functions.                             |
   | spcs           Manages Snowpark Container Services compute pools, services,  |
   |                image registries, and image repositories.                     |
-  | sql            Executes Snowflake query.                                     |
+  | sql            Executes SQL statements against Snowflake interactively or    |
+  |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+

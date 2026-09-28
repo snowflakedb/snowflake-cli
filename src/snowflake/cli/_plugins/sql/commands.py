@@ -29,6 +29,14 @@ from snowflake.cli._plugins.sql.prompt_format import (
     unknown_token_warning,
     unknown_tokens_in_prompt_format,
 )
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    code,
+    link,
+    note,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     variables_option,
@@ -106,7 +114,132 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
         cli_console.stderr_warning(unknown_token_warning(unknown_tokens))
 
 
-@app.command(name="sql", requires_connection=True, no_args_is_help=False)
+@app.command(
+    name="sql",
+    requires_connection=True,
+    no_args_is_help=False,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/sql/execute-sql",
+                "Execute SQL statements",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/sql-commands/overview",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "Provide the SQL using exactly one source: ",
+                code("--query"),
+                " / ",
+                code("-q"),
+                ", ",
+                code("--filename"),
+                " / ",
+                code("-f"),
+                " (repeatable; files run sequentially on one connection), or ",
+                code("--stdin"),
+                " / ",
+                code("-i"),
+                " when piping input (for example ",
+                code("cat my.sql | snow sql -i"),
+                ").",
+            ),
+            plain_text(
+                "With no query source, the command opens an interactive REPL. The prompt "
+                "stays ",
+                code(" > "),
+                " unless you set ",
+                code("--prompt-format"),
+                ", for example ",
+                code('--prompt-format "[user]#[warehouse]@[database].[schema]> "'),
+                ". Placeholders: ",
+                code("[user]"),
+                ", ",
+                code("[host]"),
+                ", ",
+                code("[account]"),
+                ", ",
+                code("[role]"),
+                ", ",
+                code("[warehouse]"),
+                ", ",
+                code("[database]"),
+                ", ",
+                code("[schema]"),
+                ", and ",
+                code("[connection]"),
+                " (the ",
+                code("-c"),
+                " connection name). They update after USE. Set a quoted ",
+                code("prompt_format"),
+                " in the ",
+                code("[cli]"),
+                " section of ",
+                code("config.toml"),
+                " to make a format the default.",
+            ),
+            plain_text(
+                "The command supports client-side variable substitution. Use ",
+                code("<% name %>"),
+                " placeholders in the SQL and pass values with ",
+                code('-D "name=value"'),
+                ". For SnowSQL-style ",
+                code("&name"),
+                " syntax, project ",
+                code("env.yml"),
+                " overrides, and templating flags, see ",
+                link(
+                    "/developer-guide/snowflake-cli/sql/execute-sql",
+                    "Execute SQL statements",
+                ),
+                ".",
+            ),
+            note(
+                "When the query contains characters the shell interprets (for example ",
+                code("$"),
+                " in ",
+                code("SYSTEM$CLIENT_VERSION_INFO()"),
+                " functions), wrap the query in single quotes: ",
+                code("snow sql -q 'SELECT SYSTEM$CLIENT_VERSION_INFO()'"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Run a single query."),
+                command="snow sql -q 'SELECT CURRENT_VERSION();'",
+                output=(
+                    "+-------------------+\n"
+                    "| CURRENT_VERSION() |\n"
+                    "|-------------------|\n"
+                    "| 8.25.1            |\n"
+                    "+-------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text("Run a SQL file."),
+                command="snow sql -f setup.sql",
+            ),
+            Example(
+                description=plain_text("Substitute a client-side template variable."),
+                command=(
+                    'snow sql -q "select * from <% database %>.logs" -D "database=dev"'
+                ),
+            ),
+            Example(
+                description=plain_text("Pipe SQL from another command."),
+                command="cat my.sql | snow sql -i",
+            ),
+        ),
+    ),
+)
 @with_project_definition(is_optional=True)
 def execute_sql(
     query: Optional[str] = SourceOption(
@@ -190,24 +323,7 @@ def execute_sql(
     ),
     **options,
 ) -> CommandResult:
-    r"""
-    Executes Snowflake query.
-
-    Use either query, filename or input option.
-
-    Query to execute can be specified using query option, filename option (all queries from file will be executed)
-    or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
-
-    With no query source, opens an interactive REPL. The prompt stays ' > '
-    unless you set --prompt-format, for example
-    --prompt-format "\[user\]#\[warehouse\]@\[database\].\[schema\]> ".
-    Placeholders: \[user\], \[host\], \[account\], \[role\], \[warehouse\],
-    \[database\], \[schema\], \[connection\] (the -c connection name).
-    They update after USE. Set a quoted prompt_format in the \[cli\] section
-    of config.toml to make a format the default.
-
-    The command supports variable substitution that happens on client-side.
-    """
+    """Executes SQL statements against Snowflake interactively or from a query, file, or standard input."""
 
     from snowflake.cli.api.config_ng import get_merged_variables
 

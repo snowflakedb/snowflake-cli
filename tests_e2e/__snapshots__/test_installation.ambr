@@ -46,7 +46,8 @@
   | snowpark             Manages procedures and functions.                       |
   | spcs                 Manages Snowpark Container Services compute pools,      |
   |                      services, image registries, and image repositories.     |
-  | sql                  Executes Snowflake query.                               |
+  | sql                  Executes SQL statements against Snowflake interactively |
+  |                      or from a query, file, or standard input.               |
   | stage                Manages stages.                                         |
   | streamlit            Manages a Streamlit app in Snowflake.                   |
   | multilingual-hello   Says hello in various languages                         |
@@ -112,7 +113,8 @@
   | snowpark       Manages procedures and functions.                             |
   | spcs           Manages Snowpark Container Services compute pools, services,  |
   |                image registries, and image repositories.                     |
-  | sql            Executes Snowflake query.                                     |
+  | sql            Executes SQL statements against Snowflake interactively or    |
+  |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
@@ -160,7 +162,8 @@
   | snowpark             Manages procedures and functions.                       |
   | spcs                 Manages Snowpark Container Services compute pools,      |
   |                      services, image registries, and image repositories.     |
-  | sql                  Executes Snowflake query.                               |
+  | sql                  Executes SQL statements against Snowflake interactively |
+  |                      or from a query, file, or standard input.               |
   | stage                Manages stages.                                         |
   | streamlit            Manages a Streamlit app in Snowflake.                   |
   | multilingual-hello   Says hello in various languages                         |
@@ -246,7 +249,8 @@
   | snowpark       Manages procedures and functions.                             |
   | spcs           Manages Snowpark Container Services compute pools, services,  |
   |                image registries, and image repositories.                     |
-  | sql            Executes Snowflake query.                                     |
+  | sql            Executes SQL statements against Snowflake interactively or    |
+  |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
   +------------------------------------------------------------------------------+
