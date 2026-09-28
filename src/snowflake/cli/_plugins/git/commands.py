@@ -28,6 +28,15 @@ from snowflake.cli._plugins.object.command_aliases import (
     scope_option,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
@@ -119,25 +128,119 @@ def _unique_new_object_name(
     return result
 
 
-@app.command("setup", requires_connection=True)
+@app.command(
+    "setup",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/git-commands/overview"
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow git setup"),
+                " command prompts for the following information:",
+            ),
+            bullet_list(
+                bullet(
+                    "URL: address of repository to use for ",
+                    code("git clone"),
+                    " operation.",
+                ),
+                bullet(
+                    "Secret: Snowflake secret containing authentication credentials. "
+                    "Not needed if origin repository does not require authentication "
+                    "for read-only operations, such as clone and fetch."
+                ),
+                bullet(
+                    "API integration: object allowing Snowflake to interact with a "
+                    "Git repository."
+                ),
+            ),
+            plain_text(
+                "If the role or user specified in your ",
+                link(
+                    "/developer-guide/snowflake-cli/connecting/configure-connections",
+                    "connection",
+                ),
+                " has not been granted, executing this command generates an error "
+                "similar to the following: ",
+                code(
+                    "003001 (42501): 01b2f095-0508-c66d-0001-c1be009a66ee: SQL access "
+                    "control error: Insufficient privileges to operate on account XXX"
+                ),
+                ". In this situation, you should check your connection configuration "
+                "or ask your account administrator to give you the necessary privileges "
+                "or to create the integration for you. For more information, see ",
+                link("/developer-guide/git/git-setting-up"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Create a repository that requires a secret and credentials"
+                ),
+                command=(
+                    "$ snow git setup " + "snow" + "cli_git\n"
+                    "Origin url: https://github.com/snowflakedb/snowflake-cli.git\n"
+                    "Use secret for authentication? [y/N]: y\n"
+                    "Secret identifier (will be created if not exists) "
+                    "[" + "snow" + "cli_git_secret]: new_secret\n"
+                    "Secret 'new_secret' will be created\n"
+                    "username: john_doe\n"
+                    "password/token: ****\n"
+                    "API integration identifier (will be created if not exists) "
+                    "[" + "snow" + "cli_git_api_integration]:"
+                ),
+                output=(
+                    "Secret 'new_secret' successfully created.\n"
+                    "API integration "
+                    + "snow"
+                    + "cli_git_api_integration successfully created.\n"
+                    "+------------------------------------------------------+\n"
+                    "| status                                               |\n"
+                    "|------------------------------------------------------|\n"
+                    "| Git Repository SNOWCLI_GIT was successfully created. |\n"
+                    "+------------------------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Create a repository without a secret and an existing API "
+                    "integration ID"
+                ),
+                command=(
+                    "$ snow git setup " + "snow" + "cli_git\n"
+                    "Origin url: https://github.com/snowflakedb/snowflake-cli.git\n"
+                    "Use secret for authentication [y/N]: n\n"
+                    "API integration identifier (will be created if not exists) "
+                    "[" + "snow" + "cli_git_api_integration]: EXISTING_INTEGRATION"
+                ),
+                output=(
+                    "Using existing API integration 'EXISTING_INTEGRATION'.\n"
+                    "+------------------------------------------------------+\n"
+                    "| status                                               |\n"
+                    "|------------------------------------------------------|\n"
+                    "| Git Repository SNOWCLI_GIT was successfully created. |\n"
+                    "+------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def setup(
     repository_name: FQN = RepoNameArgument,
     **options,
 ) -> CommandResult:
-    """
-    Sets up a git repository object.
-
-    ## Usage notes
-
-    You will be prompted for:
-
-    * url - address of repository to be used for git clone operation
-
-    * secret - Snowflake secret containing authentication credentials. Not needed if origin repository does not require
-    authentication for RO operations (clone, fetch)
-
-    * API integration - object allowing Snowflake to interact with git repository.
-    """
+    """Sets up a git repository object."""
     manager = GitManager()
     om = ObjectManager()
     _assure_repository_does_not_exist(om, repository_name)

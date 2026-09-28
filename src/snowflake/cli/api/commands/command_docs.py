@@ -255,6 +255,35 @@ DBT_DEPLOY_FORCE_WARNING = Include(
         ),
     ),
 )
+REQ_CONTAINER_SERVICES = Include(
+    tag="ReqContainerServices",
+    path="INCLUDE/snow" + "cli/req-container-services.mdx",
+    help_content=(
+        note(
+            "You can use Snowpark Container Services from ",
+            ref("sf-cli"),
+            " only if you have the necessary permissions to use Snowpark Container "
+            "Services.",
+        ),
+    ),
+)
+DBT_LIVE_VERSION_REQUIRED = Include(
+    tag="DbtLiveVersionRequired",
+    path="INCLUDE/text/dbt-live-version-required.mdx",
+    help_content=(
+        note(
+            "Some features described on this page require a dbt project object that "
+            "uses the mutable ",
+            code("live"),
+            " version. To get a live-version object, opt in to the 2026_06 behavior "
+            "change bundle or ask your Snowflake account representative to enable the "
+            "separate single live version feature. Then create or replace the object, "
+            "or migrate an existing versioned object with ",
+            code("SYSTEM$MIGRATE_DBT_PROJECT"),
+            ".",
+        ),
+    ),
+)
 
 
 def unique_includes(

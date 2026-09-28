@@ -14,10 +14,11 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
-from typing import Optional
+from typing import Optional, get_type_hints
 
 import typer
 from click import types
@@ -37,6 +38,14 @@ from snowflake.cli._plugins.dbt.manager import (
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.stage.commands import copy as stage_copy
+from snowflake.cli.api.commands.command_docs import (
+    DBT_LIVE_VERSION_REQUIRED,
+    CommandDocs,
+    Example,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
@@ -99,21 +108,135 @@ add_object_command_aliases(
     ommit_commands=["create"],
 )
 
-# Alias `snow stage copy` as `snow dbt copy` so users working with a dbt project's
-# stage don't have to switch command groups. This registers the exact same command
-# function under the dbt app (SnowTyperFactory.command returns the function
-# unchanged and builds an independent click command per app), so behavior and flags
-# are identical to `snow stage copy` with no side effects on it. The `help=` override
-# gives `snow dbt copy` its own description without touching `snow stage copy`.
-app.command(
+# Wrapper around `snow stage copy` so dbt copy can carry its own CommandDocs without
+# overwriting docs on the shared stage command implementation.
+@app.command(
     "copy",
     requires_connection=True,
-    help=(
-        "Copies files between a local directory and a stage, or between stages "
-        "(you provide the full @stage/… path). Behaves exactly like "
-        "`snow stage copy`; handy when working with a dbt project's files on a stage."
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/overview"
+            ),
+            link("/developer-guide/snowflake-cli/data-pipelines/dbt-projects"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/execute/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/stage-commands/copy"
+            ),
+        ),
+        banners=(DBT_LIVE_VERSION_REQUIRED,),
+        usage_notes=(
+            plain_text(
+                "Use the ",
+                code("versions/live"),
+                " path to copy files into, out of, or between dbt project objects. "
+                "A dbt project object path has the form ",
+                code(
+                    "snow://dbt/<database>.<schema>.<dbt_project>/versions/live/<path>"
+                ),
+                ".",
+            ),
+            plain_text(
+                code("snow dbt copy"),
+                " moves files between locations. It can persist files in the live "
+                "version when that path is the destination. In contrast, repeatable ",
+                code("snow dbt execute --import"),
+                " options mount files under ",
+                code("./imports/<alias>"),
+                " only for an execution. For more information, see ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/dbt-commands/execute/overview"
+                ),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Copy local dbt project files to a stage:"),
+                command="snow dbt copy ./models/ @MY_DB.MY_SCHEMA.MY_STAGE/dbt/models/",
+            ),
+            Example(
+                description=plain_text("Copy from one stage to another:"),
+                command="snow dbt copy @SOURCE_STAGE/dbt/ @DEST_STAGE/dbt/",
+            ),
+            Example(
+                description=plain_text(
+                    "Copy a directory recursively, overwriting existing files:"
+                ),
+                command=(
+                    "snow dbt copy ./project/ @MY_STAGE/dbt/ --recursive --overwrite"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Copy local model files into a dbt project object's live version:"
+                ),
+                command=(
+                    "snow dbt copy ./models/ \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.MY_DBT_PROJECT/versions/live/models/ \\\n"
+                    "  --recursive \\\n"
+                    "  --overwrite"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Copy the live target artifacts to a local directory:"
+                ),
+                command=(
+                    "snow dbt copy \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.MY_DBT_PROJECT/versions/live/target/ \\\n"
+                    "  ./target/ \\\n"
+                    "  --recursive"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Copy files from one dbt project object's live version into "
+                    "another:"
+                ),
+                command=(
+                    "snow dbt copy \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.SOURCE_PROJECT/versions/live/ \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.DESTINATION_PROJECT/versions/live/imported/"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Copy target artifacts to another location in the same dbt project "
+                    "object's live version:"
+                ),
+                command=(
+                    "snow dbt copy \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.MY_DBT_PROJECT/versions/live/target/ \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.MY_DBT_PROJECT/versions/live/previous_target/"
+                ),
+            ),
+        ),
     ),
-)(stage_copy)
+    help=(
+        "Copies files between local directories, stages, or a dbt project "
+        "object's live version. This command behaves exactly like "
+        "`snow stage copy`; it's provided as a convenience when working with "
+        "dbt project files."
+    ),
+)
+def dbt_copy(*args, **kwargs) -> CommandResult:
+    return stage_copy(*args, **kwargs)
+
+
+_stage_copy_signature = inspect.signature(stage_copy)
+_stage_copy_type_hints = get_type_hints(stage_copy)
+dbt_copy.__signature__ = _stage_copy_signature.replace(
+    parameters=[
+        parameter.replace(
+            annotation=_stage_copy_type_hints.get(parameter.name, parameter.annotation)
+        )
+        for parameter in _stage_copy_signature.parameters.values()
+    ]
+)
 
 
 def _env_callback(value: Optional[str]) -> Optional[str]:

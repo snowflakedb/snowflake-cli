@@ -26,6 +26,13 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
@@ -188,7 +195,44 @@ def list_tags(
     return CollectionResult(tags_list)
 
 
-@app.command("url", requires_connection=True)
+@app.command(
+    "url",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/command-reference/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
+                "spcs command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/image-repository-commands/overview",
+                "image-repository command reference",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The current role must have READ privileges for the image repository "
+                "in the account to get the registry URL."
+            ),
+            plain_text(
+                "The URL is returned as a text string, so you can store it in an "
+                "environment variable for convenience. For example: ",
+                code("export REPO_URL=$(snow spcs image-repository url <name>)"),
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs image-repository url tutorial_repository",
+                output=(
+                    "<orgname-acctname>.registry.snowflakecomputing.com/"
+                    "tutorial_db/data_schema/tutorial_repository"
+                ),
+            ),
+        ),
+    ),
+)
 def repo_url(
     name: FQN = REPO_NAME_ARGUMENT,
     **options,

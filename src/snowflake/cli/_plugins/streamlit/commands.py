@@ -34,6 +34,15 @@ from snowflake.cli._plugins.streamlit.project_grants import add_grants
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
     with_project_definition,
@@ -98,7 +107,77 @@ add_object_command_aliases(
 )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/streamlit-commands/overview",
+                "Streamlit commands",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The command allows a Streamlit app to be executed without user "
+                "interaction, such as for batch processing or automation tasks."
+            ),
+            plain_text(
+                "Before executing this command, the following requirements must be met:"
+            ),
+            bullet_list(
+                bullet("You must have a valid Snowflake connection."),
+                bullet(
+                    "The app must already be deployed in the Snowflake environment."
+                ),
+                bullet(
+                    "A valid configuration ",
+                    code("snowflake.yml"),
+                    " file must exist with the ",
+                    code("query_warehouse"),
+                    " and ",
+                    code("stage"),
+                    " settings defined.",
+                ),
+            ),
+            plain_text(
+                "The application logic, such as calculations and file processing, runs "
+                "as if the app were displayed, but does not render any user-visible "
+                "output."
+            ),
+            plain_text(
+                "You must ensure that your Snowflake account, database, schema, and "
+                "warehouse are properly configured before running the command."
+            ),
+            plain_text(
+                "If an error, such as an invalid database configuration or missing "
+                "files, occurs during execution, the command displays an error message "
+                "in the terminal."
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Execute the ",
+                    code("my_streamlit_app"),
+                    " app in the current process without displaying any output.",
+                ),
+                command="snow streamlit execute my_streamlit_app",
+            ),
+            Example(
+                description=plain_text(
+                    "Retrieve the URL for the application after execution and open it "
+                    "in your default web browser."
+                ),
+                command="snow streamlit get-url my_streamlit_app --open",
+            ),
+        ),
+    ),
+)
 def execute(
     name: FQN = StreamlitNameArgument,
     **options,

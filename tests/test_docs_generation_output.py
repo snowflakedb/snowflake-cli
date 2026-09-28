@@ -879,7 +879,9 @@ def test_docs_pages_keep_git_setup_docstring_usage_notes(runner, temporary_direc
     page_path = Path(temporary_directory) / "gen_docs" / "pages" / "git" / "setup.mdx"
     content = page_path.read_text()
     assert "## Usage notes" in content
-    assert "You will be prompted for:" in content
+    assert (
+        "The `snow git setup` command prompts for the following information:" in content
+    )
     assert "## Usage notes\n\nNone" not in content
 
 

@@ -48,6 +48,16 @@ from snowflake.cli._plugins.spcs.services.service_project_paths import (
 )
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    REQ_CONTAINER_SERVICES,
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfExistsOption,
@@ -527,6 +537,127 @@ def events(
 
 @app.command(
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/command-reference/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
+                "spcs command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/service-commands/overview",
+                "service commands",
+            ),
+            link("/developer-guide/snowpark-container-services/working-with-services"),
+            link("/developer-guide/snowpark-container-services/monitoring-services"),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text("The following parameters are required:"),
+            bullet_list(
+                bullet(code("name")),
+                bullet(code("--container-name <name>")),
+                bullet(code("--instance-id <ID>")),
+            ),
+            plain_text(
+                "You can use the ",
+                code("--since"),
+                " and ",
+                code("--until"),
+                " time-based filters to return metrics for a specified period of time. "
+                "You can specify the time as a relative time, such as ",
+                code("1h"),
+                " (hour) or ",
+                code("2d"),
+                " (days).",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Retrieve metrics for a specific service"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Retrieve a subset of metrics for a specific service"
+                ),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0"
+                ),
+            ),
+            Example(
+                description=plain_text("Fetch metrics older than the last two hours"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0 --until '2 hours'"
+                ),
+            ),
+            Example(
+                description=plain_text("Fetch metrics newer than one hour"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0 --since '1hour'"
+                ),
+            ),
+            Example(
+                description=plain_text("Retrieve metrics with all columns"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0 --all"
+                ),
+                output=(
+                    "| TIMESTAMP                  | DATABASE NAME | SCHEMA NAME | "
+                    "SERVICE NAME | INSTANCE NAME | CONTAINER NAME | METRIC NAME                "
+                    "| METRIC VALUE          |\n"
+                    "|----------------------------|---------------|-------------|"
+                    "--------------|---------------|----------------|---------------------------"
+                    "-|-----------------------|\n"
+                    "| 2024-12-18 18:10:25.202000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.cpu.limit        "
+                    "| 1                     |\n"
+                    "| 2024-12-18 18:10:25.202000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.memory.requested "
+                    "| 536870912             |\n"
+                    "| 2024-12-18 18:10:25.202000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.memory.limit     "
+                    "| 6442450944            |\n"
+                    "| 2024-12-18 18:10:25.202000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.cpu.requested    "
+                    "| 0.5                   |\n"
+                    "| 2024-12-18 18:10:08.957000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.cpu.usage        "
+                    "| 0.0004400012665396536 |\n"
+                    "| 2024-12-18 18:10:08.957000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.memory.usage     "
+                    "| 1323008               |"
+                ),
+            ),
+            Example(
+                description=plain_text("Retrieve metrics formatted for JSON output"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0 --format json"
+                ),
+                output=(
+                    "[\n"
+                    " {\n"
+                    '     "TIMESTAMP": "2024-12-14T22:27:25.420489",\n'
+                    '     "SERVICE NAME": "LOG_EVENT",\n'
+                    '     "INSTANCE NAME": "0",\n'
+                    '     "CONTAINER NAME": "log-printer",\n'
+                    '     "METRIC TYPE": "CPU_UTILIZATION",\n'
+                    '     "VALUE": "75.4"\n'
+                    " }\n"
+                    "]"
+                ),
+            ),
+        ),
+    ),
 )
 def metrics(
     name: FQN = ServiceNameArgument,

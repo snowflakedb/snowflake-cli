@@ -5624,9 +5624,9 @@
                                                                                   
    Usage: root dbt copy [OPTIONS] SOURCE_PATH DESTINATION_PATH                    
                                                                                   
-   Copies files between a local directory and a stage, or between stages (you     
-   provide the full @stage/… path). Behaves exactly like snow stage copy; handy   
-   when working with a dbt project's files on a stage.                            
+   Copies files between local directories, stages, or a dbt project object's live 
+   version. This command behaves exactly like snow stage copy; it's provided as a 
+   convenience when working with dbt project files.                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    source_path           TEXT  Source path for copy operation. Can be      |
@@ -11751,10 +11751,10 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | copy       Copies files between a local directory and a stage, or between    |
-  |            stages (you provide the full @stage/… path). Behaves exactly like |
-  |            snow stage copy; handy when working with a dbt project's files on |
-  |            a stage.                                                          |
+  | copy       Copies files between local directories, stages, or a dbt project  |
+  |            object's live version. This command behaves exactly like snow     |
+  |            stage copy; it's provided as a convenience when working with dbt  |
+  |            project files.                                                    |
   | deploy     Upload local dbt project files and create or update a DBT project |
   |            object on Snowflake.                                              |
   | describe   Provides description of dbt project.                              |
@@ -17344,18 +17344,6 @@
    Usage: root git setup [OPTIONS] REPOSITORY_NAME                                
                                                                                   
    Sets up a git repository object.                                               
-                                                                                  
-                                                                                  
-                                    Usage notes                                   
-                                                                                  
-   You will be prompted for:                                                      
-                                                                                  
-    • url - address of repository to be used for git clone operation              
-    • secret - Snowflake secret containing authentication credentials. Not needed 
-      if origin repository does not require authentication for RO operations      
-      (clone, fetch)                                                              
-    • API integration - object allowing Snowflake to interact with git            
-      repository.                                                                 
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    repository_name      TEXT  Identifier of the git repository; for        |
@@ -32155,10 +32143,10 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | copy       Copies files between a local directory and a stage, or between    |
-  |            stages (you provide the full @stage/… path). Behaves exactly like |
-  |            snow stage copy; handy when working with a dbt project's files on |
-  |            a stage.                                                          |
+  | copy       Copies files between local directories, stages, or a dbt project  |
+  |            object's live version. This command behaves exactly like snow     |
+  |            stage copy; it's provided as a convenience when working with dbt  |
+  |            project files.                                                    |
   | deploy     Upload local dbt project files and create or update a DBT project |
   |            object on Snowflake.                                              |
   | describe   Provides description of dbt project.                              |
