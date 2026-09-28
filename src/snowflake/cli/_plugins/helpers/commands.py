@@ -35,8 +35,10 @@ from snowflake.cli._plugins.helpers.installer_path import clean_installer_path_f
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.command_docs import (
+    AdmonitionType,
     CommandDocs,
     Example,
+    admonition,
     code,
     link,
     plain_text,
@@ -76,6 +78,15 @@ log = logging.getLogger(__name__)
 app = SnowTyperFactory(
     name="helpers",
     help="Helper commands.",
+)
+
+_HELPERS_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link("/developer-guide/snowflake-cli/command-reference/helpers-commands/overview"),
 )
 
 
@@ -165,7 +176,89 @@ def clean_installer_path(
     return MessageResult(summary)
 
 
-@app.command()
+@app.command(
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                ref("sf-cli"),
+                " 3.0 introduced support for V2 project definition files. If you have "
+                "existing V1.x project definition files, you can use the ",
+                code("snow helpers v1-to-v2"),
+                " command to convert the files to the V2 version. The command preserves "
+                "the original version in a ",
+                code("snowflake_V1.yml"),
+                " file.",
+            ),
+            plain_text(
+                "You must run this command in the same directory as the ",
+                code("snowflake.yml"),
+                " file.",
+            ),
+            admonition(
+                AdmonitionType.ATTENTION,
+                "With the change in how ",
+                ref("sf-cli"),
+                " 3.0 handles project definition templates, Snowflake cannot guarantee "
+                "that project definition files using ",
+                link(
+                    "/developer-guide/snowflake-cli/project-definitions/create-templates",
+                    "templates",
+                ),
+                " will work correctly after conversion. By default, this command generates "
+                "an error if you try convert a 1.x file that contains templates. You can "
+                "force the command to convert these types of files by using the ",
+                code("--accept-templates"),
+                " option. Then you must manually update any templates to their V2 "
+                "equivalents.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Convert a version 1.x project definition file."
+                ),
+                command="cd <project-directory>\nsnow helpers v1-to-v2",
+                output="Project definition migrated to version 2.",
+            ),
+            Example(
+                description=plain_text("Convert a version 2 project definition file."),
+                command="cd <project-directory>\nsnow helpers v1-to-v2",
+                output="Project definition is already at version 2.",
+            ),
+            Example(
+                description=plain_text(
+                    "Convert a version 1 project definition that contains templates "
+                    "without the ",
+                    code("--accept-templates"),
+                    " option.",
+                ),
+                command="cd <project-directory>\nsnow helpers v1-to-v2",
+                output=(
+                    "+- Error---------------------------------------------------------------------+\n"
+                    "| Project definition contains templates. They may not be migrated correctly, |\n"
+                    "| and require manual migration.You can try again with --accept-templates     |\n"
+                    "| option, to attempt automatic migration.                                    |\n"
+                    "+----------------------------------------------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Convert a version 1 project definition with the ",
+                    code("--accept-templates"),
+                    " option.",
+                ),
+                command="cd <project-directory>\nsnow helpers v1-to-v2",
+                output=(
+                    "WARNING  snowflake.cli._plugins.workspace.commands:commands.py:60 "
+                    "Your V1 definition contains templates. We cannot guarantee the "
+                    "correctness of the migration.\n"
+                    "Project definition migrated to version 2"
+                ),
+            ),
+        ),
+    ),
+)
 def v1_to_v2(
     accept_templates: bool = typer.Option(
         False, "-t", "--accept-templates", help="Allows the migration of templates."
@@ -228,15 +321,8 @@ def v1_to_v2(
     name="import-snowsql-connections",
     requires_connection=False,
     docs=CommandDocs(
-        related=(
-            link("/developer-guide/snowflake-cli/index"),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/overview",
-                "Snowflake CLI command reference",
-            ),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/helpers-commands/overview"
-            ),
+        related=_HELPERS_RELATED
+        + (
             link(
                 "/developer-guide/snowflake-cli/connecting/configure-connections#label-snow"
                 + "cli-import-connections-snowsql",
@@ -538,7 +624,60 @@ def _validate_and_save_connections_imported_from_snowsql(
         )
 
 
-@app.command(name="check-snowsql-env-vars", requires_connection=False)
+@app.command(
+    name="check-snowsql-env-vars",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                "This command helps you migrate from SnowSQL to ",
+                ref("sf-cli"),
+                " by identifying your SnowSQL environment variables and mapping them to "
+                "the corresponding ",
+                ref("sf-cli"),
+                " environment variables. It displays information with suggested changes "
+                "and links to documentation.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example assumes a user has defined the following environment "
+                    "variables:\n\n"
+                    "- ",
+                    code("SNOWSQL_USER"),
+                    ": Username for the connection.\n" "- ",
+                    code("SNOWSQL_ROLE"),
+                    ": Role for the connection.\n" "- ",
+                    code("SNOWSQL_UNUSED"),
+                    ": Variable not used in ",
+                    ref("sf-cli"),
+                    ".",
+                ),
+                command="snow helpers check-snowsql-env-vars",
+                output=(
+                    "+--------------------------------------------------------------------------------------------------------------------------------------------+\n"
+                    "| Found        | Suggested      | Additional info                                                                                            |\n"
+                    "|--------------+----------------+------------------------------------------------------------------------------------------------------------|\n"
+                    "| SNOWSQL_USER | SNOWFLAKE_USER | https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environme |\n"
+                    "|              |                | nt-variables-for-snowflake-credentials                                                                     |\n"
+                    "| SNOWSQL_ROLE | SNOWFLAKE_ROLE | https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environme |\n"
+                    "|              |                | nt-variables-for-snowflake-credentials                                                                     |\n"
+                    "+--------------------------------------------------------------------------------------------------------------------------------------------+\n"
+                    "\n"
+                    "+----------------------------------------------+\n"
+                    "| Found          | Suggested | Additional info |\n"
+                    "|----------------+-----------+-----------------|\n"
+                    "| SNOWSQL_UNUSED | n/a       | Unused variable |\n"
+                    "+----------------------------------------------+\n"
+                    "\n"
+                    "Found 3 SnowSQL environment variables, 2 with replacements, 1 unused."
+                ),
+            ),
+        ),
+    ),
+)
 def check_snowsql_env_vars(**options):
     """Check if there are any SnowSQL environment variables set."""
 
@@ -651,7 +790,67 @@ def _build_project_definition_schema(version: str) -> dict[str, Any]:
     return schema
 
 
-@app.command(name="generate-project-schema", requires_connection=False)
+@app.command(
+    name="generate-project-schema",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                "The generated schema describes the structure of the ",
+                code("snowflake.yml"),
+                " project definition file for the selected definition version. Use the ",
+                code("--definition-version"),
+                " option to choose the version (",
+                code("1"),
+                ", ",
+                code("1.1"),
+                ", or ",
+                code("2"),
+                "; the default is ",
+                code("2"),
+                "), and the ",
+                code("--output-file"),
+                " (or ",
+                code("-o"),
+                ") option to write the schema to a file instead of printing it to "
+                "standard output.",
+            ),
+            plain_text(
+                "Because the schema is derived from the CLI's own models, it validates "
+                "the structure of the file, for example unknown keys, incorrect types, "
+                "and missing required fields. Some cross-field and semantic checks are "
+                "applied only when the project is loaded or deployed, so a file that "
+                "matches the schema can still fail at deploy time.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Print the schema for the default (version 2) project definition to "
+                    "standard output:"
+                ),
+                command="snow helpers generate-project-schema",
+            ),
+            Example(
+                description=plain_text(
+                    "Write the schema to a file that your editor or CI pipeline can "
+                    "reference:"
+                ),
+                command=(
+                    "snow helpers generate-project-schema --output-file "
+                    "snowflake-schema.json"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Generate the schema for a version 1.1 project definition:"
+                ),
+                command="snow helpers generate-project-schema --definition-version 1.1",
+            ),
+        ),
+    ),
+)
 def generate_project_schema(
     version: ProjectDefinitionVersion = typer.Option(  # type: ignore[valid-type]
         _DEFAULT_DEFINITION_VERSION,
@@ -668,16 +867,7 @@ def generate_project_schema(
     ),
     **options,
 ) -> CommandResult:
-    """
-    Generate a JSON Schema for the Snowflake CLI project definition file (snowflake.yml).
-
-    Save the output and reference it from your editor (for example the YAML VS Code
-    extension, via a `# yaml-language-server: $schema=...` modeline or the extension's
-    schema mapping) or a CI pipeline to get completion and to catch typos and type
-    errors in snowflake.yml before a deploy. The schema is generated from the CLI's
-    own pydantic models, so it stays in sync with the structural rules the CLI
-    enforces; some cross-field/semantic checks are only applied at load/deploy time.
-    """
+    """Generate a JSON Schema for the Snowflake CLI project definition file (snowflake.yml)."""
     schema = _build_project_definition_schema(version.value)
 
     if output_file is not None:
@@ -698,7 +888,36 @@ def generate_project_schema(
     return MessageResult(json.dumps(schema, indent=2, sort_keys=True))
 
 
-@app.command(name="check-version", requires_connection=False)
+@app.command(
+    name="check-version",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                code("snow helpers check-version"),
+                " doesn't require a Snowflake connection. It checks locally cached "
+                "version information by default. Use ",
+                code("--refresh"),
+                " to query PyPI and Homebrew directly, bypassing the cache.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Check whether a newer version is available using the local cache:"
+                ),
+                command="snow helpers check-version",
+            ),
+            Example(
+                description=plain_text(
+                    "Query PyPI and Homebrew directly for the latest version:"
+                ),
+                command="snow helpers check-version --refresh",
+            ),
+        ),
+    ),
+)
 def check_version(
     refresh: bool = typer.Option(
         False,
@@ -707,14 +926,7 @@ def check_version(
     ),
     **options,
 ) -> CommandResult:
-    """
-    Check whether a newer version of the Snowflake CLI is available.
-
-    Reports the installed version alongside the latest published version and
-    whether an upgrade is available. This is the on-demand equivalent of the
-    upgrade banner shown automatically after commands, and always reports its
-    result regardless of the ``ignore_new_version_warning`` setting.
-    """
+    """Check whether a newer version of the Snowflake CLI is available."""
     # This command is the explicit, on-demand version check, so mute the passive
     # upgrade banner for this run to avoid duplicating its own output.
     suppress_new_version_banner()
@@ -729,14 +941,51 @@ def check_version(
     return ObjectResult(asdict(info))
 
 
-@app.command(name="detect-encoding", requires_connection=False)
+@app.command(
+    name="detect-encoding",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                "Use ",
+                code("snow helpers detect-encoding"),
+                " to inspect the text encoding ",
+                ref("sf-cli"),
+                " uses in the current environment and to diagnose encoding warnings. "
+                "The command reports the encodings applied to reading and writing project "
+                "files, decoding subprocess output, and writing output to standard output, "
+                "and it highlights settings that can corrupt files when projects are shared "
+                "across platforms, for example between Windows and macOS or Linux.",
+            ),
+            plain_text(
+                "To change these encodings, configure the ",
+                code("[cli.encoding]"),
+                " section of ",
+                code("config.toml"),
+                " or set the corresponding ",
+                code("SNOWFLAKE_CLI_ENCODING_*"),
+                " environment variables. For more information, see ",
+                link("/developer-guide/snowflake-cli/connecting/configure-cli"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Show the encoding configuration for the current environment:"
+                ),
+                command="snow helpers detect-encoding",
+            ),
+            Example(
+                description=plain_text(
+                    "Emit the encoding details as JSON for scripting:"
+                ),
+                command="snow helpers detect-encoding --format json",
+            ),
+        ),
+    ),
+)
 def detect_encoding(**options) -> CommandResult:
-    """
-    Show the encoding configuration for the current environment.
-
-    Displays the platform encoding settings and flags any discrepancies that
-    could cause file corruption when sharing projects across platforms.
-    Run this command after seeing an encoding warning to get the full details
-    and recommended remediation steps.
-    """
+    """Show the encoding configuration for the current environment."""
     return MessageResult(get_encoding_diagnostics())

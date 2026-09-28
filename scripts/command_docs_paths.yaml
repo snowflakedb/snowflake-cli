@@ -16,3 +16,9 @@
 # a local snowflake-prod-docs checkout. Only listed commands are copied.
 
 cortex/complete.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/complete.mdx
+helpers/check-snowsql-env-vars.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/check-snowsql-env-vars.mdx
+helpers/check-version.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/check-version.mdx
+helpers/detect-encoding.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/detect-encoding.mdx
+helpers/generate-project-schema.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/generate-project-schema.mdx
+helpers/import-snowsql-connections.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/import-snowsql-connections.mdx
+helpers/v1-to-v2.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/v1-to-v2.mdx

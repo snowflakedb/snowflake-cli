@@ -113,13 +113,6 @@ _COMMAND_DOCS_MIGRATION_PENDING_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("git", "list-files"),
         ("git", "list-tags"),
         ("git", "setup"),
-        # helpers
-        ("helpers", "check-snowsql-env-vars"),
-        ("helpers", "check-version"),
-        ("helpers", "detect-encoding"),
-        ("helpers", "generate-project-schema"),
-        ("helpers", "import-snowsql-connections"),
-        ("helpers", "v1-to-v2"),
         # init
         ("init",),
         # logs
