@@ -101,6 +101,9 @@ INTEGRATION_OBJECTS = ["external-access-integration", "integration"]
 
 DEFAULT_SIZE_LIMIT_MB = 128
 
+# Cap on CLITelemetryClient's in-memory buffer and on the upgrade JSONL spool.
+TELEMETRY_PENDING_LIMIT = 32
+
 SF_REST_API_URL_PREFIX = "/api/v2"
 
 PROJECT_TEMPLATE_VARIABLE_OPENING = "<%"
