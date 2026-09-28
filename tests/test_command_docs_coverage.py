@@ -80,10 +80,6 @@ _COMMAND_DOCS_MIGRATION_PENDING_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("connection", "set-default"),
         ("connection", "test"),
         # cortex
-        ("cortex", "extract-answer"),
-        ("cortex", "sentiment"),
-        ("cortex", "summarize"),
-        ("cortex", "translate"),
         # custom-image
         ("custom-image", "validate"),
         # dbt

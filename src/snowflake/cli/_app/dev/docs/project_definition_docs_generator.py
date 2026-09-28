@@ -54,5 +54,5 @@ def _render_definition_description(root: SecurePath, section: Dict[str, Any]) ->
     file_path = root / f"definition_{section['name']}.mdx"
     log.info("Creating %s", file_path)
     template = env.get_template(DEFINITION_DESCRIPTION)
-    with file_path.open("w+") as fh:
+    with file_path.open("w+", encoding="utf-8") as fh:
         fh.write(template.render(section))

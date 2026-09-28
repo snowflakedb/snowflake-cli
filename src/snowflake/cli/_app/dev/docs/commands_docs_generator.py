@@ -144,14 +144,14 @@ def _render_command_usage(
         "arguments": arguments,
         "path": path,
     }
-    with file_path.open("w+") as fh:
+    with file_path.open("w+", encoding="utf-8") as fh:
         fh.write(template.render(command_help_params | template_params))
 
 
 def _write_command_page(command: Command, root: SecurePath, path: List):
     file_path = root / f"{command.name}.mdx"
     log.info("Creating %s", file_path)
-    with file_path.open("w+") as fh:
+    with file_path.open("w+", encoding="utf-8") as fh:
         fh.write(_command_page_markdown(command, path))
 
 

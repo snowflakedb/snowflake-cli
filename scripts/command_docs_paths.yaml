@@ -16,6 +16,10 @@
 # a local snowflake-prod-docs checkout. Only listed commands are copied.
 
 cortex/complete.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/complete.mdx
+cortex/extract-answer.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/extract-answer.mdx
+cortex/sentiment.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/sentiment.mdx
+cortex/summarize.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/summarize.mdx
+cortex/translate.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/translate.mdx
 helpers/check-snowsql-env-vars.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/check-snowsql-env-vars.mdx
 helpers/check-version.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/check-version.mdx
 helpers/detect-encoding.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/detect-encoding.mdx
