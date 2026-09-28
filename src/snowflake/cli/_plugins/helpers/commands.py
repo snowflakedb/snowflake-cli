@@ -34,6 +34,14 @@ from snowflake.cli._app.version_check import (
 from snowflake.cli._plugins.helpers.installer_path import clean_installer_path_files
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    code,
+    link,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
     ConnectionConfig,
@@ -216,7 +224,129 @@ def v1_to_v2(
     return MessageResult("Project definition migrated to version 2.")
 
 
-@app.command(name="import-snowsql-connections", requires_connection=False)
+@app.command(
+    name="import-snowsql-connections",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/helpers-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/connecting/configure-connections#label-snow"
+                + "cli-import-connections-snowsql",
+                "Import connections from SnowSQL",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow helpers import-snowsql-connections"),
+                " command imports existing connection definitions from SnowSQL into your ",
+                code("config.toml"),
+                " configuration file.",
+            ),
+            plain_text(
+                "By default, the command reads the SnowSQL configuration files in the order "
+                "described in the ",
+                link(
+                    "/user-guide/snowsql-config#label-configuring-snowsql",
+                    "Configuring SnowSQL",
+                ),
+                " topic. If more than one of these configurations define the same connection, "
+                "this command overwrites the previously imported connection definition with "
+                "the most recent one. To illustrate, assume the same ",
+                code("[connections.example]"),
+                " connection is defined with different parameters in ",
+                code("/etc/snowsql.cnf"),
+                " with ",
+                code("username=user1"),
+                ", and in ",
+                code("<HOME_DIR>/.snowsql/config"),
+                " with ",
+                code("username=user2"),
+                " and ",
+                code("password=<my-pwd>"),
+                ". After you run the command, your ",
+                ref("sf-cli"),
+                " ",
+                code("config.toml"),
+                " file contains the ",
+                code("[connections.example]"),
+                " definition from the file with the higher precedence (",
+                code("username=user2"),
+                " and ",
+                code("password=<my-pwd>"),
+                ").",
+            ),
+            plain_text(
+                "You can use the ",
+                code("--snowsql-config-file"),
+                " option to override this default behavior and import from one or more "
+                "specific SnowSQL configuration files instead.",
+            ),
+            plain_text(
+                "The ",
+                code("snow helpers import-snowsql-connections"),
+                " command also imports the default connection from SnowSQL, which is not a "
+                "named connection. It is defined directly in the ",
+                code("[connections]"),
+                " section of the configuration file. Because ",
+                ref("sf-cli"),
+                " requires all connections to be named, the command defines a connection "
+                "named ",
+                code("[default]"),
+                ". If you want to use another name for the default connection, you can "
+                "specify it with the ",
+                code("--default-connection-name"),
+                " option.",
+            ),
+            plain_text(
+                "If a SnowSQL connection matches the name of an existing ",
+                ref("sf-cli"),
+                " connection, the command prompt asks whether you want to overwrite the "
+                "existing connection or skip importing that SnowSQL connection.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example imports SnowSQL connections from the standard "
+                    "configuration file locations. As the command processes the SnowSQL "
+                    "configuration files, it shows the progress and prompts for "
+                    "confirmation when a connection with the same name is already defined "
+                    "in the ",
+                    ref("sf-cli"),
+                    " ",
+                    code("config.toml"),
+                    " file.",
+                ),
+                command="snow helpers import-snowsql-connections",
+                output=(
+                    "SnowSQL config file [/etc/snowsql.cnf] does not exist. Skipping.\n"
+                    "SnowSQL config file [/etc/snowflake/snowsql.cnf] does not exist. Skipping.\n"
+                    "SnowSQL config file [/usr/local/etc/snowsql.cnf] does not exist. Skipping.\n"
+                    "Trying to read connections from [/Users/<user>/.snowsql.cnf].\n"
+                    "Reading SnowSQL's connection configuration [connections.connection1] from [/Users/<user>/.snowsql.cnf]\n"
+                    "Trying to read connections from [/Users/<user>/.snowsql/config].\n"
+                    "Reading SnowSQL's default connection configuration from [/Users/<user>/.snowsql/config]\n"
+                    "Reading SnowSQL's connection configuration [connections.connection1] from [/Users/<user>/.snowsql/config]\n"
+                    "Reading SnowSQL's connection configuration [connections.connection2] from [/Users/<user>/.snowsql/config]\n"
+                    "Connection 'connection1' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI? [y/N]: Y\n"
+                    "Connection 'connection2' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI? [y/N]: n\n"
+                    "Connection 'default' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI? [y/N]: n\n"
+                    "Saving [connection1] connection in Snowflake CLI's config.\n"
+                    "Connections successfully imported from SnowSQL to Snowflake CLI."
+                ),
+            ),
+        ),
+    ),
+)
 def import_snowsql_connections(
     custom_snowsql_config_files: Optional[List[Path]] = typer.Option(
         None,
