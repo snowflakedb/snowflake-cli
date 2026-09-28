@@ -46,6 +46,8 @@ def add_object_command_aliases(
     limit_option: Optional[typer.Option] = None,
     in_account_option: Optional[typer.Option] = None,
     list_docs: CommandDocs | None = None,
+    describe_docs: CommandDocs | None = None,
+    drop_docs: CommandDocs | None = None,
 ):
     if ommit_commands is None:
         ommit_commands = list()
@@ -98,7 +100,7 @@ def add_object_command_aliases(
 
     if "drop" not in ommit_commands:
 
-        @app.command("drop", requires_connection=True)
+        @app.command("drop", requires_connection=True, docs=drop_docs)
         def drop_cmd(
             name: FQN = name_argument,
             if_exists: bool = IfExistsOption(),
@@ -115,7 +117,7 @@ def add_object_command_aliases(
 
     if "describe" not in ommit_commands:
 
-        @app.command("describe", requires_connection=True)
+        @app.command("describe", requires_connection=True, docs=describe_docs)
         def describe_cmd(name: FQN = name_argument, **options):
             return describe(
                 object_type=object_type.value.cli_name,

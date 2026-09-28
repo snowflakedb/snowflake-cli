@@ -29,6 +29,7 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.command_docs import (
+    PYTHON_EXECUTE_VERSION_SUPPORT,
     CommandDocs,
     Example,
     bullet,
@@ -51,6 +52,25 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.connector import DictCursor
+
+_GIT_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link("/developer-guide/snowflake-cli/command-reference/git-commands/overview"),
+)
+_GIT_COPY_RELATED = _GIT_RELATED + (
+    link("/developer-guide/snowflake-cli/git/copy-files"),
+)
+_GIT_EXECUTE_RELATED = _GIT_RELATED + (
+    link("/developer-guide/snowflake-cli/git/execute-sql"),
+)
+_OBJECT_ALIAS_DOCS = CommandDocs(
+    related=_GIT_RELATED,
+    usage_notes=(plain_text("None."),),
+)
 
 app = SnowTyperFactory(
     name="git",
@@ -91,6 +111,9 @@ add_object_command_aliases(
         help_example='`list --like "my%"` lists all git repositories with name that begin with “my”',
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
+    list_docs=_OBJECT_ALIAS_DOCS,
+    describe_docs=_OBJECT_ALIAS_DOCS,
+    drop_docs=_OBJECT_ALIAS_DOCS,
 )
 
 from snowflake.cli.api.identifiers import FQN
@@ -328,6 +351,21 @@ def setup(
 @app.command(
     "list-branches",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_GIT_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "For example, to list all of the branches in a repository named ",
+                    code("my_snow_git"),
+                    ", enter the following command:",
+                ),
+                command="snow git list-branches my_snow_git",
+                output="show git branches in my_snow_git\n+--------------------------------------------------------------------------------------------------------------------------------------------+\n| name                                     | path                                     | checkouts | commit_hash                              |\n|------------------------------------------+------------------------------------------+-----------+------------------------------------------|\n| SNOW-1011750-service-create-options      | /branches/SNOW-1011750-service-create-op |           | 729855df0104c8d0ef1c7a3e8f79fe50c6c8d2fa |\n|                                          | tions                                    |           |                                          |\n| SNOW-1011775-containers-to-spcs-int-test | /branches/SNOW-1011775-containers-to-spc |           | e81b00de6b0eb73a99a7baaa39b0afa5ea1202d0 |\n| s                                        | s-int-tests                              |           |                                          |\n| SNOW-1105629-git-integration-tests       | /branches/SNOW-1105629-git-integration-t |           | 712b07b5e692624c34caabe07d64801615ce5f0f |\n+--------------------------------------------------------------------------------------------------------------------------------------------+",
+            ),
+        ),
+    ),
 )
 def list_branches(
     repository_name: FQN = RepoNameArgument,
@@ -336,9 +374,7 @@ def list_branches(
     ),
     **options,
 ) -> CommandResult:
-    """
-    List all branches in the repository.
-    """
+    """List all branches in the repository."""
     return QueryResult(
         GitManager().show_branches(repo_name=repository_name.identifier, like=like)
     )
@@ -347,6 +383,21 @@ def list_branches(
 @app.command(
     "list-tags",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_GIT_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "For example, to list all of the tags in a repository named ",
+                    code("my_snow_git"),
+                    ", enter the following command:",
+                ),
+                command="snow git list-tags my_snow_git",
+                output="show git tags in my_snow_git\n+--------------------------------------------------------------------------------------------------------------+\n| name           | path                 | commit_hash                 | author                       | message |\n|----------------+----------------------+-----------------------------+------------------------------+---------|\n| v2.0.0rc3      | /tags/v2.0.0rc3      | 2b019d2841da823d8001f23c6f3 | None                         | None    |\n|                |                      | 064e5899142a0               |                              |         |\n| v2.1.0-rc0     | /tags/v2.1.0-rc0     | 829887b758b43b86959611dd612 | None                         | None    |\n|                |                      | 7638da75cf871               |                              |         |\n| v2.1.0-rc1     | /tags/v2.1.0-rc1     | b7efe1fe9c0925b95ba214e233b | None                         | None    |\n|                |                      | 18924fa0404b3               |                              |         |\n+--------------------------------------------------------------------------------------------------------------+",
+            ),
+        ),
+    ),
 )
 def list_tags(
     repository_name: FQN = RepoNameArgument,
@@ -355,9 +406,7 @@ def list_tags(
     ),
     **options,
 ) -> CommandResult:
-    """
-    List all tags in the repository.
-    """
+    """List all tags in the repository."""
     return QueryResult(
         GitManager().show_tags(repo_name=repository_name.identifier, like=like)
     )
@@ -366,15 +415,46 @@ def list_tags(
 @app.command(
     "list-files",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_GIT_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example lists all of the files in the ",
+                    code("tests/"),
+                    " directory of the ",
+                    code("my_snow_git"),
+                    " repository marked with the ",
+                    code("v2.0.0"),
+                    " tag:",
+                ),
+                command='snow git list-files @my_snow_git/tags/v2.0.0/tests --pattern ".*\\.toml"',
+                output=(
+                    "ls @"
+                    + "snow"
+                    + "cli_git/tags/v2.0.0/tests pattern = '.*\\.toml'\n"
+                    "+-----------------------------------------------------------------------------------------------------------------------------------------+\n"
+                    "| name                                            | size | md5  | sha1                                     | last_modified                |\n"
+                    "|-------------------------------------------------+------+------+------------------------------------------+------------------------------|\n"
+                    "| "
+                    + "snow"
+                    + "cli_git/tags/v2.0.0/tests/empty_config.toml | 0    | None | e69de29bb2d1d6434b8b29ae775ad8c2e48c5391 | Mon, 5 Feb 2024 13:16:25 GMT |\n"
+                    "| "
+                    + "snow"
+                    + "cli_git/tags/v2.0.0/tests/test.toml         | 381  | None | 45f1c00f16eba1b7bc7b4ab2982afe95d0161e7f | Mon, 5 Feb 2024 13:16:25 GMT |\n"
+                    "+-----------------------------------------------------------------------------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
 )
 def list_files(
     repository_path: str = RepoPathArgument,
     pattern=PatternOption,
     **options,
 ) -> CommandResult:
-    """
-    List files from given state of git repository.
-    """
+    """List files from given state of git repository."""
     return QueryResult(
         GitManager().list_files(stage_name=repository_path, pattern=pattern)
     )
@@ -383,20 +463,66 @@ def list_files(
 @app.command(
     "fetch",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_GIT_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example refreshes a repository named ",
+                    code("my_snow_git"),
+                    ":",
+                ),
+                command="snow git fetch my_snow_git",
+                output="alter Git repository my_snow_git fetch\n+-------------------------------------------------------------------+\n| status                                                            |\n|-------------------------------------------------------------------|\n| Git Repository MY_SNOW_GIT is up to date. No change was fetched.. |\n+-------------------------------------------------------------------+",
+            ),
+        ),
+    ),
 )
 def fetch(
     repository_name: FQN = RepoNameArgument,
     **options,
 ) -> CommandResult:
-    """
-    Fetch changes from origin to Snowflake repository.
-    """
+    """Fetch changes from origin to Snowflake repository."""
     return QueryResult(GitManager().fetch(fqn=repository_name))
 
 
 @app.command(
     "copy",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_GIT_COPY_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example creates a ",
+                    code("snow" + "cli" + "2.0/"),
+                    " directory on stage ",
+                    code("@public"),
+                    " and copies all files from the commit marked with tag ",
+                    code("v2.0.0"),
+                    " into that directory:",
+                ),
+                command="snow git copy @my_snow_git/tags/v2.0.0/ @public/"
+                + "snow"
+                + "cli"
+                + "2.0/",
+            ),
+            Example(
+                description=plain_text(
+                    "The following example creates a ",
+                    code("plugin_tests"),
+                    " directory in the local file system and downloads the contents of the ",
+                    code("tests/plugin"),
+                    " directory into it.",
+                ),
+                command="snow git copy @"
+                + "snow"
+                + "cli_git/branches/main/tests/plugin plugin_tests/",
+            ),
+        ),
+    ),
 )
 def copy(
     repository_path: str = RepoPathArgument,
@@ -430,7 +556,47 @@ def copy(
     )
 
 
-@app.command("execute", requires_connection=True)
+@app.command(
+    "execute",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_GIT_EXECUTE_RELATED,
+        usage_notes=(
+            PYTHON_EXECUTE_VERSION_SUPPORT,
+            plain_text(
+                "You can use glob-like patterns to filter the files, such as ",
+                code("@my_repo/branches/main/*.sql"),
+                " and ",
+                code("@my_repo/branches/main/dev/*"),
+                ". The command only executes files with a ",
+                code(".sql"),
+                " extension.",
+            ),
+            plain_text(
+                "When using Jinja templates for the SQL files, you can pass template variables using ",
+                code("-D"),
+                " or ",
+                code("--variable"),
+                " option, such as ",
+                code('-D "<key>=<value>"'),
+                ". You must enclose string values in single quotes (",
+                code("''"),
+                ").",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example shows how to execute SQL commands in all files within the ",
+                    code("project"),
+                    " directory that match a regular expression.",
+                ),
+                command='snow git execute "@git_test/branches/main/projects/script*.sql"',
+                output="SUCCESS - git_test/branches/main/projects/script1.sql\nSUCCESS - git_test/branches/main/projects/script2.sql\nSUCCESS - git_test/branches/main/projects/script3.sql\n+---------------------------------------------------------------+\n| File                                        | Status  | Error |\n|---------------------------------------------+---------+-------|\n| git_test/branches/main/projects/script1.sql | SUCCESS | None  |\n| git_test/branches/main/projects/script2.sql | SUCCESS | None  |\n| git_test/branches/main/projects/script3.sql | SUCCESS | None  |\n+---------------------------------------------------------------+",
+            ),
+        ),
+    ),
+)
 def execute(
     repository_path: str = RepoPathArgument,
     on_error: OnErrorType = OnErrorOption,

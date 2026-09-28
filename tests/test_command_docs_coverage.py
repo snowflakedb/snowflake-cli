@@ -91,15 +91,6 @@ _COMMAND_DOCS_MIGRATION_PENDING_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("dcm", "plan"),
         ("dcm", "purge"),
         # git
-        ("git", "copy"),
-        ("git", "describe"),
-        ("git", "drop"),
-        ("git", "execute"),
-        ("git", "fetch"),
-        ("git", "list"),
-        ("git", "list-branches"),
-        ("git", "list-files"),
-        ("git", "list-tags"),
         ("git", "setup"),
         # init
         ("init",),

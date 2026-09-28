@@ -23,6 +23,7 @@ from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
     collect_page_includes,
     get_command_docs,
+    plain_text,
 )
 from snowflake.cli.api.commands.command_docs_rendering import (
     mdx_escape,
@@ -216,4 +217,9 @@ def _page_examples_fallback(
 ) -> str | None:
     if docs.examples is not None:
         return None
-    return _additional_section(command_help_params, "Examples")
+    fallback = _additional_section(command_help_params, "Examples")
+    if fallback is not None:
+        return fallback
+    if docs.usage_notes == (plain_text("None."),):
+        return "None."
+    return None
