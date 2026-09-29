@@ -95,6 +95,22 @@ OpenOption = typer.Option(
     is_flag=True,
 )
 
+_STREAMLIT_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/streamlit-commands/overview",
+        "Streamlit commands",
+    ),
+)
+
+_STREAMLIT_OBJECT_ALIAS_DOCS = CommandDocs(
+    related=_STREAMLIT_RELATED,
+    usage_notes=(plain_text("None."),),
+)
 
 add_object_command_aliases(
     app=app,
@@ -104,80 +120,70 @@ add_object_command_aliases(
         help_example='`list --like "my%"` lists all streamlit apps that begin with “my”'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
+    list_docs=_STREAMLIT_OBJECT_ALIAS_DOCS,
+    describe_docs=_STREAMLIT_OBJECT_ALIAS_DOCS,
+    drop_docs=_STREAMLIT_OBJECT_ALIAS_DOCS,
 )
 
-
-@app.command(
-    requires_connection=True,
-    docs=CommandDocs(
-        related=(
-            link("/developer-guide/snowflake-cli/index"),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/overview",
-                "Snowflake CLI command reference",
-            ),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/streamlit-commands/overview",
-                "Streamlit commands",
+_EXECUTE_DOCS = CommandDocs(
+    related=_STREAMLIT_RELATED,
+    usage_notes=(
+        plain_text(
+            "The command allows a Streamlit app to be executed without user "
+            "interaction, such as for batch processing or automation tasks."
+        ),
+        plain_text(
+            "Before executing this command, the following requirements must be met:"
+        ),
+        bullet_list(
+            bullet("You must have a valid Snowflake connection."),
+            bullet("The app must already be deployed in the Snowflake environment."),
+            bullet(
+                "A valid configuration ",
+                code("snowflake.yml"),
+                " file must exist with the ",
+                code("query_warehouse"),
+                " and ",
+                code("stage"),
+                " settings defined.",
             ),
         ),
-        usage_notes=(
-            plain_text(
-                "The command allows a Streamlit app to be executed without user "
-                "interaction, such as for batch processing or automation tasks."
-            ),
-            plain_text(
-                "Before executing this command, the following requirements must be met:"
-            ),
-            bullet_list(
-                bullet("You must have a valid Snowflake connection."),
-                bullet(
-                    "The app must already be deployed in the Snowflake environment."
-                ),
-                bullet(
-                    "A valid configuration ",
-                    code("snowflake.yml"),
-                    " file must exist with the ",
-                    code("query_warehouse"),
-                    " and ",
-                    code("stage"),
-                    " settings defined.",
-                ),
-            ),
-            plain_text(
-                "The application logic, such as calculations and file processing, runs "
-                "as if the app were displayed, but does not render any user-visible "
-                "output."
-            ),
-            plain_text(
-                "You must ensure that your Snowflake account, database, schema, and "
-                "warehouse are properly configured before running the command."
-            ),
-            plain_text(
-                "If an error, such as an invalid database configuration or missing "
-                "files, occurs during execution, the command displays an error message "
-                "in the terminal."
-            ),
+        plain_text(
+            "The application logic, such as calculations and file processing, runs "
+            "as if the app were displayed, but does not render any user-visible "
+            "output."
         ),
-        examples=(
-            Example(
-                description=plain_text(
-                    "Execute the ",
-                    code("my_streamlit_app"),
-                    " app in the current process without displaying any output.",
-                ),
-                command="snow streamlit execute my_streamlit_app",
+        plain_text(
+            "You must ensure that your Snowflake account, database, schema, and "
+            "warehouse are properly configured before running the command."
+        ),
+        plain_text(
+            "If an error, such as an invalid database configuration or missing "
+            "files, occurs during execution, the command displays an error message "
+            "in the terminal."
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "Execute the ",
+                code("my_streamlit_app"),
+                " app in the current process without displaying any output.",
             ),
-            Example(
-                description=plain_text(
-                    "Retrieve the URL for the application after execution and open it "
-                    "in your default web browser."
-                ),
-                command="snow streamlit get-url my_streamlit_app --open",
+            command="snow streamlit execute my_streamlit_app",
+        ),
+        Example(
+            description=plain_text(
+                "Retrieve the URL for the application after execution and open it "
+                "in your default web browser."
             ),
+            command="snow streamlit get-url my_streamlit_app --open",
         ),
     ),
 )
+
+
+@app.command(requires_connection=True, docs=_EXECUTE_DOCS)
 def execute(
     name: FQN = StreamlitNameArgument,
     **options,
@@ -189,7 +195,25 @@ def execute(
     return MessageResult(f"Streamlit {name} executed.")
 
 
-@app.command("share", requires_connection=True)
+_SHARE_DOCS = CommandDocs(
+    related=_STREAMLIT_RELATED,
+    usage_notes=(plain_text("None."),),
+    examples=(
+        Example(
+            description=plain_text(
+                "The following example shares ",
+                code("my-app"),
+                " with the custom ",
+                code("analyst"),
+                " role:",
+            ),
+            command="snow streamlit share my-app analyst",
+        ),
+    ),
+)
+
+
+@app.command("share", requires_connection=True, docs=_SHARE_DOCS)
 @with_project_definition(is_optional=True)
 def streamlit_share(
     name: FQN = StreamlitNameArgument,
@@ -401,7 +425,64 @@ LegacyOption = typer.Option(
 )
 
 
-@app.command("deploy", requires_connection=True)
+_DEPLOY_DOCS = CommandDocs(
+    related=_STREAMLIT_RELATED,
+    usage_notes=(
+        plain_text(
+            "This command creates a Streamlit app object in the database and a schema "
+            "configured in the specified ",
+            code("connection"),
+            ".",
+        ),
+        plain_text(
+            "The command uploads local files to a specified stage and creates a Streamlit "
+            "app using those files. You must specify the main Python file and query "
+            "warehouse. By default, the command uploads the ",
+            code("environment.yml"),
+            " and ",
+            code("pages/"),
+            " folder if present. The Streamlit app is created in the database and "
+            "schema configured in the specified ",
+            code("connection"),
+            ".",
+        ),
+        plain_text(
+            "If you don't specify a stage name, the ",
+            code("streamlit"),
+            " stage is used. If the specified stage does not exist, the command "
+            "creates it. You can modify the behavior by using ",
+            link(
+                "/developer-guide/snowflake-cli/command-reference/streamlit-commands/deploy",
+                "command-line options",
+            ),
+            ".",
+        ),
+        plain_text(
+            "If you specify the ",
+            code("--replace"),
+            " option, the command uploads new files and overwrites existing files. It "
+            "does not remove any files already on the stage.",
+        ),
+        plain_text(
+            "If you specify the ",
+            code("--prune"),
+            " option, the command removes files that exist in the stage, but not files "
+            "in the local filesystem.",
+        ),
+    ),
+    examples=(
+        Example(
+            command="snow streamlit deploy demo_app --replace",
+            output=(
+                "Streamlit successfully deployed and available under "
+                "https://app.snowflake.com/myorg/myacc/#/streamlit-apps/JDOE.PUBLIC.DEMO_APP"
+            ),
+        ),
+    ),
+)
+
+
+@app.command("deploy", requires_connection=True, docs=_DEPLOY_DOCS)
 @with_project_definition()
 @with_experimental_behaviour()  # Kept for backward compatibility
 def streamlit_deploy(
@@ -468,7 +549,57 @@ def streamlit_deploy(
     return MessageResult(f"Streamlit successfully deployed and available under {url}")
 
 
-@app.command("get-url", requires_connection=True)
+_GET_URL_DOCS = CommandDocs(
+    related=_STREAMLIT_RELATED,
+    usage_notes=(
+        plain_text(
+            "The ",
+            code("streamlit get-url"),
+            " command returns a url link to an existing Streamlit application. You can "
+            "also use the ",
+            code("--open"),
+            " option to automatically open the Streamlit in a new tab in your browser.",
+        ),
+        plain_text("Note the following requirements:"),
+        bullet_list(
+            bullet("The app must already be deployed."),
+            bullet("You must use the same connection that was used to deploy the app."),
+            bullet(
+                "If your app is running under different database and schema than "
+                "specified in the connection, you must provide them in name as a "
+                "fully-qualified name, such as ",
+                code("database.schema.name"),
+                ".",
+            ),
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "Get a URL for an app using the database and schema specified in the "
+                "default connection and opens it in your browser:"
+            ),
+            command="snow streamlit get-url my_streamlit_app --open",
+            output=(
+                "https://snowflake.com/provider-deduced-from-connection/#/streamlit-apps/"
+                "DB.PUBLIC.MY_STREAMLIT_APP"
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "Get a URL for an app using a fully-qualified database and schema name:"
+            ),
+            command="snow streamlit get-url database.schema.my_streamlit_app",
+            output=(
+                "https://snowflake.com/provider-deduced-from-connection/#/streamlit-apps/"
+                "DATABASE.SCHEMA.MY_STREAMLIT_APP"
+            ),
+        ),
+    ),
+)
+
+
+@app.command("get-url", requires_connection=True, docs=_GET_URL_DOCS)
 def get_url(
     name: FQN = StreamlitNameArgument,
     open_: bool = OpenOption,
@@ -481,7 +612,81 @@ def get_url(
     return MessageResult(url)
 
 
-@app.command("logs", requires_connection=True)
+_LOGS_DOCS = CommandDocs(
+    related=_STREAMLIT_RELATED,
+    usage_notes=(
+        plain_text(
+            "The ",
+            code("streamlit logs"),
+            " command attaches to the running container of a deployed Streamlit app and "
+            "streams log entries until you stop the command with Ctrl+C. Note the "
+            "following requirements:",
+        ),
+        bullet_list(
+            bullet(
+                "The Streamlit app must already be deployed and running on the SPCSv2 "
+                "container runtime. If the app uses an earlier runtime, the command exits "
+                "with an error from the runtime check."
+            ),
+            bullet(
+                "You must use the same Snowflake connection (or override values) that has "
+                "access to the app's database, schema, and role."
+            ),
+            bullet(
+                "Pair the command with the global ",
+                code("--format"),
+                " option to convert the live stream to JSON or CSV for downstream piping. "
+                "For example, ",
+                code("snow streamlit logs my_app --format json | jq ..."),
+                ".",
+            ),
+            bullet(
+                "Use the ",
+                code("--tail"),
+                " option to control how many historical log lines are sent before the live "
+                "stream begins. Pass ",
+                code("--tail 0"),
+                " to receive only new log entries.",
+            ),
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "Stream live logs (and the most recent 100 historical lines) for the "
+                "Streamlit app defined in the current project's ",
+                code("snowflake.yml"),
+                ":",
+            ),
+            command="snow streamlit logs",
+        ),
+        Example(
+            description=plain_text(
+                "Stream live logs for a specific app by fully qualified name, without a "
+                "project definition:"
+            ),
+            command="snow streamlit logs --name my_db.public.my_streamlit_app",
+        ),
+        Example(
+            description=plain_text(
+                "Stream only live entries (no historical lines) and pipe the "
+                "JSON-formatted stream to another tool:"
+            ),
+            command="snow streamlit logs my_streamlit --tail 0 --format json",
+        ),
+        Example(
+            description=plain_text(
+                "When several Streamlit entities are defined in ",
+                code("snowflake.yml"),
+                ", target one by entity ID:",
+            ),
+            command="snow streamlit logs my_streamlit_entity --tail 500",
+        ),
+    ),
+)
+
+
+@app.command("logs", requires_connection=True, docs=_LOGS_DOCS)
 @with_project_definition(is_optional=True)
 def streamlit_logs(
     entity_id: str = entity_argument("streamlit"),
