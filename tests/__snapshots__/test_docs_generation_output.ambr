@@ -1,4 +1,5 @@
 # serializer version: 1
+# ---
 # name: test_flags_have_default_values
   '''
   Given a prompt, the command generates a response using your choice of language model. In the simplest use case, the prompt is a single string. You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
@@ -204,7 +205,7 @@
   <dt><code className="samp">--diag-log-path <em>TEXT</em></code></dt>
   <dd>
   
-  Path for the generated report. Defaults to system temporary directory. Default: <system_temporary_directory>.
+  Path for the generated report. Defaults to system temporary directory. Default: &lt;system_temporary_directory&gt;.
   
   </dd>
   <dt><code className="samp">--diag-allowlist-path <em>TEXT</em></code></dt>
@@ -288,7 +289,7 @@
   <dt>`--format [TABLE|JSON|JSON_EXT|CSV]`</dt>
   <dd>
   
-  Specifies the output format. Default: TABLE.
+  Specifies the output format. [env var: SNOWFLAKE_CLI_OUTPUT_FORMAT | config: cli.output_format]. Default: TABLE.
   
   </dd>
   <dt>`--verbose, -v`</dt>
@@ -322,6 +323,81 @@
   
   </dd>
   </dl>
+  
+  '''
+# ---
+# name: test_render_command_page_with_structured_docs
+  '''
+  ---
+  title: snow plugin demo
+  description: ''
+  ---
+  
+  import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
+  
+  # snow plugin demo
+  
+  <RelatedTopics>
+  - [](/developer-guide/snowflake-cli/data-pipelines/dcm-projects)
+  - [DCM &lt;projects&gt; overview](/user-guide/dcm-projects/dcm-projects-overview)
+  </RelatedTopics>
+  
+  Executes the demo object.
+  
+  ## Syntax
+  
+  ```console
+  snow plugin demo
+    <object_name>
+    --force
+  ```
+  
+  ## Arguments
+  
+  <dl>
+  <dt><code className="samp"><em>object_name</em></code></dt>
+  <dd>
+  
+  *Required*
+  
+  Name of the object.
+  
+  </dd>
+  </dl>
+  
+  ## Options
+  
+  <dl>
+  <dt>`--force`</dt>
+  <dd>
+  
+  Skip the confirmation prompt. Default: False.
+  
+  </dd>
+  </dl>
+  
+  <Help />
+  
+  ## Usage notes
+  
+  Use `--force` to skip the prompt.
+  
+  The &lt;object_name&gt; object must already exist.
+  
+  ## Examples
+  
+  - The following example executes the &lt;object_name&gt; object:
+    ```snowcli
+    snow plugin demo MY_OBJECT
+    ```
+  
+    ```text
+    Object <MY_OBJECT> executed.
+    ```
+  
+  - ```snowcli
+    snow plugin demo OTHER --force
+    ```
   
   '''
 # ---

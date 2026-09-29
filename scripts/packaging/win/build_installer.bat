@@ -33,6 +33,12 @@ smctl windows certsync || goto :error
 smctl sign --keypair-alias %digicert_key_name% --input dist\snow\snow.exe || goto :error
 signtool verify /v /pa dist\snow\snow.exe || goto :error
 
+if exist dist\snowflake-managed\snow.exe (
+  smctl sign --keypair-alias %digicert_key_name% --input dist\snowflake-managed\snow.exe || goto :error
+  signtool verify /v /pa dist\snowflake-managed\snow.exe || goto :error
+  python.exe scripts\packaging\build_isolated_binary_with_hatch.py --pack-tarball dist\snowflake-managed\snow.exe --version %CLI_VERSION% --os-name windows --arch amd64 || goto :error
+)
+
 candle.exe ^
   -arch x64 ^
   -dSnowflakeCLIVersion=%CLI_VERSION% ^
@@ -53,6 +59,10 @@ signtool verify /v /pa %CLI_MSI% || goto :error
 
 echo "[INFO] uploading artifacts"
 cmd /c aws s3 cp %CLI_MSI% %RELEASE_URL%/%CLI_MSI% || goto :error
+if exist dist\snowflake-cli-%CLI_VERSION%-windows-amd64.tar.gz (
+  cmd /c aws s3 cp dist\snowflake-cli-%CLI_VERSION%-windows-amd64.tar.gz %RELEASE_URL%/snowflake-cli-%CLI_VERSION%-windows-amd64.tar.gz || goto :error
+  cmd /c aws s3 cp dist\manifest-windows-amd64.json %RELEASE_URL%/manifest-windows-amd64.json || goto :error
+)
 
 REM FINISH SCRIPT EXECUTION HERE
 GOTO :EOF

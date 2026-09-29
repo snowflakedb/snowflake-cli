@@ -1,0 +1,44 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Maps pages written by `snow --docs-pages` (under gen_docs/pages/) to paths in
+# a local snowflake-prod-docs checkout. Only listed commands are copied.
+
+connection/add.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/add-connection.mdx
+connection/generate-jwt.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/generate-jwt.mdx
+connection/generate-workload-identity-token.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/generate-workload-identity-token.mdx
+connection/list.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/list-connections.mdx
+connection/remove.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/remove-connection.mdx
+connection/set-default.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/set-default-connection.mdx
+connection/test.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/test-connection.mdx
+cortex/complete.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/complete.mdx
+cortex/extract-answer.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/extract-answer.mdx
+cortex/sentiment.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/sentiment.mdx
+cortex/summarize.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/summarize.mdx
+cortex/translate.mdx: content/en/developer-guide/snowflake-cli/command-reference/cortex-commands/translate.mdx
+git/copy.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/copy.mdx
+git/describe.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/describe.mdx
+git/drop.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/drop.mdx
+git/execute.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/execute.mdx
+git/fetch.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/fetch.mdx
+git/list-branches.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/list-branches.mdx
+git/list-files.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/list-files.mdx
+git/list-tags.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/list-tags.mdx
+git/list.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/list.mdx
+helpers/check-snowsql-env-vars.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/check-snowsql-env-vars.mdx
+helpers/check-version.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/check-version.mdx
+helpers/detect-encoding.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/detect-encoding.mdx
+helpers/generate-project-schema.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/generate-project-schema.mdx
+helpers/import-snowsql-connections.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/import-snowsql-connections.mdx
+helpers/v1-to-v2.mdx: content/en/developer-guide/snowflake-cli/command-reference/helpers-commands/v1-to-v2.mdx

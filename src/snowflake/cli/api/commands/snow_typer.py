@@ -22,10 +22,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import click
 import typer
 from click import ClickException
+from snowflake.cli.api.commands.command_docs import DOCS_ATTRIBUTE, CommandDocs
 from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
 )
+from snowflake.cli.api.commands.docs_help import SnowTyperCommand
 from snowflake.cli.api.commands.execution_metadata import (
     ExecutionMetadata,
     ExecutionStatus,
@@ -95,6 +97,7 @@ class SnowTyper(typer.Typer):
         is_enabled: Callable[[], bool] | None = None,
         require_warehouse: bool = False,
         preview: bool = False,
+        docs: Optional[CommandDocs] = None,
         **kwargs,
     ):
         """
@@ -104,12 +107,16 @@ class SnowTyper(typer.Typer):
         """
         name = sanitize_for_terminal(name)
         self._sanitize_kwargs(kwargs)
+        if docs is not None:
+            kwargs.setdefault("cls", SnowTyperCommand)
         if is_enabled is not None and not is_enabled():
             return lambda func: func
 
         def custom_command(command_callable):
             """Custom command wrapper similar to Typer.command."""
             command_callable.__doc__ = sanitize_for_terminal(command_callable.__doc__)
+            if docs is not None:
+                setattr(command_callable, DOCS_ATTRIBUTE, docs)
 
             if preview and command_callable.__doc__:
                 if not command_callable.__doc__.strip().startswith(PREVIEW_PREFIX):
@@ -168,14 +175,20 @@ class SnowTyper(typer.Typer):
     def process_result(result):
         """Command result processor"""
         from snowflake.cli._app.printing import print_result
+        from snowflake.cli.api.cli_global_context import get_cli_context
 
         # Because we still have commands like "logs" that do not return anything.
         # We should improve it in future.
-        if not result:
-            return
-        if not isinstance(result, CommandResult):
-            raise CommandReturnTypeError(type(result))
-        print_result(result)
+        try:
+            if result:
+                if not isinstance(result, CommandResult):
+                    raise CommandReturnTypeError(type(result))
+                print_result(result)
+        except BaseException as err:
+            get_cli_context().metrics.conclude_deferred_spans(error=err)
+            raise
+        else:
+            get_cli_context().metrics.conclude_deferred_spans()
 
     @staticmethod
     def exception_handler(exception: Exception, execution: ExecutionMetadata):

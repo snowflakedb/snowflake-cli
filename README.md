@@ -96,6 +96,50 @@ snow --version
 
 You should now be able to run `snow` and get the CLI message.
 
+## Customize the SQL REPL prompt
+
+The interactive `snow sql` prompt remains ` > ` unless you opt in with
+`--prompt-format` or a quoted `prompt_format` string in the `[cli]` section of
+`config.toml`. Placeholders (case-insensitive) are `[user]`, `[host]`,
+`[account]`, `[role]`, `[warehouse]`, `[database]`, `[schema]`, and
+`[connection]` (the `-c` connection name). They update after `USE`. Example:
+
+```
+snow sql --prompt-format "[user]#[warehouse]@[database].[schema]> "
+```
+
+Missing values render as `(no user)`, `(no database)`, and so on.
+`\n` is a newline; `\[`, `\]`, and `\\` are literal `[`, `]`, and `\`.
+Use `[#rrggbb]` for a foreground colour and `[bg:#rrggbb]` for a background
+colour. A colour applies to the prompt text that follows it; it does not colour
+SQL input. Quote the value because `#` starts a TOML comment. For example:
+
+```toml
+[cli]
+prompt_format = """┌──[#bca81f][user]@[account].[role].[warehouse].[database].[schema]
+[#ffff00]└─$"""
+```
+
+SnowSQL often puts a colour after the marker (`└─$[#ffff00]`). Here that
+trailing token is a no-op: it does not colour typed SQL. Place `[#ffff00]`
+before `└─$` if you want the marker itself yellow.
+
+Unknown bracketed tokens are dropped from the prompt and reported with a
+warning when the REPL starts. Prefix a colour directive with `\[` to display
+it literally.
+
+## Default output format
+
+Commands print a table unless you pass `--format`. To change that default, set
+`output_format` in the `[cli]` section of `config.toml` or the
+`SNOWFLAKE_CLI_OUTPUT_FORMAT` environment variable. Allowed values are `TABLE`,
+`JSON`, `JSON_EXT`, and `CSV`. `--format` on the command line still wins.
+
+```toml
+[cli]
+output_format = "JSON"
+```
+
 ## Get involved
 
 Have a feature idea? Running into a bug? Want to contribute? We'd love to hear from you!

@@ -28,7 +28,10 @@ from snowflake.cli._plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
     split_downloaded_dependencies,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 @patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
@@ -172,6 +175,7 @@ def test_build_with_skip_dependencies_warns_when_no_packages_are_declared(
     assert result.exit_code == 0, result.output
     assert "No packages are declared" in result.output
     assert "func1" in result.output
+    assert "reads neither requirements.txt nor pyproject.toml" in result.output
 
 
 def test_build_with_skip_dependencies_warns_when_repository_declares_no_packages(
@@ -189,6 +193,50 @@ def test_build_with_skip_dependencies_warns_when_repository_declares_no_packages
 
     assert result.exit_code == 0, result.output
     assert "No packages are declared" in result.output
+
+
+def test_build_with_skip_dependencies_does_not_warn_when_flag_sends_project_requirements(
+    runner, project_directory, alter_snowflake_yml
+):
+    """With the flag on, a repository entity with no yaml packages is the one
+    deploy will fill from requirements.txt — not "deployed with no dependencies"."""
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_functions_v2") as tmp_dir,
+    ):
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.func1.artifact_repository",
+            value="db.schema.repo",
+        )
+
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies"])
+
+    assert result.exit_code == 0, result.output
+    assert "No packages are declared" not in result.output
+
+
+def test_build_with_skip_dependencies_warns_when_flag_sends_empty_requirements(
+    runner, project_directory
+):
+    """With the flag on, an empty requirements file is still packages=() at
+    deploy, so --skip-dependencies must warn."""
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_artifact_repository_requirements") as tmp_dir,
+    ):
+        (tmp_dir / "requirements.txt").unlink()
+
+        result = runner.invoke(["snowpark", "build", "--skip-dependencies"])
+
+    assert result.exit_code == 0, result.output
+    assert "No packages are declared" in result.output
+    assert "reads neither requirements.txt nor pyproject.toml" not in result.output
+    assert "requirements.txt" in result.output
 
 
 def test_build_with_skip_dependencies_does_not_warn_when_packages_are_declared(

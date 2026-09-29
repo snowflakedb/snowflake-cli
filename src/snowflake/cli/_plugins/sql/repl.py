@@ -1,20 +1,32 @@
+import time
 from contextlib import contextmanager
 from logging import getLogger
-from typing import Iterable
+from typing import Iterable, Tuple
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.filters import Condition, is_done, is_searching
+from prompt_toolkit.formatted_text import AnyFormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
+from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
 from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
+from snowflake.cli._plugins.sql.prompt_format import (
+    DEFAULT_REPL_PROMPT,
+    format_repl_prompt_for_terminal,
+    session_prompt_values,
+)
 from snowflake.cli._plugins.sql.repl_commands import detect_command
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.config import get_config_manager
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
 from snowflake.cli.api.rendering.sql_templates import SQLTemplateSyntaxConfig
 from snowflake.cli.api.secure_path import SecurePath
@@ -32,6 +44,14 @@ def _get_history_file():
 
 HISTORY_FILE = None  # Will be set lazily
 EXIT_KEYWORDS = ("exit", "quit")
+
+
+def _print_sql_elapsed(elapsed_seconds: float) -> None:
+    output_format = get_cli_context().output_format or OutputFormat.TABLE
+    if output_format is not OutputFormat.TABLE:
+        return
+    cli_console.message(f"Time Elapsed: {elapsed_seconds:.3f}s")
+
 
 # History file path will be set when REPL is initialized
 
@@ -62,6 +82,7 @@ class Repl:
         template_syntax_config: SQLTemplateSyntaxConfig = SQLTemplateSyntaxConfig(),
         local_only: bool = False,
         no_prompt_exit_repl: bool = False,
+        prompt_format: str | None = None,
     ):
         """Requires a `SqlManager` instance to execute queries.
 
@@ -76,6 +97,13 @@ class Repl:
         self._template_syntax_config = template_syntax_config
         self._local_only = local_only
         self._no_prompt_exit_repl = no_prompt_exit_repl
+        self._prompt_format = prompt_format
+        # Live SnowflakeConnection captured after a successful query so
+        # drawing a prompt never looks up the connection cache (that lookup
+        # can redial). Only captured when a format is set, and re-read after
+        # each successful execute so a redial after clear_failures() is
+        # visible on the next prompt.
+        self._session_connection = None
         self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
         self._completer = cli_completer
@@ -114,21 +142,17 @@ class Repl:
             Execution priority:
             1. Exit keywords (exit, quit) - execute immediately
             2. REPL commands (starting with !) - execute immediately
-            3. SQL with trailing semicolon - execute immediately
+            3. Semicolon-terminated buffer - execute immediately, whatever the
+               cursor position; Ctrl+J inserts a new line instead
             4. All other input - add new line for multi-line editing
             """
             buffer = event.app.current_buffer
-            buffer_text = buffer.text
-            stripped_text = buffer_text.strip()
+            stripped_text = buffer.text.strip()
 
             if stripped_text:
                 log.debug("evaluating repl input")
-                cursor_position = buffer.cursor_position
                 ends_with_semicolon = stripped_text.endswith(";")
                 is_command = detect_command(stripped_text) is not None
-
-                meaningful_content_end = len(buffer_text.rstrip())
-                cursor_at_meaningful_end = cursor_position >= meaningful_content_end
 
                 if stripped_text.lower() in EXIT_KEYWORDS:
                     log.debug("exit keyword detected %r", stripped_text)
@@ -138,8 +162,8 @@ class Repl:
                     log.debug("command detected, submitting input")
                     buffer.validate_and_handle()
 
-                elif ends_with_semicolon and cursor_at_meaningful_end:
-                    log.debug("semicolon detected, submitting input")
+                elif ends_with_semicolon:
+                    log.debug("semicolon-terminated buffer, submitting input")
                     buffer.validate_and_handle()
 
                 else:
@@ -176,12 +200,31 @@ class Repl:
 
         return kb
 
-    def repl_prompt(self, msg: str = " > ") -> str:
+    def _current_prompt(self) -> AnyFormattedText:
+        """Build the prompt for this iteration of the REPL loop.
+
+        An unset format keeps the historical `` > `` so this feature is
+        opt-in. A configured format is expanded from the live session so
+        ``USE DATABASE`` / ``USE WAREHOUSE`` show up on the next prompt.
+        """
+        if not self._prompt_format:
+            return DEFAULT_REPL_PROMPT
+        return format_repl_prompt_for_terminal(
+            self._prompt_format,
+            session_prompt_values(
+                self._session_connection,
+                connection_name=get_cli_context().connection_context.connection_name,
+            ),
+        )
+
+    def repl_prompt(self, msg: AnyFormattedText = None) -> str:
         """Regular repl prompt with support for pre-filled input.
 
         Checks for queued input from commands like !edit and uses it as
         default text in the prompt. The queued input is cleared after use.
         """
+        if msg is None:
+            msg = self._current_prompt()
         default_text = self._next_input
 
         try:
@@ -204,13 +247,13 @@ class Repl:
 
     def _initialize_connection(self):
         """Early connection for possible fast fail."""
-        cursor = self._execute("select current_version();")
-        res = next(iter(cursor))
+        _, cursors = self._execute("select current_version();")
+        res = next(iter(cursors))
         log.debug("REPL: Snowflake version: %s", res.fetchall()[0][0])
 
-    def _execute(self, user_input: str) -> Iterable[SnowflakeCursor]:
-        """Executes a query and returns a list of cursors."""
-        _, cursors = self._sql_manager.execute(
+    def _execute(self, user_input: str) -> Tuple[int, Iterable[SnowflakeCursor]]:
+        """Executes a query and returns the expected results count with cursors."""
+        expected_results_cnt, cursors = self._sql_manager.execute(
             query=user_input,
             files=None,
             std_in=False,
@@ -219,7 +262,9 @@ class Repl:
             template_syntax_config=self._template_syntax_config,
             local_only=self._local_only,
         )
-        return cursors
+        if self._prompt_format:
+            self._session_connection = self._sql_manager.connection
+        return expected_results_cnt, cursors
 
     def run(self):
         with repl_context(self):
@@ -246,18 +291,31 @@ class Repl:
                 if user_input.lower() in EXIT_KEYWORDS:
                     raise EOFError
 
+                expected_results_cnt = 0
+                started = time.monotonic()
+
                 try:
                     log.debug("executing query")
-                    cursors = self._execute(user_input)
-                    print_result(MultipleResults(QueryResult(c) for c in cursors))
+                    with sql_client_query_span() as gate:
+                        expected_results_cnt, cursors = self._execute(user_input)
+                        gate.record = expected_results_cnt > 0
+                        print_result(MultipleResults(QueryResult(c) for c in cursors))
+                    elapsed = time.monotonic() - started
+
+                    if expected_results_cnt > 0:
+                        _print_sql_elapsed(elapsed)
 
                 except Exception as e:
+                    elapsed = time.monotonic() - started
                     log.debug("error occurred: %s", e)
                     cli_console.warning(f"\nError occurred: {e}")
                     # Connect failures are cached by OpenConnectionCache; drop
                     # the cache so the next query can redial after the user
                     # fixes config or a transient blip clears.
                     get_cli_context_manager().connection_cache.clear_failures()
+
+                    if expected_results_cnt > 0:
+                        _print_sql_elapsed(elapsed)
 
             except KeyboardInterrupt:  # a.k.a Ctrl-C
                 log.debug("user interrupted with Ctrl-C")

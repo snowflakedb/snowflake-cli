@@ -16,14 +16,18 @@ from __future__ import annotations
 
 from abc import ABC
 from pathlib import PurePosixPath, PureWindowsPath
-from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
 
-from pydantic import Field, PrivateAttr, field_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
     UpdatableModel,
+)
+from snowflake.cli.api.project.util import (
+    is_valid_unquoted_identifier,
+    to_identifier,
 )
 
 
@@ -204,12 +208,76 @@ class ImportsBaseModel:
         return f"IMPORTS = ({imports})"
 
 
+_GRANTEE_RULE = "Each grant needs exactly one of role or user."
+
+
 class Grant(UpdatableModel):
     privilege: str = Field(title="Required privileges")
-    role: str = Field(title="Role to which the privileges will be granted")
+    with_grant_option: bool = Field(
+        title="Whether the grantee may grant the privilege onward", default=False
+    )
+    role: Optional[str] = Field(
+        title=f"Role to grant the privilege to. {_GRANTEE_RULE}", default=None
+    )
+    user: Optional[str] = Field(
+        title=f"User to grant the privilege to. {_GRANTEE_RULE}", default=None
+    )
+
+    @field_validator("privilege", mode="after")
+    @classmethod
+    def validate_privilege(cls, privilege: str) -> str:
+        """Hold `privilege` to privilege words, since it is spliced into the SQL.
+
+        The object name is already wrapped in `IDENTIFIER(...)` and the grantee
+        goes through `to_identifier`, leaving this the one raw splice in
+        `get_grant_sql` — and `execute_query` runs through `execute_stream`, so a
+        `;` here would be a second statement.
+
+        Split on single spaces rather than on any whitespace: a privilege is
+        spelled with single spaces, and splitting on `\n` too would accept a
+        newline-separated pair of identifier-like words.
+        """
+        words = privilege.split(" ")
+        if not all(is_valid_unquoted_identifier(word) for word in words):
+            raise ValueError(
+                f"Invalid privilege '{privilege}'."
+                " Use a SQL privilege name, such as USAGE or IMPORTED PRIVILEGES,"
+                " not a full statement."
+            )
+        return privilege
+
+    @field_validator("role", "user", mode="after")
+    @classmethod
+    def strip_grantee(cls, name: Optional[str]) -> Optional[str]:
+        """Trim a grantee name, so a blank one is not taken for a value.
+
+        Whitespace is never part of an identifier. Without this, `role: " "` is
+        truthy, passes the check below, and emits `TO ROLE " "`.
+        """
+        return name.strip() if isinstance(name, str) else name
+
+    @model_validator(mode="after")
+    def validate_grantee(self):
+        # Neither has nothing to grant to; both would drop one silently. Blank
+        # and whitespace-only are both absent, per strip_grantee above.
+        if bool(self.role) == bool(self.user):
+            raise ValueError(_GRANTEE_RULE)
+        return self
+
+    @property
+    def grantee_sql(self) -> str:
+        """The ``ROLE x`` / ``USER y`` fragment after ``TO``."""
+        # Quoted only where SQL needs it; users are often named after an email.
+        if self.role:
+            return f"ROLE {to_identifier(self.role)}"
+        return f"USER {to_identifier(cast(str, self.user))}"
 
     def get_grant_sql(self, entity_model: EntityModelBase) -> str:
-        return f"GRANT {self.privilege} ON {entity_model.get_type().upper()} {entity_model.fqn.sql_identifier} TO ROLE {self.role}"
+        statement = (
+            f"GRANT {self.privilege} ON {entity_model.get_type().upper()}"
+            f" {entity_model.fqn.sql_identifier} TO {self.grantee_sql}"
+        )
+        return f"{statement} WITH GRANT OPTION" if self.with_grant_option else statement
 
 
 class GrantBaseModel(UpdatableModel):

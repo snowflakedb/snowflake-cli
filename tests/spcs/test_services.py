@@ -1422,7 +1422,7 @@ def test_latest_metrics(mock_execute_query, runner, snapshot):
         "                select \n"
         "                    *,\n"
         "                    row_number() over (\n"
-        "                        partition by record['metric']['name'] \n"
+        "                        partition by COALESCE(record['name'], record['metric']['name']) \n"
         "                        order by timestamp desc\n"
         "                    ) as rank\n"
         "                from event_table_db.data_schema.snowservices_logs\n"
@@ -2757,8 +2757,159 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
     ), f"Root-level upload missing. Stage paths: {stage_paths}"
 
 
+@patch("time.sleep")
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ObjectManager",
+)
+@patch(
+    "snowflake.cli._plugins.spcs.services.commands.ServiceManager",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.put",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+def test_build_image_cli_streams_markup_like_log_lines(
+    mock_stage_execute_query,
+    mock_stage_put,
+    mock_service_manager_class,
+    mock_object_manager_class,
+    mock_sleep,
+    runner,
+    temporary_directory,
+):
+    """Build logs are untrusted text and must not be parsed as Rich markup."""
+    build_context = Path(temporary_directory) / "build_context"
+    build_context.mkdir()
+    (build_context / "Dockerfile").write_text("FROM python:3.10-alpine\n")
+
+    mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+    mock_service_manager = Mock()
+    mock_service_manager_class.return_value = mock_service_manager
+    mock_build_cursor = Mock(spec=SnowflakeCursor)
+    mock_build_cursor.__iter__ = Mock(return_value=iter([]))
+    mock_build_cursor.fetchone.return_value = {"status": "DONE"}
+    mock_build_cursor.description = []
+    mock_build_cursor.query = ""
+    mock_service_manager.build_image.return_value = mock_build_cursor
+    mock_service_manager.stream_logs.return_value = iter(
+        [
+            "failed tag [/x] not found",
+            ("__TERMINAL_STATUS__", "DONE"),
+        ]
+    )
+
+    mock_object_manager = Mock()
+    mock_object_manager_class.return_value = mock_object_manager
+    mock_describe_cursor = Mock()
+    mock_describe_cursor.fetchone.return_value = {"status": "RUNNING"}
+    mock_object_manager.describe.return_value = mock_describe_cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "build-image",
+            "--compute-pool",
+            "test_pool",
+            "--image-repository",
+            "db.schema.repo",
+            "--image-name",
+            "my_image",
+            "--image-tag",
+            "v1.0",
+            "--build-context-dir",
+            str(build_context),
+            "--stage",
+            "test_stage",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "failed tag [/x] not found" in result.output
+
+
 def test_build_image_hidden_by_default(runner):
     """Test that build-image command is hidden by default (feature flag disabled)."""
     result = runner.invoke(["spcs", "service", "--help"])
     assert result.exit_code == 0
     assert "build-image" not in result.output
+
+
+@patch(EXECUTE_QUERY)
+def test_latest_metrics_next_gen_event_table_shape(mock_execute_query, runner):
+    # Next-gen event tables flatten record.metric.{name,unit} onto record and store
+    # scalar gauge/sum VALUE as a tagged object; the formatter must read both shapes.
+    mock_execute_query.side_effect = [
+        [{"key": "EVENT_TABLE", "value": "snowflake.telemetry.data"}],
+        Mock(
+            fetchall=lambda: [
+                (
+                    datetime(2024, 12, 10, 18, 53, 21, 809000),
+                    datetime(2024, 12, 10, 18, 52, 51, 809000),
+                    None,
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.name": "LOG_EVENT",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "METRIC",
+                    json.dumps({"name": "container.cpu.usage", "unit": "cpu"}),
+                    None,
+                    json.dumps({"double_value": 0.0005}),
+                    None,
+                ),
+                (
+                    datetime(2024, 12, 10, 18, 53, 21, 809000),
+                    datetime(2024, 12, 10, 18, 52, 51, 809000),
+                    None,
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.name": "LOG_EVENT",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "METRIC",
+                    json.dumps(
+                        {"metric": {"name": "container.memory.usage", "unit": "By"}}
+                    ),
+                    None,
+                    "1048576",
+                    None,
+                ),
+            ]
+        ),
+    ]
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "metrics",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--format",
+            "json",
+        ]
+    )
+
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+    rows = json.loads(result.output)
+    assert [(r["METRIC NAME"], r["METRIC VALUE"]) for r in rows] == [
+        ("container.cpu.usage", "0.0005"),
+        ("container.memory.usage", "1048576"),
+    ]

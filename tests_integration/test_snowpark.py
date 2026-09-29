@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import ast
 import os
 import sys
 from pathlib import Path
@@ -1858,6 +1859,102 @@ def test_build_with_skip_dependencies_deploys_only_project_code(
 
             assert result.exit_code == 0, result.output
             assert "We want... a shrubbery!" in result.output
+
+
+@pytest.mark.integration
+def test_requirements_are_sent_to_package_repository(
+    test_database,
+    runner,
+    project_directory,
+    alter_requirements_txt,
+    enable_snowpark_artifact_repository_requirements_feature_flag,
+):
+    """The entities declare an artifact repository and no packages, so the packages
+    they are deployed with are the requirements of the project."""
+    with project_directory("snowpark_artifact_repository_requirements") as tmp_dir:
+        # --skip-dependencies matches the intended flow: dummy-pkg-for-tests is not
+        # vendored into dependencies.zip, so a later execute is evidence the
+        # repository installed it rather than the zip.
+        result = runner.invoke_with_connection(
+            ["snowpark", "build", "--skip-dependencies"]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(["snowpark", "deploy"])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "describe", "function", "test_function()"]
+        )
+        assert result.exit_code == 0, result.output
+        properties = {row["property"]: row["value"] for row in result.json}
+        # describe echoes the repository as snowflake.yml wrote it rather than
+        # normalising it, so its casing is not what is asserted on.
+        assert (
+            properties["artifact_repository"].upper()
+            == "SNOWFLAKE.SNOWPARK.PYPI_SHARED_REPOSITORY"
+        )
+        # An entity deployed with an artifact repository carries its package list under
+        # artifact_repository_packages, which describe returns as a string: "['a','b']".
+        # The plain "packages" property is the Anaconda one and describe reports it as
+        # "[]" for such an entity, so it is not the one to assert on. The whole list is
+        # asserted rather than membership of it, so that a package the deploy added of
+        # its own -- an Anaconda-resolved one, say -- fails here too. dummy-pkg-for-tests
+        # is not in Anaconda, so a clause built from what build resolved could not hold
+        # it, which is what makes this the evidence that the requirements, and not the
+        # build, are what reached the account.
+        assert set(ast.literal_eval(properties["artifact_repository_packages"])) == {
+            "snowflake-snowpark-python",
+            "dummy-pkg-for-tests",
+        }
+
+        for object_type, execution_identifier in (
+            ("function", "test_function()"),
+            ("procedure", "test_procedure()"),
+        ):
+            result = runner.invoke_with_connection(
+                [
+                    "snowpark",
+                    "execute",
+                    object_type,
+                    execution_identifier,
+                    "--warehouse",
+                    "snowpark_tests",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+            assert "We want... a shrubbery!" in result.output
+
+        # A changed requirements.txt is a changed set of packages, so the entities have
+        # to be replaced rather than reported as unchanged. The fixture keeps
+        # snowflake-snowpark-python in the file, so dummy-pkg-for-tests is what this
+        # drops: one package present in the first deploy and absent from the second is
+        # what separates a clause built from the new requirements from one merged with
+        # the packages of the first deploy, which an addition alone cannot do.
+        alter_requirements_txt(
+            tmp_dir / "requirements.txt",
+            ["dummy-pkg-for-tests-with-deps"],
+        )
+
+        result = runner.invoke_with_connection_json(["snowpark", "deploy", "--replace"])
+        assert result.exit_code == 0, result.output
+        assert all(
+            entity.get("status", "") == "definition updated" for entity in result.json
+        )
+
+        # "definition updated" says the entity was replaced, not what it was replaced
+        # with, so the new clause is what is checked. The list is parsed rather than
+        # substring-matched because dummy-pkg-for-tests is a prefix of
+        # dummy-pkg-for-tests-with-deps, so "in" cannot tell the two apart.
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "describe", "function", "test_function()"]
+        )
+        assert result.exit_code == 0, result.output
+        properties = {row["property"]: row["value"] for row in result.json}
+        assert set(ast.literal_eval(properties["artifact_repository_packages"])) == {
+            "snowflake-snowpark-python",
+            "dummy-pkg-for-tests-with-deps",
+        }
 
 
 @pytest.fixture

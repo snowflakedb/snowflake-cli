@@ -35,6 +35,15 @@ from snowflake.cli._plugins.cortex.types import (
     Text,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    RelatedLink,
+    bullet,
+    bullet_list,
+    code,
+    plain_text,
+)
 from snowflake.cli.api.commands.overrideable_parameter import (
     OverrideableArgument,
     OverrideableOption,
@@ -52,6 +61,21 @@ from snowflake.cli.api.secure_path import SecurePath
 app = SnowTyperFactory(
     name="cortex",
     help="Provides access to Snowflake Cortex.",
+)
+
+_CORTEX_RELATED = (
+    RelatedLink(href="/developer-guide/snowflake-cli/index"),
+    RelatedLink(
+        href="/developer-guide/snowflake-cli/command-reference/overview",
+        title="Snowflake CLI command reference",
+    ),
+    RelatedLink(
+        href="/developer-guide/snowflake-cli/command-reference/cortex-commands/overview",
+    ),
+    RelatedLink(
+        href="/user-guide/snowflake-cortex/aisql",
+        title="Snowflake Cortex",
+    ),
 )
 
 SEARCH_COMMAND_ENABLED = sys.version_info < PYTHON_3_12
@@ -134,6 +158,48 @@ class Backend(Enum):
 @app.command(
     name="complete",
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            RelatedLink(href="/developer-guide/snowflake-cli/index"),
+            RelatedLink(
+                href="/developer-guide/snowflake-cli/command-reference/overview",
+                title="Snowflake CLI command reference",
+            ),
+            RelatedLink(
+                href="/developer-guide/snowflake-cli/command-reference/cortex-commands/overview"
+            ),
+            RelatedLink(
+                href="/user-guide/snowflake-cortex/aisql",
+                title="Snowflake Cortex",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "In the simplest use case, the prompt is a single string. "
+                "You can also provide a JSON file with conversation history, "
+                "including multiple prompts and responses, for interactive "
+                "chat-style conversation.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Ask a question using the default model."),
+                command=(
+                    'snow cortex complete "Is 5 more than 4? Please answer using one '
+                    'word without a period." -c snowhouse'
+                ),
+                output="Yes",
+            ),
+            Example(
+                description=plain_text("Ask a question using a specified model."),
+                command=(
+                    'snow cortex complete "Is 5 more than 4? Please answer using one '
+                    'word without a period." -c snowhouse --model deepseek-r1'
+                ),
+                output="Yes",
+            ),
+        ),
+    ),
 )
 def complete(
     text: Optional[str] = ExclusiveTextSourceArgument(
@@ -193,6 +259,28 @@ def complete(
 @app.command(
     name="extract-answer",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_CORTEX_RELATED,
+        usage_notes=(
+            plain_text(
+                "The document can be a plain-English document or a string representation "
+                "of a semi-structured (JSON) data object.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Extract an answer to a question from text provided as a command-line "
+                    "argument."
+                ),
+                command=(
+                    'snow cortex extract-answer "what is snowflake?" '
+                    '"snowflake is a company" -c snowhouse'
+                ),
+                output="a company",
+            ),
+        ),
+    ),
 )
 def extract_answer(
     question: str = typer.Argument(
@@ -238,6 +326,33 @@ def extract_answer(
 @app.command(
     name="sentiment",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_CORTEX_RELATED,
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow cortex sentiment"),
+                " command returns a sentiment for input text as a score between -1 to 1, "
+                "where:",
+            ),
+            bullet_list(
+                bullet("-1 is the most negative."),
+                bullet("0 is neutral."),
+                bullet("+1 is the most positive."),
+            ),
+            plain_text("Currently, this command only supports English language text."),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    'The following example returns the sentiment score of "Mary had a '
+                    'little lamb", which shows a slightly positive sentiment.'
+                ),
+                command='snow cortex sentiment "Mary had a little Lamb" -c "snowhouse"',
+                output="0.21522656",
+            ),
+        ),
+    ),
 )
 def sentiment(
     text: Optional[str] = ExclusiveTextSourceArgument(
@@ -275,6 +390,41 @@ def sentiment(
 @app.command(
     name="summarize",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_CORTEX_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text("Summarize text supplied on the command line."),
+                command=(
+                    "snow cortex summarize "
+                    "\"John has a car. John's car is blue. John's car is old and John is "
+                    "thinking about buying a new car. There are a lot of cars to choose "
+                    "from and John cannot sleep because it's an important decision for John.\""
+                ),
+                output=(
+                    "John has an old blue car and is considering buying a new one due to "
+                    "the many options available, causing him sleepless nights."
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Summarize text stored in a file. For this example, assume that the "
+                    "file ",
+                    code("about_cortex.txt"),
+                    " contains Snowflake Cortex overview text.",
+                ),
+                command="snow cortex summarize --file about_cortex.txt",
+                output=(
+                    "Snowflake Cortex offers instant access to industry-leading language "
+                    "models, including Snowflake Arctic, with SQL functions for completing "
+                    "prompts (COMPLETE), text embedding (EMBED_TEXT_768), extracting answers "
+                    "(EXTRACT_ANSWER), sentiment analysis (SENTIMENT), summarizing text "
+                    "(SUMMARIZE), and translating text (TRANSLATE)."
+                ),
+            ),
+        ),
+    ),
 )
 def summarize(
     text: Optional[str] = ExclusiveTextSourceArgument(
@@ -310,6 +460,39 @@ def summarize(
 @app.command(
     name="translate",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_CORTEX_RELATED,
+        usage_notes=(
+            bullet_list(
+                bullet(
+                    "By default, the command assumes the text to translate is in the "
+                    "detected source language.",
+                ),
+                bullet(
+                    "When using the ",
+                    code("--file"),
+                    " option, the file text must use the English language.",
+                ),
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    'Translate the word "herb" in the source language (English, in this '
+                    "case) into Polish."
+                ),
+                command="snow cortex translate herb --to pl",
+                output="ziołowy",
+            ),
+            Example(
+                description=plain_text(
+                    'Translate the Polish word "herb" into English.'
+                ),
+                command="snow cortex translate herb --from pl --to en",
+                output="coat of arms",
+            ),
+        ),
+    ),
 )
 def translate(
     text: Optional[str] = ExclusiveTextSourceArgument(

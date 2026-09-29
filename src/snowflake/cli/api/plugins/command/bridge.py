@@ -238,12 +238,20 @@ def _register_command(
             )
         command_fn = dec_factory()(command_fn)
 
+    extra_command_kwargs: dict = {}
+    if cmd_def.context_settings is not None:
+        # Forwarded to Click, which merges nothing: these settings replace the
+        # per-command defaults, matching what `@app.command(context_settings=...)`
+        # does for a hand-written command.
+        extra_command_kwargs["context_settings"] = dict(cmd_def.context_settings)
+
     factory.command(
         name=cmd_def.name,
         requires_connection=cmd_def.requires_connection,
         require_warehouse=cmd_def.require_warehouse,
         preview=cmd_def.is_preview,
         hidden=cmd_def.is_hidden,
+        **extra_command_kwargs,
     )(command_fn)
 
 

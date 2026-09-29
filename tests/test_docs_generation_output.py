@@ -14,11 +14,43 @@
 
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 from unittest import mock
 
+import pytest
+import typer
 from click import Command
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
+from snowflake.cli._app.dev.docs.commands_docs_generator import (
+    _additional_section,
+    _command_page_markdown,
+    _page_examples_fallback,
+    _page_usage_notes_fallback,
+    _split_docstring,
+    collapse_whitespace,
+    mdx_escape,
+)
+from snowflake.cli.api.commands.command_docs import (
+    DOCS_ATTRIBUTE,
+    PUBLIC_PREVIEW,
+    PUBLIC_PREVIEW_NO_GOV,
+    Admonition,
+    AdmonitionType,
+    Bullet,
+    BulletList,
+    Code,
+    CommandDocs,
+    Example,
+    PlainText,
+    Ref,
+    RelatedLink,
+)
+from snowflake.cli.api.commands.command_docs_rendering import (
+    render_paragraph_mdx,
+    render_usage_mdx,
+)
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
+from typer.main import get_command
 
 
 @mock.patch(
@@ -200,3 +232,689 @@ def test_flags_have_default_values(runner, temporary_directory, snapshot):
     )
     assert example_generated_file.exists()
     assert example_generated_file.read_text() == snapshot
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, ""),
+        ("", ""),
+        ("plain text", "plain text"),
+        ("<system_temporary_directory>", "&lt;system_temporary_directory&gt;"),
+        ("before <value> after", "before &lt;value&gt; after"),
+        ("ALTER STAGE {name} REFRESH", r"ALTER STAGE \{name\} REFRESH"),
+    ],
+)
+def test_mdx_escape(value, expected):
+    assert mdx_escape(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, ""),
+        ("", ""),
+        ("   \n  ", ""),
+        ("plain text", "plain text"),
+        ("first line\nsecond line", "first line second line"),
+        ("\n    indented.\n    continued.\n    ", "indented. continued."),
+    ],
+)
+def test_collapse_whitespace(value, expected):
+    assert collapse_whitespace(value) == expected
+
+
+def test_option_metavar_angle_brackets_are_escaped():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("list")
+    def list_(
+        in_scope: tuple[str, str] = typer.Option(
+            (None, None),
+            "--in",
+            help="Specifies the scope of this command.",
+        ),
+    ):
+        """Lists objects."""
+
+    page = _command_page_markdown(get_command(app), ["plugin", "list"])
+    assert "<em>&lt;TEXT TEXT&gt;...</em>" in page
+    assert "<em><TEXT TEXT>...</em>" not in page
+
+
+def test_multiline_argument_help_renders_as_a_single_line():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("describe")
+    def describe(
+        identifier: Optional[str] = typer.Argument(
+            None,
+            help="""
+                Identifier of the object. Example: MY_DB.MY_SCHEMA.MY_OBJECT.
+                Optional if `--target` is defined in the manifest.
+            """,
+        ),
+    ):
+        """Describes an object."""
+
+    page = _command_page_markdown(get_command(app), ["plugin", "describe"])
+    arguments = page[page.index("## Arguments") : page.index("## Options")]
+    help_line = next(
+        line
+        for line in arguments.splitlines()
+        if line.startswith("Identifier of the object.")
+    )
+    assert "  " not in help_line
+    assert help_line.endswith("is defined in the manifest.")
+
+
+def test_command_help_angle_brackets_are_escaped():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("demo")
+    def demo():
+        """Runs the <object> command."""
+
+    overview = _command_page_markdown(get_command(app), ["plugin", "demo"]).split(
+        "## Syntax"
+    )[0]
+    assert "Runs the &lt;object&gt; command." in overview
+    assert "Runs the <object> command." not in overview
+
+
+def test_render_usage_mdx_empty_versus_plain_text():
+    assert render_usage_mdx(()) == ""
+    assert render_usage_mdx((PlainText(parts=()),)) == ""
+    assert (
+        render_usage_mdx(
+            (
+                PlainText(parts=("Use <name>.",)),
+                PlainText(parts=("Second paragraph.",)),
+            )
+        )
+        == "Use &lt;name&gt;.\n\nSecond paragraph."
+    )
+    assert (
+        render_usage_mdx((PlainText(parts=("Use ", "<name>", ".")),))
+        == "Use &lt;name&gt;."
+    )
+
+
+def test_render_usage_mdx_rejects_unknown_blocks():
+    with pytest.raises(TypeError, match="Unsupported usage-note block"):
+        render_usage_mdx(("not a block",))  # type: ignore[arg-type]
+
+
+def test_render_usage_mdx_code_span_keeps_angle_brackets_unescaped():
+    assert (
+        render_usage_mdx(
+            (
+                PlainText(
+                    parts=("Pass ", Code(value='-D "<key>=<value>"'), " to set it.")
+                ),
+            )
+        )
+        == 'Pass `-D "<key>=<value>"` to set it.'
+    )
+
+
+def test_render_usage_mdx_reference():
+    assert (
+        render_usage_mdx((PlainText(parts=("Create a ", Ref(name="dcm-object"), ".")),))
+        == "Create a %dcm-object%."
+    )
+
+
+def test_render_usage_mdx_bullet_list():
+    assert (
+        render_usage_mdx(
+            (
+                PlainText(parts=("Changes:",)),
+                BulletList(
+                    items=(
+                        Bullet(parts=("Creates <new> objects.",)),
+                        Bullet(parts=("Alters existing objects.",)),
+                    )
+                ),
+            )
+        )
+        == "Changes:\n\n- Creates &lt;new&gt; objects.\n- Alters existing objects."
+    )
+
+
+def test_render_usage_mdx_bullet_list_with_mixed_spans():
+    assert (
+        render_usage_mdx(
+            (
+                BulletList(
+                    items=(
+                        Bullet(
+                            parts=(
+                                "Exit code ",
+                                Code(value="0"),
+                                " if all tests pass.",
+                            )
+                        ),
+                    )
+                ),
+            )
+        )
+        == "- Exit code `0` if all tests pass."
+    )
+
+
+def test_render_usage_mdx_bullet_list_wraps_multiline_items():
+    assert (
+        render_usage_mdx(
+            (
+                BulletList(
+                    items=(Bullet(parts=("First line,\nsecond line.",)),),
+                ),
+            )
+        )
+        == "- First line,\n  second line."
+    )
+
+
+def test_render_usage_mdx_link_empty_versus_titled():
+    assert (
+        render_usage_mdx(
+            (PlainText(parts=(RelatedLink(href="#label-dcm-projects-deploy"),)),)
+        )
+        == "[](#label-dcm-projects-deploy)"
+    )
+    assert (
+        render_usage_mdx(
+            (
+                PlainText(
+                    parts=(
+                        "See ",
+                        RelatedLink(
+                            href="#label-dcm-projects-deploy", title="the <deploy> docs"
+                        ),
+                        ".",
+                    )
+                ),
+            )
+        )
+        == "See [the &lt;deploy&gt; docs](#label-dcm-projects-deploy)."
+    )
+
+
+def test_render_usage_mdx_note_with_inline_content():
+    assert render_usage_mdx(
+        (
+            Admonition(
+                parts=(
+                    "Use ",
+                    Code(value="--force"),
+                    " with this ",
+                    Ref(name="dcm-object"),
+                    ".",
+                )
+            ),
+        )
+    ) == (
+        '<Admonition type="note">\n\n'
+        "Use `--force` with this %dcm-object%.\n\n"
+        "</Admonition>"
+    )
+
+
+def test_render_paragraph_mdx_empty_versus_mixed_spans():
+    assert render_paragraph_mdx(PlainText(parts=())) == ""
+    assert (
+        render_paragraph_mdx(
+            PlainText(
+                parts=(
+                    "Preview ",
+                    Code(value="MY_TABLE"),
+                    " in a ",
+                    Ref(name="dcm-object"),
+                    ".",
+                )
+            )
+        )
+        == "Preview `MY_TABLE` in a %dcm-object%."
+    )
+
+
+def test_additional_section_empty_versus_missing():
+    assert _additional_section({}, "Usage notes") is None
+    assert _additional_section({"additional_sections": []}, "Usage notes") is None
+    assert _additional_section(_split_docstring("Help only."), "Usage notes") is None
+
+    params = _split_docstring("Help.\n\n## Usage notes\n\nThe notes.")
+    assert _additional_section(params, "Usage notes") == "The notes."
+    assert _additional_section(params, "Examples") is None
+
+    empty_section = _split_docstring("Help.\n\n## Usage notes\n\n")
+    assert _additional_section(empty_section, "Usage notes") is None
+
+
+def test_page_usage_notes_fallback_empty_versus_missing():
+    params = _split_docstring("Help.\n\n## Usage notes\n\nFrom the <docstring>.")
+    assert _page_usage_notes_fallback(CommandDocs(), params) == "From the <docstring>."
+    assert _page_usage_notes_fallback(CommandDocs(), {}) is None
+    assert (
+        _page_usage_notes_fallback(
+            CommandDocs(usage_notes=(PlainText(parts=("From CommandDocs.",)),)), params
+        )
+        is None
+    )
+    assert _page_usage_notes_fallback(CommandDocs(usage_notes=()), params) is None
+
+
+def test_page_examples_fallback_empty_versus_missing():
+    params = _split_docstring("Help.\n\n## Examples\n\nsnow git setup <repo>")
+    assert _page_examples_fallback(CommandDocs(), params) == "snow git setup <repo>"
+    assert _page_examples_fallback(CommandDocs(), {}) is None
+    assert (
+        _page_examples_fallback(
+            CommandDocs(examples=(Example(command="snow plugin demo"),)), params
+        )
+        is None
+    )
+    assert _page_examples_fallback(CommandDocs(examples=()), params) is None
+
+
+def _demo_click_command() -> Command:
+    app = typer.Typer(add_completion=False)
+
+    @app.command("demo")
+    def demo(
+        object_name: str = typer.Argument(help="Name of the object."),
+        force: bool = typer.Option(
+            False, "--force", help="Skip the confirmation prompt."
+        ),
+    ):
+        """Executes the demo object."""
+
+    return get_command(app)
+
+
+def test_render_command_page_with_structured_docs(snapshot):
+    docs = CommandDocs(
+        related=(
+            RelatedLink(
+                href="/developer-guide/snowflake-cli/data-pipelines/dcm-projects",
+            ),
+            RelatedLink(
+                href="/user-guide/dcm-projects/dcm-projects-overview",
+                title="DCM <projects> overview",
+            ),
+        ),
+        usage_notes=(
+            PlainText(parts=("Use `--force` to skip the prompt.",)),
+            PlainText(parts=("The <object_name> object must already exist.",)),
+        ),
+        examples=(
+            Example(
+                command="snow plugin demo MY_OBJECT",
+                description=PlainText(
+                    parts=("The following example executes the <object_name> object:",)
+                ),
+                output="Object <MY_OBJECT> executed.",
+            ),
+            Example(
+                command="snow plugin demo OTHER --force",
+            ),
+        ),
+    )
+
+    command = _demo_click_command()
+    setattr(command.callback, DOCS_ATTRIBUTE, docs)
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+    assert rendered.endswith("\n")
+    assert "The &lt;object_name&gt; object must already exist." in rendered
+    assert "Object <MY_OBJECT> executed." in rendered
+    assert rendered == snapshot
+
+
+def test_render_command_page_keeps_usage_note_links_out_of_related_topics():
+    docs = CommandDocs(
+        related=(RelatedLink(href="/developer-guide/snowflake-cli/index"),),
+        usage_notes=(
+            PlainText(
+                parts=(
+                    "See ",
+                    RelatedLink(href="#label-dcm-projects-deploy", title="Deploying"),
+                    ".",
+                )
+            ),
+        ),
+    )
+    command = _demo_click_command()
+    setattr(command.callback, DOCS_ATTRIBUTE, docs)
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+    related = rendered[
+        rendered.index("<RelatedTopics>") : rendered.index("</RelatedTopics>")
+    ]
+
+    assert "See [Deploying](#label-dcm-projects-deploy)." in rendered
+    assert "#label-dcm-projects-deploy" not in related
+    assert "[](/developer-guide/snowflake-cli/index)" in related
+
+
+def test_render_usage_mdx_admonition_title_attributes_are_passed_through():
+    assert render_usage_mdx(
+        (
+            Admonition(
+                parts=("Available to all accounts.",),
+                admonition_type=AdmonitionType.PREVIEW,
+                title="Preview Feature",
+                title_suffix="— Open",
+                title_href="/release-notes/preview-features",
+            ),
+        )
+    ) == (
+        '<Admonition type="preview" title="Preview Feature" '
+        'titleSuffix="— Open" titleHref="/release-notes/preview-features">\n\n'
+        "Available to all accounts.\n\n"
+        "</Admonition>"
+    )
+
+
+def test_render_usage_mdx_admonition_type_is_passed_through():
+    assert render_usage_mdx(
+        (Admonition(parts=("Be careful.",), admonition_type=AdmonitionType.CAUTION),)
+    ) == ('<Admonition type="caution">\n\n' "Be careful.\n\n" "</Admonition>")
+    assert render_usage_mdx(
+        (Admonition(parts=("Watch out.",), admonition_type=AdmonitionType.WARNING),)
+    ) == ('<Admonition type="warning">\n\n' "Watch out.\n\n" "</Admonition>")
+
+
+def test_render_command_page_with_public_preview_banner():
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(
+            related=(RelatedLink(href="/foo", title="Foo"),),
+            banners=(PUBLIC_PREVIEW,),
+        ),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    assert (
+        "import PublicPreview from "
+        "'INCLUDE/text/sidebars/basic/public-preview.mdx'" in rendered
+    )
+    assert "<PublicPreview />" in rendered
+    related_end = rendered.index("</RelatedTopics>")
+    banner_pos = rendered.index("<PublicPreview />")
+    assert banner_pos > related_end
+
+
+def test_render_command_page_with_public_preview_no_gov_banner():
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(
+            related=(RelatedLink(href="/foo", title="Foo"),),
+            banners=(PUBLIC_PREVIEW_NO_GOV,),
+        ),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    assert (
+        "import PublicPreviewNoGov from "
+        "'INCLUDE/text/sidebars/basic/public-preview-no-gov.mdx'" in rendered
+    )
+    assert "<PublicPreviewNoGov />" in rendered
+    related_end = rendered.index("</RelatedTopics>")
+    banner_pos = rendered.index("<PublicPreviewNoGov />")
+    assert banner_pos > related_end
+
+
+def test_render_command_page_without_banners():
+    rendered = _command_page_markdown(_demo_click_command(), ["plugin", "demo"])
+
+    assert "import PublicPreview from " not in rendered
+    assert "<PublicPreview />" not in rendered
+    assert "import PublicPreviewNoGov from " not in rendered
+    assert "<PublicPreviewNoGov />" not in rendered
+
+
+def test_render_usage_mdx_include_emits_component_tag():
+    from snowflake.cli.api.commands.command_docs import DBT_DEPLOY_FORCE_WARNING
+
+    assert render_usage_mdx((DBT_DEPLOY_FORCE_WARNING,)) == "<DbtDeployForceWarning />"
+
+
+def test_render_command_page_with_usage_note_include():
+    from snowflake.cli.api.commands.command_docs import DBT_DEPLOY_FORCE_WARNING
+
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(usage_notes=(DBT_DEPLOY_FORCE_WARNING,)),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    assert (
+        "import DbtDeployForceWarning from "
+        "'INCLUDE/text/dbt-deploy-force-warning.mdx'" in rendered
+    )
+    usage_notes = rendered.split("## Usage notes", maxsplit=1)[1]
+    assert "<DbtDeployForceWarning />" in usage_notes
+    assert "<Admonition" not in usage_notes
+
+
+def test_render_command_page_collects_banner_and_usage_note_includes():
+    from snowflake.cli.api.commands.command_docs import (
+        DBT_DEPLOY_FORCE_WARNING,
+        PUBLIC_PREVIEW,
+    )
+
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(
+            related=(RelatedLink(href="/foo", title="Foo"),),
+            banners=(PUBLIC_PREVIEW,),
+            usage_notes=(DBT_DEPLOY_FORCE_WARNING,),
+        ),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    public_preview_import = (
+        "import PublicPreview from " "'INCLUDE/text/sidebars/basic/public-preview.mdx'"
+    )
+    dbt_warning_import = (
+        "import DbtDeployForceWarning from "
+        "'INCLUDE/text/dbt-deploy-force-warning.mdx'"
+    )
+    assert rendered.count(public_preview_import) == 1
+    assert rendered.count(dbt_warning_import) == 1
+
+    related_end = rendered.index("</RelatedTopics>")
+    banner_pos = rendered.index("<PublicPreview />")
+    assert banner_pos > related_end
+
+    usage_notes = rendered.split("## Usage notes", maxsplit=1)[1]
+    assert "<DbtDeployForceWarning />" in usage_notes
+
+
+def test_docs_pages_empty_extras_for_command_without_docs(runner, temporary_directory):
+    result = runner.invoke(["--docs-pages"])
+    assert result.exit_code == 0, result.output
+
+    page_path = (
+        Path(temporary_directory) / "gen_docs" / "pages" / "object" / "describe.mdx"
+    )
+    assert page_path.exists()
+    content = page_path.read_text(encoding="utf-8")
+    assert content.startswith("---\n")
+    assert "title: snow object describe" in content
+    assert "description: ''" in content
+    assert (
+        "import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'" in content
+    )
+    assert "# snow object describe" in content
+    assert "<Help />" in content
+    assert "## Syntax" in content
+    assert "## Arguments" in content
+    assert "## Options" in content
+    assert "## Usage notes" not in content
+    assert "## Examples" not in content
+    assert "<RelatedTopics>" not in content
+    assert page_path.read_bytes().endswith(b"\n")
+
+
+def test_render_command_page_falls_back_to_docstring_sections():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("setup")
+    def setup():
+        """Sets up a git repository object.
+
+        ## Usage notes
+
+        You will be prompted for a <url>.
+
+        ## Examples
+
+        snow git setup my_repo
+        """
+
+    rendered = _command_page_markdown(get_command(app), ["git", "setup"])
+    assert "## Usage notes" in rendered
+    assert "You will be prompted for a &lt;url&gt;." in rendered
+    assert "## Examples" in rendered
+    assert "snow git setup my_repo" in rendered
+    assert "## Usage notes\n\nNone" not in rendered
+    assert "## Examples\n\nNone" not in rendered
+    assert rendered.endswith("\n")
+    assert not rendered.endswith("\n\n")
+
+
+def test_render_command_page_omits_usage_and_examples_when_missing():
+    rendered = _command_page_markdown(_demo_click_command(), ["plugin", "demo"])
+    assert "## Usage notes" not in rendered
+    assert "## Examples" not in rendered
+    assert "<RelatedTopics>" not in rendered
+
+
+def test_empty_command_docs_usage_notes_do_not_fall_back_to_docstring():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("setup")
+    def setup():
+        """Sets up a git repository object.
+
+        ## Usage notes
+
+        From the docstring.
+        """
+
+    command = get_command(app)
+    setattr(command.callback, DOCS_ATTRIBUTE, CommandDocs(usage_notes=()))
+    rendered = _command_page_markdown(command, ["git", "setup"])
+    assert "## Usage notes" not in rendered
+    assert "From the docstring." not in rendered
+
+    setattr(command.callback, DOCS_ATTRIBUTE, CommandDocs())
+    rendered = _command_page_markdown(command, ["git", "setup"])
+    assert "From the docstring." in rendered
+
+
+def test_empty_command_docs_examples_do_not_fall_back_to_docstring():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("setup")
+    def setup():
+        """Sets up a git repository object.
+
+        ## Examples
+
+        snow git setup my_repo
+        """
+
+    command = get_command(app)
+    setattr(command.callback, DOCS_ATTRIBUTE, CommandDocs(examples=()))
+    rendered = _command_page_markdown(command, ["git", "setup"])
+    assert "## Examples" not in rendered
+    assert "snow git setup my_repo" not in rendered
+
+    setattr(command.callback, DOCS_ATTRIBUTE, CommandDocs())
+    rendered = _command_page_markdown(command, ["git", "setup"])
+    assert "snow git setup my_repo" in rendered
+
+
+def test_command_docs_usage_notes_win_over_docstring():
+    app = typer.Typer(add_completion=False)
+
+    @app.command("setup")
+    def setup():
+        """Sets up a git repository object.
+
+        ## Usage notes
+
+        From the docstring.
+        """
+
+    command = get_command(app)
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(usage_notes=(PlainText(parts=("From CommandDocs.",)),)),
+    )
+    rendered = _command_page_markdown(command, ["git", "setup"])
+    assert "From CommandDocs." in rendered
+    assert "From the docstring." not in rendered
+
+
+def test_docs_pages_keep_git_setup_docstring_usage_notes(runner, temporary_directory):
+    result = runner.invoke(["--docs-pages"])
+    assert result.exit_code == 0, result.output
+
+    page_path = Path(temporary_directory) / "gen_docs" / "pages" / "git" / "setup.mdx"
+    content = page_path.read_text()
+    assert "## Usage notes" in content
+    assert (
+        "The `snow git setup` command prompts for the following information:" in content
+    )
+    assert "## Usage notes\n\nNone" not in content
+
+
+def test_docs_pages_generated_for_each_command(
+    runner, temporary_directory, get_click_context
+):
+    result = runner.invoke(["--docs-pages"])
+    assert result.exit_code == 0, result.output
+
+    pages_path = Path(temporary_directory) / "gen_docs" / "pages"
+    errors = []
+
+    def _check(command: Command, directory_path: Path, command_path=None):
+        if command_path is None:
+            command_path = []
+        if getattr(command, "hidden", False):
+            return
+        if hasattr(command, "commands"):
+            for command_name, command_info in command.commands.items():
+                new_directory_path = (
+                    directory_path / command.name
+                    if command.name != "default"
+                    else directory_path
+                )
+                _check(command_info, new_directory_path, [*command_path, command_name])
+        else:
+            if not (directory_path / f"{command.name}.mdx").exists():
+                errors.append(
+                    f"Command `{' '.join(command_path)}` page was not properly generated"
+                )
+
+    app = get_click_context().command
+    assert len(app.commands) >= 1
+    _check(get_click_context().command, pages_path)
+
+    assert len(errors) == 0, "\n".join(errors)

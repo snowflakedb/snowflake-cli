@@ -1,4 +1,32 @@
 # serializer version: 1
+# name: test_command_docs_appear_in_help
+  '''
+                                                                                  
+   Usage: demo cmd_with_docs [OPTIONS]                                            
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Usage notes ----------------------------------------------------------------+
+  | Only usable on **Tuesdays**.                                                 |
+  +------------------------------------------------------------------------------+
+  +- Examples -------------------------------------------------------------------+
+  | Run the command.                                                             |
+  | snow demo cmd_with_docs                                                      |
+  | Output: done                                                                 |
+  |                                                                              |
+  | snow demo cmd_with_docs --again                                              |
+  +------------------------------------------------------------------------------+
+  +- Related topics -------------------------------------------------------------+
+  | • https://docs.snowflake.com/en/developer-guide/snowflake-cli/index          |
+  | • Snowflake CLI command reference                                            |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/overview                                                 |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_command_with_connection_options
   '''
                                                                                   
@@ -119,7 +147,10 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  |                                CSV]                   format. [env var:      |
+  |                                                       SNOWFLAKE_CLI_OUTPUT_… |
+  |                                                       | config:              |
+  |                                                       cli.output_format]     |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -161,7 +192,10 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  |                                CSV]                   format. [env var:      |
+  |                                                       SNOWFLAKE_CLI_OUTPUT_… |
+  |                                                       | config:              |
+  |                                                       cli.output_format]     |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |
@@ -225,7 +259,10 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format.                |
+  |                                CSV]                   format. [env var:      |
+  |                                                       SNOWFLAKE_CLI_OUTPUT_… |
+  |                                                       | config:              |
+  |                                                       cli.output_format]     |
   |                                                       [default: TABLE]       |
   | --verbose              -v                             Displays log entries   |
   |                                                       for log levels info    |

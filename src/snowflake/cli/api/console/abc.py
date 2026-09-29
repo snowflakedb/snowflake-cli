@@ -20,10 +20,12 @@ from typing import Any, Callable, Iterator, Optional
 
 from rich import get_console
 from rich.console import RenderableType
+from rich.text import Text
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
     get_cli_context,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 
 class AbstractConsole(ABC):
@@ -35,7 +37,8 @@ class AbstractConsole(ABC):
       visually stand out from other output
     - `phase` - a context manager for organising steps into logical group
     - `indented` - a context manager for temporarily indenting messages and warnings
-    - 'message' - displays an informational message to output
+    - 'message' - informational output; parses Rich markup
+    - 'plain_message' - untrusted text without markup parsing
     - 'panel' - displays visually separated messages
     - 'spinner' - context manager for indicating a long-running operation
     """
@@ -94,7 +97,11 @@ class AbstractConsole(ABC):
 
     @abstractmethod
     def message(self, _message: str):
-        """Displays an informational message to output."""
+        """Displays an informational message to output.
+
+        Parses Rich markup. Do not pass SQL, logs, object names, or other
+        untrusted text; use ``plain_message`` for those.
+        """
 
     @abstractmethod
     def warning(self, message: str):
@@ -117,7 +124,21 @@ class AbstractConsole(ABC):
 
     @abstractmethod
     def styled_message(self, message: str, style: Any):
-        """Displays a message with provided style."""
+        """Displays a message with provided style.
+
+        Does not add a trailing newline (``end=""``). Untrusted full lines
+        should use ``plain_message`` instead.
+        """
+
+    def plain_message(self, message: str):
+        """Displays untrusted text without interpreting Rich markup.
+
+        Concrete rather than abstract: this is the public plugin surface, so an
+        external subclass must keep working across an upgrade. Sanitizes for the
+        terminal, always adds a newline, and respects ``--silent``. ``CliConsole``
+        also applies ``phase()`` / ``indented()`` padding; this default does not.
+        """
+        self._print(Text(sanitize_for_terminal(message)))
 
     def renderable(self, renderable: RenderableType, soft_wrap: Optional[bool] = None):
         """Displays a rich renderable, such as a tree or a table.

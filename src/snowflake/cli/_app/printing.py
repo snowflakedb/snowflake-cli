@@ -189,14 +189,38 @@ def _get_table():
 _NON_TERMINAL_RENDER_WIDTH = 1_000_000
 
 
+def _stdout_is_terminal() -> bool:
+    # Current stdout, not get_console().is_terminal: Rich caches the latter on
+    # the stream it first saw, and FORCE_COLOR (even "0") makes that True.
+    isatty = getattr(sys.stdout, "isatty", None)
+    try:
+        return False if isatty is None else bool(isatty())
+    except ValueError:
+        # pytest teardown can close stdout: "I/O operation on closed file"
+        return False
+
+
 def _render_console_for_table() -> Console:
-    default_console = get_console()
-    width = (
-        default_console.width
-        if default_console.is_terminal
-        else _NON_TERMINAL_RENDER_WIDTH
+    if _stdout_is_terminal():
+        default_console = get_console()
+        return Console(
+            width=default_console.width,
+            height=default_console.height or 25,
+            soft_wrap=True,
+            markup=False,
+        )
+    # Rich ignores a lone Console(width=...) when it classifies the stream as a
+    # dumb terminal (TERM=dumb/unknown together with is_terminal). FORCE_COLOR
+    # set to any value, including "0", makes Rich report is_terminal=True, so
+    # size falls back to 80x25 and many-column tables collapse. Both dimensions
+    # are required for the unlimited width to actually apply (GH#2725).
+    return Console(
+        width=_NON_TERMINAL_RENDER_WIDTH,
+        height=_NON_TERMINAL_RENDER_WIDTH,
+        soft_wrap=True,
+        markup=False,
+        force_terminal=False,
     )
-    return Console(width=width, soft_wrap=True, markup=False)
 
 
 def _print_multiple_table_results(obj: CollectionResult):

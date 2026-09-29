@@ -24,3 +24,17 @@ class OutputFormat(Enum):
     @property
     def is_json(self) -> bool:
         return self in (OutputFormat.JSON, OutputFormat.JSON_EXT)
+
+    @classmethod
+    def allowed_values(cls) -> str:
+        return ", ".join(fmt.value for fmt in cls)
+
+    @classmethod
+    def from_string(cls, value: str) -> "OutputFormat":
+        try:
+            return cls(value.strip().upper())
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid output format: {value!r}. "
+                f"Must be one of: {cls.allowed_values()}."
+            ) from exc

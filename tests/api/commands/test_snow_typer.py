@@ -17,15 +17,47 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    DOCS_ATTRIBUTE,
+    PUBLIC_PREVIEW,
+    PUBLIC_PREVIEW_NO_GOV,
+    Admonition,
+    AdmonitionType,
+    Bullet,
+    BulletList,
+    Code,
+    CommandDocs,
+    Example,
+    Include,
+    PlainText,
+    Ref,
+    RelatedLink,
+    admonition,
+    bullet,
+    bullet_list,
+    code,
+    get_command_docs,
+    has_explicit_command_docs,
+    link,
+    note,
+    plain_text,
+    ref,
+    unique_includes,
+)
+from snowflake.cli.api.commands.docs_help import SnowTyperCommand
 from snowflake.cli.api.commands.snow_typer import (
     PREVIEW_PREFIX,
     SnowTyper,
     SnowTyperFactory,
     SortedTyperGroup,
 )
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.output.types import EmptyResult, MessageResult
 from typer.main import get_command
 from typer.testing import CliRunner
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 def class_factory(
@@ -532,3 +564,285 @@ def test_add_typer_subcommands_are_invokable(cli):
 
     sub_result = cli(app)(["sub", "sub_cmd", "--help"])
     assert sub_result.exit_code == 0, sub_result.output
+
+
+def test_command_docs_empty_versus_missing_banners():
+    assert CommandDocs().banners == ()
+    assert CommandDocs(banners=()).banners == ()
+
+
+def test_unique_includes_deduplicates_by_path():
+    assert unique_includes((PUBLIC_PREVIEW, PUBLIC_PREVIEW)) == (PUBLIC_PREVIEW,)
+    assert unique_includes((PUBLIC_PREVIEW, PUBLIC_PREVIEW_NO_GOV)) == (
+        PUBLIC_PREVIEW,
+        PUBLIC_PREVIEW_NO_GOV,
+    )
+
+
+def test_command_docs_rejects_non_include_banners():
+    with pytest.raises(TypeError, match="tuple of includes"):
+        CommandDocs(banners="PublicPreview")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="entries must be Include values"):
+        CommandDocs(banners=("PublicPreview",))  # type: ignore[arg-type]
+
+
+def test_command_docs_rejects_usage_note_include_without_help():
+    with pytest.raises(TypeError, match="Include entries must set help_content"):
+        CommandDocs(
+            usage_notes=(
+                Include(tag="DbtDeployForceWarning", path="INCLUDE/text/foo.mdx"),
+            )
+        )
+
+
+def test_include_rejects_nested_include_in_help_content():
+    with pytest.raises(TypeError, match="nested Include blocks"):
+        Include(
+            tag="Outer",
+            path="INCLUDE/text/outer.mdx",
+            help_content=(
+                Include(
+                    tag="Inner",
+                    path="INCLUDE/text/inner.mdx",
+                    help_content=(plain_text("inner"),),
+                ),
+            ),
+        )
+
+
+def test_command_docs_empty_versus_missing_usage_notes():
+    assert CommandDocs().usage_notes is None
+    assert CommandDocs(usage_notes=()).usage_notes == ()
+    assert CommandDocs(usage_notes=None).usage_notes is None
+
+
+def test_command_docs_rejects_non_block_usage_notes():
+    with pytest.raises(TypeError, match="tuple of content blocks"):
+        CommandDocs(usage_notes="old string")  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="entries must be content blocks"):
+        CommandDocs(usage_notes=("old string",))  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="entries must be content blocks"):
+        CommandDocs(usage_notes=(bullet("Lone bullet."),))  # type: ignore[arg-type]
+
+    assert CommandDocs(usage_notes=(bullet_list(bullet("Listed.")),)) == CommandDocs(
+        usage_notes=(BulletList(items=(Bullet(parts=("Listed.",)),)),)
+    )
+
+
+def test_command_docs_empty_versus_missing_examples():
+    assert CommandDocs().examples is None
+    assert CommandDocs(examples=()).examples == ()
+    assert CommandDocs(examples=None).examples is None
+
+
+def test_example_rejects_string_description():
+    with pytest.raises(TypeError, match="PlainText paragraph"):
+        Example(command="snow foo", description="Ask a question")  # type: ignore[arg-type]
+
+
+def test_command_docs_content_helpers():
+    assert plain_text("See ", ref("dcm-object"), ".") == PlainText(
+        parts=("See ", Ref(name="dcm-object"), ".")
+    )
+    assert bullet_list(bullet("First.")) == BulletList(
+        items=(Bullet(parts=("First.",)),)
+    )
+    assert note("Take care.") == Admonition(parts=("Take care.",))
+    assert admonition(AdmonitionType.CAUTION, "Be careful.") == Admonition(
+        parts=("Be careful.",), admonition_type=AdmonitionType.CAUTION
+    )
+    assert admonition(AdmonitionType.WARNING, "Watch out.") == Admonition(
+        parts=("Watch out.",), admonition_type=AdmonitionType.WARNING
+    )
+    with pytest.raises(ValueError):
+        AdmonitionType("custom")
+    assert code("--target") == Code(value="--target")
+    assert link("#label", "Deploying") == RelatedLink(href="#label", title="Deploying")
+    assert link("#label") == RelatedLink(href="#label", title="")
+
+
+_DEMO_DOCS = CommandDocs(
+    related=(
+        RelatedLink(href="/developer-guide/snowflake-cli/index"),
+        RelatedLink(
+            href="/developer-guide/snowflake-cli/command-reference/overview",
+            title="Snowflake CLI command reference",
+        ),
+    ),
+    usage_notes=(PlainText(parts=("Only usable on **Tuesdays**.",)),),
+    examples=(
+        Example(
+            command="snow demo cmd_with_docs",
+            description=PlainText(parts=("Run the command.",)),
+            output="done",
+        ),
+        Example(command="snow demo cmd_with_docs --again"),
+    ),
+)
+
+
+def _app_with_docs() -> SnowTyperFactory:
+    app = SnowTyperFactory(name="demo")
+
+    @app.command(
+        "cmd_with_docs",
+        requires_global_options=False,
+        requires_connection=False,
+        docs=_DEMO_DOCS,
+    )
+    def cmd_with_docs():
+        return MessageResult("ok")
+
+    @app.command(
+        "cmd_without_docs", requires_global_options=False, requires_connection=False
+    )
+    def cmd_without_docs():
+        return MessageResult("ok")
+
+    return app
+
+
+def test_declaring_command_docs_keeps_the_command_usable(cli):
+    """docs= is accepted by @app.command() and does not disturb the command."""
+    app = _app_with_docs().create_instance()
+
+    result = cli(app)(["cmd_with_docs"])
+    assert result.exit_code == 0, result.output
+
+
+def test_command_docs_are_readable_off_the_click_command():
+    """docs= is reachable through the wrappers Typer puts around the callback."""
+    group = get_command(_app_with_docs().create_instance())
+
+    assert isinstance(group.commands["cmd_with_docs"], SnowTyperCommand)
+    assert (
+        getattr(group.commands["cmd_with_docs"].callback, DOCS_ATTRIBUTE) == _DEMO_DOCS
+    )
+    assert not hasattr(group.commands["cmd_without_docs"].callback, DOCS_ATTRIBUTE)
+    assert get_command_docs(group.commands["cmd_with_docs"]) == _DEMO_DOCS
+    assert get_command_docs(group.commands["cmd_without_docs"]) == CommandDocs()
+
+
+def test_has_explicit_command_docs():
+    group = get_command(_app_with_docs().create_instance())
+
+    assert has_explicit_command_docs(group.commands["cmd_with_docs"])
+    assert not has_explicit_command_docs(group.commands["cmd_without_docs"])
+
+
+def test_command_docs_do_not_appear_in_help_by_default(cli):
+    result = cli(_app_with_docs().create_instance())(["cmd_with_docs", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "Usage notes" not in result.output
+    assert "Examples" not in result.output
+    assert "Related topics" not in result.output
+
+
+@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
+def test_command_docs_appear_in_help(cli, os_agnostic_snapshot):
+    result = cli(_app_with_docs().create_instance())(["cmd_with_docs", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == os_agnostic_snapshot
+
+
+@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
+@pytest.mark.parametrize(
+    "docs",
+    [
+        CommandDocs(),
+        CommandDocs(usage_notes=()),
+    ],
+    ids=["missing-values", "empty-usage-notes"],
+)
+def test_empty_command_docs_do_not_add_help_sections(cli, docs):
+    app = SnowTyperFactory(name="demo")
+
+    @app.command(
+        "cmd",
+        requires_global_options=False,
+        requires_connection=False,
+        docs=docs,
+    )
+    def cmd():
+        return MessageResult("ok")
+
+    result = cli(app.create_instance())(["cmd", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "Usage notes" not in result.output
+    assert "Examples" not in result.output
+    assert "Related topics" not in result.output
+
+
+def test_command_docs_are_readable_with_connection_options():
+    """The global-options wrapper sits between the callback and Typer."""
+    app = SnowTyperFactory(name="demo")
+
+    @app.command("cmd", requires_connection=True, docs=_DEMO_DOCS)
+    def cmd(**options):
+        return MessageResult("ok")
+
+    @app.command("other", requires_connection=True)
+    def other(**options):
+        return MessageResult("ok")
+
+    group = get_command(app.create_instance())
+    assert getattr(group.commands["cmd"].callback, DOCS_ATTRIBUTE) == _DEMO_DOCS
+    assert not hasattr(group.commands["other"].callback, DOCS_ATTRIBUTE)
+    assert get_command_docs(group.commands["cmd"]) == _DEMO_DOCS
+    assert get_command_docs(group.commands["other"]) == CommandDocs()
+
+
+@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
+def test_command_docs_usage_notes_are_plain_text_in_help(cli):
+    app = SnowTyperFactory(name="demo")
+
+    @app.command(
+        "cmd",
+        requires_global_options=False,
+        requires_connection=False,
+        docs=CommandDocs(
+            usage_notes=(PlainText(parts=("**Important:** use the `--force` flag.",)),)
+        ),
+    )
+    def cmd():
+        return MessageResult("ok")
+
+    result = cli(app.create_instance())(["cmd", "--help"])
+
+    assert result.exit_code == 0, result.output
+    assert "**Important:**" in result.output
+    assert "`--force`" in result.output
+
+
+def test_process_result_concludes_deferred_span_on_success():
+    metrics = get_cli_context().metrics
+    with metrics.span("sql.client_query") as span:
+        span.defer()
+
+    SnowTyper.process_result(EmptyResult())
+
+    completed = metrics.completed_spans
+    assert len(completed) == 1
+    assert completed[0]["name"] == "sql.client_query"
+    assert completed[0]["error"] is None
+
+
+def test_process_result_concludes_deferred_span_on_print_error(monkeypatch):
+    metrics = get_cli_context().metrics
+    with metrics.span("sql.client_query") as span:
+        span.defer()
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("print failed")
+
+    monkeypatch.setattr("snowflake.cli._app.printing.print_result", boom)
+
+    with pytest.raises(RuntimeError, match="print failed"):
+        SnowTyper.process_result(MessageResult("x"))
+
+    completed = metrics.completed_spans
+    assert len(completed) == 1
+    assert completed[0]["error"] == "RuntimeError"

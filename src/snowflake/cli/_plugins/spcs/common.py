@@ -224,6 +224,23 @@ def format_event_row(event_dict: dict) -> dict:
         raise RecordProcessingError(f"Error processing event row.")
 
 
+def _unwrap_metric_value(value):
+    """Next-gen event tables store scalar gauge/sum values as a tagged object such as
+    {"int_value": 5} or {"double_value": 0.5}; return the scalar. Anything else
+    (legacy scalars, histograms) is returned unchanged."""
+    if not isinstance(value, str):
+        return value
+    try:
+        parsed = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+    if isinstance(parsed, dict):
+        for key in ("int_value", "double_value"):
+            if key in parsed:
+                return str(parsed[key])
+    return value
+
+
 def format_metric_row(metric_dict: dict) -> dict:
     try:
         resource_attributes = json.loads(metric_dict["RESOURCE_ATTRIBUTES"])
@@ -237,8 +254,12 @@ def format_metric_row(metric_dict: dict) -> dict:
         )
         container_name = resource_attributes.get("snow.service.container.name", "N/A")
 
-        metric_name = record["metric"].get("name", "Unknown Metric")
-        metric_value = metric_dict.get("VALUE", "Unknown Value")
+        # Metric metadata is nested under record.metric in legacy event tables and
+        # flattened onto record in next-gen event tables; read both.
+        metric_name = record.get("name") or record.get("metric", {}).get(
+            "name", "Unknown Metric"
+        )
+        metric_value = _unwrap_metric_value(metric_dict.get("VALUE", "Unknown Value"))
 
         return {
             "TIMESTAMP": metric_dict.get("TIMESTAMP", "N/A"),

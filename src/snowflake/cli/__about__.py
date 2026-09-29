@@ -19,7 +19,7 @@ import re
 import subprocess
 from enum import Enum, unique
 
-VERSION = "3.28.0.dev0"
+VERSION = "3.29.0.dev0"
 
 
 def get_display_version() -> str:
@@ -45,6 +45,7 @@ def get_display_version() -> str:
 class CLIInstallationSource(Enum):
     BINARY = "binary"
     PYPI = "pypi"
+    SNOWFLAKE_MANAGED = "snowflake-managed"
 
 
 # This variable is changed in binary release script

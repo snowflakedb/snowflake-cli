@@ -1003,22 +1003,6 @@ class TestSyncLocalFiles:
             ), f"expected a PUT for {filename} to {stage_dest}; got: {put_queries}"
 
 
-def test_connection_returns_underlying_connection():
-    # given
-    sentinel = object()
-
-    with mock.patch.object(
-        DCMProjectManager, "_conn", new_callable=mock.PropertyMock
-    ) as mock_conn:
-        mock_conn.return_value = sentinel
-
-        # when
-        connection = DCMProjectManager().connection
-
-        # then
-        assert connection is sentinel
-
-
 def test_add_sources_without_sources_folder_is_noop(tmp_path):
     # given
     plan = UploadPlan()

@@ -20,9 +20,11 @@ from unittest import mock
 import pytest
 from snowflake.cli._app.constants import AUTHENTICATOR_WORKLOAD_IDENTITY
 from snowflake.cli._app.snow_connector import _BufferedMirrorStream
+from snowflake.cli.api.exceptions import SnowflakeConnectionError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
+from snowflake.connector.errors import DatabaseError
 
 from tests_common.feature_flag_utils import with_feature_flags
 
@@ -39,6 +41,108 @@ MOCK_CONNECTION = {
     "role": "roleValue",
     "show": "warehouseValue",
 }
+
+
+@pytest.mark.parametrize(
+    "parameters,errno,message,expected_hint",
+    [
+        (
+            {"authenticator": "OAUTH_AUTHORIZATION_CODE"},
+            390318,
+            "OAuth access token expired",
+            "oauth_enable_refresh_tokens = true",
+        ),
+        (
+            {
+                "authenticator": "oauth_authorization_code",
+                "oauth_enable_refresh_tokens": False,
+            },
+            250001,
+            "Failed to connect. OAuth access token expired.",
+            "oauth_enable_refresh_tokens = true",
+        ),
+        (
+            {
+                "authenticator": "OAUTH_AUTHORIZATION_CODE",
+                "oauth_enable_refresh_tokens": True,
+                "client_store_temporary_credential": False,
+            },
+            390318,
+            "OAuth access token expired",
+            "client_store_temporary_credential = true",
+        ),
+        (
+            {
+                "authenticator": "oauth",
+                "token": "synthetic-token-do-not-print",
+                "oauth_enable_refresh_tokens": True,
+            },
+            390303,
+            "Invalid OAuth access token",
+            "supplied by its caller",
+        ),
+        (
+            {
+                "authenticator": "OAUTH_AUTHORIZATION_CODE",
+                "oauth_enable_refresh_tokens": True,
+            },
+            390318,
+            "OAuth access token expired",
+            "Sign in again",
+        ),
+        (
+            {"authenticator": "OAUTH_AUTHORIZATION_CODE"},
+            250001,
+            "Failed to connect: DNS lookup failed",
+            None,
+        ),
+        (
+            {"authenticator": "OAUTH_AUTHORIZATION_CODE"},
+            390100,
+            "Incorrect username or password",
+            None,
+        ),
+        (
+            {"authenticator": "EXTERNALBROWSER"},
+            390318,
+            "OAuth access token expired",
+            None,
+        ),
+    ],
+)
+def test_oauth_connection_failure_guidance(parameters, errno, message, expected_hint):
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+
+    error = DatabaseError(msg=message, errno=errno)
+    with (
+        mock.patch(
+            "snowflake.cli._app.snow_connector.get_connection_dict",
+            return_value=parameters,
+        ),
+        mock.patch(
+            "snowflake.cli._app.snow_connector.get_env_value", return_value=None
+        ),
+        mock.patch(
+            "snowflake.cli._app.snow_connector.command_info", return_value="TEST"
+        ),
+        mock.patch(
+            "snowflake.cli._app.snow_connector._update_internal_application_info"
+        ),
+        mock.patch("snowflake.connector.connect", side_effect=error) as connect,
+        pytest.raises(SnowflakeConnectionError) as raised,
+    ):
+        connect_to_snowflake(connection_name="test")
+
+    connect.assert_called_once()
+    assert raised.value.__cause__ is error
+    assert message in str(raised.value)
+    assert "synthetic-token-do-not-print" not in str(raised.value)
+    if expected_hint:
+        assert expected_hint in str(raised.value)
+    else:
+        assert (
+            raised.value.message == f"Could not connect to Snowflake. Reason: {error}"
+        )
 
 
 def test_buffered_mirror_stream_buffers_without_mirror():
@@ -190,8 +294,26 @@ def test_returns_nice_error_in_case_of_connectivity_error(runner):
     result = runner.invoke(["sql", "-q", "select 1"])
 
     assert result.exit_code == 1, result.output
-    assert "Invalid connection configuration" in result.output
+    assert "Could not connect to Snowflake" in result.output
+    assert "Invalid connection configuration" not in result.output
     assert "User is empty" in result.output
+
+
+def test_server_side_connect_failure_is_not_configuration_error(mock_connect, runner):
+    mock_connect.side_effect = DatabaseError(
+        msg=(
+            "250001 (08001): Failed to connect to DB: "
+            "example.snowflakecomputing.com:443. User is locked from Duo "
+            "Security. Contact your local system administrator."
+        ),
+        errno=250001,
+    )
+    result = runner.invoke(["sql", "-q", "select 1"])
+
+    assert result.exit_code == 1, result.output
+    assert "Could not connect to Snowflake" in result.output
+    assert "User is locked from Duo Security" in result.output
+    assert "Invalid connection configuration" not in result.output
 
 
 @mock.patch("snowflake.connector")

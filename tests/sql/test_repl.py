@@ -1,35 +1,27 @@
 import os
+from textwrap import dedent
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.keys import Keys
 from snowflake.cli._plugins.sql.manager import SqlManager
-from snowflake.cli._plugins.sql.repl import Repl
+from snowflake.cli._plugins.sql.repl import Repl, _print_sql_elapsed
 from snowflake.cli._plugins.sql.repl_commands import EditCommand
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.output.formats import OutputFormat
+
+from tests.sql.conftest import run_repl, sql_output_settings
 
 
-@pytest.fixture(name="repl")
-def make_repl(mock_cursor):
-    mocked_cursor = [
-        mock_cursor(
-            rows=[("1",)],
-            columns=["1"],
-        ),
-    ]
+def test_execute_returns_expected_results_count_with_cursors(repl):
+    expected_results_cnt, cursors = repl._execute("select 1;")  # noqa: SLF001
 
-    with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursor):
-        manager = SqlManager()
-        repl = Repl(manager)
-
-        setattr(repl, "_history", mock.Mock())
-        repl.history.get_strings.return_value = ["SELECT 1;", "SELECT 2;"]
-
-        repl.session.prompt = mock.Mock(return_value="mocked_prompt_result")
-
-        yield repl
+    assert expected_results_cnt == 1
+    assert list(cursors)
 
 
 def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
@@ -39,11 +31,199 @@ def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
         repl.session,
         "prompt",
         side_effect=user_inputs,
+    ), mock.patch(
+        "snowflake.cli._plugins.sql.repl.time.monotonic",
+        side_effect=(0.0, 0.123),
     ):
         repl.run()
 
     output = capsys.readouterr().out
     os_agnostic_snapshot.assert_match(output)
+
+
+def test_repl_prints_one_elapsed_footer_per_input(repl, capsys, mock_cursor):
+    """One input holding several statements is timed as a whole, not per statement."""
+    cursors = [
+        mock_cursor(rows=[("1",)], columns=["1"]),
+        mock_cursor(rows=[("2",)], columns=["2"]),
+    ]
+
+    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
+        repl, "_execute", return_value=(len(cursors), cursors)
+    ), mock.patch(
+        "snowflake.cli._plugins.sql.repl.time.monotonic", side_effect=(0.0, 0.5)
+    ), mock.patch.object(
+        repl.session, "prompt", side_effect=iter(("select 1; select 2;", "exit", "y"))
+    ):
+        repl.run()
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.500s" in output
+
+
+def test_repl_prints_elapsed_after_result_rendering_error(repl, capsys):
+    """Statements ran before rendering blew up, so the timing is still reported."""
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl.print_result",
+        side_effect=Exception("query failed"),
+    ):
+        run_repl(repl, ("select 1;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Error occurred: query failed" in output
+    assert "Time Elapsed: 0.500s" in output
+    assert output.index("query failed") < output.index("Time Elapsed")
+
+
+def test_repl_prints_elapsed_after_execution_error(repl, capsys):
+    """Statements ran until execution blew up, so the warning is printed and then the timing."""
+
+    def failing_cursors():
+        raise Exception("execution failed")
+        yield
+
+    with mock.patch.object(repl, "_execute", return_value=(1, failing_cursors())):
+        run_repl(repl, ("select 1;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Error occurred: execution failed" in output
+    assert "Time Elapsed: 0.500s" in output
+    assert output.index("execution failed") < output.index("Time Elapsed")
+
+
+def test_repl_skips_elapsed_when_compilation_fails(repl, capsys):
+    """Compilation fails before a results count exists — nothing was timed."""
+    run_repl(repl, ("select <% missing %>;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Error occurred: SQL rendering error" in output
+    assert "Time Elapsed" not in output
+
+
+def test_repl_skips_elapsed_when_no_statements_found(repl, capsys):
+    """A comment-only submission compiles to nothing — no query time to report."""
+    run_repl(repl, ("-- just a comment", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Error occurred: No SQL statements found to execute." in output
+    assert "Time Elapsed" not in output
+
+
+def test_repl_skips_elapsed_for_empty_input(repl, capsys):
+    """Empty and whitespace-only submissions are skipped before timing starts — nothing was timed."""
+    run_repl(repl, ("", "   ", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Time Elapsed" not in output
+
+
+def test_repl_skips_elapsed_for_repl_command_only_input(compiling_repl, capsys):
+    """A `!command` runs no SQL, so there is no query time to report."""
+    run_repl(compiling_repl, ("!queries help", "exit", "y"))
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+def test_repl_skips_elapsed_for_async_only_input(compiling_repl, capsys):
+    """An async statement only schedules work — the REPL never waits for it."""
+    run_repl(compiling_repl, ("select 1;>", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "01b0-async" in output
+    assert "Time Elapsed" not in output
+
+
+def test_repl_prints_one_elapsed_footer_for_mixed_sync_and_command_input(
+    compiling_repl, capsys
+):
+    """One synchronous statement alongside a `!command` yields one footer."""
+    run_repl(compiling_repl, ("select 1; !queries help;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.500s" in output
+
+
+def test_repl_prints_one_elapsed_footer_for_mixed_sync_and_async_input(
+    compiling_repl, capsys
+):
+    """A sync statement plus an async one still yields one footer — only sync waits."""
+    run_repl(compiling_repl, ("select 1; select 2;>", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "01b0-async" in output
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.500s" in output
+
+
+def test_repl_times_only_the_query_that_survives_an_interrupt(
+    repl, capsys, mock_cursor
+):
+    """Ctrl-C mid-query reports no time, and the next query is still timed."""
+    cursors = [mock_cursor(rows=[("2",)], columns=["2"])]
+
+    with mock.patch.object(
+        repl, "_execute", side_effect=(KeyboardInterrupt, (len(cursors), cursors))
+    ) as mocked_execute:
+        run_repl(
+            repl,
+            ("select 1;", "select 2;", "exit", "y"),
+            # The interrupted submission only consumes its start reading, so a
+            # footer timed from it would read 10.000s rather than 0.250s.
+            monotonic_values=(0.0, 10.0, 10.25),
+        )
+
+    output = capsys.readouterr().out
+    assert mocked_execute.call_count == 2
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.250s" in output
+
+
+def test_repl_prints_independent_elapsed_footers_for_successive_queries(repl, capsys):
+    """Each submission gets its own clock; the second does not inherit the first."""
+    run_repl(
+        repl,
+        ("select 1;", "select 2;", "exit", "y"),
+        monotonic_values=(0.0, 0.1, 1.0, 1.4),
+    )
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed") == 2
+    assert "Time Elapsed: 0.100s" in output
+    assert "Time Elapsed: 0.400s" in output
+    assert output.index("Time Elapsed: 0.100s") < output.index("Time Elapsed: 0.400s")
+
+
+def test_repl_skips_elapsed_when_rendering_is_interrupted(repl, capsys, mock_cursor):
+    """Ctrl-C during result printing is not Exception, so no footer for that query."""
+    cursors = [mock_cursor(rows=[("2",)], columns=["2"])]
+
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl.print_result",
+        side_effect=(KeyboardInterrupt, None),
+    ), mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)):
+        run_repl(
+            repl,
+            ("select 1;", "select 2;", "exit", "y"),
+            monotonic_values=(0.0, 10.0, 10.25),
+        )
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.250s" in output
+
+
+def test_repl_skips_elapsed_on_ctrl_d(repl, capsys):
+    """Ctrl-D at the prompt is EOFError, so the loop prints no elapsed footer."""
+    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
+        repl.session, "prompt", side_effect=EOFError
+    ):
+        repl.run()
+
+    output = capsys.readouterr().out
+    assert "Time Elapsed" not in output
+    assert "Leaving REPL" in output
 
 
 @pytest.mark.parametrize(
@@ -104,7 +284,7 @@ def test_repl_full_app(runner, os_agnostic_snapshot, mock_cursor):
         mock_instance.prompt.side_effect = user_inputs
         mock_prompt.return_value = mock_instance
 
-        with mock.patch(repl_execute, return_value=mocked_cursor):
+        with mock.patch(repl_execute, return_value=(1, mocked_cursor)):
             result = runner.invoke(("sql",))
             assert result.exit_code == 0
             os_agnostic_snapshot.assert_match(result.output)
@@ -368,6 +548,13 @@ class TestReplPasteHandling:
                 return binding.handler
         raise AssertionError("Enter handler not found")
 
+    def _find_control_j_handler(self, key_bindings):
+        """Find the Control+J handler from key bindings."""
+        for binding in key_bindings.bindings:
+            if binding.keys == (Keys.ControlJ,):
+                return binding.handler
+        raise AssertionError("ControlJ handler not found")
+
     def test_bracketed_paste_strips_trailing_newlines(self, repl, mock_app_buffer):
         """Test that bracketed paste strips trailing newlines from pasted content."""
         app, buffer = mock_app_buffer
@@ -473,8 +660,8 @@ class TestReplPasteHandling:
         expected_sql_with_newline = "SELECT 1\n"
         assert buffer.text == expected_sql_with_newline
 
-    def test_enter_key_with_cursor_in_middle_adds_newline(self, repl, mock_app_buffer):
-        """Test Enter key adds newline when cursor is not at meaningful content end."""
+    def test_enter_key_with_cursor_in_middle_submits(self, repl, mock_app_buffer):
+        """Test Enter key submits a semicolon-terminated buffer from any cursor."""
         app, buffer = mock_app_buffer
         key_bindings = repl._setup_key_bindings()  # noqa: SLF001
 
@@ -482,6 +669,7 @@ class TestReplPasteHandling:
         cursor_in_middle_position = 3
         buffer.text = complete_sql
         buffer.cursor_position = cursor_in_middle_position
+        buffer.validate_and_handle = mock.MagicMock()
 
         enter_event = mock.MagicMock()
         enter_event.app = app
@@ -489,8 +677,67 @@ class TestReplPasteHandling:
         enter_handler = self._find_enter_handler(key_bindings)
         enter_handler(enter_event)
 
-        expected_sql_with_newline_in_middle = "SEL\nECT 1;"
-        assert buffer.text == expected_sql_with_newline_in_middle
+        buffer.validate_and_handle.assert_called_once()
+        assert buffer.text == complete_sql
+
+    def test_enter_key_with_cursor_on_earlier_line_submits(self, repl, mock_app_buffer):
+        """Test Enter key submits a multiline buffer with the cursor on an earlier line."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        multiline_sql = "SELECT 1,\n  2\nFROM dual;"
+        buffer.text = multiline_sql
+        buffer.cursor_position = len("SELECT 1,")
+        buffer.validate_and_handle = mock.MagicMock()
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        buffer.validate_and_handle.assert_called_once()
+        assert buffer.text == multiline_sql
+
+    def test_enter_key_with_incomplete_input_in_middle_adds_newline(
+        self, repl, mock_app_buffer
+    ):
+        """Test Enter key inserts a newline at the cursor for incomplete input."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        incomplete_sql = "SELECT 1"
+        buffer.text = incomplete_sql
+        buffer.cursor_position = 3
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        assert buffer.text == "SEL\nECT 1"
+
+    def test_control_j_adds_newline_to_semicolon_terminated_input(
+        self, repl, mock_app_buffer
+    ):
+        """Test Ctrl+J inserts a newline instead of submitting complete input."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        complete_sql = "SELECT 1;"
+        buffer.text = complete_sql
+        buffer.cursor_position = len(complete_sql)
+        buffer.validate_and_handle = mock.MagicMock()
+
+        control_j_event = mock.MagicMock()
+        control_j_event.app = app
+
+        control_j_handler = self._find_control_j_handler(key_bindings)
+        control_j_handler(control_j_event)
+
+        assert buffer.text == "SELECT 1;\n"
+        buffer.validate_and_handle.assert_not_called()
 
     def test_enter_key_handles_exit_keywords(self, repl, mock_app_buffer):
         """Test Enter key handles exit keywords correctly."""
@@ -594,3 +841,362 @@ def test_no_prompt_exit_repl(
         runner.invoke(["sql", *command_args])
 
     assert mock_ask_yn.called is ask_yn_called
+
+
+def test_repl_keeps_historical_default_prompt(repl):
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    assert repl.session.prompt.call_args.args[0] == " > "
+
+
+def _config_with_prompt_format(prompt_format: str | None) -> str:
+    config = dedent(
+        """\
+        [connections.default]
+        database = "db_for_test"
+        schema = "test_public"
+        role = "test_role"
+        warehouse = "xs"
+        password = "dummy_password"
+        """
+    )
+    if prompt_format is not None:
+        config += f"\n[cli]\nprompt_format = {prompt_format}\n"
+    return config
+
+
+@pytest.mark.parametrize(
+    "command_args, config_prompt_format, env_prompt_format, expected",
+    [
+        (["--prompt-format", "[user]>"], None, None, "[user]>"),
+        ([], '"[database]>"', None, "[database]>"),
+        (["--prompt-format", "[user]>"], '"[database]>"', None, "[user]>"),
+        ([], None, None, None),
+        # This option deliberately has no environment variable, so the
+        # environment must never win over config.toml or supply a value.
+        ([], '"[database]>"', "[schema]>", "[database]>"),
+        ([], None, "[schema]>", None),
+        (["--prompt-format", "[user]>"], None, "[schema]>", "[user]>"),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl")
+def test_prompt_format_sources(
+    mock_repl_cls,
+    runner,
+    config_file,
+    monkeypatch,
+    command_args,
+    config_prompt_format,
+    env_prompt_format,
+    expected,
+):
+    mock_repl_cls.return_value.run.return_value = None
+    if env_prompt_format is None:
+        monkeypatch.delenv("SNOWFLAKE_CLI_PROMPT_FORMAT", raising=False)
+    else:
+        monkeypatch.setenv("SNOWFLAKE_CLI_PROMPT_FORMAT", env_prompt_format)
+
+    with config_file(_config_with_prompt_format(config_prompt_format)) as cfg:
+        result = runner.invoke_with_config_file(cfg, ["sql", *command_args])
+
+    assert result.exit_code == 0, result.output
+    assert mock_repl_cls.call_args.kwargs["prompt_format"] == expected
+
+
+def _connection_for_prompt(**overrides):
+    values = dict(
+        user="alice",
+        host="host.example",
+        account="acct",
+        role="SYSADMIN",
+        warehouse="WH",
+        database="DB1",
+        schema="PUBLIC",
+    )
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+def test_repl_expands_configured_prompt_format(mock_cursor):
+    mocked_cursor = [
+        mock_cursor(rows=[("1",)], columns=["1"]),
+    ]
+    connection = _connection_for_prompt()
+    with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursor):
+        repl = Repl(
+            SqlManager(connection=connection), prompt_format="[user]@[database]>"
+        )
+        repl.session.prompt = mock.Mock(side_effect=["exit", "y"])
+        repl.run()
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert "alice@DB1>" in prompt_messages
+
+
+@pytest.mark.parametrize(
+    "attribute, statement, updated_value",
+    [
+        ("database", "USE DATABASE DB2;", "DB2"),
+        ("warehouse", "USE WAREHOUSE WH2;", "WH2"),
+        ("role", "USE ROLE SECURITYADMIN;", "SECURITYADMIN"),
+        ("schema", "USE SCHEMA PRIVATE;", "PRIVATE"),
+    ],
+)
+def test_next_repl_prompt_reflects_use_statement(
+    mock_cursor, attribute, statement, updated_value
+):
+    mocked_cursor = [
+        mock_cursor(rows=[("1",)], columns=["1"]),
+    ]
+    connection = _connection_for_prompt()
+    original = getattr(connection, attribute)
+
+    def execute_and_update_connection(sql_text, **kwargs):
+        if "use " in sql_text.lower():
+            setattr(connection, attribute, updated_value)
+        return mocked_cursor
+
+    with mock.patch.object(
+        SqlManager, "_execute_string", side_effect=execute_and_update_connection
+    ):
+        repl = Repl(SqlManager(connection=connection), prompt_format=f"[{attribute}]>")
+        repl.session.prompt = mock.Mock(side_effect=[statement, "exit", "y"])
+        repl.run()
+
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert prompt_messages[0] == f"{original}>"
+    assert prompt_messages[1] == f"{updated_value}>"
+
+
+def test_repl_prompt_uses_connection_from_latest_successful_query(mock_cursor):
+    first = _connection_for_prompt(database="OLD")
+    second = _connection_for_prompt(database="NEW")
+
+    class _Manager:
+        def __init__(self):
+            self.connection = first
+            self._calls = 0
+
+        def execute(self, **kwargs):
+            self._calls += 1
+            if self._calls > 1:
+                self.connection = second
+            return 1, iter([mock_cursor(rows=[("1",)], columns=["1"])])
+
+    repl = Repl(_Manager(), prompt_format="[database]>")
+    repl.session.prompt = mock.Mock(side_effect=["select 1;", "exit", "y"])
+    repl.run()
+
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert prompt_messages[0] == "OLD>"
+    assert prompt_messages[1] == "NEW>"
+
+
+def test_prompt_format_rejects_non_string_config(runner, config_file):
+    config = dedent(
+        """\
+        [connections.default]
+        database = "db_for_test"
+        schema = "test_public"
+        role = "test_role"
+        warehouse = "xs"
+        password = "dummy_password"
+
+        [cli]
+        prompt_format = true
+        """
+    )
+    with config_file(config) as cfg:
+        result = runner.invoke_with_config_file(cfg, ["sql"])
+
+    assert result.exit_code != 0
+    assert "Expected a string for cli.prompt_format" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_prompt_format_invalid_config_ignored_for_one_shot_inputs(
+    mock_manager, runner, config_file, named_temporary_file
+):
+    mock_manager().execute.return_value = (0, [])
+    config = dedent(
+        """\
+        [connections.default]
+        database = "db_for_test"
+        schema = "test_public"
+        role = "test_role"
+        warehouse = "xs"
+        password = "dummy_password"
+
+        [cli]
+        prompt_format = true
+        """
+    )
+    with named_temporary_file() as sql_file:
+        sql_file.write_text("select 1")
+        with config_file(config) as cfg:
+            query_result = runner.invoke_with_config_file(
+                cfg, ["sql", "-q", "select 1"]
+            )
+            file_result = runner.invoke_with_config_file(
+                cfg, ["sql", "-f", str(sql_file)]
+            )
+            stdin_result = runner.invoke_with_config_file(
+                cfg, ["sql", "--stdin"], input="select 1"
+            )
+
+    assert query_result.exit_code == 0, query_result.output
+    assert file_result.exit_code == 0, file_result.output
+    assert stdin_result.exit_code == 0, stdin_result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_prompt_format_flag_ignored_for_one_shot_query(mock_manager, runner):
+    mock_manager().execute.return_value = (0, [])
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--prompt-format", "[#ff00ff][user]>"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "not supported in this version" not in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
+def test_prompt_format_uses_cli_connection_name(
+    mock_execute, mock_prompt_session, runner, mock_cursor
+):
+    mock_execute.return_value = (1, iter([mock_cursor(["1"], ["1"])]))
+    mock_prompt = mock.MagicMock()
+    mock_prompt.prompt.side_effect = iter(("exit", "y"))
+    mock_prompt_session.return_value = mock_prompt
+
+    result = runner.invoke(["sql", "-c", "full", "--prompt-format", "[connection]>"])
+
+    assert result.exit_code == 0, result.output
+    assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
+
+
+@pytest.mark.parametrize(
+    "colour_token, expected_style",
+    [("[#ff00ff]", "fg:#ff00ff"), ("[bg:#00ff00]", "bg:#00ff00")],
+)
+@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
+def test_prompt_format_renders_colour_without_warning(
+    mock_execute,
+    mock_prompt_session,
+    runner,
+    mock_cursor,
+    colour_token,
+    expected_style,
+):
+    mock_execute.return_value = (1, iter([mock_cursor(["1"], ["1"])]))
+    mock_prompt = mock.MagicMock()
+    mock_prompt.prompt.side_effect = iter(("exit", "y"))
+    mock_prompt_session.return_value = mock_prompt
+
+    result = runner.invoke(
+        ["sql", "-c", "full", "--prompt-format", f"{colour_token}[connection]>"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert colour_token not in result.output
+    first_prompt_call = mock_prompt.prompt.call_args_list[0]
+    assert first_prompt_call.args[0] == FormattedText([(expected_style, "full>")])
+    assert first_prompt_call.kwargs["lexer"] is not None
+
+
+def test_coloured_prompt_reflects_use_statement(mock_cursor):
+    mocked_cursor = [mock_cursor(rows=[("1",)], columns=["1"])]
+    connection = _connection_for_prompt(database="DB1")
+
+    def execute_and_update_connection(sql_text, **kwargs):
+        if "use " in sql_text.lower():
+            connection.database = "DB2"
+        return mocked_cursor
+
+    with mock.patch.object(
+        SqlManager, "_execute_string", side_effect=execute_and_update_connection
+    ):
+        repl = Repl(
+            SqlManager(connection=connection),
+            prompt_format="[#ff00ff][database]>",
+        )
+        repl.session.prompt = mock.Mock(side_effect=["USE DATABASE DB2;", "exit", "y"])
+        repl.run()
+
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert prompt_messages[0] == FormattedText([("fg:#ff00ff", "DB1>")])
+    assert prompt_messages[1] == FormattedText([("fg:#ff00ff", "DB2>")])
+
+
+@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
+def test_prompt_format_warns_and_drops_unknown_token_in_repl(
+    mock_execute, mock_prompt_session, runner, mock_cursor
+):
+    mock_execute.return_value = (1, iter([mock_cursor(["1"], ["1"])]))
+    mock_prompt = mock.MagicMock()
+    mock_prompt.prompt.side_effect = iter(("exit", "y"))
+    mock_prompt_session.return_value = mock_prompt
+
+    result = runner.invoke(
+        ["sql", "-c", "full", "--prompt-format", "[future-token][connection]>"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "[future-token]" in result.output
+    assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
+
+
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_prompt_format_unknown_token_warning_skipped_for_one_shot(mock_manager, runner):
+    mock_manager().execute.return_value = (0, [])
+    result = runner.invoke(
+        ["sql", "-q", "select 1", "--prompt-format", "[future-token]>"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "future-token" not in result.output
+
+
+def test_print_sql_elapsed_table_not_silent(capsys):
+    with sql_output_settings(OutputFormat.TABLE, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed: 0.123s" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
+)
+def test_print_sql_elapsed_skips_non_table_formats(output_format, capsys):
+    with sql_output_settings(output_format, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+def test_print_sql_elapsed_table_silent(capsys):
+    with sql_output_settings(OutputFormat.TABLE, silent=True):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
+)
+def test_repl_skips_elapsed_for_structured_output(output_format, repl, capsys):
+    """A footer would corrupt machine-readable output, so the loop prints none."""
+    with sql_output_settings(output_format, silent=False):
+        run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+def test_repl_skips_elapsed_when_silent(repl, capsys):
+    """Silent mode hides the footer even though the table format allows it."""
+    with sql_output_settings(OutputFormat.TABLE, silent=True):
+        run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
+
+    assert "Time Elapsed" not in capsys.readouterr().out

@@ -56,6 +56,7 @@ repos:
           ^src/snowflake/cli/_app/dev/.*$|
           ^src/snowflake/cli/templates/.*$|
           ^src/snowflake/cli/api/utils/rendering.py$|
+          ^src/snowflake/cli/api/commands/docs_help.py$|
           ^src/snowflake/cli/_plugins/spcs/common.py$|
           ^src/snowflake/cli/_plugins/snowpark/venv.py$|
           ^src/snowflake/cli/_plugins/sql/repl.py$|

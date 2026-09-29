@@ -90,6 +90,40 @@ def _context_callback(prop: str):
     return callback
 
 
+def _coerce_output_format(value: object) -> OutputFormat:
+    if isinstance(value, OutputFormat):
+        return value
+    if hasattr(value, "unwrap"):
+        value = value.unwrap()
+    if isinstance(value, str):
+        try:
+            return OutputFormat.from_string(value)
+        except ValueError as exc:
+            raise CliArgumentError(str(exc)) from exc
+    raise CliArgumentError(
+        f"Invalid value for cli.output_format: {value!r}. "
+        f"Must be one of: {OutputFormat.allowed_values()}."
+    )
+
+
+def _output_format_callback(ctx: click.Context, param: click.Parameter, value):
+    """Honour --format; else cli.output_format / SNOWFLAKE_CLI_OUTPUT_FORMAT."""
+    try:
+        if ctx.resilient_parsing:
+            return
+    except RuntimeError:
+        pass
+
+    if ctx.get_parameter_source(param.name) != click.core.ParameterSource.COMMANDLINE:  # type: ignore[attr-defined]
+        configured = get_config_value("cli", key="output_format", default=None)
+        if configured is not None:
+            value = configured
+
+    value = _coerce_output_format(value)
+    get_cli_context_manager().output_format = value
+    return value
+
+
 ConnectionOption = typer.Option(
     None,
     "--connection",
@@ -508,9 +542,12 @@ DiagAllowlistPathOption: Path = typer.Option(
 OutputFormatOption = typer.Option(
     OutputFormat.TABLE.value,
     "--format",
-    help="Specifies the output format.",
+    help=(
+        "Specifies the output format. "
+        "[env var: SNOWFLAKE_CLI_OUTPUT_FORMAT | config: cli.output_format]"
+    ),
     case_sensitive=False,
-    callback=_context_callback("output_format"),
+    callback=_output_format_callback,
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 

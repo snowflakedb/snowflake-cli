@@ -436,3 +436,107 @@ def test_metrics_spans_passing_both_limits_should_add_to_both_counts():
     # then
     assert metrics.num_spans_past_total_limit == CLIMetrics.SPAN_DEPTH_LIMIT + 10
     assert metrics.num_spans_past_depth_limit == 10
+
+
+def test_metrics_discarded_span_is_not_reported():
+    metrics = CLIMetrics()
+
+    with metrics.span("gone") as span:
+        span.discard()
+
+    assert metrics.completed_spans == []
+    assert metrics.current_span is None
+
+
+def test_metrics_kept_span_is_still_reported():
+    metrics = CLIMetrics()
+
+    with metrics.span("kept"):
+        pass
+
+    assert len(metrics.completed_spans) == 1
+    assert metrics.completed_spans[0][CLIMetricsSpan.NAME_KEY] == "kept"
+
+
+def test_metrics_discard_after_error_still_omits_span():
+    metrics = CLIMetrics()
+
+    with pytest.raises(RuntimeError, match="boom"):
+        with metrics.span("gone") as span:
+            span.discard()
+            raise RuntimeError("boom")
+
+    assert metrics.completed_spans == []
+
+
+def test_metrics_child_discard_is_ignored_and_child_is_reported():
+    metrics = CLIMetrics()
+
+    with metrics.span("parent"):
+        with metrics.span("child") as child:
+            child.discard()
+
+    names = [span[CLIMetricsSpan.NAME_KEY] for span in metrics.completed_spans]
+    assert names == ["parent", "child"]
+
+
+def test_metrics_deferred_span_is_not_reported_until_concluded():
+    metrics = CLIMetrics()
+
+    with metrics.span("later") as span:
+        span.defer()
+        assert metrics.current_span is span
+
+    assert metrics.completed_spans == []
+    assert metrics.current_span is not None
+    assert metrics.current_span.is_deferred
+
+    metrics.conclude_deferred_spans()
+
+    assert len(metrics.completed_spans) == 1
+    assert metrics.completed_spans[0][CLIMetricsSpan.NAME_KEY] == "later"
+    assert metrics.completed_spans[0][CLIMetricsSpan.ERROR_KEY] is None
+    assert metrics.current_span is None
+
+
+def test_metrics_conclude_deferred_span_records_error():
+    metrics = CLIMetrics()
+
+    with metrics.span("later") as span:
+        span.defer()
+
+    metrics.conclude_deferred_spans(error=RuntimeError("render failed"))
+
+    assert metrics.completed_spans[0][CLIMetricsSpan.ERROR_KEY] == "RuntimeError"
+
+
+def test_metrics_deferred_span_completes_immediately_on_exception():
+    metrics = CLIMetrics()
+
+    with pytest.raises(RuntimeError, match="boom"):
+        with metrics.span("later") as span:
+            span.defer()
+            raise RuntimeError("boom")
+
+    assert len(metrics.completed_spans) == 1
+    assert metrics.completed_spans[0][CLIMetricsSpan.NAME_KEY] == "later"
+    assert metrics.completed_spans[0][CLIMetricsSpan.ERROR_KEY] == "RuntimeError"
+    assert metrics.current_span is None
+
+
+def test_metrics_conclude_deferred_spans_no_op_when_empty():
+    metrics = CLIMetrics()
+    metrics.conclude_deferred_spans()
+    assert metrics.completed_spans == []
+
+
+def test_metrics_child_defer_is_ignored_and_child_finishes_normally():
+    metrics = CLIMetrics()
+
+    with metrics.span("parent"):
+        with metrics.span("child") as child:
+            child.defer()
+
+    names = [span[CLIMetricsSpan.NAME_KEY] for span in metrics.completed_spans]
+    assert "child" in names
+    assert metrics.current_span is None

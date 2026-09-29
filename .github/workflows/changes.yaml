@@ -55,6 +55,7 @@ jobs:
             '^\.ai/review/'
             '^scripts/mirroring/'
             '^\.github/workflows/mirror-'
+            '^\.github/workflows/import-'
           )
           pattern=$(IFS='|'; echo "${ignored[*]}")
           if echo "$changed" | grep -Ev "($pattern)" > /dev/null; then

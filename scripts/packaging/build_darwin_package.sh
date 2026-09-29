@@ -217,8 +217,40 @@ validate_installation() {
 
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
 
+# Opt-in second output: snowflake-managed tarball of the already-signed binary.
+# BINARY pkg path above is unchanged. Releng sets BUILD_SNOWFLAKE_MANAGED_TARBALL=1 in PR-H.
+build_snowflake_managed_tarball() {
+  if [[ "${BUILD_SNOWFLAKE_MANAGED_TARBALL:-}" != "1" ]]; then
+    return 0
+  fi
+  echo "--- build snowflake-managed tarball ---"
+  # App already consumed the BINARY snow. Second hatch stamps SNOWFLAKE_MANAGED.
+  # Skip auto-pack so we codesign first, then pack the signed binary (do not re-sign on the laptop).
+  SNOWFLAKE_CLI_INSTALLATION_SOURCE=SNOWFLAKE_MANAGED \
+  SNOWFLAKE_CLI_PACK_MANAGED_TARBALL=0 \
+    hatch -e packaging run build-isolated-binary
+  local managed_bin="$DIST_DIR/binary/${BINARY_NAME}"
+  codesign \
+    --timestamp \
+    --force \
+    --verify \
+    --verbose \
+    --options runtime \
+    --entitlements $PACKAGING_DIR/macos/SnowflakeCLI_entitlements.plist \
+    --sign "${CODESIGN_IDENTITY}" \
+    "${managed_bin}"
+  python $PACKAGING_DIR/build_isolated_binary_with_hatch.py \
+    --pack-tarball "${managed_bin}" \
+    --version "${CLI_VERSION}"
+}
+
+build_snowflake_managed_tarball
+
 echo "--- Upload artifacts to AWS ---"
 ls -la ./dist/
 echo "${STAGE_URL}"
 command -v aws
-aws s3 cp ./dist/ ${STAGE_URL} --recursive --exclude "*" --include="snowflake-cli-${CLI_VERSION}*.pkg"
+aws s3 cp ./dist/ ${STAGE_URL} --recursive --exclude "*" \
+  --include="snowflake-cli-${CLI_VERSION}*.pkg" \
+  --include="snowflake-cli-${CLI_VERSION}*.tar.gz" \
+  --include="manifest-*.json"

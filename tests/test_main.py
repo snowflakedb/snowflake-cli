@@ -74,6 +74,7 @@ def test_info_callback(runner, config_manager):
         {"key": "default_config_file_path", "value": str(config_manager.file_path)},
         {"key": "python_version", "value": sys.version},
         {"key": "system_info", "value": platform.platform()},
+        {"key": "installation_source", "value": "pypi"},
         {
             "key": "feature_flags",
             "value": {"dummy_flag": True, "wrong_type_flag": "UNKNOWN"},
@@ -82,8 +83,22 @@ def test_info_callback(runner, config_manager):
     ]
 
 
+def test_version_callback_has_no_installation_source(runner):
+    result = runner.invoke(["--version"])
+    assert result.exit_code == 0, result.output
+    assert result.output.startswith("Snowflake CLI version: 0.0.0-test_patched")
+    assert "snowflake-managed" not in result.output
+    assert "(pypi)" not in result.output
+    assert "(binary)" not in result.output
+
+
 def test_docs_callback(runner):
     result = runner.invoke(["--docs"])
+    assert result.exit_code == 0, result.output
+
+
+def test_docs_pages_callback(runner, temporary_directory):
+    result = runner.invoke(["--docs-pages"])
     assert result.exit_code == 0, result.output
 
 

@@ -556,6 +556,25 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
         raise
 
 
+def get_config_value_without_env(
+    *path, key: str, default: Optional[Any] = Empty
+) -> Any:
+    """Looks for given key in the toml file only, never in the environment.
+
+    ``get_config_value`` gives every config key an implicit
+    ``SNOWFLAKE_<PATH>_<KEY>`` environment variable. Use this instead for a
+    key that is deliberately not meant to have one, so that no env var name
+    is reserved for it by accident.
+    """
+    try:
+        value = _find_section(*path)[key]
+    except (KeyError, NonExistentKey, MissingConfigOptionError, ConfigSourceError):
+        if default is not Empty:
+            return default
+        raise
+    return value.unwrap() if hasattr(value, "unwrap") else value
+
+
 def get_config_bool_value(*path, key: str, default: Optional[bool]) -> Optional[bool]:
     value = get_config_value(*path, key=key, default=None)
 

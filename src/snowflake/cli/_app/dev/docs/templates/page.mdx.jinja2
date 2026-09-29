@@ -1,0 +1,112 @@
+{%- from "_macros.mdx.jinja2" import render_option_list -%}
+---
+title: snow{% for part in path %} {{ part }}{% endfor %}
+description: ''
+---
+
+{% for include in page_imports -%}
+import {{ include.tag }} from '{{ include.path }}'
+{% endfor -%}
+import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
+
+# snow{% for part in path %} {{ part }}{% endfor %}
+
+{% if docs.related -%}
+<RelatedTopics>
+{% for link in docs.related -%}
+- [{{ link.title | mdx_escape }}]({{ link.href }})
+{% endfor -%}
+</RelatedTopics>
+
+{% endif -%}
+{% for banner in docs.banners -%}
+<{{ banner.tag }} />
+
+{% endfor -%}
+{{ help | collapse_whitespace | mdx_escape }}
+
+## Syntax
+
+```console
+snow {% for part in path %}{{ part }}{{ " " if not loop.last }}{% endfor %}
+{%- for param in arguments if not param.hidden %}
+  <{{ param.name }}>
+{%- endfor %}
+{%- for param in options if not param.hidden %}
+  {{ (param.opts | get_main_option) }}{% if not param.is_flag %} <{{ param.name }}>{% endif %}
+  {%- if param.type.name == "boolean" and param.secondary_opts|length > 0  %} {{ "/ " }}{{ param.secondary_opts[0] }}{% endif %}
+{%- endfor %}
+```
+
+## Arguments
+
+{%- if arguments %}
+
+<dl>
+{%- for param in arguments %}
+<dt><code className="samp"><em>
+    {%- if param.required -%}
+        {{ param.make_metavar().lower() | mdx_escape }}
+    {%- else -%}
+        {{ param.make_metavar().replace("[", "").replace("]", "").lower() | mdx_escape }}
+    {%- endif -%}
+</em></code></dt>
+<dd>
+
+*{{ "Required" if param.required else "Optional" }}*
+
+{% set help_text = param.help | collapse_whitespace %}{% if help_text %}{{ help_text | mdx_escape }}{% if not help_text.endswith('.') %}.{% endif %}{% if param.default %} Default: {{ param.default | mdx_escape }}.{% endif %}{% else %}TBD{% endif %}
+
+</dd>
+{%- endfor %}
+</dl>
+{%- else %}
+
+None
+{%- endif %}
+
+## Options
+
+{%- if options %}
+
+{{ render_option_list(options) }}
+{%- else %}
+
+None
+{%- endif %}
+
+<Help />
+{%- if docs.usage_notes %}
+
+## Usage notes
+
+{{ docs.usage_notes | render_usage_mdx }}
+{%- elif usage_notes_fallback %}
+
+## Usage notes
+
+{{ usage_notes_fallback | mdx_escape }}
+{%- endif %}
+{%- if docs.examples %}
+
+## Examples
+{%- for example in docs.examples %}
+
+- {% if example.description %}{{ example.description | render_paragraph_mdx }}
+  {% endif %}```snowcli
+{{ example.command | indent(2, first=True) }}
+  ```
+{%- if example.output %}
+
+  ```text
+{{ example.output | indent(2, first=True) }}
+  ```
+{%- endif %}
+{%- endfor %}
+{%- elif examples_fallback %}
+
+## Examples
+
+{{ examples_fallback | mdx_escape }}
+{%- endif -%}
+{{ "\n" }}

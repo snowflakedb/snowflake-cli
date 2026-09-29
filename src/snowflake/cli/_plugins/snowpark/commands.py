@@ -15,8 +15,9 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import defaultdict
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import typer
 from click import ClickException, UsageError
@@ -42,6 +43,7 @@ from snowflake.cli._plugins.snowpark.common import (
     SnowparkObjectManager,
     StageToArtifactMapping,
     map_path_mapping_to_artifact,
+    uses_project_requirements,
     zip_and_copy_artifacts_to_deploy,
 )
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
@@ -68,6 +70,17 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
 )
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    note,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -86,6 +99,7 @@ from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
 )
 from snowflake.cli.api.exceptions import (
+    CliError,
     IncompatibleParametersError,
     SecretsWithoutExternalAccessIntegrationError,
 )
@@ -104,6 +118,7 @@ from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
 )
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -129,8 +144,116 @@ LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
 
+_SNOWPARK_BUILD_LINK = link(
+    "/developer-guide/snowflake-cli/command-reference/snowpark-commands/build",
+    "snow snowpark build",
+)
 
-@app.command("deploy", requires_connection=True, require_warehouse=True)
+_SNOWPARK_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link("/developer-guide/snowflake-cli/command-reference/snowpark-commands/overview"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/snowpark-commands/package-commands/overview"
+    ),
+)
+
+_DEPLOY_DOCS = CommandDocs(
+    related=_SNOWPARK_RELATED,
+    usage_notes=(
+        plain_text(
+            "The ",
+            code("snow snowpark deploy"),
+            " command does the following:",
+        ),
+        bullet_list(
+            bullet(
+                "Checks to see whether the objects listed for deployment already exist. If the objects exist, you must use the ",
+                code("--replace"),
+                " option.",
+            ),
+            bullet(
+                "Creates a stage in the database specified for your connection. If no stage is defined, the command creates a stage named ",
+                code("deployments"),
+                ".",
+            ),
+            bullet(
+                "If the ",
+                code("--prune"),
+                " option was specified, removes existing content from the stage used by defined procedures and function objects.",
+            ),
+            bullet("Uploads the new artifacts."),
+            bullet(
+                "Creates the objects specified then ",
+                code("snowflake.yml"),
+                " file by executing the SQL CREATE PROCEDURE or CREATE FUNCTION queries.",
+            ),
+        ),
+        note(
+            "If you want to update objects and files, even if they did not change, you can use the ",
+            code("--force-replace"),
+            " option.",
+        ),
+        plain_text(
+            "The command deploys the source code and dependencies from the most recent build. If you modified the code or added any requirements since the last build, you must run the ",
+            _SNOWPARK_BUILD_LINK,
+            " command again before deploying the new version.",
+        ),
+        note(
+            "When deploying a Snowpark stored procedure, ",
+            ref("sf-cli"),
+            " lets you upload artifacts to a folder within a stage. This makes it possible to deploy several procedures to a single stage.",
+            "\n\n",
+            "If you are deploying to a different Snowflake account, you must run the ",
+            _SNOWPARK_BUILD_LINK,
+            " command again before deploying.",
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "The following example shows how to deploy functions and procedures in the current directory."
+            ),
+            command="snow snowpark deploy",
+            output=(
+                "+-----------------------------------------------------------------------------------+\n"
+                "| object                                             | type      | status           |\n"
+                "|----------------------------------------------------+-----------+------------------|\n"
+                "| MY_DATABASE.PUBLIC.HELLO_PROCEDURE(name string)    | procedure | packages updated |\n"
+                "| MY_DATABASE.PUBLIC.TEST_PROCEDURE()                | procedure | created          |\n"
+                "| MY_DATABASE.PUBLIC.HELLO_FUNCTION(name string)     | function  | packages updated |\n"
+                "+-----------------------------------------------------------------------------------+"
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "The following example shows what happens when objects already exist and you deploy without specifying the ",
+                code("--replace"),
+                " option.",
+            ),
+            command="snow snowpark deploy",
+            output=(
+                "╭─ Error ──────────────────────────────────────────────────────────╮\n"
+                "│ Following objects already exists. Consider using --replace.      |\n"
+                "│ function: MY_DATABASE.PUBLIC.HELLO_FUNCTION(string)              |\n"
+                "│ procedure: MY_DATABASE.PUBLIC.HELLO_PROCEDURE(string)            |\n"
+                "│ procedure: MY_DATABASE.PUBLIC.TEST_PROCEDURE()                   |\n"
+                "╰──────────────────────────────────────────────────────────────────╯"
+            ),
+        ),
+    ),
+)
+
+
+@app.command(
+    "deploy",
+    requires_connection=True,
+    require_warehouse=True,
+    docs=_DEPLOY_DOCS,
+)
 @with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
@@ -190,6 +313,9 @@ def deploy(
         snowflake_dependencies = _read_snowflake_requirements_file(
             project_paths.snowflake_requirements
         )
+        artifact_repository_requirements = _read_artifact_repository_requirements(
+            project_paths=project_paths, snowpark_entities=snowpark_entities
+        )
         deploy_status = []
         for entity in snowpark_entities.values():
             operation_result = snowpark_manager.deploy_entity(
@@ -197,6 +323,7 @@ def deploy(
                 existing_objects=existing_objects,
                 snowflake_dependencies=snowflake_dependencies,
                 entities_to_artifact_map=entities_to_imports_map,
+                artifact_repository_requirements=artifact_repository_requirements,
             )
             deploy_status.append(operation_result)
 
@@ -329,7 +456,252 @@ def _read_snowflake_requirements_file(file_path: SecurePath):
     return file_path.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB).splitlines()
 
 
-@app.command("build", requires_connection=True)
+# An artifact repository resolves a package name and a version specifier, the way a
+# package index does. Everything else a dependency declaration can hold - a URL, a
+# repository, a local path - has no meaning for one. The parsed Requirement is not
+# enough to tell those apart: `uri` is set for "git+https://..." but not for the PEP
+# 508 "name @ https://..." form, and the "===" arbitrary-equality operator accepts
+# almost any version, so a quote survives parsing and would reach the PACKAGES clause.
+# Matching the requirement as written is what keeps both out, and lets it be forwarded
+# verbatim - an artifact repository is a package index, so "scikit-learn" has to stay
+# "scikit-learn" and its specifier has to survive. Whitespace is `\s*` so a tab
+# between name and specifier is still a legal PEP 508 requirement, not a rejection.
+# Specifiers may be parenthesized (`pkg (>=1.4)`), the other PEP 508 form.
+_PEP440_SPEC = r"(?:===|==|!=|<=|>=|~=|<|>)\s*[A-Za-z0-9][A-Za-z0-9.*+!_-]*"
+_INSTALLABLE_BY_NAME = re.compile(
+    rf"""
+    [A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?          # PEP 508 name
+    \s*
+    (?:\[\s*[A-Za-z0-9._-]+(?:\s*,\s*[A-Za-z0-9._-]+)*\s*\])?   # extras
+    (?:
+        \s*\(\s*{_PEP440_SPEC}(?:\s*,\s*{_PEP440_SPEC})*\s*\)   # parenthesized specs
+        |
+        \s*{_PEP440_SPEC}(?:\s*,\s*{_PEP440_SPEC})*             # unparenthesized specs
+    )?
+    """,
+    re.VERBOSE,
+)
+_PIP_HASH_OPTION = re.compile(r"(?:^|\s)--hash=\S+")
+
+
+def _requirement_line_for_repository(line: str) -> str:
+    """Requirement text an artifact repository can be asked for.
+
+    Drops pip `--hash=` options (`uv export`, pip-tools). A repository resolves a
+    name and specifier; it does not verify file hashes.
+    """
+    return _PIP_HASH_OPTION.sub("", line).strip()
+
+
+def _read_artifact_repository_requirements(
+    project_paths: SnowparkProjectPaths, snowpark_entities: SnowparkEntities
+) -> List[str] | None:
+    """Requirements of the project, sent as PACKAGES of artifact repository entities.
+
+    An entity that declares an artifact repository and no packages of its own is
+    deployed with the requirements of the project, so that dependencies do not have
+    to be duplicated in the project definition file.
+
+    Returns None when this feature does not apply (flag off, or no entity uses
+    project requirements). Returns a list, possibly empty, when it does: an empty
+    list must not be confused with None, or create_or_replace falls through to
+    Anaconda packages from a leftover requirements.snowflake.txt.
+    """
+    if not FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS.is_enabled():
+        return None
+
+    if not any(uses_project_requirements(e) for e in snowpark_entities.values()):
+        return None
+
+    # The same resolution build performs, so that requirements.txt and the [project]
+    # dependencies of pyproject.toml reach a repository on the same terms.
+    requirements_source = package_utils.resolve_requirements_source(
+        requirements_file=project_paths.requirements,
+        pyproject_file=project_paths.pyproject,
+    )
+    if not requirements_source or not requirements_source.requirements:
+        cli_console.warning(
+            "Entities that declare an artifact repository declare no packages, and the"
+            " project declares no dependencies in requirements.txt or under [project]"
+            " in pyproject.toml, so no packages are sent for them."
+        )
+        return []
+
+    packages = []
+    not_installable = []
+    for requirement in requirements_source.requirements:
+        # parse_line drops environment markers, so matching against r.line would
+        # forward `pandas==2.2.0 ; python_version < "3.11"` as `pandas==2.2.0`.
+        # A repository is what would have honoured the marker; reject the line
+        # as written instead. `--hash=` is stripped first: uv export / pip-tools
+        # write it, and a repository cannot verify file hashes.
+        declared = _requirement_line_for_repository(
+            getattr(requirement, "declared_line", requirement.line).strip()
+        )
+        if not declared or not _INSTALLABLE_BY_NAME.fullmatch(declared):
+            not_installable.append(
+                getattr(requirement, "declared_line", requirement.line).strip()
+            )
+        else:
+            packages.append(declared)
+    if not_installable:
+        raise CliError(
+            f"Cannot ask an artifact repository for"
+            f" {', '.join(sanitize_for_terminal(line) or '' for line in not_installable)}."
+            f" A repository resolves a package name and an optional version specifier."
+            f" Declare artifact_repository_packages for the entity instead."
+        )
+    return packages
+
+
+_BUILD_DOCS = CommandDocs(
+    related=_SNOWPARK_RELATED,
+    usage_notes=(
+        bullet_list(
+            bullet(
+                "The ",
+                code("app.zip"),
+                " contains everything needed to run the functions and procedures in the project, apart from packages available through ",
+                link(
+                    "https://repo.anaconda.com/pkgs/snowflake/",
+                    "Snowflake Anaconda channel",
+                ),
+                ", which you can call directly from Snowflake.-",
+            ),
+            bullet(
+                "The command parses ",
+                code("requirements.txt"),
+                " for packages available on Conda channel. This process creates the ",
+                code("requirements.snowflake.txt"),
+                " file that contains project dependencies available on the Conda channel, which is later used by the ",
+                code("snow snowpark deploy"),
+                " command.",
+            ),
+            bullet(
+                "By default, the command looks for the ",
+                code("snowflake.yml"),
+                " file in the current directory. Alternatively, you can specify a different path with the ",
+                code("--project"),
+                " option.",
+            ),
+            bullet(
+                "This command automatically downloads dependencies and adds them to a file called ",
+                code("app.zip"),
+                ", together with project source code (specified by the ",
+                code("src"),
+                " field in the ",
+                code("snowflake.yml"),
+                " file.",
+            ),
+            bullet(
+                "To use different Python Package Index than PyPi, specify one using the ",
+                code("--index-url"),
+                " option.",
+            ),
+            bullet(
+                "You can use ",
+                code("--skip-version-check"),
+                " option to skip version requirements between project dependencies and the Anaconda Channel.",
+            ),
+            bullet(
+                "You can use the ",
+                code("--ignore-anaconda"),
+                " option to include all the required dependencies in the ",
+                code("app.zip"),
+                " file, even those available in Snowflake Anaconda channel. The dependencies aren't downloaded from Anaconda, but from PyPi.",
+            ),
+            bullet(
+                "The ",
+                code("--allow-shared-libraries"),
+                " option checks whether any of the packages downloaded from PyPi are using native dependencies, which can cause problems as Snowpark currently supports only native dependencies for packages taken from Conda channel",
+            ),
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text("Build a project located in the current directory:"),
+            command="snow snowpark build",
+            output=(
+                "Resolving dependencies from requirements.txt\n"
+                "  No external dependencies.\n"
+                "Preparing artifacts for source code\n"
+                "  Creating: app.zip\n"
+                "Build done."
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "Build a project located in a different directory when the current directory contains ",
+                code("project_dir"),
+                ", ",
+                code("some_other_dir"),
+                ", and ",
+                code("some_file.txt"),
+                ":",
+            ),
+            command="snow snowpark build -p project_dir",
+            output=(
+                "Resolving dependencies from requirements.txt\n"
+                "  No external dependencies.\n"
+                "Preparing artifacts for source code\n"
+                "  Creating: app.zip\n"
+                "Build done."
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "Build a project in a directory with no ",
+                code("snowflake.yml"),
+                " project definition when the current directory contains ",
+                code("project_dir"),
+                ", ",
+                code("some_other_dir"),
+                ", and ",
+                code("some_file.txt"),
+                ":",
+            ),
+            command="snow snowpark build",
+            output=(
+                "╭─ Error ──────────────────────────────────────────────────────────╮\n"
+                "  Cannot find project definition (snowflake.yml). Please provide\n"
+                "  a path to the project or run this command in a valid\n"
+                "  project directory.\n"
+                "╰──────────────────────────────────────────────────────────────────╯"
+            ),
+        ),
+        Example(
+            description=plain_text("Build a project with native libraries:"),
+            command="snow snowpark build --ignore-anaconda --allow-shared-libraries",
+            output=(
+                "2024-04-16 16:05:52 ERROR Following dependencies utilise shared libraries, not supported by Conda:\n"
+                "2024-04-16 16:05:52 ERROR contourpy\n"
+                "pillow\n"
+                "numpy\n"
+                "kiwisolver\n"
+                "fonttools\n"
+                "matplotlib\n"
+                "2024-04-16 16:05:52 ERROR You may still try to create your package with --allow-shared-libraries, but the might not work.\n"
+                "2024-04-16 16:05:52 ERROR You may also request adding the package to Snowflake Conda channel\n"
+                "2024-04-16 16:05:52 ERROR at https://support.anaconda.com/\n"
+                "Build done. Artifact path: /Path/to/current/dir/project_dir/app.zip"
+            ),
+        ),
+        Example(
+            description=plain_text("Build a project and include all dependencies:"),
+            command="snow snowpark build --ignore-anaconda",
+            output=(
+                "Resolving dependencies from requirements.txt\n"
+                "  No external dependencies.\n"
+                "Preparing artifacts for source code\n"
+                "  Creating: app.zip\n"
+                "Build done."
+            ),
+        ),
+    ),
+)
+
+
+@app.command("build", requires_connection=True, docs=_BUILD_DOCS)
 @with_project_definition()
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
@@ -367,7 +739,8 @@ def build(
 
     # Resolve dependencies
     if skip_dependencies:
-        _warn_if_skip_dependencies_leaves_no_packages(get_snowpark_entities(pd))
+        snowpark_entities = get_snowpark_entities(pd)
+        _warn_if_skip_dependencies_leaves_no_packages(snowpark_entities, project_paths)
         _remove_files_left_by_previous_build(project_paths)
     elif requirements_source := package_utils.resolve_requirements_source(
         requirements_file=project_paths.requirements,
@@ -453,28 +826,89 @@ def _validate_skip_dependencies_is_used_alone(
 
 def _warn_if_skip_dependencies_leaves_no_packages(
     snowpark_entities: SnowparkEntities,
+    project_paths: SnowparkProjectPaths,
 ) -> None:
     # A skipped build writes no requirements.snowflake.txt, so the packages deploy
-    # sends are only the ones declared for an artifact repository. The condition
-    # mirrors the one guarding ARTIFACT_REPOSITORY in
-    # SnowparkObjectManager.create_or_replace: without both parts the entity is
-    # created with packages=().
+    # sends are only the ones declared for an artifact repository — or, when the
+    # feature flag is on, the ones uses_project_requirements will read from
+    # requirements.txt / pyproject.toml. Those entities are not "deployed with no
+    # dependencies" when that list is non-empty; they are the pairing with
+    # --skip-dependencies. An empty list is still packages=() at deploy, so the
+    # warning still fires.
+    project_requirement_lines = _project_requirement_lines_for_skip_dependencies(
+        snowpark_entities, project_paths
+    )
     entities_without_packages = [
         key
         for key, entity in snowpark_entities.items()
-        if not (
-            entity.artifact_repository
-            and (entity.artifact_repository_packages or entity.packages)
+        if not _entity_has_packages_after_skip_dependencies(
+            entity, project_requirement_lines
         )
     ]
     if entities_without_packages:
+        if FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS.is_enabled():
+            why = (
+                "--skip-dependencies does not zip dependencies, and no packages were "
+                "found for these entities in requirements.txt, pyproject.toml, or "
+                "artifact_repository_packages, so they are deployed with no dependencies "
+                "and imports of them fail at runtime. "
+            )
+            how = (
+                "Declare artifact_repository for the entity and list the packages in "
+                "requirements.txt or pyproject.toml, or declare artifact_repository_packages "
+                "in the project definition."
+            )
+        else:
+            why = (
+                "--skip-dependencies reads neither requirements.txt nor pyproject.toml, so "
+                "these are deployed with no dependencies and imports of them fail at runtime. "
+            )
+            how = (
+                "Declare artifact_repository and packages in the project definition "
+                "to install them from an artifact repository."
+            )
         cli_console.warning(
             f"No packages are declared for: {', '.join(entities_without_packages)}. "
-            "--skip-dependencies reads neither requirements.txt nor pyproject.toml, so "
-            "these are deployed with no dependencies and imports of them fail at runtime. "
-            "Declare artifact_repository and packages in the project definition "
-            "to install them from an artifact repository."
+            f"{why}{how}"
         )
+
+
+def _project_requirement_lines_for_skip_dependencies(
+    snowpark_entities: SnowparkEntities,
+    project_paths: SnowparkProjectPaths,
+) -> List[str] | None:
+    """Requirements deploy would send for uses_project_requirements entities.
+
+    None when the feature does not apply. A list, possibly empty, when it does —
+    empty is packages=() at deploy, not "has packages".
+    """
+    if not FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS.is_enabled():
+        return None
+    if not any(uses_project_requirements(e) for e in snowpark_entities.values()):
+        return None
+    requirements_source = package_utils.resolve_requirements_source(
+        requirements_file=project_paths.requirements,
+        pyproject_file=project_paths.pyproject,
+    )
+    if not requirements_source or not requirements_source.requirements:
+        return []
+    return [
+        _requirement_line_for_repository(
+            getattr(requirement, "declared_line", requirement.line).strip()
+        )
+        for requirement in requirements_source.requirements
+    ]
+
+
+def _entity_has_packages_after_skip_dependencies(
+    entity: ProcedureEntityModel | FunctionEntityModel,
+    project_requirement_lines: List[str] | None,
+) -> bool:
+    if entity.artifact_repository and (
+        entity.artifact_repository_packages or entity.packages
+    ):
+        return True
+    return bool(project_requirement_lines) and uses_project_requirements(entity)
 
 
 def _remove_files_left_by_previous_build(
@@ -501,7 +935,41 @@ def get_snowpark_entities(
     return snowpark_entities
 
 
-@app.command("execute", requires_connection=True)
+_EXECUTE_DOCS = CommandDocs(
+    related=_SNOWPARK_RELATED,
+    usage_notes=(
+        plain_text(
+            "The ",
+            code("snow snowpark execute"),
+            " command executes a function or procedure stored in Snowflake. It uses the database defined for the connection.",
+        ),
+        plain_text(
+            "Based on which command shell you use, you might need to wrap the ",
+            code("execution_identifier"),
+            " argument in quotes, as illustrated in the **Examples** section.",
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "The following example calls a Snowpark function called ",
+                code("hello_function"),
+                ":",
+            ),
+            command="snow snowpark execute function \"hello_function('Olaf')\"",
+            output=(
+                "+--------------------------------------+\n"
+                "| key                    | value       |\n"
+                "|------------------------+-------------|\n"
+                "| HELLO_FUNCTION('Olaf') | Hello Olaf! |\n"
+                "+--------------------------------------+"
+            ),
+        ),
+    ),
+)
+
+
+@app.command("execute", requires_connection=True, docs=_EXECUTE_DOCS)
 def execute(
     object_type: SnowparkObject = ObjectTypeArgument,
     execution_identifier: str = execution_identifier_argument(
@@ -516,7 +984,13 @@ def execute(
     return SingleQueryResult(cursor)
 
 
-@app.command("list", requires_connection=True)
+_SNOWPARK_OBJECT_ALIAS_DOCS = CommandDocs(
+    related=_SNOWPARK_RELATED,
+    usage_notes=(plain_text("None."),),
+)
+
+
+@app.command("list", requires_connection=True, docs=_SNOWPARK_OBJECT_ALIAS_DOCS)
 def list_(
     object_type: SnowparkObject = ObjectTypeArgument,
     like: str = LikeOption,
@@ -538,7 +1012,7 @@ def list_(
     )
 
 
-@app.command("drop", requires_connection=True)
+@app.command("drop", requires_connection=True, docs=_SNOWPARK_OBJECT_ALIAS_DOCS)
 def drop(
     object_type: SnowparkObject = ObjectTypeArgument,
     identifier: FQN = IdentifierArgument,
@@ -554,7 +1028,7 @@ def drop(
     )
 
 
-@app.command("describe", requires_connection=True)
+@app.command("describe", requires_connection=True, docs=_SNOWPARK_OBJECT_ALIAS_DOCS)
 def describe(
     object_type: SnowparkObject = ObjectTypeArgument,
     identifier: FQN = IdentifierArgument,

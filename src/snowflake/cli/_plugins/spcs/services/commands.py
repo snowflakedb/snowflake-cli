@@ -48,6 +48,16 @@ from snowflake.cli._plugins.spcs.services.service_project_paths import (
 )
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    REQ_CONTAINER_SERVICES,
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfExistsOption,
@@ -126,7 +136,7 @@ show_all_columns_option = typer.Option(
 events_container_name_option = typer.Option(
     None,
     "--container-name",
-    help="Narrow events to this container. Requires --instance-id.",
+    help="Narrow events to this container. Requires `--instance-id`.",
     show_default=False,
 )
 
@@ -465,6 +475,208 @@ def logs(
 
 @app.command(
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/command-reference/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
+                "spcs command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/service-commands/overview",
+                "service commands",
+            ),
+            link("/developer-guide/snowpark-container-services/working-with-services"),
+            link("/developer-guide/snowpark-container-services/monitoring-services"),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "Only the ",
+                code("name"),
+                " argument is required. By default, the command returns all "
+                "platform events for the service.",
+            ),
+            plain_text("Use the scope filters to narrow the results:"),
+            bullet_list(
+                bullet(
+                    code("--instance-id <ID>"),
+                    " returns events for a single service instance.",
+                ),
+                bullet(
+                    code("--container-name <name>"),
+                    " returns events for a single container. This option requires ",
+                    code("--instance-id"),
+                    ".",
+                ),
+            ),
+            plain_text(
+                "You can use the ",
+                code("--since"),
+                " and ",
+                code("--until"),
+                " time-based filters to return events for a specified period of time. "
+                "You can specify the time as a relative time, such as ",
+                code("1h"),
+                " (hour) or ",
+                code("2d"),
+                " (days).",
+            ),
+            plain_text(
+                "You can use the ",
+                code("--first"),
+                " and ",
+                code("--last"),
+                " options to return only a specified number of events. Note that these "
+                "options are mutually exclusive.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Retrieve all events for a service (service, service instance, "
+                    "and container events):"
+                ),
+                command="snow spcs service events LOG_EVENT",
+                output=(
+                    "+----------------------------+---------------+-------------+"
+                    "--------------+-------------+----------------+----------+"
+                    "--------------------------------+"
+                    "---------------------------------------------------------------+\n"
+                    "| TIMESTAMP                  | DATABASE NAME | SCHEMA NAME | "
+                    "SERVICE NAME | INSTANCE ID | CONTAINER NAME | SEVERITY | "
+                    "EVENT NAME                     | EVENT VALUE                   "
+                    "                                |\n"
+                    "+----------------------------+---------------+-------------+"
+                    "--------------+-------------+----------------+----------+"
+                    "--------------------------------+"
+                    "---------------------------------------------------------------+\n"
+                    "| 2024-12-14 22:27:25.420489 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | N/A         | N/A            | INFO     | "
+                    'SERVICE.STATUS_CHANGE          | {"message": "Service is ready", '
+                    '"status": "RUNNING"}          |\n'
+                    "| 2024-12-14 22:27:25.630550 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0           | N/A            | INFO     | "
+                    'SERVICE_INSTANCE.STATUS_CHANGE | {"message": "Service instance '
+                    'is running", "status": "READY"} |\n'
+                    "| 2024-12-14 22:27:26.100000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0           | log-printer    | INFO     | "
+                    'CONTAINER.STATUS_CHANGE        | {"message": "Running", '
+                    '"status": "READY"}                     |\n'
+                    "+----------------------------+---------------+-------------+"
+                    "--------------+-------------+----------------+----------+"
+                    "--------------------------------+"
+                    "---------------------------------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Retrieve events for a single service instance:"
+                ),
+                command="snow spcs service events LOG_EVENT --instance-id 0",
+            ),
+            Example(
+                description=plain_text("Retrieve events for a single container:"),
+                command=(
+                    "snow spcs service events LOG_EVENT --instance-id 0 "
+                    "--container-name log-printer"
+                ),
+            ),
+            Example(
+                description=plain_text("Retrieve only the first or last N events:"),
+                command=(
+                    "snow spcs service events LOG_EVENT --first 5\n"
+                    "snow spcs service events LOG_EVENT --last 5"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Fetch events newer than the last five minutes:"
+                ),
+                command="snow spcs service events LOG_EVENT --since '5 minutes'",
+            ),
+            Example(
+                description=plain_text("Fetch events older than one hour:"),
+                command="snow spcs service events LOG_EVENT --until '1 hour'",
+            ),
+            Example(
+                description=plain_text(
+                    "Retrieve the raw event-table columns (",
+                    code("RESOURCE_ATTRIBUTES"),
+                    ", ",
+                    code("SCOPE"),
+                    ", ",
+                    code("RECORD"),
+                    ", ",
+                    code("VALUE"),
+                    ", and so on) instead of the summarized columns:",
+                ),
+                command="snow spcs service events LOG_EVENT --all",
+                output=(
+                    "+----------------------+-----------------+----------------------+-------+----------+----------------------+---------------------+------------------+-------------+----------------------+-------------------+---------------------+-----------+\n"
+                    "| TIMESTAMP            | START_TIMESTAMP | OBSERVED_TIMESTAMP   | TRACE | RESOURCE | RESOURCE_ATTRIBUTES  | SCOPE               | SCOPE_ATTRIBUTES | RECORD_TYPE | RECORD               | RECORD_ATTRIBUTES | VALUE               | EXEMPLARS |\n"
+                    "+----------------------+-----------------+----------------------+-------+----------+----------------------+---------------------+------------------+-------------+----------------------+-------------------+---------------------+-----------+\n"
+                    "| 2024-12-14           | None            | 2024-12-14           | None  | None     | {                    | {                   | None             | EVENT       | {                    | None              | {                   | None      |\n"
+                    '| 22:27:26.100000      |                 | 22:27:26.100000      |       |          |                      |   "name":           |                  |             |   "name":            |                   |   "message":        |           |\n'
+                    '|                      |                 |                      |       |          | "snow.compute_pool.i | "snow.spcs.platform |                  |             | "CONTAINER.STATUS_CH |                   | "Running",          |           |\n'
+                    '|                      |                 |                      |       |          | d": 48,              | "                   |                  |             | ANGE",               |                   |   "status": "READY" |           |\n'
+                    "|                      |                 |                      |       |          |                      | }                   |                  |             |                      |                   | }                   |           |\n"
+                    '|                      |                 |                      |       |          | "snow.compute_pool.n |                     |                  |             | "severity_number":   |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | ame": "MYPOOL",      |                     |                  |             | 9,                   |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          |                      |                     |                  |             |   "severity_text":   |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | "snow.database.id":  |                     |                  |             | "INFO"               |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          | 161,                 |                     |                  |             | }                    |                   |                     |           |\n"
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.database.name" |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | : "TESTDB",          |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          |   "snow.schema.id":  |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          | 12441,               |                     |                  |             |                      |                   |                     |           |\n"
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.schema.name":  |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | "PUBLIC",            |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.contai |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | ner.name":           |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | "log-printer",       |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.id":   |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          | 2143,                |                     |                  |             |                      |                   |                     |           |\n"
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.instan |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          | ce": "0",            |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.name": |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          |  "LOG_EVENT",        |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          |                      |                     |                  |             |                      |                   |                     |           |\n"
+                    '|                      |                 |                      |       |          | "snow.service.type": |                     |                  |             |                      |                   |                     |           |\n'
+                    '|                      |                 |                      |       |          |  "SERVICE"           |                     |                  |             |                      |                   |                     |           |\n'
+                    "|                      |                 |                      |       |          | }                    |                     |                  |             |                      |                   |                     |           |\n"
+                    "+----------------------+-----------------+----------------------+-------+----------+----------------------+---------------------+------------------+-------------+----------------------+-------------------+---------------------+-----------+\n"
+                ),
+            ),
+            Example(
+                description=plain_text("Retrieve events formatted for JSON output:"),
+                command="snow spcs service events LOG_EVENT --last 1 --format json",
+                output=(
+                    "[\n"
+                    "    {\n"
+                    '        "TIMESTAMP": "2024-12-14T22:27:25.420489",\n'
+                    '        "DATABASE NAME": "TESTDB",\n'
+                    '        "SCHEMA NAME": "PUBLIC",\n'
+                    '        "SERVICE NAME": "LOG_EVENT",\n'
+                    '        "INSTANCE ID": "N/A",\n'
+                    '        "CONTAINER NAME": "N/A",\n'
+                    '        "SEVERITY": "INFO",\n'
+                    '        "EVENT NAME": "SERVICE.STATUS_CHANGE",\n'
+                    '        "EVENT VALUE": "{\\n  \\"message\\": \\"Service is ready\\",'
+                    '\\n  \\"status\\": \\"RUNNING\\"\\n}"\n'
+                    "    }\n"
+                    "]"
+                ),
+            ),
+        ),
+    ),
 )
 def events(
     name: FQN = ServiceNameArgument,
@@ -475,29 +687,17 @@ def events(
     first: Optional[int] = typer.Option(
         default=None,
         show_default=False,
-        help="Fetch only the first N events. Cannot be used with --last.",
+        help="Fetch only the first N events. Cannot be used with `--last`.",
     ),
     last: Optional[int] = typer.Option(
         default=None,
         show_default=False,
-        help="Fetch only the last N events. Cannot be used with --first.",
+        help="Fetch only the last N events. Cannot be used with `--first`.",
     ),
     show_all_columns: bool = show_all_columns_option,
     **options,
 ):
-    """
-    Retrieve platform events for a service.
-
-    By default, all platform events for the service are returned. The following
-    filters narrow the results:
-
-    * --instance-id restricts events to a single service instance.
-    * --container-name restricts events to a single container (requires
-      --instance-id).
-    * --since / --until restrict events to a time window, in Snowflake interval
-      syntax.
-    * --first / --last return only the first / last N events.
-    """
+    """Retrieve platform events for a service."""
 
     if first is not None and last is not None:
         raise IncompatibleParametersError(["--first", "--last"])
@@ -527,6 +727,127 @@ def events(
 
 @app.command(
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/command-reference/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
+                "spcs command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/service-commands/overview",
+                "service commands",
+            ),
+            link("/developer-guide/snowpark-container-services/working-with-services"),
+            link("/developer-guide/snowpark-container-services/monitoring-services"),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text("The following parameters are required:"),
+            bullet_list(
+                bullet(code("name")),
+                bullet(code("--container-name <name>")),
+                bullet(code("--instance-id <ID>")),
+            ),
+            plain_text(
+                "You can use the ",
+                code("--since"),
+                " and ",
+                code("--until"),
+                " time-based filters to return metrics for a specified period of time. "
+                "You can specify the time as a relative time, such as ",
+                code("1h"),
+                " (hour) or ",
+                code("2d"),
+                " (days).",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Retrieve metrics for a specific service"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Retrieve a subset of metrics for a specific service"
+                ),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0"
+                ),
+            ),
+            Example(
+                description=plain_text("Fetch metrics older than the last two hours"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0 --until '2 hours'"
+                ),
+            ),
+            Example(
+                description=plain_text("Fetch metrics newer than one hour"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0 --since '1hour'"
+                ),
+            ),
+            Example(
+                description=plain_text("Retrieve metrics with all columns"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0 --all"
+                ),
+                output=(
+                    "| TIMESTAMP                  | DATABASE NAME | SCHEMA NAME | "
+                    "SERVICE NAME | INSTANCE NAME | CONTAINER NAME | METRIC NAME                "
+                    "| METRIC VALUE          |\n"
+                    "|----------------------------|---------------|-------------|"
+                    "--------------|---------------|----------------|---------------------------"
+                    "-|-----------------------|\n"
+                    "| 2024-12-18 18:10:25.202000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.cpu.limit        "
+                    "| 1                     |\n"
+                    "| 2024-12-18 18:10:25.202000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.memory.requested "
+                    "| 536870912             |\n"
+                    "| 2024-12-18 18:10:25.202000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.memory.limit     "
+                    "| 6442450944            |\n"
+                    "| 2024-12-18 18:10:25.202000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.cpu.requested    "
+                    "| 0.5                   |\n"
+                    "| 2024-12-18 18:10:08.957000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.cpu.usage        "
+                    "| 0.0004400012665396536 |\n"
+                    "| 2024-12-18 18:10:08.957000 | TESTDB        | PUBLIC      | "
+                    "LOG_EVENT    | 0             | log-printer    | container.memory.usage     "
+                    "| 1323008               |"
+                ),
+            ),
+            Example(
+                description=plain_text("Retrieve metrics formatted for JSON output"),
+                command=(
+                    "snow spcs service metrics LOG_EVENT "
+                    "--container-name log-printer --instance-id 0 --format json"
+                ),
+                output=(
+                    "[\n"
+                    " {\n"
+                    '     "TIMESTAMP": "2024-12-14T22:27:25.420489",\n'
+                    '     "SERVICE NAME": "LOG_EVENT",\n'
+                    '     "INSTANCE NAME": "0",\n'
+                    '     "CONTAINER NAME": "log-printer",\n'
+                    '     "METRIC TYPE": "CPU_UTILIZATION",\n'
+                    '     "VALUE": "75.4"\n'
+                    " }\n"
+                    "]"
+                ),
+            ),
+        ),
+    ),
 )
 def metrics(
     name: FQN = ServiceNameArgument,
@@ -897,7 +1218,7 @@ def build_image(
                 current_status = result_row["status"]
 
             if current_status:
-                cli_console.message(f"Current job status: {current_status}")
+                cli_console.plain_message(f"Current job status: {current_status}")
 
             # Only wait if status is PENDING, otherwise logs should be available
             if current_status and current_status != "PENDING":
@@ -939,17 +1260,16 @@ def build_image(
                 ):
                     final_status = log_entry[1]
                     break
-                # Otherwise it's a log line
-                cli_console.message(log_entry)
+                cli_console.plain_message(log_entry)
 
         except KeyboardInterrupt:
             cli_console.warning(
                 f"\nBuild job '{job_name}' is still running in the background."
             )
-            cli_console.message(
+            cli_console.plain_message(
                 f"Use 'snow spcs service logs {job_name} --container-name main --instance-id 0' to view logs."
             )
-            cli_console.message(
+            cli_console.plain_message(
                 f"Use 'snow spcs service status {job_name}' to check status."
             )
             if use_temporary_stage:
@@ -966,7 +1286,7 @@ def build_image(
         cli_console.warning(
             f"Job did not start within {max_wait_time}s (status: {current_status or 'UNKNOWN'})"
         )
-        cli_console.message(
+        cli_console.plain_message(
             f"Use 'snow spcs service status {job_name}' to check status."
         )
         if use_temporary_stage:
@@ -985,7 +1305,9 @@ def build_image(
     # Display final status message
     cli_console.message("")  # Empty line after logs
     if final_status == "DONE":
-        cli_console.message(f"✓ Image build job '{job_name}' completed successfully.")
+        cli_console.plain_message(
+            f"✓ Image build job '{job_name}' completed successfully."
+        )
     elif final_status == "FAILED":
         cli_console.warning(f"✗ Image build job '{job_name}' failed.")
     elif final_status == "CANCELLED":
@@ -998,7 +1320,7 @@ def build_image(
         try:
             object_manager = ObjectManager()
             object_manager.drop(object_type="stage", fqn=stage_fqn, if_exists=True)
-            cli_console.message(f"✓ Dropped stage {stage}")
+            cli_console.plain_message(f"✓ Dropped stage {stage}")
         except ProgrammingError as e:
             cli_console.warning(f"Failed to clean up stage: {e}")
     else:
@@ -1008,7 +1330,7 @@ def build_image(
             stage_manager.remove(
                 stage_name=stage_fqn.identifier, path=build_context_stage_path
             )
-            cli_console.message(
+            cli_console.plain_message(
                 f"✓ Removed build context files from {stage}/{build_context_stage_path}"
             )
         except ProgrammingError as e:
@@ -1020,7 +1342,6 @@ def build_image(
 @app.command(
     "remote-build",
     requires_connection=True,
-    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
 )
 def remote_build(
     build_context_dir: Path = typer.Option(
@@ -1098,14 +1419,6 @@ def remote_build(
     """
     Builds an image or app artifact using the Snowflake remote build REST API.
 
-    This command is hidden by default. To make it visible in help output, enable the
-    feature flag in your config.toml:
-    [cli.features]
-    enable_spcs_remote_build = true
-
-    Or set the environment variable:
-    export SNOWFLAKE_CLI_FEATURES_ENABLE_SPCS_REMOTE_BUILD=true
-
     Unlike ``build-image`` (which runs an ``EXECUTE JOB SERVICE`` system function),
     this command calls the GS REST API directly:
 
@@ -1118,15 +1431,6 @@ def remote_build(
       Equivalent to ``SYSTEM$SPCS_TEST_REMOTE_BUILD``.
     - ``--build-type app``: builds an application tarball and uploads it to an ARTIFACT REPOSITORY.
       ``--location`` (ARTIFACT REPOSITORY) is required. Equivalent to ``SYSTEM$SPCS_TEST_BUILD_APP_ARTIFACT_REPO``.
-
-    **Required account parameters (must be set to 'enable'):**
-
-    - ``ENABLE_SNOW_API_FOR_REMOTE_BUILD`` — gates the REST API endpoints (all build types).
-    - ``ENABLE_SPCS_RUNTIME_IMAGE_BUILDER_FUNCTIONS`` — gates image builds (``--build-type image``).
-    - ``ENABLE_SPCS_RUNTIME_APP_BUILDER_FUNCTIONS`` — gates app/tarball builds (``--build-type app``).
-
-    On qualification and test deployments all three parameters default to ``true``.
-    On a standard account you must explicitly enable the relevant parameters before this command works.
     """
     if build_type not in ("image", "app"):
         raise CliArgumentError(
@@ -1262,7 +1566,7 @@ def remote_build(
             f"\nRemote build job '{assigned_job_name}' was already submitted; its status "
             "could not be confirmed (see error below)."
         )
-        cli_console.message(
+        cli_console.plain_message(
             "Once resolved, check its status with: "
             f"snow spcs service remote-build-status --job-name {assigned_job_name}"
         )
@@ -1280,10 +1584,10 @@ def remote_build(
         cli_console.warning(
             f"\nRemote build job '{assigned_job_name}' is still running in the background."
         )
-        cli_console.message(
+        cli_console.plain_message(
             f"Use 'snow spcs service remote-build-status --job-name {assigned_job_name}' to check its progress."
         )
-        cli_console.message(
+        cli_console.plain_message(
             f"Use 'snow spcs service logs {assigned_job_name} --container-name main --instance-id 0' to view logs."
         )
         if use_temporary_stage:
@@ -1302,7 +1606,7 @@ def remote_build(
 
     cli_console.message("")
     if final_job_status == RemoteBuildStatus.DONE:
-        cli_console.message(
+        cli_console.plain_message(
             f"✓ Remote build job '{assigned_job_name}' completed successfully."
         )
     elif final_job_status == RemoteBuildStatus.FAILED:
@@ -1350,7 +1654,6 @@ def remote_build(
 @app.command(
     "remote-build-status",
     requires_connection=True,
-    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
 )
 def remote_build_status(
     job_name: str = typer.Option(
@@ -1366,11 +1669,6 @@ def remote_build_status(
 
     Looks up the job in the live service store first; falls back to the 30-day job history
     for completed jobs.
-
-    This command is hidden by default. Enable it with:
-
-        [cli.features]
-        enable_spcs_remote_build = true
     """
     manager = RemoteBuildManager()
     job = manager.get_remote_builder(job_name)
@@ -1389,7 +1687,6 @@ def remote_build_status(
 @app.command(
     "remote-build-history",
     requires_connection=True,
-    hidden=not FeatureFlag.ENABLE_SPCS_REMOTE_BUILD.is_enabled(),
 )
 def remote_build_history(
     page_size: int = typer.Option(
@@ -1422,11 +1719,6 @@ def remote_build_history(
 
     To resume from a known point, pass the token printed by a previous interrupted run via
     --start-token.
-
-    This command is hidden by default. Enable it with:
-
-        [cli.features]
-        enable_spcs_remote_build = true
     """
     manager = RemoteBuildManager()
     all_rows: list[dict] = []
@@ -1592,7 +1884,9 @@ def _wait_for_remote_build_completion(
                     current_status is None
                     or job_info.job_status != current_status.job_status
                 ):
-                    cli_console.message(f"Current job status: {job_info.job_status}")
+                    cli_console.plain_message(
+                        f"Current job status: {job_info.job_status}"
+                    )
                 current_status = job_info
                 if job_info.is_terminal:
                     return current_status, False
@@ -1625,7 +1919,7 @@ def _wait_for_remote_build_completion(
                     dedup_records = new_logs_only(prev_log_records, new_log_records)
                     if dedup_records:
                         for log in dedup_records:
-                            cli_console.message(
+                            cli_console.plain_message(
                                 filter_log_timestamp(log, include_timestamps=False)
                             )
                         since_timestamp = dedup_records[-1].split(" ", 1)[0]
@@ -1673,7 +1967,7 @@ def _cleanup_stage(
         try:
             object_manager = ObjectManager()
             object_manager.drop(object_type="stage", fqn=stage_fqn, if_exists=True)
-            cli_console.message(f"✓ Dropped stage {stage}")
+            cli_console.plain_message(f"✓ Dropped stage {stage}")
         except ProgrammingError as e:
             cli_console.warning(f"Failed to clean up stage: {e}")
     else:
@@ -1682,7 +1976,7 @@ def _cleanup_stage(
             stage_manager.remove(
                 stage_name=stage_fqn.identifier, path=build_context_stage_path
             )
-            cli_console.message(
+            cli_console.plain_message(
                 f"✓ Removed build context files from {stage}/{build_context_stage_path}"
             )
         except ProgrammingError as e:

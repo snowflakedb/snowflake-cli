@@ -159,6 +159,16 @@ def test_get_package_name_from_pip_wheel_uses_safe_fallback(package, expected):
             """pytest==1.0\n# comment\nawesome_lib==3.3.3""",
             ["pytest==1.0", "awesome_lib==3.3.3"],
         ),
+        (
+            "pandas==2.2.0 --hash=sha256:"
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ["pandas==2.2.0"],
+        ),
+        (
+            "scikit-learn (>=1.4) \\\n    --hash=sha256:"
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            ["scikit_learn>=1.4"],
+        ),
     ],
 )
 @mock.patch("snowflake.cli._plugins.snowpark.package_utils.SecurePath.read_text")

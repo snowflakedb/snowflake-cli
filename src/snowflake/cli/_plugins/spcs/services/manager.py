@@ -670,7 +670,7 @@ class ServiceManager(SqlExecutionMixin):
                 select
                     *,
                     row_number() over (
-                        partition by record['metric']['name']
+                        partition by COALESCE(record['name'], record['metric']['name'])
                         order by timestamp desc
                     ) as rank
                 from {account_event_table}

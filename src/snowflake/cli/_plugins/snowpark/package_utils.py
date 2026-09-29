@@ -59,10 +59,18 @@ def parse_requirements(
     """
     reqs = []
     if requirements_file.exists():
-        for line in requirements_file.read_text(
-            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
-        ).splitlines():
-            line = re.sub(r"\s*#.*", "", line).strip()
+        # uv export / pip-tools write `--hash=…` on the requirement or on a
+        # backslash-continued line. PEP 508 does not include those options, so
+        # join continuations and drop them before parse; an artifact repository
+        # cannot verify file hashes either.
+        text = re.sub(
+            r"\\\r?\n",
+            " ",
+            requirements_file.read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB),
+        )
+        for line in text.splitlines():
+            line = re.sub(r"\s*#.*", "", line)
+            line = re.sub(r"(?:^|\s)--hash=\S+", "", line).strip()
             if line:
                 reqs.append(Requirement.parse_line(line))
     return reqs

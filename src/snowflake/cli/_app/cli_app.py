@@ -30,7 +30,7 @@ from snowflake.cli._app.commands_registration.commands_registration_with_callbac
     CommandsRegistrationWithCallbacks,
 )
 from snowflake.cli._app.dev.commands_structure import generate_commands_structure
-from snowflake.cli._app.dev.docs.generator import generate_docs
+from snowflake.cli._app.dev.docs.generator import generate_docs, generate_docs_pages
 from snowflake.cli._app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
@@ -52,6 +52,7 @@ INTERNAL_CLI_FLAGS = {
     "custom_help",
     "version",
     "docs",
+    "docs_pages",
     "structure",
     "info",
     "configuration_file",
@@ -118,6 +119,17 @@ class CliAppFactory:
 
         return callback
 
+    def _docs_pages_callback(self):
+        @_do_not_execute_on_completion
+        @self._commands_registration.after
+        def callback(value: bool):
+            if value:
+                ctx = click.get_current_context()
+                generate_docs_pages(SecurePath("gen_docs"), ctx.command)
+                self._exit_with_cleanup()
+
+        return callback
+
     def _help_callback(self):
         @_do_not_execute_on_completion
         @self._commands_registration.after
@@ -166,6 +178,10 @@ class CliAppFactory:
                         },
                         {"key": "python_version", "value": sys.version},
                         {"key": "system_info", "value": platform.platform()},
+                        {
+                            "key": "installation_source",
+                            "value": __about__.INSTALLATION_SOURCE.value,
+                        },
                         {"key": "feature_flags", "value": get_feature_flags_section()},
                         {"key": "SNOWFLAKE_HOME", "value": os.getenv("SNOWFLAKE_HOME")},
                     ],
@@ -214,6 +230,14 @@ class CliAppFactory:
                 hidden=True,
                 help="Generates Snowflake CLI documentation",
                 callback=self._docs_callback(),
+                is_eager=True,
+            ),
+            docs_pages: bool = typer.Option(
+                None,
+                "--docs-pages",
+                hidden=True,
+                help="Generates full Snowflake CLI command-reference pages",
+                callback=self._docs_pages_callback(),
                 is_eager=True,
             ),
             structure: bool = typer.Option(

@@ -18,6 +18,7 @@ import contextlib
 import io
 import logging
 import os
+import re
 import sys
 from typing import Dict, Literal, Optional, TextIO
 
@@ -39,7 +40,6 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
     CliError,
-    InvalidConnectionConfigurationError,
     SnowflakeConnectionError,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -48,7 +48,7 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
-from snowflake.connector.errors import DatabaseError
+from snowflake.connector.errors import DatabaseError, ForbiddenError
 
 log = logging.getLogger(__name__)
 
@@ -190,8 +190,6 @@ def connect_to_snowflake(
     connection_name: Optional[str] = None,
     **overrides,
 ) -> SnowflakeConnection:
-    from snowflake.connector.errors import ForbiddenError
-
     if temporary_connection and connection_name:
         raise ClickException("Can't use connection name and temporary connection.")
     elif not temporary_connection and not connection_name:
@@ -305,10 +303,50 @@ def connect_to_snowflake(
                 application=command_info(),
                 **connection_parameters,
             )
-    except ForbiddenError as err:
-        raise SnowflakeConnectionError(err)
-    except DatabaseError as err:
-        raise InvalidConnectionConfigurationError(err.msg)
+    except (ForbiddenError, DatabaseError) as err:
+        hint = _oauth_failure_hint(err, connection_parameters)
+        if hint:
+            raise SnowflakeConnectionError(f"{err}\n{hint}") from err
+        raise SnowflakeConnectionError(err) from err
+
+
+def _oauth_failure_hint(error: DatabaseError, parameters: Dict) -> Optional[str]:
+    authenticator = str(parameters.get("authenticator", "")).upper()
+    if authenticator not in {"OAUTH", "OAUTH_AUTHORIZATION_CODE"}:
+        return None
+    oauth_error = error.errno in {390303, 390318} or (
+        error.errno == 250001
+        and re.search(
+            r"\boauth access token (?:expired|invalid)\b|\binvalid oauth access token\b",
+            error.msg,
+            re.IGNORECASE,
+        )
+    )
+    if not oauth_error:
+        return None
+    if authenticator == "OAUTH":
+        return (
+            "Snowflake CLI cannot renew a raw OAuth token supplied by its caller. "
+            "Refresh it in the application or credential provider that supplied it, "
+            "then retry. The refresh-token flag does not apply to authenticator=oauth."
+        )
+    hints = []
+    if parameters.get("oauth_enable_refresh_tokens") is not True:
+        hints.append(
+            "Silent OAuth refresh is disabled. To enable it, set "
+            "oauth_enable_refresh_tokens = true in this connection, or pass "
+            "--oauth-enable-refresh-tokens for this invocation."
+        )
+    if parameters.get("client_store_temporary_credential") is False:
+        hints.append(
+            "Credential caching is disabled. To reuse refresh tokens between "
+            "commands, set client_store_temporary_credential = true."
+        )
+    hints.append(
+        "Sign in again if no usable refresh token is available. "
+        "Enabling refresh does not restore revoked credentials."
+    )
+    return " ".join(hints)
 
 
 def _avoid_closing_the_connection_if_it_was_shared(

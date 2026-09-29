@@ -22,9 +22,11 @@ from snowflake.cli._plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.connector import ProgrammingError
 
 from tests_common import IS_WINDOWS
+from tests_common.feature_flag_utils import with_feature_flags
 
 if IS_WINDOWS:
     pytest.skip("Requires further refactor to work on Windows", allow_module_level=True)
@@ -134,6 +136,332 @@ def test_deploy_function_with_artifact_repository_sends_only_declared_packages(
     assert "snowflake-snowpark-python included" in result.output
     assert "artifact_repository_packages or packages" in result.output
     assert "delete the requirements.snowflake.txt and dependencies.zip" in result.output
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_sends_requirements_to_artifact_repository(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """An entity that declares an artifact repository and no packages of its own
+    is deployed with the requirements of the project, spelled as written."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_artifact_repository_requirements"),
+    ):
+        result = runner.invoke(["snowpark", "deploy"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    assert "ARTIFACT_REPOSITORY= db.schema.nexus_repo" in ctx.get_queries()[-1]
+    assert (
+        "packages=('snowflake-snowpark-python','pandas==2.2.0','scikit-learn>=1.4')"
+        in ctx.get_queries()[-1]
+    )
+    assert "Packages resolved from the Anaconda channel are not sent for func1" in (
+        result.output
+    )
+    assert (
+        "requirements.txt or pyproject.toml is used to declare them instead."
+        in result.output
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_ignores_requirements_when_flag_is_disabled(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """Without the feature flag, the entity keeps being deployed with the packages
+    that build resolved from Anaconda."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with project_directory("snowpark_artifact_repository_requirements"):
+        result = runner.invoke(["snowpark", "deploy"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    assert "ARTIFACT_REPOSITORY=" not in ctx.get_queries()[-1]
+    assert (
+        "packages=('snowflake-snowpark-python','numpy==1.26.4','pandas==2.1.4')"
+        in ctx.get_queries()[-1]
+    )
+
+
+@pytest.mark.parametrize(
+    # The error is rendered in a box and wraps on whitespace, so what is asserted on
+    # is a contiguous part of the requirement rather than the whole of it.
+    "requirement, reported",
+    [
+        # A repository resolves a name, so nothing that points at a place instead of
+        # naming a package can be forwarded to it. Requirement.uri catches the first
+        # of these, but not the PEP 508 "name @ url" form.
+        (
+            "git+https://github.com/user/repo.git@main",
+            "git+https://github.com/user/repo.git@main",
+        ),
+        (
+            "numpy @ https://example.com/numpy-2.0-py3-none-any.whl",
+            "https://example.com/numpy-2.0-py3-none-any.whl",
+        ),
+        # "===" accepts almost any version, so a quote survives parsing. It has to be
+        # rejected before it reaches the PACKAGES clause of the generated DDL.
+        ("numpy===1.0'x", "numpy===1.0'x"),
+        # parse_line drops everything after `;`, so without this check the marker
+        # would be stripped and pandas==2.2.0 would be sent. Asserting on
+        # python_version is what proves the marker reached the error rather than
+        # being dropped before it.
+        (
+            'pandas==2.2.0 ; python_version < "3.11"',
+            "python_version",
+        ),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_rejects_requirements_an_artifact_repository_cannot_install(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    requirement,
+    reported,
+):
+    """A repository installs packages by name, so a requirement pointing at a URL
+    or a repository, or one that is not a name and a specifier at all, cannot be
+    forwarded to it."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_artifact_repository_requirements") as project_dir,
+    ):
+        (project_dir / "requirements.txt").write_text(f"{requirement}\n")
+        result = runner.invoke(["snowpark", "deploy"])
+
+    assert result.exit_code != 0
+    assert reported in result.output
+    assert "artifact_repository_packages" in result.output
+    assert not any("packages=(" in query for query in ctx.get_queries())
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_warns_when_there_are_no_requirements_to_send(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """Nothing declares the packages of the entity, which Snowflake accepts, so it
+    is a warning and not an error."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_artifact_repository_requirements") as project_dir,
+    ):
+        (project_dir / "requirements.txt").unlink()
+        (project_dir / "requirements.snowflake.txt").unlink()
+        result = runner.invoke(["snowpark", "deploy"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "the project declares no dependencies in requirements.txt or under [project]"
+        " in pyproject.toml" in result.output
+    )
+    assert "packages=()" in ctx.get_queries()[-1]
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_does_not_fall_back_to_anaconda_when_requirements_are_empty(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """An empty project-requirements list is still the artifact-repository path.
+    A leftover requirements.snowflake.txt must not be sent to Anaconda."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_artifact_repository_requirements") as project_dir,
+    ):
+        (project_dir / "requirements.txt").unlink()
+        result = runner.invoke(["snowpark", "deploy"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    query = ctx.get_queries()[-1]
+    assert "ARTIFACT_REPOSITORY= db.schema.nexus_repo" in query
+    assert "packages=()" in query
+    assert "numpy==1.26.4" not in query
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_sends_pyproject_dependencies_to_artifact_repository(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """A project that keeps its dependencies in pyproject.toml and has no
+    requirements.txt reaches the repository on the same terms, because deploy resolves
+    the source of the dependencies the same way build does."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_artifact_repository_requirements") as project_dir,
+    ):
+        (project_dir / "requirements.txt").unlink()
+        (project_dir / "requirements.snowflake.txt").unlink()
+        (project_dir / "pyproject.toml").write_text(
+            "[project]\n"
+            'name = "my-snowpark-project"\n'
+            'version = "0.1.0"\n'
+            'dependencies = ["snowflake-snowpark-python", "pandas==2.2.0",'
+            ' "scikit-learn>=1.4"]\n'
+        )
+        result = runner.invoke(["snowpark", "deploy"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    assert "ARTIFACT_REPOSITORY= db.schema.nexus_repo" in ctx.get_queries()[-1]
+    assert (
+        "packages=('snowflake-snowpark-python','pandas==2.2.0','scikit-learn>=1.4')"
+        in ctx.get_queries()[-1]
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_sends_extras_and_tab_separated_specifiers_to_artifact_repository(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """Extras and PEP 508 whitespace (including tabs) are forwarded as written;
+    an artifact repository is a package index and that is what an index understands."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_artifact_repository_requirements") as project_dir,
+    ):
+        (project_dir / "requirements.txt").write_text(
+            "snowflake-snowpark-python\n"
+            "pandas[excel]>=2.0,<3.0\n"
+            "scikit-learn\t>=1.4\n"
+        )
+        result = runner.invoke(["snowpark", "deploy"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    query = ctx.get_queries()[-1]
+    assert "ARTIFACT_REPOSITORY= db.schema.nexus_repo" in query
+    assert "pandas[excel]>=2.0,<3.0" in query
+    assert "scikit-learn\t>=1.4" in query
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_strips_hashes_and_accepts_parenthesized_specifiers(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """uv export / pip-tools --hash options are dropped; PEP 508 parenthesized
+    specifiers are forwarded as written."""
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with (
+        with_feature_flags(
+            {FeatureFlag.ENABLE_SNOWPARK_ARTIFACT_REPOSITORY_REQUIREMENTS: True}
+        ),
+        project_directory("snowpark_artifact_repository_requirements") as project_dir,
+    ):
+        (project_dir / "requirements.txt").write_text(
+            "snowflake-snowpark-python --hash=sha256:"
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+            "pandas==2.2.0 --hash=sha256:"
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb "
+            "--hash=sha256:"
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\n"
+            "scikit-learn (>=1.4) \\\n"
+            "    --hash=sha256:"
+            "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\n"
+        )
+        result = runner.invoke(["snowpark", "deploy"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    query = ctx.get_queries()[-1]
+    assert "ARTIFACT_REPOSITORY= db.schema.nexus_repo" in query
+    assert (
+        "packages=('snowflake-snowpark-python','pandas==2.2.0','scikit-learn (>=1.4)')"
+        in query
+    )
+    assert "--hash" not in query
 
 
 @pytest.mark.parametrize(

@@ -21,10 +21,11 @@ from typing import Optional
 from unittest import mock
 
 import pytest
-from snowflake import connector
 from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
 from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
 from snowflake.connector import SnowflakeConnection
+
+from tests_common.login_retry import connect_with_login_retry
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 SCHEMA_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_SCHEMA"
@@ -109,7 +110,7 @@ def snowflake_session() -> SnowflakeConnection:
     }
     config = {k: v for k, v in config.items() if v is not None}
     update_connection_details_with_private_key(config)
-    connection = connector.connect(**config)
+    connection = connect_with_login_retry(**config)
     yield connection
     connection.close()
 

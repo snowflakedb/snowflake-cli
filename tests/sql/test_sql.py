@@ -98,7 +98,7 @@ def test_sql_repl_if_no_query_file_or_stdin(
     os_agnostic_snapshot,
     mock_cursor,
 ):
-    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(2))
+    mock_execute.return_value = (1, (mock_cursor(["row"], []) for _ in range(2)))
     mock_prompt = mock.MagicMock()
     mock_prompt.prompt.side_effect = iter(("exit", "y"))
     mock_prompt_session.return_value = mock_prompt

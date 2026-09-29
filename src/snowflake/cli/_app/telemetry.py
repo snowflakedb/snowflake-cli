@@ -31,6 +31,7 @@ from snowflake.cli.api.cli_global_context import (
 )
 from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
+from snowflake.cli.api.constants import TELEMETRY_PENDING_LIMIT
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.cli.api.utils.tty import is_tty_interactive
@@ -104,12 +105,21 @@ class CLITelemetryField(Enum):
     # the flow on the executing_command event should join on
     # COMMAND_EXECUTION_ID across the three events for an invocation.
     APP_FLOW = "app_flow"
+    # snow upgrade / auto-upgrade (spooled until a connection exists)
+    UPGRADE_TRIGGER = "upgrade_trigger"
+    UPGRADE_STATUS = "upgrade_status"
+    UPGRADE_SKIP_REASON = "upgrade_skip_reason"
+    UPGRADE_DURATION_MS = "upgrade_duration_ms"
+    UPGRADE_FROM = "upgrade_from"
+    UPGRADE_TO = "upgrade_to"
+    UPGRADE_ROLLOUT_BUCKET = "upgrade_rollout_bucket"
 
 
 class TelemetryEvent(Enum):
     CMD_EXECUTION = "executing_command"
     CMD_EXECUTION_ERROR = "error_executing_command"
     CMD_EXECUTION_RESULT = "result_executing_command"
+    UPGRADE = "upgrade"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -530,8 +540,8 @@ class CLITelemetryClient:
     # than a batch size: a single run emits at most three events (usage, error,
     # result), and the cap stays well under the connector's own
     # DEFAULT_FORCE_FLUSH_SIZE of 100, so a drain cannot force a larger upload
-    # than the channel already sends on its own.
-    _PENDING_LIMIT = 32
+    # than the channel already sends on its own. Shared with the upgrade spool.
+    _PENDING_LIMIT = TELEMETRY_PENDING_LIMIT
 
     def __init__(self):
         self._pending: List[Tuple[Dict[str, Any], int]] = []
@@ -627,12 +637,53 @@ class CLITelemetryClient:
                 )
             )
 
+    def _flush_upgrade_spool(
+        self, telemetry, auth_type_field: str
+    ) -> List[Tuple[Dict[str, Any], int]]:
+        """Copy upgrade spool events into the channel without deleting the file.
+
+        ``snow upgrade`` never opens a connection, and auto-upgrade may spawn a
+        child before this process connects. The JSONL spool survives both; we
+        only read it once a channel exists so we never dial a browser. The
+        caller deletes matching records after ``send_batch()`` succeeds.
+        """
+        try:
+            from snowflake.cli._plugins.upgrade.telemetry import read_spool_events
+
+            events = read_spool_events()
+            for message, timestamp in events:
+                payload = dict(message)
+                if not payload.get(auth_type_field):
+                    payload[auth_type_field] = _get_auth_type()
+                telemetry.try_add_log_to_batch(
+                    TelemetryData.from_telemetry_data_dict(
+                        from_dict=payload, timestamp=timestamp
+                    )
+                )
+            return events
+        except Exception:
+            # Fail-open: leave the spool on disk rather than breaking the
+            # command that opened the connection.
+            return []
+
     def flush(self):
+        staged = []
         try:
             self._drain()
             telemetry = self._telemetry
             if telemetry is not None:
+                auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
+                staged = self._flush_upgrade_spool(telemetry, auth_type_field)
                 telemetry.send_batch()
+                if staged:
+                    try:
+                        from snowflake.cli._plugins.upgrade.telemetry import (
+                            drop_spool_events,
+                        )
+
+                        drop_spool_events(staged)
+                    except Exception:
+                        pass
         finally:
             # The command is over, so anything still buffered belongs to a run
             # that never opened a connection and can never be sent. Drop it:

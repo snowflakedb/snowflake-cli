@@ -30,6 +30,8 @@ from snowflake.cli.api.config import (
     apply_stdout_encoding,
     config_init,
     get_config_section,
+    get_config_value,
+    get_config_value_without_env,
     get_connection_dict,
     get_default_connection_dict,
     get_encoding_diagnostics,
@@ -1252,6 +1254,38 @@ def test_corrupted_config_raises_human_friendly_error(
 )
 def test_get_env_variable_name(path, key, expected):
     assert get_env_variable_name(*path, key=key) == expected
+
+
+def test_get_config_value_without_env_reads_only_the_toml_file(
+    config_file, monkeypatch
+):
+    monkeypatch.setenv("SNOWFLAKE_CLI_PROMPT_FORMAT", "from_env")
+
+    with config_file('[cli]\nprompt_format = "from_file"\n') as cfg:
+        config_init(cfg)
+
+        assert get_config_value("cli", key="prompt_format") == "from_env"
+
+        value = get_config_value_without_env("cli", key="prompt_format")
+        assert value == "from_file"
+        # Plain str, not the tomlkit item the document holds.
+        assert type(value) is str
+
+
+@pytest.mark.parametrize("config_content", ["[cli]\n", ""])
+def test_get_config_value_without_env_falls_back_to_default(
+    config_file, monkeypatch, config_content
+):
+    """A missing key and a missing section both fall back to the default,
+    and the environment never supplies the value."""
+    monkeypatch.setenv("SNOWFLAKE_CLI_PROMPT_FORMAT", "from_env")
+
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+        assert (
+            get_config_value_without_env("cli", key="prompt_format", default=None)
+            is None
+        )
 
 
 @pytest.mark.parametrize("configured_encoding", [None, "utf-8", "cp1252"])

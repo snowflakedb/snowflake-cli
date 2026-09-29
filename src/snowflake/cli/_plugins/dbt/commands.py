@@ -14,10 +14,11 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
-from typing import Optional
+from typing import Optional, get_type_hints
 
 import typer
 from click import types
@@ -37,6 +38,17 @@ from snowflake.cli._plugins.dbt.manager import (
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.stage.commands import copy as stage_copy
+from snowflake.cli.api.commands.command_docs import (
+    DBT_DEPLOY_FORCE_WARNING,
+    DBT_LIVE_VERSION_REQUIRED,
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
@@ -99,21 +111,135 @@ add_object_command_aliases(
     ommit_commands=["create"],
 )
 
-# Alias `snow stage copy` as `snow dbt copy` so users working with a dbt project's
-# stage don't have to switch command groups. This registers the exact same command
-# function under the dbt app (SnowTyperFactory.command returns the function
-# unchanged and builds an independent click command per app), so behavior and flags
-# are identical to `snow stage copy` with no side effects on it. The `help=` override
-# gives `snow dbt copy` its own description without touching `snow stage copy`.
-app.command(
+# Wrapper around `snow stage copy` so dbt copy can carry its own CommandDocs without
+# overwriting docs on the shared stage command implementation.
+@app.command(
     "copy",
     requires_connection=True,
-    help=(
-        "Copies files between a local directory and a stage, or between stages "
-        "(you provide the full @stage/… path). Behaves exactly like "
-        "`snow stage copy`; handy when working with a dbt project's files on a stage."
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/overview"
+            ),
+            link("/developer-guide/snowflake-cli/data-pipelines/dbt-projects"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/execute/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/stage-commands/copy"
+            ),
+        ),
+        banners=(DBT_LIVE_VERSION_REQUIRED,),
+        usage_notes=(
+            plain_text(
+                "Use the ",
+                code("versions/live"),
+                " path to copy files into, out of, or between dbt project objects. "
+                "A dbt project object path has the form ",
+                code(
+                    "snow://dbt/<database>.<schema>.<dbt_project>/versions/live/<path>"
+                ),
+                ".",
+            ),
+            plain_text(
+                code("snow dbt copy"),
+                " moves files between locations. It can persist files in the live "
+                "version when that path is the destination. In contrast, repeatable ",
+                code("snow dbt execute --import"),
+                " options mount files under ",
+                code("./imports/<alias>"),
+                " only for an execution. For more information, see ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/dbt-commands/execute/overview"
+                ),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Copy local dbt project files to a stage:"),
+                command="snow dbt copy ./models/ @MY_DB.MY_SCHEMA.MY_STAGE/dbt/models/",
+            ),
+            Example(
+                description=plain_text("Copy from one stage to another:"),
+                command="snow dbt copy @SOURCE_STAGE/dbt/ @DEST_STAGE/dbt/",
+            ),
+            Example(
+                description=plain_text(
+                    "Copy a directory recursively, overwriting existing files:"
+                ),
+                command=(
+                    "snow dbt copy ./project/ @MY_STAGE/dbt/ --recursive --overwrite"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Copy local model files into a dbt project object's live version:"
+                ),
+                command=(
+                    "snow dbt copy ./models/ \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.MY_DBT_PROJECT/versions/live/models/ \\\n"
+                    "  --recursive \\\n"
+                    "  --overwrite"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Copy the live target artifacts to a local directory:"
+                ),
+                command=(
+                    "snow dbt copy \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.MY_DBT_PROJECT/versions/live/target/ \\\n"
+                    "  ./target/ \\\n"
+                    "  --recursive"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Copy files from one dbt project object's live version into "
+                    "another:"
+                ),
+                command=(
+                    "snow dbt copy \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.SOURCE_PROJECT/versions/live/ \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.DESTINATION_PROJECT/versions/live/imported/"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Copy target artifacts to another location in the same dbt project "
+                    "object's live version:"
+                ),
+                command=(
+                    "snow dbt copy \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.MY_DBT_PROJECT/versions/live/target/ \\\n"
+                    "  snow://dbt/MY_DB.MY_SCHEMA.MY_DBT_PROJECT/versions/live/previous_target/"
+                ),
+            ),
+        ),
     ),
-)(stage_copy)
+    help=(
+        "Copies files between local directories, stages, or a dbt project "
+        "object's live version. This command behaves exactly like "
+        "`snow stage copy`; it's provided as a convenience when working with "
+        "dbt project files."
+    ),
+)
+def dbt_copy(*args, **kwargs) -> CommandResult:
+    return stage_copy(*args, **kwargs)
+
+
+_stage_copy_signature = inspect.signature(stage_copy)
+_stage_copy_type_hints = get_type_hints(stage_copy)
+dbt_copy.__signature__ = _stage_copy_signature.replace(
+    parameters=[
+        parameter.replace(
+            annotation=_stage_copy_type_hints.get(parameter.name, parameter.annotation)
+        )
+        for parameter in _stage_copy_signature.parameters.values()
+    ]
+)
 
 
 def _env_callback(value: Optional[str]) -> Optional[str]:
@@ -142,12 +268,18 @@ def _git_branch_callback(value: Optional[str]) -> Optional[str]:
     return _reject_control_chars(value, "--git-branch")
 
 
-def _github_actions_git_metadata() -> tuple[Optional[str], Optional[str]]:
-    """Auto-detect ``(git_commit, git_branch)`` from GitHub Actions env vars.
+def _git_url_callback(value: Optional[str]) -> Optional[str]:
+    return _reject_control_chars(value, "--git-url")
 
-    Best-effort: returns ``(None, None)`` on any failure (or when not running under
-    GitHub Actions) so auto-detection can never block a deploy — an explicit
-    ``--git-commit``/``--git-branch`` can always supply the values instead.
+
+def _github_actions_git_metadata() -> tuple[
+    Optional[str], Optional[str], Optional[str]
+]:
+    """Auto-detect ``(git_commit, git_branch, git_url)`` from GitHub Actions env vars.
+
+    Best-effort: returns ``(None, None, None)`` on any failure (or when not running
+    under GitHub Actions) so auto-detection can never block a deploy — explicit
+    ``--git-commit``/``--git-branch``/``--git-url`` flags always take precedence.
 
     On ``push`` events ``GITHUB_SHA`` / ``GITHUB_REF_NAME`` are the branch-tip
     commit and branch name. On ``pull_request`` events ``GITHUB_SHA`` is an
@@ -158,11 +290,18 @@ def _github_actions_git_metadata() -> tuple[Optional[str], Optional[str]]:
     (``None``) so an explicit ``--git-commit`` can supply it. ``pull_request_target``
     is intentionally not special-cased: it runs in the base-branch context, so its
     ``GITHUB_SHA`` (the base commit) already matches what is deployed.
+
+    The repository URL is derived from ``GITHUB_SERVER_URL``/``GITHUB_REPOSITORY``
+    (e.g. ``https://github.com/owner/repo``) and is event-independent.
     """
     if os.getenv("GITHUB_ACTIONS") != "true":
-        return None, None
+        return None, None, None
 
     try:
+        server_url = (os.getenv("GITHUB_SERVER_URL") or "").rstrip("/")
+        repository = os.getenv("GITHUB_REPOSITORY") or ""
+        url = f"{server_url}/{repository}" if server_url and repository else None
+
         if os.getenv("GITHUB_EVENT_NAME") == "pull_request":
             # Feature-branch deploy: the branch is GITHUB_HEAD_REF and the commit is
             # the real PR head SHA from the event payload (GITHUB_SHA here is the
@@ -188,20 +327,198 @@ def _github_actions_git_metadata() -> tuple[Optional[str], Optional[str]]:
             else:
                 branch = os.getenv("GITHUB_REF_NAME") or None
 
-        return commit, branch
+        return commit, branch, url
     except Exception:
         # Best-effort: never let auto-detection break the deploy.
         cli_console.warning(
             "Could not auto-detect git metadata from the GitHub Actions environment; "
-            "last_deployed_from will omit it. Pass --git-commit/--git-branch to set it "
-            "explicitly."
+            "last_deployed_from will omit it. Pass --git-commit/--git-branch/--git-url "
+            "to set them explicitly."
         )
-        return None, None
+        return None, None, None
 
 
 @app.command(
     "deploy",
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/execute/overview"
+            ),
+            link("/developer-guide/snowflake-cli/command-reference/dbt-commands/list"),
+            link("/developer-guide/snowflake-cli/data-pipelines/dbt-projects"),
+            link(
+                "/developer-guide/snowflake-cli/data-pipelines/dbt-projects#label-snow"
+                + "cli-snow-dbt-deploy"
+            ),
+        ),
+        banners=(DBT_LIVE_VERSION_REQUIRED,),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dbt deploy"),
+                " command uploads local files to a temporary stage and either creates "
+                "a new object or replaces the existing object's live version in a "
+                "single operation. A valid dbt project object must contain ",
+                code("dbt_project.yml"),
+                " and one of the supported profile files:",
+            ),
+            bullet_list(
+                bullet(
+                    code("dbt_project.yml"),
+                    ": A standard dbt configuration file that specifies the profile "
+                    "to use.",
+                ),
+                bullet(
+                    link(
+                        "/user-guide/data-engineering/dbt-projects-on-snowflake-best-practices#label-dbt-projects-profiles-file",
+                        "dbt_projects_profiles.yml",
+                    ),
+                    " or ",
+                    code("profiles.yml"),
+                    ": A dbt connection profile definition referenced in ",
+                    code("dbt_project.yml"),
+                    ". The selected profile file must define the database, role, "
+                    "schema, and type. If both files are present, Snowflake uses ",
+                    code("dbt_projects_profiles.yml"),
+                    " and ignores ",
+                    code("profiles.yml"),
+                    " during deployment, compilation, and subsequent commands.",
+                ),
+                bullet(
+                    "By default, dbt Projects on Snowflake uses your target schema (",
+                    code("target.schema"),
+                    ") specified from your dbt environment or profile. When you "
+                    "execute a dbt project object, dbt attempts to create the target "
+                    "schema specified in the profile file if it doesn't already exist. "
+                    "For more information, see ",
+                    link(
+                        "/user-guide/data-engineering/dbt-projects-on-snowflake-schema-customization"
+                    ),
+                    ".",
+                ),
+            ),
+            plain_text(
+                "A profile defines ",
+                code("target"),
+                ", ",
+                code("outputs"),
+                ", and per-output fields such as ",
+                code("database"),
+                ", ",
+                code("role"),
+                ", ",
+                code("schema"),
+                ", ",
+                code("warehouse"),
+                ", and ",
+                code("type: snowflake"),
+                ".",
+            ),
+            plain_text(
+                "When ",
+                code("snow dbt deploy"),
+                " runs in GitHub Actions, Snowflake CLI automatically captures the "
+                "commit and branch. For other CI runners, explicitly pass ",
+                code("--git-commit"),
+                " and ",
+                code("--git-branch"),
+                " to preserve this source metadata.",
+            ),
+            DBT_DEPLOY_FORCE_WARNING,
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Deploy a dbt project named ", code("jaffle_shop"), ":"
+                ),
+                command="snow dbt deploy jaffle_shop",
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project with automatic compilation disabled. Useful for ",
+                    link(
+                        "/user-guide/data-engineering/dbt-projects-on-snowflake-slim-ci-defer-to-prod",
+                        "optimizing Slim CI workflows",
+                    ),
+                    ":",
+                ),
+                command="snow dbt deploy jaffle_shop --no-auto-compile",
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy from a CI runner and record the source commit and branch. "
+                    "Snowflake CLI captures this information automatically when "
+                    "deploying from GitHub Actions:"
+                ),
+                command=(
+                    "snow dbt deploy jaffle_shop \\\n"
+                    '  --git-commit "<commit_sha>" \\\n'
+                    '  --git-branch "<branch_name>"'
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project named ",
+                    code("jaffle_shop"),
+                    " from a specified directory, using a profile file from a "
+                    "separate directory:",
+                ),
+                command=(
+                    "snow dbt deploy jaffle_shop --source /path/to/dbt/directory "
+                    "--profiles-dir ~/my_profiles/"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project named ",
+                    code("jaffle_shop"),
+                    " from a specified directory, supplying a profile file from "
+                    "outside the project, setting a default target, and enabling ",
+                    link(
+                        "/developer-guide/external-network-access/creating-using-external-network-access",
+                        "external access integrations",
+                    ),
+                    ":",
+                ),
+                command=(
+                    "snow dbt deploy jaffle_shop --source /path/to/dbt/directory \\\n"
+                    "  --profiles-dir ~/my_profiles/ \\\n"
+                    "  --default-target dev \\\n"
+                    "  --external-access-integration dbthub-integration \\\n"
+                    "  --external-access-integration github-integration"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project named ",
+                    code("jaffle_shop"),
+                    " and set a specific dbt runtime version:",
+                ),
+                command="snow dbt deploy jaffle_shop --dbt-version '1.11.11'",
+            ),
+            Example(
+                description=plain_text(
+                    "Deploy a project named ",
+                    code("jaffle_shop"),
+                    ", pull in an ",
+                    code("env.yml"),
+                    " file from a separate directory, and set the default environment "
+                    "for compilation and later executions:",
+                ),
+                command=(
+                    "snow dbt deploy jaffle_shop --source /path/to/dbt/directory \\\n"
+                    "  --env-file-dir /path/to/env/directory \\\n"
+                    "  --default-env prod"
+                ),
+            ),
+        ),
+    ),
 )
 def deploy_dbt(
     name: FQN = DBTNameArgument,
@@ -228,7 +545,6 @@ def deploy_dbt(
         ),
         show_default=False,
         default=None,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
     force: Optional[bool] = typer.Option(
         False,
@@ -248,11 +564,9 @@ def deploy_dbt(
             f"Mutually exclusive with --unset-default-env."
         ),
         callback=_default_env_callback,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
     unset_default_env: Optional[bool] = UnsetDefaultEnvironmentOption(
         help="Unset the default environment for the dbt project. Mutually exclusive with --default-env.",
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
     ),
     external_access_integrations: Optional[list[str]] = typer.Option(
         None,
@@ -278,7 +592,6 @@ def deploy_dbt(
         show_default=False,
         help="Set the writeback default persisted on the dbt project. Omit to leave "
         "the existing setting unchanged.",
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_WRITEBACK.is_enabled(),
     ),
     auto_compile: Optional[bool] = typer.Option(
         None,
@@ -287,7 +600,6 @@ def deploy_dbt(
         help="Set whether the dbt project is compiled on deploy; persisted on the "
         "project and applied to subsequent deploys until changed. Omit to leave the "
         "existing setting unchanged.",
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_AUTO_COMPILE.is_enabled(),
     ),
     git_commit: Optional[str] = typer.Option(
         None,
@@ -305,15 +617,17 @@ def deploy_dbt(
         hidden=not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled(),
         callback=_git_branch_callback,
     ),
+    git_url: Optional[str] = typer.Option(
+        None,
+        "--git-url",
+        show_default=False,
+        help="Git repository URL to record in last_deployed_from metadata when deploying from a plain stage (e.g. SnowCLI temp stage). In GitHub Actions it is auto-detected from GITHUB_SERVER_URL and GITHUB_REPOSITORY when not provided.",
+        hidden=not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled(),
+        callback=_git_url_callback,
+    ),
     **options,
 ) -> CommandResult:
-    """
-    Upload local dbt project files and create or update a DBT project object on Snowflake.
-
-    Examples:
-        snow dbt deploy PROJECT
-        snow dbt deploy PROJECT --source=/Users/jdoe/project
-    """
+    """Upload local dbt project files and create or update a dbt project object on Snowflake."""
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     env_file_path = SecurePath(env_file_dir) if env_file_dir else None
@@ -321,11 +635,12 @@ def deploy_dbt(
     if not FeatureFlag.ENABLE_DBT_GIT_METADATA.is_enabled():
         git_commit = None
         git_branch = None
-    elif git_commit is None or git_branch is None:
+        git_url = None
+    elif git_commit is None or git_branch is None or git_url is None:
         # Explicit flags take precedence; only auto-detect when there's a gap to
         # fill, so we never do needless work (or warn about auto-detection) when the
-        # caller already passed both values.
-        auto_commit, auto_branch = _github_actions_git_metadata()
+        # caller already passed all three values.
+        auto_commit, auto_branch, auto_url = _github_actions_git_metadata()
         detected = []
         if git_commit is None and auto_commit is not None:
             git_commit = auto_commit
@@ -333,11 +648,14 @@ def deploy_dbt(
         if git_branch is None and auto_branch is not None:
             git_branch = auto_branch
             detected.append(f"branch {auto_branch}")
+        if git_url is None and auto_url is not None:
+            git_url = auto_url
+            detected.append(f"url {auto_url}")
         if detected:
             cli_console.message(
                 "Auto-detected git metadata from the GitHub Actions environment ("
                 + ", ".join(detected)
-                + "); pass --git-commit/--git-branch to override."
+                + "); pass --git-commit/--git-branch/--git-url to override."
             )
 
     attrs = DBTDeployAttributes(
@@ -352,6 +670,7 @@ def deploy_dbt(
         auto_compile=auto_compile,
         git_commit=git_commit,
         git_branch=git_branch,
+        git_url=git_url,
     )
     return QueryResult(
         DBTManager().deploy(
@@ -392,7 +711,6 @@ def before_callback(
         "--env",
         show_default=False,
         callback=_env_callback,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
         help="Selects the target environment from env.yml at execution time. "
         "Use 'NO_ENV' to skip env.yml entirely.",
     ),
@@ -400,7 +718,6 @@ def before_callback(
         None,
         "--env-vars",
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
         help="Environment variable overrides as a YAML/JSON object, e.g. "
         '\'{"DBT_FOO": "1", "DBT_BAR": "2"}\'. '
         "Values must be strings; numbers, booleans, null, nested objects, "
@@ -415,7 +732,6 @@ def before_callback(
         False,
         "--use-shell-env-vars",
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_ENV_VARS.is_enabled(),
         help="Forward exported shell environment variables with uppercase "
         "names starting with DBT_ (excluding the DBT_ENV_SECRET_ prefix) as "
         "ENV_VARS=(); non-uppercase or otherwise invalid names are skipped. "
@@ -429,7 +745,6 @@ def before_callback(
         None,
         "--writeback/--no-writeback",
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_WRITEBACK.is_enabled(),
         help="Whether to write dbt results back for this run. Must be placed before "
         "the dbt command. Omit to use the project's default.",
     ),
@@ -437,7 +752,6 @@ def before_callback(
         [],
         "--import",
         show_default=False,
-        hidden=not FeatureFlag.ENABLE_DBT_PROJECT_IMPORTS.is_enabled(),
         callback=_import_callback,
         help="Stage contents to import into the run, as an IMPORTS clause. "
         "Repeatable. Each value is a stage path (@stage/s1), a dbt snow URL "

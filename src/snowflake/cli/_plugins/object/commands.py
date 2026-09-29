@@ -18,6 +18,14 @@ from typing import List, Optional, Tuple
 
 import typer
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    code,
+    link,
+    note,
+    plain_text,
+)
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
     IfExistsOption,
@@ -221,7 +229,110 @@ def describe(
     )
 
 
-@app.command(name="create", requires_connection=True)
+@app.command(
+    name="create",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/command-reference/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/object-commands/overview"
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "Create a supported Snowflake object (for example ",
+                code("database"),
+                ", ",
+                code("warehouse"),
+                ", ",
+                code("table"),
+                ", or ",
+                code("compute-pool"),
+                "). Provide properties as ",
+                code("key=value"),
+                " arguments, or pass a full definition with ",
+                code("--json"),
+                ". For attribute names and valid values, see the ",
+                link("/sql-reference/sql-commands-all", "SQL command reference"),
+                ".",
+            ),
+            note(
+                "Many schema-scoped object types (for example ",
+                code("table"),
+                ", ",
+                code("view"),
+                ", ",
+                code("stage"),
+                ", ",
+                code("task"),
+                ", and ",
+                code("service"),
+                ") require ",
+                code("--database"),
+                " and ",
+                code("--schema"),
+                " on the connection or command.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Create a database object using the ",
+                    code("option-attributes"),
+                    " parameter:",
+                ),
+                command=(
+                    "snow object create database "
+                    "name=my_db comment='Created with Snowflake CLI'"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Create a table object using the ",
+                    code("option-attributes"),
+                    " parameter:",
+                ),
+                command=(
+                    "snow object create table name=my_table "
+                    'columns=\'[{"name":"col1","datatype":"number", '
+                    '"nullable":false}]\' '
+                    'constraints=\'[{"name":"prim_key", '
+                    '"column_names":["col1"], '
+                    '"constraint_type":"PRIMARY KEY"}]\' '
+                    "--database my_db --schema public"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Create a database using the ",
+                    code("--json"),
+                    " ",
+                    code("object-definition"),
+                    " option:",
+                ),
+                command=(
+                    "snow object create database --json "
+                    '\'{"name":"my_db", "comment":"Created with Snowflake CLI"}\''
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Create a table using the ",
+                    code("--json"),
+                    " ",
+                    code("object-definition"),
+                    " option:",
+                ),
+                command=(
+                    'snow object create table --json "$(cat table.json)" '
+                    "--database my_db"
+                ),
+            ),
+        ),
+    ),
+)
 def create(
     object_type: str = ObjectArgument,
     object_attributes: Optional[List[str]] = ObjectAttributesArgument,

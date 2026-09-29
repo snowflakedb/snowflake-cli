@@ -40,6 +40,7 @@ SPINNER_STYLE: Style = Style(bold=True)
 STEP_STYLE: Style = Style(italic=True)
 INFO_STYLE: Style = Style()
 PANEL_STYLE: Style = Style()
+PLAIN_STYLE: Style = Style()
 IMPORTANT_STYLE: Style = Style(bold=True, italic=True)
 INDENTATION_LEVEL: int = 2
 
@@ -63,6 +64,7 @@ class CliConsole(AbstractConsole):
         Output.INFO: None,
         Output.IMPORTANT: IMPORTANT_STYLE,
         Output.PANEL: PANEL_STYLE,
+        Output.PLAIN: PLAIN_STYLE,
     }
 
     def _format_message(self, message: str, output: Output) -> Text:
@@ -74,7 +76,12 @@ class CliConsole(AbstractConsole):
             text = Text.from_markup(message)
 
         current_indent = self._extra_indent
-        if self.in_phase and output in {Output.STEP, Output.INFO, Output.IMPORTANT}:
+        if self.in_phase and output in {
+            Output.STEP,
+            Output.INFO,
+            Output.IMPORTANT,
+            Output.PLAIN,
+        }:
             current_indent += 1
         text.pad_left(current_indent * self._indentation_level)
         return text
@@ -138,8 +145,18 @@ class CliConsole(AbstractConsole):
     def message(self, _message: str):
         """Displays an informational message to output.
 
+        Parses Rich markup. Use ``plain_message`` for untrusted text.
         If called within a phase, the output will be indented."""
         text = self._format_message(_message, Output.INFO)
+        self._print(text)
+
+    def plain_message(self, message: str):
+        """Displays untrusted text without interpreting Rich markup.
+
+        Sanitizes for the terminal, always adds a newline, respects ``--silent``,
+        and follows ``phase()`` / ``indented()`` padding like ``message()``.
+        """
+        text = self._format_message(sanitize_for_terminal(message), Output.PLAIN)
         self._print(text)
 
     def warning(self, message: str):
@@ -165,7 +182,7 @@ class CliConsole(AbstractConsole):
     def styled_message(self, message: str, style: Style | str = ""):
         """Displays a message with provided style.
 
-        Message gets sanitized before displaying."""
+        Message gets sanitized before displaying. Does not add a newline."""
         self._print(Text(sanitize_for_terminal(message), style=style), end="")
 
 

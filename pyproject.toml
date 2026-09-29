@@ -27,7 +27,7 @@ readme = "README.md"
 dependencies = [
   # Actual project dependencies, from which we generate [project.dependencies] section serving as a lockfile for PyPi
   "click==8.1.8",
-  "GitPython==3.1.59",
+  "GitPython==3.1.62",
   "PyYAML==6.0.2",
   "id==1.5.0",
   "jinja2==3.1.6",
@@ -42,7 +42,7 @@ dependencies = [
   "requirements-parser==0.13.0",
   "rich==14.0.0",
   "setuptools==80.8.0",
-  "snowflake-connector-python[secure-local-storage]==4.7.3",
+  "snowflake-connector-python[secure-local-storage]==4.7.5",
   'snowflake-snowpark-python==1.53.0',
   "snowflake.core==1.10.0",
   "tomlkit==0.15.1",
@@ -174,8 +174,17 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
+# Keep `test`, `test_core`, and `test_nativeapp` in lockstep (same markers,
+# xdist flags, ignores). Forks run `test` (full suite); CI splits it into
+# `test_core` (everything except nativeapp) and `test_nativeapp`.
 test = [
-  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services tests_integration/ {args}',
+  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services --durations=25 tests_integration/ {args}',
+]
+test_core = [
+  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services --ignore=tests_integration/nativeapp --durations=25 tests_integration/ {args}',
+]
+test_nativeapp = [
+  'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --durations=25 tests_integration/nativeapp {args}',
 ]
 test_container_services = [
   "pytest -m integration -n5 --dist=worksteal --deflake-test-type=integration tests_integration/tests_using_container_services",

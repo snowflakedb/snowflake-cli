@@ -28,4 +28,15 @@ mkdir dist\snow
 move dist\binary\snow-%CLI_VERSION%.exe dist\snow\snow.exe
 .\dist\snow\snow.exe --help
 
+if "%BUILD_SNOWFLAKE_MANAGED_TARBALL%"=="1" goto :managed
 tar -a -c -f snowflake-cli-%CLI_VERSION_WIN%.zip dist\snow
+goto :eof
+
+:managed
+echo Building snowflake-managed binary
+set SNOWFLAKE_CLI_INSTALLATION_SOURCE=SNOWFLAKE_MANAGED
+set SNOWFLAKE_CLI_PACK_MANAGED_TARBALL=0
+python.exe -m hatch -e packaging run build-isolated-binary
+mkdir dist\snowflake-managed
+move dist\binary\snow-%CLI_VERSION%.exe dist\snowflake-managed\snow.exe
+tar -a -c -f snowflake-cli-%CLI_VERSION_WIN%.zip dist\snow dist\snowflake-managed
