@@ -70,6 +70,17 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
 )
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    note,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -133,8 +144,116 @@ LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
 
+_SNOWPARK_BUILD_LINK = link(
+    "/developer-guide/snowflake-cli/command-reference/snowpark-commands/build",
+    "snow snowpark build",
+)
 
-@app.command("deploy", requires_connection=True, require_warehouse=True)
+_SNOWPARK_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link("/developer-guide/snowflake-cli/command-reference/snowpark-commands/overview"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/snowpark-commands/package-commands/overview"
+    ),
+)
+
+_DEPLOY_DOCS = CommandDocs(
+    related=_SNOWPARK_RELATED,
+    usage_notes=(
+        plain_text(
+            "The ",
+            code("snow snowpark deploy"),
+            " command does the following:",
+        ),
+        bullet_list(
+            bullet(
+                "Checks to see whether the objects listed for deployment already exist. If the objects exist, you must use the ",
+                code("--replace"),
+                " option.",
+            ),
+            bullet(
+                "Creates a stage in the database specified for your connection. If no stage is defined, the command creates a stage named ",
+                code("deployments"),
+                ".",
+            ),
+            bullet(
+                "If the ",
+                code("--prune"),
+                " option was specified, removes existing content from the stage used by defined procedures and function objects.",
+            ),
+            bullet("Uploads the new artifacts."),
+            bullet(
+                "Creates the objects specified then ",
+                code("snowflake.yml"),
+                " file by executing the SQL CREATE PROCEDURE or CREATE FUNCTION queries.",
+            ),
+        ),
+        note(
+            "If you want to update objects and files, even if they did not change, you can use the ",
+            code("--force-replace"),
+            " option.",
+        ),
+        plain_text(
+            "The command deploys the source code and dependencies from the most recent build. If you modified the code or added any requirements since the last build, you must run the ",
+            _SNOWPARK_BUILD_LINK,
+            " command again before deploying the new version.",
+        ),
+        note(
+            "When deploying a Snowpark stored procedure, ",
+            ref("sf-cli"),
+            " lets you upload artifacts to a folder within a stage. This makes it possible to deploy several procedures to a single stage.",
+            "\n\n",
+            "If you are deploying to a different Snowflake account, you must run the ",
+            _SNOWPARK_BUILD_LINK,
+            " command again before deploying.",
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "The following example shows how to deploy functions and procedures in the current directory."
+            ),
+            command="snow snowpark deploy",
+            output=(
+                "+-----------------------------------------------------------------------------------+\n"
+                "| object                                             | type      | status           |\n"
+                "|----------------------------------------------------+-----------+------------------|\n"
+                "| MY_DATABASE.PUBLIC.HELLO_PROCEDURE(name string)    | procedure | packages updated |\n"
+                "| MY_DATABASE.PUBLIC.TEST_PROCEDURE()                | procedure | created          |\n"
+                "| MY_DATABASE.PUBLIC.HELLO_FUNCTION(name string)     | function  | packages updated |\n"
+                "+-----------------------------------------------------------------------------------+"
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "The following example shows what happens when objects already exist and you deploy without specifying the ",
+                code("--replace"),
+                " option.",
+            ),
+            command="snow snowpark deploy",
+            output=(
+                "╭─ Error ──────────────────────────────────────────────────────────╮\n"
+                "│ Following objects already exists. Consider using --replace.      |\n"
+                "│ function: MY_DATABASE.PUBLIC.HELLO_FUNCTION(string)              |\n"
+                "│ procedure: MY_DATABASE.PUBLIC.HELLO_PROCEDURE(string)            |\n"
+                "│ procedure: MY_DATABASE.PUBLIC.TEST_PROCEDURE()                   |\n"
+                "╰──────────────────────────────────────────────────────────────────╯"
+            ),
+        ),
+    ),
+)
+
+
+@app.command(
+    "deploy",
+    requires_connection=True,
+    require_warehouse=True,
+    docs=_DEPLOY_DOCS,
+)
 @with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
@@ -435,7 +554,154 @@ def _read_artifact_repository_requirements(
     return packages
 
 
-@app.command("build", requires_connection=True)
+_BUILD_DOCS = CommandDocs(
+    related=_SNOWPARK_RELATED,
+    usage_notes=(
+        bullet_list(
+            bullet(
+                "The ",
+                code("app.zip"),
+                " contains everything needed to run the functions and procedures in the project, apart from packages available through ",
+                link(
+                    "https://repo.anaconda.com/pkgs/snowflake/",
+                    "Snowflake Anaconda channel",
+                ),
+                ", which you can call directly from Snowflake.-",
+            ),
+            bullet(
+                "The command parses ",
+                code("requirements.txt"),
+                " for packages available on Conda channel. This process creates the ",
+                code("requirements.snowflake.txt"),
+                " file that contains project dependencies available on the Conda channel, which is later used by the ",
+                code("snow snowpark deploy"),
+                " command.",
+            ),
+            bullet(
+                "By default, the command looks for the ",
+                code("snowflake.yml"),
+                " file in the current directory. Alternatively, you can specify a different path with the ",
+                code("--project"),
+                " option.",
+            ),
+            bullet(
+                "This command automatically downloads dependencies and adds them to a file called ",
+                code("app.zip"),
+                ", together with project source code (specified by the ",
+                code("src"),
+                " field in the ",
+                code("snowflake.yml"),
+                " file.",
+            ),
+            bullet(
+                "To use different Python Package Index than PyPi, specify one using the ",
+                code("--index-url"),
+                " option.",
+            ),
+            bullet(
+                "You can use ",
+                code("--skip-version-check"),
+                " option to skip version requirements between project dependencies and the Anaconda Channel.",
+            ),
+            bullet(
+                "You can use the ",
+                code("--ignore-anaconda"),
+                " option to include all the required dependencies in the ",
+                code("app.zip"),
+                " file, even those available in Snowflake Anaconda channel. The dependencies aren't downloaded from Anaconda, but from PyPi.",
+            ),
+            bullet(
+                "The ",
+                code("--allow-shared-libraries"),
+                " option checks whether any of the packages downloaded from PyPi are using native dependencies, which can cause problems as Snowpark currently supports only native dependencies for packages taken from Conda channel",
+            ),
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text("Build a project located in the current directory:"),
+            command="snow snowpark build",
+            output=(
+                "Resolving dependencies from requirements.txt\n"
+                "  No external dependencies.\n"
+                "Preparing artifacts for source code\n"
+                "  Creating: app.zip\n"
+                "Build done."
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "Build a project located in a different directory when the current directory contains ",
+                code("project_dir"),
+                ", ",
+                code("some_other_dir"),
+                ", and ",
+                code("some_file.txt"),
+                ":",
+            ),
+            command="snow snowpark build -p project_dir",
+            output=(
+                "Resolving dependencies from requirements.txt\n"
+                "  No external dependencies.\n"
+                "Preparing artifacts for source code\n"
+                "  Creating: app.zip\n"
+                "Build done."
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "Build a project in a directory with no ",
+                code("snowflake.yml"),
+                " project definition when the current directory contains ",
+                code("project_dir"),
+                ", ",
+                code("some_other_dir"),
+                ", and ",
+                code("some_file.txt"),
+                ":",
+            ),
+            command="snow snowpark build",
+            output=(
+                "╭─ Error ──────────────────────────────────────────────────────────╮\n"
+                "  Cannot find project definition (snowflake.yml). Please provide\n"
+                "  a path to the project or run this command in a valid\n"
+                "  project directory.\n"
+                "╰──────────────────────────────────────────────────────────────────╯"
+            ),
+        ),
+        Example(
+            description=plain_text("Build a project with native libraries:"),
+            command="snow snowpark build --ignore-anaconda --allow-shared-libraries",
+            output=(
+                "2024-04-16 16:05:52 ERROR Following dependencies utilise shared libraries, not supported by Conda:\n"
+                "2024-04-16 16:05:52 ERROR contourpy\n"
+                "pillow\n"
+                "numpy\n"
+                "kiwisolver\n"
+                "fonttools\n"
+                "matplotlib\n"
+                "2024-04-16 16:05:52 ERROR You may still try to create your package with --allow-shared-libraries, but the might not work.\n"
+                "2024-04-16 16:05:52 ERROR You may also request adding the package to Snowflake Conda channel\n"
+                "2024-04-16 16:05:52 ERROR at https://support.anaconda.com/\n"
+                "Build done. Artifact path: /Path/to/current/dir/project_dir/app.zip"
+            ),
+        ),
+        Example(
+            description=plain_text("Build a project and include all dependencies:"),
+            command="snow snowpark build --ignore-anaconda",
+            output=(
+                "Resolving dependencies from requirements.txt\n"
+                "  No external dependencies.\n"
+                "Preparing artifacts for source code\n"
+                "  Creating: app.zip\n"
+                "Build done."
+            ),
+        ),
+    ),
+)
+
+
+@app.command("build", requires_connection=True, docs=_BUILD_DOCS)
 @with_project_definition()
 def build(
     ignore_anaconda: bool = IgnoreAnacondaOption,
@@ -669,7 +935,41 @@ def get_snowpark_entities(
     return snowpark_entities
 
 
-@app.command("execute", requires_connection=True)
+_EXECUTE_DOCS = CommandDocs(
+    related=_SNOWPARK_RELATED,
+    usage_notes=(
+        plain_text(
+            "The ",
+            code("snow snowpark execute"),
+            " command executes a function or procedure stored in Snowflake. It uses the database defined for the connection.",
+        ),
+        plain_text(
+            "Based on which command shell you use, you might need to wrap the ",
+            code("execution_identifier"),
+            " argument in quotes, as illustrated in the **Examples** section.",
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "The following example calls a Snowpark function called ",
+                code("hello_function"),
+                ":",
+            ),
+            command="snow snowpark execute function \"hello_function('Olaf')\"",
+            output=(
+                "+--------------------------------------+\n"
+                "| key                    | value       |\n"
+                "|------------------------+-------------|\n"
+                "| HELLO_FUNCTION('Olaf') | Hello Olaf! |\n"
+                "+--------------------------------------+"
+            ),
+        ),
+    ),
+)
+
+
+@app.command("execute", requires_connection=True, docs=_EXECUTE_DOCS)
 def execute(
     object_type: SnowparkObject = ObjectTypeArgument,
     execution_identifier: str = execution_identifier_argument(
@@ -684,7 +984,13 @@ def execute(
     return SingleQueryResult(cursor)
 
 
-@app.command("list", requires_connection=True)
+_SNOWPARK_OBJECT_ALIAS_DOCS = CommandDocs(
+    related=_SNOWPARK_RELATED,
+    usage_notes=(plain_text("None."),),
+)
+
+
+@app.command("list", requires_connection=True, docs=_SNOWPARK_OBJECT_ALIAS_DOCS)
 def list_(
     object_type: SnowparkObject = ObjectTypeArgument,
     like: str = LikeOption,
@@ -706,7 +1012,7 @@ def list_(
     )
 
 
-@app.command("drop", requires_connection=True)
+@app.command("drop", requires_connection=True, docs=_SNOWPARK_OBJECT_ALIAS_DOCS)
 def drop(
     object_type: SnowparkObject = ObjectTypeArgument,
     identifier: FQN = IdentifierArgument,
@@ -722,7 +1028,7 @@ def drop(
     )
 
 
-@app.command("describe", requires_connection=True)
+@app.command("describe", requires_connection=True, docs=_SNOWPARK_OBJECT_ALIAS_DOCS)
 def describe(
     object_type: SnowparkObject = ObjectTypeArgument,
     identifier: FQN = IdentifierArgument,
