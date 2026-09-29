@@ -37,8 +37,8 @@ _MACHINE_ID_POLL_SECONDS = 0.01
 def get_or_create_machine_id(layout: Optional[ManagedLayout] = None) -> str:
     """Return the stable UUID stored at ``<managed-home>/.machine-id``.
 
-    Created once (mode 0600). Used only to bucket rollout; never send the raw
-    id in telemetry.
+    Created once (mode 0600). Used only to hash a rollout score; never send
+    the raw id in telemetry.
     """
     root = layout if layout is not None else ManagedLayout()
     path = root.machine_id_path
@@ -55,22 +55,25 @@ def get_or_create_machine_id(layout: Optional[ManagedLayout] = None) -> str:
     return _overwrite_machine_id(path, new_id)
 
 
-def rollout_bucket(machine_id: Union[str, uuid.UUID]) -> int:
-    """Map a machine id to a stable 0–99 rollout bucket.
+def rollout_score(machine_id: Union[str, uuid.UUID]) -> float:
+    """Map a machine id to a stable score in ``[0, 1)``.
 
-    ``int(sha256(id_bytes)[:8], 16) % 100`` so a machine stays in the 1% ring
-    as Releng raises ``fraction``.
+    High 53 bits of ``sha256(id_bytes)`` over ``2**53`` so membership is
+    ``score < elapsed / 96h`` with no percent buckets. Same machine stays
+    on the same point of the ramp.
     """
     parsed = machine_id if isinstance(machine_id, uuid.UUID) else uuid.UUID(machine_id)
-    digest = hashlib.sha256(parsed.bytes).hexdigest()
-    return int(digest[:8], 16) % 100
+    digest = hashlib.sha256(parsed.bytes).digest()
+    # 53 bits fit in IEEE-754, so the quotient is exactly in [0, 1).
+    n = int.from_bytes(digest[:8], "big") >> 11
+    return n / float(1 << 53)
 
 
 def _adopt_existing_machine_id(path: Path) -> str:
     """Return the on-disk UUID after losing exclusive create.
 
     Do not overwrite: the winner may still be writing. After the wait, recover
-    from a crashed winner or a corrupt file so the process can still bucket.
+    from a crashed winner or a corrupt file so the process can still score.
     """
     deadline = time.monotonic() + _MACHINE_ID_WAIT_SECONDS
     while True:

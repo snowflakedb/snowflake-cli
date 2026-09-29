@@ -33,7 +33,7 @@ from snowflake.cli._plugins.upgrade.layout import (
 from snowflake.cli._plugins.upgrade.lock import try_upgrade_lock
 from snowflake.cli._plugins.upgrade.machine import (
     get_or_create_machine_id,
-    rollout_bucket,
+    rollout_score,
 )
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -72,21 +72,22 @@ def test_machine_id_mode_0600(managed_home):
     assert mode == 0o600
 
 
-def test_rollout_bucket_in_range_and_stable(managed_home):
+def test_rollout_score_in_range_and_stable(managed_home):
     layout = ManagedLayout()
     machine_id = get_or_create_machine_id(layout)
-    bucket = rollout_bucket(machine_id)
-    assert 0 <= bucket <= 99
-    assert rollout_bucket(machine_id) == bucket
-    assert rollout_bucket(uuid.UUID(machine_id)) == bucket
+    score = rollout_score(machine_id)
+    assert 0.0 <= score < 1.0
+    assert rollout_score(machine_id) == score
+    assert rollout_score(uuid.UUID(machine_id)) == score
 
 
-def test_rollout_bucket_matches_spec_formula():
+def test_rollout_score_matches_spec_formula():
     machine_id = uuid.UUID("00000000-0000-4000-8000-000000000000")
-    expected = int(hashlib.sha256(machine_id.bytes).hexdigest()[:8], 16) % 100
-    assert 0 <= expected <= 99
-    assert rollout_bucket(machine_id) == expected
-    assert rollout_bucket(str(machine_id)) == expected
+    n = int.from_bytes(hashlib.sha256(machine_id.bytes).digest()[:8], "big") >> 11
+    expected = n / float(1 << 53)
+    assert 0.0 <= expected < 1.0
+    assert rollout_score(machine_id) == expected
+    assert rollout_score(str(machine_id)) == expected
 
 
 def test_corrupt_machine_id_is_replaced(managed_home, monkeypatch):
@@ -138,6 +139,15 @@ def test_concurrent_first_create_agrees_on_one_id(managed_home):
     stored = layout.machine_id_path.read_text(encoding="utf-8").strip()
     assert stored == ids[0]
     uuid.UUID(ids[0])
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX mode bits")
+def test_unix_lock_file_mode_0600(managed_home):
+    layout = ManagedLayout()
+    with try_upgrade_lock(layout) as acquired:
+        assert acquired is True
+        mode = layout.upgrade_lock_path.stat().st_mode & 0o777
+        assert mode == 0o600
 
 
 @pytest.mark.skipif(IS_WINDOWS, reason="Unix fcntl flock")

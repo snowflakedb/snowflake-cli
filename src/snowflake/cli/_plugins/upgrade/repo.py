@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 
 import requests
 from snowflake.cli._plugins.upgrade.layout import ManagedLayout, validate_version
+from snowflake.cli._plugins.upgrade.rollout import PublishedRelease, parse_rollout
 from snowflake.cli._plugins.upgrade.trust import (
     DEFAULT_PUBLIC_KEY_PEM,
     MANIFEST_SIG_NAME,
@@ -120,6 +121,17 @@ class HttpRepo:
             raise CliError(f"{POINTER_NAME} from {self.base_url} is empty.")
         return validate_version(version)
 
+    def latest_release(self) -> PublishedRelease:
+        """Pointer version plus rollout from that version's signed manifest.
+
+        Reuses the existing pointer and ``manifest.json`` / ``.sig`` URLs.
+        Does not fetch a second rollout resource. Signature failure is
+        fail-closed here; the auto-upgrade caller fail-opens.
+        """
+        version = self.latest_version()
+        manifest = self._signed_manifest(version)
+        return PublishedRelease(version=version, rollout=parse_rollout(manifest))
+
     def materialize(self, version: str, layout: ManagedLayout) -> Path:
         """Download, verify, and extract ``version`` into a new version directory.
 
@@ -153,7 +165,7 @@ class HttpRepo:
             )
         log.info("Verified SHA-256 for %s", name)
 
-    def _package_for(self, version: str, os_name: str, arch: str) -> dict:
+    def _signed_manifest(self, version: str) -> dict:
         url = f"{self.base_url}/{version}/{MANIFEST_NAME}"
         sig_url = f"{self.base_url}/{version}/{MANIFEST_SIG_NAME}"
         manifest_bytes = _http_get_bytes(url, timeout=POINTER_TIMEOUT_SECONDS)
@@ -169,7 +181,12 @@ class HttpRepo:
             manifest = json.loads(manifest_bytes)
         except json.JSONDecodeError as exc:
             raise CliError(f"Invalid {MANIFEST_NAME} at {url}.") from exc
-        return _package_entry(manifest, os_name, arch)
+        if not isinstance(manifest, dict):
+            raise CliError(f"{MANIFEST_NAME} must be a JSON object.")
+        return manifest
+
+    def _package_for(self, version: str, os_name: str, arch: str) -> dict:
+        return _package_entry(self._signed_manifest(version), os_name, arch)
 
 
 def _package_entry(manifest: object, os_name: str, arch: str) -> dict:

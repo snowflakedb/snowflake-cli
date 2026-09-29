@@ -63,7 +63,10 @@ def try_upgrade_lock(layout: Optional[ManagedLayout] = None) -> Iterator[bool]:
                 _release_windows_mutex(handle)
         return
 
-    fd = os.open(str(path), os.O_CREAT | os.O_RDWR, _LOCK_MODE)
+    # flock needs a live fd; create through SecurePath so the audit trail
+    # matches the Windows path. Drop O_CREAT — touch already made the file.
+    SecurePath(path).touch(permissions_mask=_LOCK_MODE, exist_ok=True)
+    fd = os.open(str(path), os.O_RDWR)
     acquired = False
     try:
         os.chmod(path, _LOCK_MODE)
