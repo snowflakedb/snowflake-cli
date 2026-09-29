@@ -28546,11 +28546,17 @@
   |                                                             or backslash     |
   |                                                             with a backslash |
   |                                                             to make it       |
-  |                                                             literal. Unknown |
-  |                                                             tokens,          |
-  |                                                             including colour |
-  |                                                             [#rrggbb] /      |
-  |                                                             [bg:#rrggbb],    |
+  |                                                             literal. Use     |
+  |                                                             [#rrggbb] for    |
+  |                                                             foreground       |
+  |                                                             colour and       |
+  |                                                             [bg:#rrggbb] for |
+  |                                                             background       |
+  |                                                             colour; each     |
+  |                                                             applies to       |
+  |                                                             following prompt |
+  |                                                             text only.       |
+  |                                                             Unknown tokens   |
   |                                                             are dropped with |
   |                                                             a warning.       |
   |                                                             Quoted           |

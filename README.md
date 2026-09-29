@@ -110,10 +110,23 @@ snow sql --prompt-format "[user]#[warehouse]@[database].[schema]> "
 
 Missing values render as `(no user)`, `(no database)`, and so on.
 `\n` is a newline; `\[`, `\]`, and `\\` are literal `[`, `]`, and `\`.
+Use `[#rrggbb]` for a foreground colour and `[bg:#rrggbb]` for a background
+colour. A colour applies to the prompt text that follows it; it does not colour
+SQL input. Quote the value because `#` starts a TOML comment. For example:
+
+```toml
+[cli]
+prompt_format = """┌──[#bca81f][user]@[account].[role].[warehouse].[database].[schema]
+[#ffff00]└─$"""
+```
+
+SnowSQL often puts a colour after the marker (`└─$[#ffff00]`). Here that
+trailing token is a no-op: it does not colour typed SQL. Place `[#ffff00]`
+before `└─$` if you want the marker itself yellow.
+
 Unknown bracketed tokens are dropped from the prompt and reported with a
-warning when the REPL starts, which reserves the `[...]` namespace for later
-extensions. Colour directives (`[#rrggbb]`, `[bg:#rrggbb]`) are part of that
-namespace, so they are dropped rather than rendered in this version.
+warning when the REPL starts. Prefix a colour directive with `\[` to display
+it literally.
 
 ## Default output format
 

@@ -5,6 +5,7 @@ from typing import Iterable, Tuple
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.filters import Condition, is_done, is_searching
+from prompt_toolkit.formatted_text import AnyFormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.keys import Keys
@@ -15,7 +16,7 @@ from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
     DEFAULT_REPL_PROMPT,
-    format_repl_prompt,
+    format_repl_prompt_for_terminal,
     session_prompt_values,
 )
 from snowflake.cli._plugins.sql.repl_commands import detect_command
@@ -199,7 +200,7 @@ class Repl:
 
         return kb
 
-    def _current_prompt(self) -> str:
+    def _current_prompt(self) -> AnyFormattedText:
         """Build the prompt for this iteration of the REPL loop.
 
         An unset format keeps the historical `` > `` so this feature is
@@ -208,7 +209,7 @@ class Repl:
         """
         if not self._prompt_format:
             return DEFAULT_REPL_PROMPT
-        return format_repl_prompt(
+        return format_repl_prompt_for_terminal(
             self._prompt_format,
             session_prompt_values(
                 self._session_connection,
@@ -216,7 +217,7 @@ class Repl:
             ),
         )
 
-    def repl_prompt(self, msg: str | None = None) -> str:
+    def repl_prompt(self, msg: AnyFormattedText = None) -> str:
         """Regular repl prompt with support for pre-filled input.
 
         Checks for queued input from commands like !edit and uses it as

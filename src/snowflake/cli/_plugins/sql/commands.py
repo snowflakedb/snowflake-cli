@@ -177,7 +177,12 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
                 code("[connection]"),
                 " (the ",
                 code("-c"),
-                " connection name). They update after USE. Set a quoted ",
+                " connection name). They update after USE. Use ",
+                code("[#rrggbb]"),
+                " for foreground colour and ",
+                code("[bg:#rrggbb]"),
+                " for background colour; each applies to the prompt text that follows. "
+                "Set a quoted ",
                 code("prompt_format"),
                 " in the ",
                 code("[cli]"),
@@ -315,8 +320,9 @@ def execute_sql(
             "Missing values render as (no user), (no database), and so on. "
             "A backslash followed by n is a newline; prefix a bracket or "
             "backslash with a backslash to make it literal. "
-            r"Unknown tokens, including colour \[#rrggbb\] / \[bg:#rrggbb\], "
-            r"are dropped with a warning. Quoted prompt_format in the \[cli\] "
+            r"Use \[#rrggbb\] for foreground colour and \[bg:#rrggbb\] "
+            "for background colour; each applies to following prompt text only. "
+            r"Unknown tokens are dropped with a warning. Quoted prompt_format in the \[cli\] "
             "section of config.toml sets the default."
         ),
         show_default=False,

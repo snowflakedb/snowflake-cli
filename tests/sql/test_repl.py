@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.keys import Keys
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.repl import Repl, _print_sql_elapsed
@@ -1073,11 +1074,19 @@ def test_prompt_format_uses_cli_connection_name(
     assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
 
 
-@pytest.mark.parametrize("colour_token", ["[#ff00ff]", "[bg:#00ff00]"])
+@pytest.mark.parametrize(
+    "colour_token, expected_style",
+    [("[#ff00ff]", "fg:#ff00ff"), ("[bg:#00ff00]", "bg:#00ff00")],
+)
 @mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
 @mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
-def test_prompt_format_warns_and_drops_colour_token_in_repl(
-    mock_execute, mock_prompt_session, runner, mock_cursor, colour_token
+def test_prompt_format_renders_colour_without_warning(
+    mock_execute,
+    mock_prompt_session,
+    runner,
+    mock_cursor,
+    colour_token,
+    expected_style,
 ):
     mock_execute.return_value = (1, iter([mock_cursor(["1"], ["1"])]))
     mock_prompt = mock.MagicMock()
@@ -1089,9 +1098,34 @@ def test_prompt_format_warns_and_drops_colour_token_in_repl(
     )
 
     assert result.exit_code == 0, result.output
-    assert colour_token in result.output
-    assert "not supported in this version" in result.output
-    assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
+    assert colour_token not in result.output
+    first_prompt_call = mock_prompt.prompt.call_args_list[0]
+    assert first_prompt_call.args[0] == FormattedText([(expected_style, "full>")])
+    assert first_prompt_call.kwargs["lexer"] is not None
+
+
+def test_coloured_prompt_reflects_use_statement(mock_cursor):
+    mocked_cursor = [mock_cursor(rows=[("1",)], columns=["1"])]
+    connection = _connection_for_prompt(database="DB1")
+
+    def execute_and_update_connection(sql_text, **kwargs):
+        if "use " in sql_text.lower():
+            connection.database = "DB2"
+        return mocked_cursor
+
+    with mock.patch.object(
+        SqlManager, "_execute_string", side_effect=execute_and_update_connection
+    ):
+        repl = Repl(
+            SqlManager(connection=connection),
+            prompt_format="[#ff00ff][database]>",
+        )
+        repl.session.prompt = mock.Mock(side_effect=["USE DATABASE DB2;", "exit", "y"])
+        repl.run()
+
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert prompt_messages[0] == FormattedText([("fg:#ff00ff", "DB1>")])
+    assert prompt_messages[1] == FormattedText([("fg:#ff00ff", "DB2>")])
 
 
 @mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
