@@ -67,6 +67,20 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.utils.path_utils import is_stage_path
 
+_STAGE_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link("/developer-guide/snowflake-cli/command-reference/stage-commands/overview"),
+    link("/developer-guide/snowflake-cli/stages/manage-stages"),
+)
+_OBJECT_ALIAS_DOCS = CommandDocs(
+    related=_STAGE_RELATED,
+    usage_notes=(plain_text("None."),),
+)
+
 app = SnowTyperFactory(
     name="stage",
     help="Manages stages.",
@@ -86,10 +100,39 @@ add_object_command_aliases(
         help_example='`list --like "my%"` lists all stages that begin with "my"',
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
+    list_docs=_OBJECT_ALIAS_DOCS,
+    describe_docs=_OBJECT_ALIAS_DOCS,
+    drop_docs=_OBJECT_ALIAS_DOCS,
 )
 
 
-@app.command("list-files", requires_connection=True)
+@app.command(
+    "list-files",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_STAGE_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example lists the contents of the ",
+                    code("jdoe.public.test"),
+                    " stage:",
+                ),
+                command="snow stage list-files jdoe.public.test",
+                output=(
+                    "ls @jdoe.public.test\n"
+                    "+------------------------------------------------------------------------------+\n"
+                    "| name            | size    | md5              | last_modified                 |\n"
+                    "|-----------------+---------+------------------+-------------------------------|\n"
+                    "| test/file.csv   | 195424  | 4fc596b5e00681d8 | Mon, 11 Mar 2024 17:09:01 GMT |\n"
+                    "| test/data.csv   | 133248  | c0ddc25c1d3745d6 | Mon, 11 Mar 2024 17:08:57 GMT |\n"
+                    "+------------------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def stage_list_files(
     stage_name: str = StagePathArgument, pattern=PatternOption, **options
 ) -> CommandResult:
@@ -104,17 +147,7 @@ def stage_list_files(
     "copy",
     requires_connection=True,
     docs=CommandDocs(
-        related=(
-            link("/developer-guide/snowflake-cli/index"),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/overview",
-                "Snowflake CLI command reference",
-            ),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/stage-commands/overview"
-            ),
-            link("/developer-guide/snowflake-cli/stages/manage-stages"),
-        ),
+        related=_STAGE_RELATED,
         usage_notes=(
             plain_text(
                 "One of ",
@@ -287,7 +320,41 @@ def copy(
     )
 
 
-@app.command("create", requires_connection=True)
+@app.command(
+    "create",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_STAGE_RELATED,
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("stage create"),
+                " command creates a named stage if it does not already exist. The stage name can be a fully qualified name ",
+                "or just a stage name. In the later case, the stage is created in the database and schema specified in ",
+                "the connection details.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example creates a stage called ",
+                    code("new_stage"),
+                    " in the ",
+                    code("bar"),
+                    " database:",
+                ),
+                command="snow stage create new_stage --database=bar --schema=public",
+                output=(
+                    "+-----------------------------------------------------+\n"
+                    "| key    | value                                      |\n"
+                    "|--------+--------------------------------------------|\n"
+                    "| status | Stage area NEW_STAGE successfully created. |\n"
+                    "+-----------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def stage_create(
     stage_name: FQN = StageNameArgument,
     encryption: InternalStageEncryptionType = typer.Option(
@@ -311,7 +378,32 @@ def stage_create(
     return SingleQueryResult(cursor)
 
 
-@app.command("remove", requires_connection=True)
+@app.command(
+    "remove",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_STAGE_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example removes the ",
+                    code("app/pages/my_page.py"),
+                    " file from a stage:",
+                ),
+                command="snow stage remove example_app_stage app/pages/my_page.py",
+                output=(
+                    "+-------------------------------------------------+\n"
+                    "| key    | value                                  |\n"
+                    "|--------+----------------------------------------|\n"
+                    "| name   | example_app_stage/app/pages/my_page.py |\n"
+                    "| result | removed                                |\n"
+                    "+-------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def stage_remove(
     stage_name: FQN = StageNameArgument,
     file_name: str = typer.Argument(
@@ -359,17 +451,7 @@ def stage_diff(
     "execute",
     requires_connection=True,
     docs=CommandDocs(
-        related=(
-            link("/developer-guide/snowflake-cli/index"),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/overview",
-                "Snowflake CLI command reference",
-            ),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/stage-commands/overview"
-            ),
-            link("/developer-guide/snowflake-cli/stages/manage-stages"),
-        ),
+        related=_STAGE_RELATED,
         usage_notes=(
             PYTHON_EXECUTE_VERSION_SUPPORT,
             plain_text(
