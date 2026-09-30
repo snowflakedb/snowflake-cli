@@ -97,22 +97,47 @@ def test_role(snowflake_session):
 
 @pytest.fixture(scope="session")
 def snowflake_session() -> SnowflakeConnection:
+    authenticator = (
+        _get_from_env("AUTHENTICATOR", default="SNOWFLAKE_JWT") or "SNOWFLAKE_JWT"
+    )
     config = {
         "application": "INTEGRATION_TEST",
-        "authenticator": "SNOWFLAKE_JWT",
+        "authenticator": authenticator,
         "account": _get_from_env("ACCOUNT"),
         "user": _get_from_env("USER"),
-        "private_key_file": _get_private_key_file(),
-        "private_key_raw": _get_from_env("PRIVATE_KEY_RAW", allow_none=True),
         "host": _get_from_env("HOST", allow_none=True),
         "warehouse": _get_from_env("WAREHOUSE", allow_none=True),
         "role": _get_from_env("ROLE", allow_none=True),
     }
+    jwt = authenticator.upper() in {"SNOWFLAKE_JWT", "SNOWFLAKEJWT"}
+    if jwt:
+        config["private_key_file"] = _get_private_key_file()
+        config["private_key_raw"] = _get_from_env("PRIVATE_KEY_RAW", allow_none=True)
+    else:
+        config["password"] = _get_from_env("PASSWORD", allow_none=True)
+        config["token"] = _get_from_env("TOKEN", allow_none=True)
     config = {k: v for k, v in config.items() if v is not None}
-    update_connection_details_with_private_key(config)
+    if jwt:
+        update_connection_details_with_private_key(config)
     connection = connect_with_login_retry(**config)
+    _use_configured_warehouse(connection)
     yield connection
     connection.close()
+
+
+def _use_configured_warehouse(connection: SnowflakeConnection) -> None:
+    warehouse = _get_from_env("WAREHOUSE", allow_none=True)
+    if warehouse:
+        connection.execute_string(f"use warehouse {_escape_name(warehouse)}")
+
+
+@pytest.fixture(autouse=True)
+def ensure_integration_warehouse(request):
+    """Re-apply warehouse; the session-scoped connection can lose it across tests."""
+    if request.node.get_closest_marker("integration") is None:
+        return
+    snowflake_session = request.getfixturevalue("snowflake_session")
+    _use_configured_warehouse(snowflake_session)
 
 
 def _get_from_env(parameter_name: str, default=None, allow_none=False) -> str | None:

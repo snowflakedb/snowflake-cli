@@ -157,6 +157,45 @@ snow sql \
   -c <your_connection_name>
 ```
 
+## Integration test layout
+
+`tests_integration/` talks to a live Snowflake account. Subdirectories:
+
+| Path | Role |
+|------|------|
+| `apps/` | Snowflake App Runtime setup/deploy (no full container build unless noted) |
+| `nativeapp/` | Native Apps package/app lifecycle |
+| `tests_using_container_services/` | SPCS services, Streamlit container runtime, App Runtime full deploy |
+| `scripts/` | Account bootstrap SQL (`integration_account_setup.sql`) |
+| `test_data/` | Project fixtures copied into temp dirs |
+| `config/` | Connection TOML stubs; secrets come from env vars |
+| `testing_utils/` | Shared IT helpers |
+
+Hatch suite commands (see `pyproject.toml`):
+
+```bash
+hatch run integration:test                     # ITs except qa_only and container-services
+hatch run integration:test_core                # same, also ignores nativeapp/
+hatch run integration:test_nativeapp           # nativeapp/ only
+hatch run integration:test_container_services  # tests_using_container_services/
+hatch run integration:test_qa                  # integration and not no_qa (includes qa_only)
+```
+
+Run one nodeid without xdist/deflake (first failure stays visible):
+
+```bash
+hatch run integration:pytest -vv -n0 \
+  tests_integration/test_dbt.py::test_dbt_deploy_with_external_access_integrations
+```
+
+`qa_only` tests are excluded from `integration:test` / GitHub Actions and included in `integration:test_qa` (Jenkins QA). `no_qa` tests are excluded from `integration:test_qa`. The session fixture `_warm_up_spcs_compute_pool` runs only when `SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST` contains `qa` (`IS_QA`).
+
+GitHub Actions uses org secrets against a non-QA account (`integration:test_core` / `test_nativeapp`, plus a separate container-services workflow). The Jenkins RT job uses the team's QA account. Host, account, user, and credential access for that job live on the internal [Snowflake CLI Jenkins](https://snowflakecomputing.atlassian.net/wiki/spaces/EN/pages/3622371345) page — do not copy those identifiers or keys into this repository.
+
+After changing `integration_account_setup.sql`, an ACCOUNTADMIN must re-run the script against the target account. Do not apply the full script from a developer workstation onto the shared QA account without review.
+
+The Jenkins `RT-Snowflake-CLI` job (`run_tests_qa.sh` in the internal jenkins_utils repo) does **not** apply this setup SQL. New grants and EAIs (for example `CREATE INTEGRATION`, `dbt_hub_access_integration`) are inert on qa6 until ACCOUNTADMIN runs the script once.
+
 ## Pytest markers
 
 | Marker | Meaning |
@@ -165,6 +204,9 @@ snow sql \
 | `e2e` | Runs against a freshly installed CLI in a clean venv |
 | `no_qa` | Exclude from QA runs |
 | `qa_only` | Run only in QA environments |
+| `spcs` | Snowpark Container Services unit-test marker (excluded from default `hatch run test`) |
+| `no_ud` | Incompatible with the Universal Driver |
+| `integration_experimental` | Opt-in experimental ITs; excluded from default unit and integration suites |
 
 The default `hatch run test` run excludes `integration`, `performance`, `e2e`,
 `spcs`, `loaded_modules`, and `integration_experimental` markers.

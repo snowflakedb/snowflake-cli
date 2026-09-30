@@ -7,9 +7,10 @@ entities:
     title: "SPCS V2 Streamlit App"
     query_warehouse: xsmall
     runtime_name: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
-    compute_pool: TEST_COMPUTE_POOL
+    compute_pool: snowcli_compute_pool
     main_file: streamlit_app.py
     artifacts:
       - streamlit_app.py
       - utils/utils.py
       - pages/
+      - requirements.txt

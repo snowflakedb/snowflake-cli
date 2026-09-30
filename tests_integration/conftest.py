@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest import mock
 from uuid import uuid4
+from warnings import warn
 
 import pytest
 import yaml
@@ -352,9 +353,14 @@ def _warm_up_spcs_compute_pool(request):
         SnowparkServicesTestSteps,
     )
 
+    pool = SnowparkServicesTestSteps.compute_pool
     try:
-        snowflake_session.execute_string(
-            f"ALTER COMPUTE POOL {SnowparkServicesTestSteps.compute_pool} RESUME"
+        snowflake_session.execute_string(f"ALTER COMPUTE POOL {pool} RESUME")
+    except Exception as exc:
+        # Root autouse: must not fail unrelated QA tests. Surface the reason so
+        # a missing/suspended pool is visible before SPCS tests start.
+        warn(
+            f"Could not resume compute pool {pool} during QA warmup: {exc}",
+            UserWarning,
+            stacklevel=1,
         )
-    except Exception:
-        pass  # Already ACTIVE or RESUMING — harmless

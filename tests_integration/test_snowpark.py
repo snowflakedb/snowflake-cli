@@ -1221,6 +1221,10 @@ def test_snowpark_vector_function(
             ]
         )
 
+        warehouse = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE")
+        if warehouse:
+            snowflake_session.execute_string(f"use warehouse {warehouse}")
+
         result = snowflake_session.execute_string(
             dedent(
                 f"""

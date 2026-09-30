@@ -48,6 +48,7 @@ DATABASE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE", "SNOWCLI
 WAREHOUSE = os.environ.get("SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE", "xsmall")
 BUILD_EAI = "cli_test_integration"
 APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
+DEFAULT_APP_AREA_FUNCTION = "SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA"
 
 # Destination schema configured as a *quoted*, case-sensitive lower-case
 # identifier. Snowflake folds unquoted identifiers to upper case, so a
@@ -121,6 +122,30 @@ def _require_app_service_defaults_function(snowflake_session):
             )
         raise
     yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _skip_if_default_app_area_is_selected(snowflake_session):
+    """Skip when GET_DEFAULT_APP_AREA() is the selected defaults source.
+
+    ``fetch_app_service_defaults`` prefers that table function over USER
+    ``DEFAULT_SNOWFLAKE_APPS_*`` parameters. This module's fixture only
+    controls the USER parameters, so a populated default app area would
+    make the ``(account parameter)`` assertions fail for the wrong reason.
+    """
+    try:
+        rows = snowflake_session.execute_string(
+            f"SELECT * FROM TABLE({DEFAULT_APP_AREA_FUNCTION}())"
+        )
+        row = rows[-1].fetchone()
+    except ProgrammingError:
+        return
+    if row:
+        pytest.skip(
+            f"{DEFAULT_APP_AREA_FUNCTION}() returned a default app area; "
+            "USER DEFAULT_SNOWFLAKE_APPS_* parameters are not the selected "
+            "source for snow app setup on this account."
+        )
 
 
 @pytest.mark.integration

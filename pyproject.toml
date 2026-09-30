@@ -187,11 +187,15 @@ test_nativeapp = [
   'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --durations=25 tests_integration/nativeapp {args}',
 ]
 test_container_services = [
-  "pytest -m integration -n5 --dist=worksteal --deflake-test-type=integration tests_integration/tests_using_container_services",
+  "pytest -m integration -n5 --dist=worksteal --deflake-test-type=integration tests_integration/tests_using_container_services {args}",
 ]
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/",
+  "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/ {args}",
 ]
+# Passthrough for a single nodeid. `python -m pytest` avoids hatch expanding
+# a script named pytest into itself. Omit --deflake-test-type so the first
+# failure stays visible during diagnosis.
+pytest = "python -m pytest {args}"
 
 [tool.hatch.envs.ud]
 template = "ud"

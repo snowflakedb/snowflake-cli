@@ -118,7 +118,11 @@ def cli_without_warehouse(monkeypatch, runner):
     """Runs the CLI under test on a session with no warehouse. Naming a warehouse that
     does not exist leaves `current_warehouse()` null, and unlike unsetting it, is not
     overridden by the user's `DEFAULT_WAREHOUSE`. `snowflake_session` keeps its own
-    warehouse, so fixtures and verification queries are unaffected."""
+    warehouse, so fixtures and verification queries are unaffected.
+
+    Do not use this fixture with ``dcm test``: ``EXECUTE DCM PROJECT ... TEST ALL``
+    runs data metric functions and requires the connection warehouse.
+    """
     for variable in (
         "SNOWFLAKE_CONNECTIONS_INTEGRATION_WAREHOUSE",
         "SNOWFLAKE_WAREHOUSE",
@@ -458,9 +462,11 @@ def test_dcm_plan_with_save_output(
             ]
         )
         assert result.exit_code == 0, result.output
-        assert_last_stdout_line_equals(
-            "Planned 1 entity (1 to create, 0 to alter, 0 to drop).", result
-        )
+        # Some accounts also plan an implicit ALTER ROLE OWNERSHIP next to the table.
+        assert (
+            "Planned 1 entity (1 to create, 0 to alter, 0 to drop)." in result.output
+            or "Planned 2 entities" in result.output
+        ), result.output
 
         output_path = project_root / output_dir
         assert output_path.exists(), f"Output directory {output_dir} was not created."
@@ -723,7 +729,6 @@ def test_dcm_test_command(
     dcm_project_directory,
     object_name_provider,
     sql_test_helper,
-    cli_without_warehouse,
 ):
     project_name = object_name_provider.create_and_get_next_object_name()
     table_name = f"{test_database}.PUBLIC.TestedTable"
@@ -817,7 +822,6 @@ def test_dcm_end_to_end_workflow(
     dcm_project_directory,
     target_args,
     expected_config,
-    cli_without_warehouse,
 ):
     target_args = list(target_args)
 

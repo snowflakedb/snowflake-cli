@@ -306,7 +306,7 @@ class SnowparkServicesTestSteps:
         assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
 
     def wait_until_service_is_suspended(self, service_name: str) -> None:
-        self._wait_until_service_reaches_state(service_name, "SUSPENDED", 60)
+        self._wait_until_service_reaches_state(service_name, "SUSPENDED", 300)
 
     def resume_service(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(

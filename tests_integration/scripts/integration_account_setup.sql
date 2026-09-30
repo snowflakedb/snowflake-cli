@@ -31,6 +31,8 @@ GRANT ROLE <% role %> TO USER IDENTIFIER('<% user %>');
 GRANT ROLE test_role TO USER IDENTIFIER('<% user %>');
 GRANT DATABASE ROLE SNOWFLAKE.PYPI_REPOSITORY_USER TO ROLE <% role %>;
 GRANT EXECUTE DATA METRIC FUNCTION ON ACCOUNT TO ROLE <% role %>;
+-- Needed by qa_only dbt EAI tests that CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION.
+GRANT CREATE INTEGRATION ON ACCOUNT TO ROLE <% role %>;
 
 -- WAREHOUSE SETUP
 CREATE WAREHOUSE IF NOT EXISTS <% warehouse %> WAREHOUSE_SIZE=XSMALL;
@@ -41,11 +43,16 @@ CREATE WAREHOUSE IF NOT EXISTS snowpark_tests WITH
   WAREHOUSE_TYPE = 'SNOWPARK-OPTIMIZED'
   RESOURCE_CONSTRAINT = 'MEMORY_1X_X86';
 GRANT ALL ON WAREHOUSE snowpark_tests TO ROLE <% role %>;
+-- CREATE WAREHOUSE sets current warehouse only when the object is new, and
+-- snowpark_tests would otherwise become current (slow resume on qa). Pin it.
+USE WAREHOUSE <% warehouse %>;
 
 -- MAIN DATABASES SETUP
 CREATE DATABASE IF NOT EXISTS <% main_database %>;
 GRANT ALL ON DATABASE <% main_database %> TO ROLE <% role %>;
 GRANT ALL ON SCHEMA <% main_database %>.PUBLIC TO ROLE <% role %>;
+-- Snowflake App Runtime --upload-only workspace tests.
+GRANT CREATE WORKSPACE ON SCHEMA <% main_database %>.PUBLIC TO ROLE <% role %>;
 USE DATABASE <% main_database %>;
 
 -- CREATE SECOND DATABASE
@@ -60,11 +67,14 @@ GRANT READ, WRITE ON IMAGE REPOSITORY <% main_database %>.PUBLIC.SNOWCLI_REPOSIT
 
 CREATE COMPUTE POOL IF NOT EXISTS snowcli_compute_pool
   MIN_NODES = 1
-  MAX_NODES = 1
+  MAX_NODES = 5
   INSTANCE_FAMILY = CPU_X64_XS;
 
 GRANT USAGE ON COMPUTE POOL snowcli_compute_pool TO ROLE <% role %>;
 GRANT MONITOR ON COMPUTE POOL snowcli_compute_pool TO ROLE <% role %>;
+GRANT OPERATE ON COMPUTE POOL snowcli_compute_pool TO ROLE <% role %>;
+-- IF NOT EXISTS does not raise MAX_NODES on an existing pool.
+ALTER COMPUTE POOL snowcli_compute_pool SET MAX_NODES = 5;
 
 ALTER COMPUTE POOL snowcli_compute_pool SUSPEND;
 
@@ -90,6 +100,24 @@ CREATE EXTERNAL ACCESS INTEGRATION IF NOT EXISTS cli_test_integration
   ALLOWED_AUTHENTICATION_SECRETS = (test_secret)
   ENABLED = true;
 GRANT USAGE ON INTEGRATION cli_test_integration TO ROLE <% role %>;
+
+-- dbt QA tests (USAGE only; tests must not CREATE INTEGRATION).
+CREATE NETWORK RULE IF NOT EXISTS dbt_hub_network_rule
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = ('hub.getdbt.com', 'codeload.github.com');
+CREATE EXTERNAL ACCESS INTEGRATION IF NOT EXISTS dbt_hub_access_integration
+  ALLOWED_NETWORK_RULES = (dbt_hub_network_rule)
+  ENABLED = true;
+GRANT USAGE ON INTEGRATION dbt_hub_access_integration TO ROLE <% role %>;
+CREATE NETWORK RULE IF NOT EXISTS dbt_hub_network_rule_2
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = ('hub.getdbt.com', 'codeload.github.com');
+CREATE EXTERNAL ACCESS INTEGRATION IF NOT EXISTS dbt_hub_access_integration_2
+  ALLOWED_NETWORK_RULES = (dbt_hub_network_rule_2)
+  ENABLED = true;
+GRANT USAGE ON INTEGRATION dbt_hub_access_integration_2 TO ROLE <% role %>;
 
 -- API INTEGRATION FOR SNOWGIT
 CREATE API INTEGRATION IF NOT EXISTS snowcli_testing_repo_api_integration
