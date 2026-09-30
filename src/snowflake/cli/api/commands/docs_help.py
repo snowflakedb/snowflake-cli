@@ -88,7 +88,10 @@ def _example_lines(examples: Sequence[Example]) -> Iterator[RenderableType]:
             yield Text("")
         if example.description:
             yield render_paragraph_help(example.description)
-        yield Text(sanitize_for_terminal(example.command), style=STYLE_EXAMPLE_COMMAND)
+        if example.command:
+            yield Text(
+                sanitize_for_terminal(example.command), style=STYLE_EXAMPLE_COMMAND
+            )
         if example.output:
             output = sanitize_for_terminal(example.output)
             if output and "\n" in output:

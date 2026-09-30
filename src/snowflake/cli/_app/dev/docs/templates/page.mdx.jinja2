@@ -93,9 +93,9 @@ None
 {%- for example in docs.examples %}
 
 - {% if example.description %}{{ example.description | render_paragraph_mdx }}
-  {% endif %}```snowcli
+  {% endif %}{% if example.command %}```snowcli
 {{ example.command | indent(2, first=True) }}
-  ```
+  ```{% endif %}
 {%- if example.output %}
 
   ```text

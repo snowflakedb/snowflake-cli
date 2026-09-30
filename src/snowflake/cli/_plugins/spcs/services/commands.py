@@ -218,6 +218,40 @@ AutoSuspendSecsOption = OverrideableOption(
 
 _COMMENT_HELP = "Comment for the service."
 
+_SERVICE_STANDARD_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/overview"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/spcs-commands/service-commands/overview",
+        "service commands",
+    ),
+    link("/developer-guide/snowpark-container-services/working-with-services"),
+)
+
+
+def _standard_related(*extra):
+    return _SERVICE_STANDARD_RELATED + extra
+
+
+_SERVICE_MONITORING_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/overview"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
+        "spcs command reference",
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/spcs-commands/service-commands/overview",
+        "service commands",
+    ),
+    link("/developer-guide/snowpark-container-services/working-with-services"),
+)
+
+
+def _monitoring_related(*extra):
+    return _SERVICE_MONITORING_RELATED + extra
+
+
 add_object_command_aliases(
     app=app,
     object_type=ObjectType.SERVICE,
@@ -227,10 +261,60 @@ add_object_command_aliases(
     ),
     scope_option=scope_option(help_example="`list --in compute-pool my_pool`"),
     ommit_commands=["drop"],
+    list_docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/show-services")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following command lists the services and their statuses:"
+                ),
+                command="snow spcs service list",
+                output=(
+                    "+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+\n"
+                    "|        |        |        |        |        |        |        |        |        |        |        |         | extern |         |        |         |        |         |        |        |         |        |         |        |\n"
+                    "|        |        |        |        |        |        |        |        |        |        |        |         | al_acc |         |        |         |        |         |        |        |         |        | managin | managi |\n"
+                    "|        |        | databa |        |        |        |        | curr"
+                    "en | target | min_in | max_in |         | ess_in |         |        |         |        | owner_r | query_ |        |         |        | g_objec | ng_obj |\n"
+                    "|        |        | se_nam | schema |        | comput | dns_na | t_inst | _insta | stance | stance | auto_re | tegrat | created | update | resumed | comm"
+                    "en | ole_typ | wareho |        | spec_di | is_upg | t_domai | ect_na |\n"
+                    "| name   | status | e      | _name  | owner  | e_pool | me     | ances  | nces   | s      | s      | sume    | ions   | _on     | d_on   | _on     | t      | e       | use    | is_job | gest    | rading | n       | me     |\n"
+                    "|--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+---------+--------+---------+--------+---------+--------+---------+--------+--------+---------+--------+---------+--------|\n"
+                    "| ECHO_S | RUNNI"
+                    "N | TEST00 | TEST_S | SYSADM | TUTORI | echo-s | 1      | 1      | 1      | 1      | true    | None   | 2024-10 | 2024-1 | None    | This   | ROLE    | COMPUT | false  | 52e62d1 | false  | None    | None   |\n"
+                    "| ERVICE | G      | _DB    | CHEMA  | IN     | AL_COM | ervice |        |        |        |        |         |        | -16     | 0-16   |         | is a   |         | E_WH   |        | f19c720 |        |         |        |\n"
+                    "|        |        |        |        |        | PUTE_P | .imhd. |        |        |        |        |         |        | 15:09:3 | 15:09: |         | test   |         |        |        | 6b5f4ef |        |         |        |\n"
+                    "|        |        |        |        |        | OOL    | svc.sp |        |        |        |        |         |        | 0.49300 | 31.905 |         | servic |         |        |        | c069557 |        |         |        |\n"
+                    "|        |        |        |        |        |        | cs.int |        |        |        |        |         |        | 0-07:00 | 000-07 |         | e      |         |        |        | 8b6c2b3 |        |         |        |\n"
+                    "|        |        |        |        |        |        | ernal  |        |        |        |        |         |        |         | :00    |         |        |         |        |        | 806ad76 |        |         |        |\n"
+                    "|        |        |        |        |        |        |        |        |        |        |        |         |        |         |        |         |        |         |        |        | 67d78cc |        |         |        |\n"
+                    "|        |        |        |        |        |        |        |        |        |        |        |         |        |         |        |         |        |         |        |        | ce8b6ed |        |         |        |\n"
+                    "|        |        |        |        |        |        |        |        |        |        |        |         |        |         |        |         |        |         |        |        | 6501a8a |        |         |        |\n"
+                    "|        |        |        |        |        |        |        |        |        |        |        |         |        |         |        |         |        |         |        |        | 3       |        |         |        |\n"
+                    "+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+    describe_docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/desc-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(Example(description=plain_text("None."), command=""),),
+    ),
 )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/drop-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(Example(description=plain_text("None."), command=""),),
+    ),
+)
 def drop(
     name: FQN = ServiceNameArgument,
     if_exists: bool = IfExistsOption(),
@@ -252,7 +336,25 @@ def drop(
     )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/create-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "You can optionally choose to run more than one instance of your service. Each service instance is a collection of ",
+                "containers, as defined in the service specification file, that run together on a node in your compute pool. If you ",
+                "choose to run multiple instances of a service, a load balancer manages incoming traffic.",
+            ),
+        ),
+        examples=(
+            Example(
+                command='snow spcs service create "my-service" --compute-pool "pool_1" --spec-path "/some-dir/echo-speck.yaml"',
+            ),
+        ),
+    ),
+)
 def create(
     name: FQN = ServiceNameArgument,
     compute_pool: str = typer.Option(
@@ -298,7 +400,61 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/create-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow spcs service deploy"),
+                " command reads a ",
+                code("snowflake.yml"),
+                " project definition file that defines a service, then creates and deploys the compute pool to a stage named in the ",
+                code("snowflake.yml"),
+                " file. ",
+                "If your project definition has precisely one service entity, you can omit the ",
+                code("<entity_id>"),
+                " argument. However, if your project definition has multiple service entities, you must specify the service name in the ",
+                code("<entity_id>"),
+                " argument. ",
+                "For more information, see ",
+                link("#label-sfcli-service-pdf", "Services project definition"),
+                ".",
+            ),
+            plain_text(
+                "You can optionally choose to run more than one instance of your service. Each service instance is a collection of ",
+                "containers, as defined in the service specification file, that run together on a node in your compute pool. If you ",
+                "choose to run multiple instances of a service, a load balancer manages incoming traffic.",
+            ),
+            plain_text(
+                "The ",
+                code("--upgrade"),
+                " option updates an existing service. You can update only the following project definition parameters:",
+            ),
+            bullet_list(
+                bullet(code("min_instances")),
+                bullet(code("max_instances")),
+                bullet(code("query_warehouse")),
+                bullet(code("auto_resume")),
+                bullet(code("external_access_integrations")),
+                bullet(code("comment")),
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example creates and deploys a service defined in the ",
+                    code("snowflake.yml"),
+                    " file in the current directory.",
+                ),
+                command="snow spcs service deploy",
+                output="+---------------------------------------------------------------------+\n| key    | value                                                      |\n|--------+------------------------------------------------------------|\n| status | Service MY_SERVICE successfully created.                   |\n+---------------------------------------------------------------------+",
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 def deploy(
     entity_id: str = entity_argument("service"),
@@ -340,7 +496,15 @@ def deploy(
     return SingleQueryResult(cursor)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_monitoring_related(link("/sql-reference/sql/execute-job-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(Example(description=plain_text("None."), command=""),),
+    ),
+)
 def execute_job(
     name: FQN = ServiceNameArgument,
     compute_pool: str = typer.Option(
@@ -387,7 +551,22 @@ def execute_job(
     return SingleQueryResult(cursor)
 
 
-@app.command(requires_connection=True, deprecated=True)
+@app.command(
+    requires_connection=True,
+    deprecated=True,
+    docs=CommandDocs(
+        related=_monitoring_related(
+            link("/sql-reference/functions/system_get_service_status"),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have the MONITOR privilege on the service to get the status information."
+            ),
+        ),
+        examples=(Example(description=plain_text("None."), command=""),),
+    ),
+)
 def status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
     Retrieves the status of a service. This command is deprecated and will be removed in a future release. Use `describe` instead to get service status and use `list-instances` and `list-containers` to get more detailed information about service instances and containers.
@@ -396,7 +575,74 @@ def status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     return QueryJsonValueResult(cursor)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_monitoring_related(
+            link("/sql-reference/functions/system_get_service_logs"),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            bullet_list(
+                bullet(
+                    "The current role must have the MONITOR privilege on the service to access the container logs."
+                ),
+                bullet("The function returns a container log as a string."),
+                bullet(
+                    "When using the ",
+                    code("--follow"),
+                    " option for real-time log streaming, the ",
+                    code("--num-lines"),
+                    " and ",
+                    code("--previous-logs"),
+                    " options are not supported.",
+                ),
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example displays the last three lines of the ",
+                    code("echo_service"),
+                    " logs:",
+                ),
+                command=(
+                    "snow spcs service logs echo_service --container-name echo --instance-id 0 --num-lines 3"
+                ),
+                output='  10.18.94.31 - - [22/Nov/2024 09:16:47] "GET /healthcheck HTTP/1.1" 200 -\n  10.18.94.31 - - [22/Nov/2024 09:16:52] "GET /healthcheck HTTP/1.1" 200 -\n  10.18.94.31 - - [22/Nov/2024 09:16:57] "GET /healthcheck HTTP/1.1" 200 -\n  ',
+            ),
+            Example(
+                description=plain_text(
+                    "This example streams the logs for the ",
+                    code("echo_service"),
+                    " service and updates them every 10 seconds:",
+                ),
+                command=(
+                    "snow spcs service logs echo_service --container-name echo --instance-id 0 "
+                    "--follow --follow-interval 10"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "The following example displays the log entries since 9:30 UTC, 21 Nov 2024:"
+                ),
+                command=(
+                    "snow spcs service logs echo_service --container-name echo --instance-id 0 "
+                    "--since 2024-11-21T09:30:00Z"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "The following example retrieves logs from the last-terminated container:"
+                ),
+                command=(
+                    "snow spcs service logs example_job_service --container-name main --instance-id 0 "
+                    "--previous-logs"
+                ),
+            ),
+        ),
+    ),
+)
 def logs(
     name: FQN = ServiceNameArgument,
     container_name: str = container_name_option,
@@ -886,7 +1132,38 @@ def metrics(
     return CollectionResult(metrics)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/command-reference/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/service-commands/overview",
+                "service commands",
+            ),
+            link("/sql-reference/sql/create-service"),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have OPERATE privilege on the service to upgrade a service."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs service upgrade echo_service --spec-path spec.yml",
+                output=(
+                    "+-------------------------------------------\n"
+                    "| key    | value                            |\n"
+                    "|--------+----------------------------------|\n"
+                    "| status | Statement executed successfully. |\n"
+                    "+-------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def upgrade(
     name: FQN = ServiceNameArgument,
     spec_path: Path = SpecPathOption,
@@ -900,7 +1177,21 @@ def upgrade(
     )
 
 
-@app.command("list-endpoints", requires_connection=True)
+@app.command(
+    "list-endpoints",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/show-endpoints")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                command="snow spcs service list-endpoints echo_service",
+                output="+--------------+------+----------+-----------------+-----------------------------------------+\n| name         | port | protocol | ingress_enabled | ingress_url                             |\n|--------------+------+----------+-----------------+-----------------------------------------|\n| echoendpoint | 8000 | TCP      | true            | org-id-acct-id.snowflakecomputing.app   |\n+--------------+------+----------+-----------------+-----------------------------------------+",
+            ),
+        ),
+    ),
+)
 def list_endpoints(name: FQN = ServiceNameArgument, **options):
     """
     Lists the endpoints in a service.
@@ -908,7 +1199,26 @@ def list_endpoints(name: FQN = ServiceNameArgument, **options):
     return QueryResult(ServiceManager().list_endpoints(service_name=name.identifier))
 
 
-@app.command("list-instances", requires_connection=True)
+@app.command(
+    "list-instances",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/drop-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example lists the instances in the ",
+                    code("echo_service"),
+                    " service:",
+                ),
+                command="snow spcs service list-instances echo_service",
+                output="+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+\n| database_name | schema_name | service_name | instance_id | status | spec_digest                                                      | creation_time        | start_time           |\n|---------------+-------------+--------------+-------------+--------+------------------------------------------------------------------+----------------------+----------------------|\n| TEST00_DB     | TEST_SCHEMA | ECHO_SERVICE | 0           | READY  | 336c065739dd2b96e770f01804affdc7810e6df68a23b23052d851627abfbdf9 | 2024-10-10T06:06:30Z | 2024-10-10T06:06:30Z |\n+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+",
+            ),
+        ),
+    ),
+)
 def list_service_instances(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
     Lists all service instances in a service.
@@ -916,7 +1226,26 @@ def list_service_instances(name: FQN = ServiceNameArgument, **options) -> Comman
     return QueryResult(ServiceManager().list_instances(service_name=name.identifier))
 
 
-@app.command("list-containers", requires_connection=True)
+@app.command(
+    "list-containers",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/drop-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example lists containers in the ",
+                    code("echo_service"),
+                    " service:",
+                ),
+                command="snow spcs service list-containers echo_service",
+                output="+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+\n| database_name | schema_name | service_name | instance_id | container_name | status | message | image_name                                | image_digest                              | restart_count | start_time           |\n|---------------+-------------+--------------+-------------+----------------+--------+---------+-------------------------------------------+-------------------------------------------+---------------+----------------------|\n| TEST00_DB     | TEST_SCHEMA | ECHO_SERVICE | 0           | main           | READY  | Running | org-test-account-00.registry.registry.sno | sha256:06c3d54edc24925abe398eda70d37eb6b8 | 0             | 2024-10-16T22:09:35Z |\n|               |             |              |             |                |        |         | wflakecomputing.com/test00_db/test_schema | 7b1c4dd6211317592764e1e7d94498            |               |                      |\n|               |             |              |             |                |        |         | /test00_repo/echo_service:latest          |                                           |               |                      |\n+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+",
+            ),
+        ),
+    ),
+)
 def list_service_containers(
     name: FQN = ServiceNameArgument, **options
 ) -> CommandResult:
@@ -926,7 +1255,24 @@ def list_service_containers(
     return QueryResult(ServiceManager().list_containers(service_name=name.identifier))
 
 
-@app.command("list-roles", requires_connection=True)
+@app.command(
+    "list-roles",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/drop-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example gets a list of service roles created for a service:"
+                ),
+                command="snow spcs service list-roles my_service",
+                output="+------------------------------------------------------------------+\n| created_on                       | name                | comment |\n|----------------------------------+---------------------+---------|\n| 2024-10-09 16:48:52.980000-07:00 | ALL_ENDPOINTS_USAGE | None    |\n+------------------------------------------------------------------+",
+            ),
+        ),
+    ),
+)
 def list_service_roles(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
     Lists all service roles in a service.
@@ -934,7 +1280,30 @@ def list_service_roles(name: FQN = ServiceNameArgument, **options) -> CommandRes
     return QueryResult(ServiceManager().list_roles(service_name=name.identifier))
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/create-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have OPERATE privilege on the service to suspend a service."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs service suspend echo_service",
+                output=(
+                    "+-------------------------------------------\n"
+                    "| key    | value                            |\n"
+                    "|--------+----------------------------------|\n"
+                    "| status | Statement executed successfully. |\n"
+                    "+-------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def suspend(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
     Suspends the service, shutting down and deleting all its containers.
@@ -942,7 +1311,30 @@ def suspend(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     return SingleQueryResult(ServiceManager().suspend(name))
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/create-service")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have OPERATE privilege on the service to resume a service."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs service resume echo_service",
+                output=(
+                    "+-------------------------------------------\n"
+                    "| key    | value                            |\n"
+                    "|--------+----------------------------------|\n"
+                    "| status | Statement executed successfully. |\n"
+                    "+-------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def resume(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     """
     Resumes the service from a SUSPENDED state.
@@ -950,7 +1342,31 @@ def resume(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     return SingleQueryResult(ServiceManager().resume(name))
 
 
-@app.command("set", requires_connection=True)
+@app.command(
+    "set",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/unset")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have OPERATE privilege on the service to set properties."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs service set echo_service --min-instances 2 --max-instances 4",
+                output=(
+                    "+-------------------------------------------\n"
+                    "| key    | value                            |\n"
+                    "|--------+----------------------------------|\n"
+                    "| status | Statement executed successfully. |\n"
+                    "+-------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def set_property(
     name: FQN = ServiceNameArgument,
     min_instances: Optional[int] = MinInstancesOption(default=None, show_default=False),
@@ -982,7 +1398,31 @@ def set_property(
     return SingleQueryResult(cursor)
 
 
-@app.command("unset", requires_connection=True)
+@app.command(
+    "unset",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_standard_related(link("/sql-reference/sql/unset")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have OPERATE privilege on the service to reset properties."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs service unset echo_service --min-instances --max-instances --auto-resume",
+                output=(
+                    "+-------------------------------------------\n"
+                    "| key    | value                            |\n"
+                    "|--------+----------------------------------|\n"
+                    "| status | Statement executed successfully. |\n"
+                    "+-------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def unset_property(
     name: FQN = ServiceNameArgument,
     min_instances: bool = MinInstancesOption(
