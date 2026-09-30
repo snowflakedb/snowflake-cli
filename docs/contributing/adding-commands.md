@@ -202,6 +202,86 @@ def create(name: str):
     ...
 ```
 
+### CommandDocs {#commanddocs}
+
+The function docstring is the short summary in `--help`. For
+[Snowflake CLI command reference](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/overview)
+pages, attach `docs=CommandDocs(...)` on **every** `@app.command()` (and on
+shared helpers such as `add_object_command_aliases` where applicable). Each
+`CommandDocs` must include **related topics**, **usage notes**, and
+**examples**.
+
+Define `CommandDocs` in the same `commands.py` or in a sibling module; reuse
+shared constants for related links across subcommands. See
+`src/snowflake/cli/_plugins/git/commands.py` and
+`src/snowflake/cli/_plugins/stage/commands.py` for patterns.
+
+For the interface-first plugin workflow (`CommandDef.docs` in `interface.py`),
+see [CommandDocs in writing-a-plugin.md](writing-a-plugin.md#commanddocs).
+
+```python
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    link,
+    plain_text,
+)
+
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "Lists stages visible to the current role in the active schema."
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("List stages in the current schema:"),
+                command="snow stage list",
+            ),
+        ),
+    ),
+)
+def list_(...):
+    """Lists stages."""
+    ...
+```
+
+| `CommandDocs` field | Purpose |
+|---------------------|---------|
+| `related` | Links to prod-docs topics (rendered as Related topics) |
+| `usage_notes` | Paragraphs, bullets, admonitions (`plain_text`, `note`, `bullet_list`, …) |
+| `examples` | `Example(command=..., description=..., output=...)` blocks |
+| `banners` | Shared `Include` fragments (preview banners, edition notes) |
+
+| Helper / type | Purpose |
+|---------------|---------|
+| `plain_text(...)` | Paragraph of inline spans in usage notes or example descriptions |
+| `code("...")` | Inline command flag, path, or other literal |
+| `ref("...")` | Prod-docs substitution key (must appear in `REFERENCE_TEXT`) |
+| `link(href, title=...)` | Related topic link (`related=` tuple) |
+| `note(...)`, `admonition(AdmonitionType, ...)` | Note, warning, preview, and other admonition blocks |
+| `bullet(...)`, `bullet_list(...)` | Bulleted lists in usage notes |
+| `Example(...)` | Example command line; optional `description` and `output` |
+| `Include` | Reusable prod-docs MDX fragment (`banners` or embedded in usage notes) |
+
+To preview output, run `snow --docs-pages` and check the generated
+`.mdx` files under `gen_docs/pages/`. The left-hand path in
+`scripts/command_docs_paths.yaml` must match that layout (one `.mdx` per
+terminal command, path segments = `snow` subcommand names).
+
+**Publishing:** add a mapping in `scripts/command_docs_paths.yaml` for each new
+command page before running `scripts/publish_command_docs.py` (see
+`scripts/publish_command_docs.md`).
+
 ### Return types
 
 All types are in `src/snowflake/cli/api/output/types.py`:
