@@ -29,6 +29,8 @@ from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepository
 from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
     Example,
+    bullet,
+    bullet_list,
     code,
     link,
     plain_text,
@@ -77,6 +79,19 @@ REPO_NAME_ARGUMENT = identifier_argument(
     callback=_repo_name_callback,
 )
 
+_IMAGE_REPOSITORY_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/overview"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
+        "spcs command reference",
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/spcs-commands/image-repository-commands/overview",
+        "image-repository command reference",
+    ),
+)
+
 add_object_command_aliases(
     app=app,
     object_type=ObjectType.IMAGE_REPOSITORY,
@@ -86,10 +101,36 @@ add_object_command_aliases(
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["describe"],
+    list_docs=CommandDocs(
+        related=_IMAGE_REPOSITORY_RELATED,
+        usage_notes=(plain_text("None."),),
+    ),
+    drop_docs=CommandDocs(
+        related=_IMAGE_REPOSITORY_RELATED,
+        usage_notes=(plain_text("None."),),
+    ),
 )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_IMAGE_REPOSITORY_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                command="snow spcs image-repository create tutorial_repository",
+                output=(
+                    "+-------------------------------------------+\n"
+                    "| key    | value                            |\n"
+                    "|--------+----------------------------------|\n"
+                    "| status | Statement executed successfully. |\n"
+                    "+-------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def create(
     name: FQN = REPO_NAME_ARGUMENT,
     replace: bool = ReplaceOption(),
@@ -106,7 +147,43 @@ def create(
     )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_IMAGE_REPOSITORY_RELATED,
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow spcs image repository deploy"),
+                " command creates an image repository from its definition in a ",
+                code("snowflake.yml"),
+                " project definition file. For more information, see ",
+                link(
+                    "#label-sfcli-repo-pdf",
+                    "Image repository project definition file",
+                ),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example creates an image repository defined in the ",
+                    code("snowflake.yml"),
+                    " file in the current directory.",
+                ),
+                command="snow spcs image-repository deploy",
+                output=(
+                    "+---------------------------------------------------------------------+\n"
+                    "| key    | value                                                      |\n"
+                    "|--------+------------------------------------------------------------|\n"
+                    "| status | Image Repository MY_IMAGE_REPOSITORY successfully created. |\n"
+                    "+---------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 def deploy(
     entity_id: str = entity_argument("image-repository"),
@@ -130,7 +207,36 @@ def deploy(
     return SingleQueryResult(cursor)
 
 
-@app.command("list-images", requires_connection=True)
+@app.command(
+    "list-images",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_IMAGE_REPOSITORY_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example lists the images and tags in a repository named ",
+                    code("images"),
+                    " in the ",
+                    code("my_db"),
+                    " database:",
+                ),
+                command="snow spcs image-repository list-images images --database my_db",
+                output=(
+                    "+--------------------------------------------------------------------------------------------------------------------------------------------------------+\n"
+                    "| created_on                | image_name            | tags   | digest                                         | image_path                               |\n"
+                    "|---------------------------+-----------------------+--------+------------------------------------------------+------------------------------------------|\n"
+                    "| 2024-10-11 14:23:49-07:00 | echo_service          | latest | sha256:a8a001fef406fdb3125ce8e8bf9970c35af7084 | my_db/test_schema/images/echo_service:   |\n"
+                    "|                           |                       |        | fc33b0886d7a8915d3082c781                      | latest                                   |\n"
+                    "| 2024-10-14 22:21:14-07:00 | test_counter          | latest | sha256:8cae96dac29a4a05f54bb5520003f964baf67fc | my_db/test_schema/images/test_counter:   |\n"
+                    "|                           |                       |        | 38dcad3d2c85d6c5aa7381174                      | latest                                   |\n"
+                    "+--------------------------------------------------------------------------------------------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def list_images(
     name: FQN = REPO_NAME_ARGUMENT,
     like_option: Optional[str] = like_option(
@@ -144,7 +250,35 @@ def list_images(
     )
 
 
-@app.command("list-tags", requires_connection=True, deprecated=True)
+@app.command(
+    "list-tags",
+    requires_connection=True,
+    deprecated=True,
+    docs=CommandDocs(
+        related=_IMAGE_REPOSITORY_RELATED,
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example lists the tags associated with the registry named ",
+                    code("MY_DB/PUBLIC/images/cp-schema-registry"),
+                    ".",
+                ),
+                command=(
+                    "snow spcs image-repository list-tags images --image_name "
+                    '"MY_DB/PUBLIC/images/cp-schema-registry" --database my_db'
+                ),
+                output=(
+                    "+----------------------------------------------------+\n"
+                    "| tag                                                |\n"
+                    "|----------------------------------------------------|\n"
+                    "| /MY_DB/PUBLIC/images/cp-schema-registry:7.3.0      |\n"
+                    "+----------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def list_tags(
     name: FQN = REPO_NAME_ARGUMENT,
     image_name: str = typer.Option(
@@ -199,27 +333,18 @@ def list_tags(
     "url",
     requires_connection=True,
     docs=CommandDocs(
-        related=(
-            link("/developer-guide/snowflake-cli/index"),
-            link("/developer-guide/snowflake-cli/command-reference/overview"),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
-                "spcs command reference",
-            ),
-            link(
-                "/developer-guide/snowflake-cli/command-reference/spcs-commands/image-repository-commands/overview",
-                "image-repository command reference",
-            ),
-        ),
+        related=_IMAGE_REPOSITORY_RELATED,
         usage_notes=(
-            plain_text(
-                "The current role must have READ privileges for the image repository "
-                "in the account to get the registry URL."
-            ),
-            plain_text(
-                "The URL is returned as a text string, so you can store it in an "
-                "environment variable for convenience. For example: ",
-                code("export REPO_URL=$(snow spcs image-repository url <name>)"),
+            bullet_list(
+                bullet(
+                    "The current role must have READ privileges for the image repository "
+                    "in the account to get the registry URL."
+                ),
+                bullet(
+                    "The URL is returned as a text string, so you can store it in an "
+                    "environment variable for convenience. For example: ",
+                    code("export REPO_URL = $(snow spcs image-repository url <name>)"),
+                ),
             ),
         ),
         examples=(
