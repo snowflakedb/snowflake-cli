@@ -37,6 +37,7 @@ from snowflake.cli._app.dev.pycharm_remote_debug import (
 from snowflake.cli._app.main_typer import SnowCliMainTyper
 from snowflake.cli._app.printing import MessageResult, print_result
 from snowflake.cli._app.version_check import show_new_version_banner_callback
+from snowflake.cli.api.commands.docs_help import render_shared_configuration_panels
 from snowflake.cli.api.config import (
     config_init,
     get_config_manager,
@@ -151,6 +152,7 @@ class CliAppFactory:
             if value:
                 ctx = click.get_current_context()
                 typer.echo(ctx.get_help())
+                render_shared_configuration_panels(ctx)
                 self._exit_with_cleanup()
 
         return callback
@@ -232,7 +234,7 @@ class CliAppFactory:
                 "--help",
                 "-h",
                 help="Show this message and exit.",
-                callback=self._help_callback,
+                callback=self._help_callback(),
                 is_eager=True,
             ),
             version: bool = typer.Option(
@@ -328,6 +330,7 @@ class CliAppFactory:
             """
             if not ctx.invoked_subcommand:
                 typer.echo(ctx.get_help())
+                render_shared_configuration_panels(ctx)
             setup_pycharm_remote_debugger_if_provided(
                 pycharm_debug_library_path=pycharm_debug_library_path,
                 pycharm_debug_server_host=pycharm_debug_server_host,

@@ -27,7 +27,7 @@ from snowflake.cli.api.commands.decorators import (
     global_options,
     global_options_with_connection,
 )
-from snowflake.cli.api.commands.docs_help import SnowTyperCommand
+from snowflake.cli.api.commands.docs_help import CondensedHelp, SnowTyperCommand
 from snowflake.cli.api.commands.execution_metadata import (
     ExecutionMetadata,
     ExecutionStatus,
@@ -51,7 +51,7 @@ log = logging.getLogger(__name__)
 PREVIEW_PREFIX = ""
 
 
-class SortedTyperGroup(TyperGroup):
+class SortedTyperGroup(CondensedHelp, TyperGroup):
     def list_commands(self, ctx: click.Context) -> List[str]:
         """
         From Typer 0.13.0 help items are in order of definition, this function override that approach.
@@ -107,8 +107,7 @@ class SnowTyper(typer.Typer):
         """
         name = sanitize_for_terminal(name)
         self._sanitize_kwargs(kwargs)
-        if docs is not None:
-            kwargs.setdefault("cls", SnowTyperCommand)
+        kwargs.setdefault("cls", SnowTyperCommand)
         if is_enabled is not None and not is_enabled():
             return lambda func: func
 

@@ -46,6 +46,7 @@ from snowflake.cli.api.commands.command_docs import (
     unique_includes,
 )
 from snowflake.cli.api.commands.docs_help import SnowTyperCommand
+from snowflake.cli.api.commands.help_options import CONDENSED_HELP_FOOTER
 from snowflake.cli.api.commands.snow_typer import (
     PREVIEW_PREFIX,
     SnowTyper,
@@ -715,6 +716,7 @@ def test_command_docs_are_readable_off_the_click_command():
     group = get_command(_app_with_docs().create_instance())
 
     assert isinstance(group.commands["cmd_with_docs"], SnowTyperCommand)
+    assert isinstance(group.commands["cmd_without_docs"], SnowTyperCommand)
     assert (
         getattr(group.commands["cmd_with_docs"].callback, DOCS_ATTRIBUTE) == _DEMO_DOCS
     )
@@ -846,3 +848,47 @@ def test_process_result_concludes_deferred_span_on_print_error(monkeypatch):
     completed = metrics.completed_spans
     assert len(completed) == 1
     assert completed[0]["error"] == "RuntimeError"
+
+
+@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
+def test_condensed_help_help_all_shows_injected_option_panels(cli):
+    result = cli(app_factory(SnowTyperFactory))(
+        ["cmd_with_connection_options", "--help-all"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Connection configuration" in result.output
+    assert "Global configuration" in result.output
+    assert "Run `snow --help` for full descriptions" not in result.output
+
+
+@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
+def test_condensed_help_rejects_help_with_help_all(cli):
+    result = cli(app_factory(SnowTyperFactory))(
+        ["cmd_with_connection_options", "--help", "--help-all"]
+    )
+
+    assert result.exit_code != 0, result.output
+    assert "Cannot use --help with --help-all" in result.output
+
+
+@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: False})
+def test_condensed_help_flag_off_keeps_full_help(cli):
+    result = cli(app_factory(SnowTyperFactory))(
+        ["cmd_with_connection_options", "--help"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Connection configuration" in result.output
+    assert "Global configuration" in result.output
+    assert CONDENSED_HELP_FOOTER not in result.output
+
+
+@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: False})
+def test_condensed_help_flag_off_rejects_help_all(cli):
+    result = cli(app_factory(SnowTyperFactory))(
+        ["cmd_with_connection_options", "--help-all"]
+    )
+
+    assert result.exit_code != 0, result.output
+    assert "No such option: --help-all" in result.output

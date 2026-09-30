@@ -635,6 +635,26 @@ DecimalPrecisionOption = typer.Option(
 )
 
 
+def _show_all_help_callback(
+    ctx: click.Context,
+    param: click.Parameter,
+    value: bool,
+) -> None:
+    from snowflake.cli.api.commands.docs_help import handle_help_all_option
+
+    handle_help_all_option(ctx, param, value)
+
+
+ShowAllHelpOption = typer.Option(
+    False,
+    "--help-all",
+    hidden=True,
+    is_eager=True,
+    expose_value=False,
+    callback=_show_all_help_callback,
+    help="Show global and connection options in command help output.",
+)
+
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
 # you must also override mutually_exclusive if you want to retain the validation that at most one of these flags is
 # passed.

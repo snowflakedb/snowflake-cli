@@ -54,6 +54,7 @@ from snowflake.cli.api.commands.flags import (
     SecondaryRolesOption,
     ServerSessionKeepAliveOption,
     SessionTokenOption,
+    ShowAllHelpOption,
     SilentOption,
     TemporaryConnectionOption,
     TokenFilePathOption,
@@ -473,6 +474,12 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[int],
         default=DecimalPrecisionOption,
+    ),
+    inspect.Parameter(
+        "show_all_help",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[bool],
+        default=ShowAllHelpOption,
     ),
 ]
 
