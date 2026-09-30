@@ -38,6 +38,8 @@ CURRENT_POINTER_NAME = ".current"
 PREVIOUS_POINTER_NAME = ".previous"
 MACHINE_ID_NAME = ".machine-id"
 UPGRADE_LOCK_NAME = ".upgrade.lock"
+REVERTED_FROM_NAME = ".reverted-from"
+_REVERTED_FROM_MODE = 0o600
 RESERVED_ROOT_NAMES = frozenset(
     {
         BIN_DIRNAME,
@@ -45,6 +47,7 @@ RESERVED_ROOT_NAMES = frozenset(
         PREVIOUS_POINTER_NAME,
         MACHINE_ID_NAME,
         UPGRADE_LOCK_NAME,
+        REVERTED_FROM_NAME,
     }
 )
 _VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -140,6 +143,10 @@ class ManagedLayout:
     @property
     def upgrade_lock_path(self) -> Path:
         return self.root / UPGRADE_LOCK_NAME
+
+    @property
+    def reverted_from_path(self) -> Path:
+        return self.root / REVERTED_FROM_NAME
 
     def version_dir(self, version: str) -> Path:
         return self.root / validate_version(version)
@@ -328,6 +335,27 @@ class ManagedLayout:
             posix_shim.chmod(0o755)
             return
         _atomic_symlink_replace(self.unix_shim, binary)
+
+
+def read_reverted_from(layout: ManagedLayout) -> Optional[str]:
+    path = layout.reverted_from_path
+    if not path.is_file():
+        return None
+    value = SecurePath(path).read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+    version = value.strip()
+    return version or None
+
+
+def write_reverted_from(layout: ManagedLayout, version: str) -> None:
+    path = layout.reverted_from_path
+    SecurePath(path.parent).mkdir(parents=True, exist_ok=True)
+    secure = SecurePath(path)
+    secure.write_text(f"{validate_version(version)}\n")
+    secure.chmod(_REVERTED_FROM_MODE)
+
+
+def clear_reverted_from(layout: ManagedLayout) -> None:
+    SecurePath(layout.reverted_from_path).unlink(missing_ok=True)
 
 
 def _atomic_symlink_replace(link_path: Path, target: Path) -> None:

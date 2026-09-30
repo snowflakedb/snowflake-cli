@@ -22,9 +22,12 @@ from snowflake.cli._plugins.upgrade import layout as layout_mod
 from snowflake.cli._plugins.upgrade.layout import (
     MANAGED_HOME_ENV,
     ManagedLayout,
+    clear_reverted_from,
     posix_shim_contents,
+    read_reverted_from,
     resolve_install_root,
     windows_cmd_contents,
+    write_reverted_from,
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.secure_path import SecurePath
@@ -254,14 +257,59 @@ def test_invalid_version_is_rejected(managed_home):
         layout.install_binary(".machine-id", source)
     with pytest.raises(CliError, match="Invalid snowflake-managed version"):
         layout.install_binary(".upgrade.lock", source)
+    with pytest.raises(CliError, match="Invalid snowflake-managed version"):
+        layout.install_binary(".reverted-from", source)
 
 
 def test_reserved_root_names_include_machine_id_and_lock():
     from snowflake.cli._plugins.upgrade.layout import (
         MACHINE_ID_NAME,
         RESERVED_ROOT_NAMES,
+        REVERTED_FROM_NAME,
         UPGRADE_LOCK_NAME,
     )
 
     assert MACHINE_ID_NAME in RESERVED_ROOT_NAMES
     assert UPGRADE_LOCK_NAME in RESERVED_ROOT_NAMES
+    assert REVERTED_FROM_NAME in RESERVED_ROOT_NAMES
+
+
+def test_reverted_from_helpers_round_trip_and_clear(managed_home):
+    layout = ManagedLayout()
+    assert read_reverted_from(layout) is None
+    write_reverted_from(layout, "3.13.1")
+    assert layout.reverted_from_path.is_file()
+    assert read_reverted_from(layout) == "3.13.1"
+    clear_reverted_from(layout)
+    assert read_reverted_from(layout) is None
+    assert not layout.reverted_from_path.exists()
+    clear_reverted_from(layout)
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX mode bits")
+def test_reverted_from_mode_0600(managed_home):
+    layout = ManagedLayout()
+    write_reverted_from(layout, "3.13.1")
+    mode = layout.reverted_from_path.stat().st_mode & 0o777
+    assert mode == 0o600
+
+
+def test_gc_keeps_reverted_from_file(managed_home):
+    layout = ManagedLayout()
+    write_reverted_from(layout, "3.13.1")
+    fake_a = _write_fake_binary(managed_home / "src-a", "3.12.0")
+    fake_b = _write_fake_binary(managed_home / "src-b", "3.13.0")
+    fake_c = _write_fake_binary(managed_home / "src-c", "3.14.0")
+    layout.install_binary("3.12.0", fake_a)
+    layout.retarget("3.12.0")
+    layout.install_binary("3.13.0", fake_b)
+    layout.retarget("3.13.0")
+    layout.install_binary("3.14.0", fake_c)
+    layout.retarget("3.14.0")
+
+    removed = layout.gc()
+    assert layout.version_dir("3.12.0") in removed
+    assert not layout.version_dir("3.12.0").exists()
+    assert layout.reverted_from_path.is_file()
+    assert read_reverted_from(layout) == "3.13.1"
+    assert layout.reverted_from_path.name not in {p.name for p in removed}

@@ -21,7 +21,11 @@ from typing import Optional, Protocol
 from packaging.version import InvalidVersion, Version
 from snowflake.cli import __about__
 from snowflake.cli.__about__ import CLIInstallationSource
-from snowflake.cli._plugins.upgrade.layout import ManagedLayout
+from snowflake.cli._plugins.upgrade.layout import (
+    ManagedLayout,
+    clear_reverted_from,
+    write_reverted_from,
+)
 from snowflake.cli._plugins.upgrade.repo import HttpRepo
 from snowflake.cli.api.exceptions import CliError
 
@@ -176,6 +180,7 @@ def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
     materialize(latest, layout)
     shim_target = layout.retarget(latest)
     layout.gc()
+    clear_reverted_from(layout)
     return UpgradeDecision(
         payload={
             "channel": _channel(),
@@ -214,6 +219,7 @@ def apply_revert(*, dry_run: bool) -> UpgradeDecision:
         )
 
     shim_target = layout.revert()
+    write_reverted_from(layout, current)
     return UpgradeDecision(
         payload={
             "channel": channel,

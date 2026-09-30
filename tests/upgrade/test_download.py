@@ -31,6 +31,7 @@ from snowflake.cli._plugins.upgrade.layout import (
     MANAGED_HOME_ENV,
     ManagedLayout,
     posix_shim_contents,
+    read_reverted_from,
     windows_cmd_contents,
 )
 from snowflake.cli._plugins.upgrade.manager import (
@@ -473,6 +474,7 @@ def test_revert_retargets_previous_without_fetching(
     assert layout.current_version() == "3.12.0"
     assert layout.previous_version() == "3.13.1"
     _assert_shim(layout, "3.12.0")
+    assert read_reverted_from(layout) == "3.13.1"
 
 
 def test_revert_without_previous_errors(runner, monkeypatch, managed_home):
@@ -525,3 +527,40 @@ def test_revert_dry_run_does_not_write(runner, monkeypatch, managed_home):
     assert layout.current_version() == "3.13.1"
     assert layout.previous_version() == "3.12.0"
     _assert_shim(layout, "3.13.1")
+    assert read_reverted_from(layout) is None
+    assert not layout.reverted_from_path.exists()
+
+
+def test_upgrade_after_revert_installs_and_clears_stamp(
+    runner, monkeypatch, managed_home, tmp_path, httpserver, repo_keys
+):
+    _enable_managed(monkeypatch, "3.12.0")
+    layout = _seed_current(managed_home, "3.12.0")
+    first_repo = tmp_path / "first"
+    first_repo.mkdir()
+    _serve_release(httpserver, first_repo, "3.13.1", repo_keys)
+    _use_repo(httpserver, repo_keys)
+
+    upgraded = runner.invoke(["upgrade", "--format", "JSON"])
+    assert upgraded.exit_code == 0, upgraded.output
+    assert _parse_json(upgraded.output)["status"] == STATUS_UPGRADED
+    assert read_reverted_from(layout) is None
+
+    reverted = runner.invoke(["upgrade", "--revert", "--format", "JSON"])
+    assert reverted.exit_code == 0, reverted.output
+    assert _parse_json(reverted.output)["status"] == STATUS_REVERTED
+    assert read_reverted_from(layout) == "3.13.1"
+    _assert_shim(layout, "3.12.0")
+
+    second_repo = tmp_path / "second"
+    second_repo.mkdir()
+    _serve_release(httpserver, second_repo, "3.13.1", repo_keys)
+    again = runner.invoke(["upgrade", "--format", "JSON"])
+    assert again.exit_code == 0, again.output
+    payload = _parse_json(again.output)
+    assert payload["status"] == STATUS_UPGRADED
+    assert payload["from"] == "3.12.0"
+    assert payload["to"] == "3.13.1"
+    _assert_shim(layout, "3.13.1")
+    assert read_reverted_from(layout) is None
+    assert not layout.reverted_from_path.exists()
