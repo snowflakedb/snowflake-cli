@@ -75,6 +75,18 @@ def _do_not_execute_on_completion(callback):
     return enriched_callback
 
 
+def _connector_version() -> str:
+    try:
+        import snowflake.connector
+
+        version = getattr(snowflake.connector, "__version__", None)
+        if version:
+            return str(version)
+    except ImportError:
+        pass
+    return "unknown"
+
+
 class CliAppFactory:
     def __init__(self):
         self._commands_registration = CommandsRegistrationWithCallbacks()
@@ -186,6 +198,10 @@ class CliAppFactory:
                         },
                         {"key": "feature_flags", "value": get_feature_flags_section()},
                         {"key": "SNOWFLAKE_HOME", "value": os.getenv("SNOWFLAKE_HOME")},
+                        {
+                            "key": "snowflake_connector_python_version",
+                            "value": _connector_version(),
+                        },
                     ],
                 )
                 print_result(result, output_format=OutputFormat.JSON)

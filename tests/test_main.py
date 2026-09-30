@@ -25,7 +25,9 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import snowflake.connector
 from click import Command
+from snowflake.cli._app.cli_app import _connector_version
 from typer.core import TyperArgument, TyperOption
 
 
@@ -80,7 +82,28 @@ def test_info_callback(runner, config_manager):
             "value": {"dummy_flag": True, "wrong_type_flag": "UNKNOWN"},
         },
         {"key": "SNOWFLAKE_HOME", "value": "FooBar"},
+        {
+            "key": "snowflake_connector_python_version",
+            "value": snowflake.connector.__version__,
+        },
     ]
+
+
+def test_connector_version_unknown_when_import_fails():
+    with mock.patch.dict(sys.modules, {"snowflake.connector": None}):
+        assert _connector_version() == "unknown"
+
+
+@mock.patch.dict(os.environ, {"SNOWFLAKE_HOME": "FooBar"}, clear=True)
+def test_info_callback_unknown_connector_version_when_missing(runner, config_manager):
+    with mock.patch.object(snowflake.connector, "__version__", None):
+        result = runner.invoke(["--info"])
+        assert result.exit_code == 0, result.output
+        payload = json.loads(result.output)
+        assert payload[-1] == {
+            "key": "snowflake_connector_python_version",
+            "value": "unknown",
+        }
 
 
 def test_version_callback_has_no_installation_source(runner):

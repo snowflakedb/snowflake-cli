@@ -23,6 +23,7 @@
 * `snow sql` custom REPL prompts now support hexadecimal foreground (`[#rrggbb]`) and background (`[bg:#rrggbb]`) colours. Each directive styles the prompt text that follows it.
 ## Fixes and improvements
 * `snow sql` no longer aborts a statement whose text contains Rich-markup-like tokens (for example `[/x]`). The statement is echoed and executed as written. The same applies to streamed SPCS image-build and remote-build log lines.
+* `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.
 
 
 # v3.28.0
