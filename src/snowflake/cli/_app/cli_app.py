@@ -42,6 +42,7 @@ from snowflake.cli.api.config import (
     get_config_manager,
     get_feature_flags_section,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult
 from snowflake.cli.api.secure_path import SecurePath
@@ -55,6 +56,7 @@ INTERNAL_CLI_FLAGS = {
     "docs_pages",
     "structure",
     "info",
+    "no_auto_upgrade",
     "configuration_file",
     "pycharm_debug_library_path",
     "pycharm_debug_server_host",
@@ -253,6 +255,13 @@ class CliAppFactory:
                 "--info",
                 help="Shows information about the Snowflake CLI",
                 callback=self._info_callback(),
+            ),
+            no_auto_upgrade: bool = typer.Option(
+                False,
+                "--no-auto-upgrade",
+                help="Skip auto-upgrade for this invocation.",
+                hidden=FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE.is_disabled(),
+                is_eager=True,
             ),
             configuration_file: Path = typer.Option(
                 None,

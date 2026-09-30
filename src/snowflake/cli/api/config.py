@@ -100,6 +100,8 @@ LOGS_SECTION = "logs"
 PLUGINS_SECTION = "plugins"
 ENCODING_SECTION = "encoding"
 IGNORE_NEW_VERSION_WARNING_KEY = "ignore_new_version_warning"
+AUTO_UPGRADE_KEY = "auto_upgrade"
+AUTO_UPGRADE_ALLOW_MAJOR_KEY = "auto_upgrade_allow_major"
 
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
@@ -389,7 +391,11 @@ def _initialise_logs_section():
 
 def _initialise_cli_section():
     with _config_file() as conf_file_cache:
-        conf_file_cache[CLI_SECTION] = {IGNORE_NEW_VERSION_WARNING_KEY: False}
+        conf_file_cache[CLI_SECTION] = {
+            IGNORE_NEW_VERSION_WARNING_KEY: False,
+            AUTO_UPGRADE_KEY: False,
+            AUTO_UPGRADE_ALLOW_MAJOR_KEY: False,
+        }
 
 
 def set_config_value(path: List[str], value: Any) -> None:

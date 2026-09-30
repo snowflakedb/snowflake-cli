@@ -93,3 +93,4 @@ class FeatureFlag(FeatureFlagMixin):
 
     ENABLE_FEATURE_STORE = BooleanFlag("ENABLE_FEATURE_STORE", False)
     ENABLE_SNOW_UPGRADE = BooleanFlag("ENABLE_SNOW_UPGRADE", False)
+    ENABLE_SNOW_AUTO_UPGRADE = BooleanFlag("ENABLE_SNOW_AUTO_UPGRADE", False)
