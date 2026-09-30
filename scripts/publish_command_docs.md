@@ -16,8 +16,11 @@
 
 # Publish command docs
 
-Release helper: regenerate command-reference MDX with `snow --docs-pages` and
+Writer helper: regenerate command-reference MDX with `snow --docs-pages` and
 copy mapped pages into a local `snowflake-prod-docs` checkout.
+
+Does not run git or open a PR. Use [`publish_prod_docs.py`](publish_prod_docs.md)
+for the full release flow.
 
 Only commands listed in `scripts/command_docs_paths.yaml` are copied.
 
@@ -27,8 +30,6 @@ Only commands listed in `scripts/command_docs_paths.yaml` are copied.
 - A local clone of `snowflake-eng/snowflake-prod-docs`
 
 ## Usage
-
-From the CLI repo root:
 
 ```bash
 hatch run python scripts/publish_command_docs.py --docs-repo <path_to_snowflake-prod-docs>

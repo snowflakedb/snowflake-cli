@@ -17,6 +17,9 @@
 Release helper: run ``snow --docs-pages`` in this repo and copy mapped pages
 into a local snowflake-prod-docs checkout.
 
+Writer-only: does not run git or open a PR. Use ``publish_prod_docs.py`` for
+that.
+
 Docs repo path: ``--docs-repo`` or the ``SNOWFLAKE_PROD_DOCS`` environment
 variable (flag wins).
 
@@ -75,7 +78,7 @@ def run(
     env: Mapping[str, str] | None = None,
     generate: GeneratePages | None = None,
     cli_root: Path = CLI_ROOT,
-) -> None:
+) -> list[Path]:
     """Copy mapped command-reference pages into snowflake-prod-docs."""
     if generate is None:
         generate = generate_pages
@@ -88,11 +91,12 @@ def run(
     changed = copy_mapped_pages(pages_root, docs_repo, mapping, dry_run=args.dry_run)
     if not changed:
         print("No command-reference pages changed.")
-        return
+        return []
     if args.dry_run:
         print(f"Dry run: {len(changed)} file(s) would be updated.")
-        return
-    print(f"Copied {len(changed)} file(s).")
+    else:
+        print(f"Copied {len(changed)} file(s).")
+    return changed
 
 
 def main() -> None:
