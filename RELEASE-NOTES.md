@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow bundle` manages Snowflake code bundles, with `create`, `list`, `alter`, `delete`, `execute`, `status`, `cancel`, and `history` subcommands. A bundle is created from a stage path, a workspace path, or a local directory, and runs at a given entrypoint either synchronously or asynchronously.
 
 * `snow sql` custom REPL prompts now support hexadecimal foreground (`[#rrggbb]`) and background (`[bg:#rrggbb]`) colours. Each directive styles the prompt text that follows it.
 ## Fixes and improvements

@@ -71,6 +71,15 @@ _COMMAND_DOCS_MIGRATION_PENDING_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("app", "version", "list"),
         # auth
         ("auth", "oidc", "read-token"),
+        # bundle
+        ("bundle", "alter"),
+        ("bundle", "cancel"),
+        ("bundle", "create"),
+        ("bundle", "delete"),
+        ("bundle", "execute"),
+        ("bundle", "history"),
+        ("bundle", "list"),
+        ("bundle", "status"),
         # cortex
         # custom-image
         ("custom-image", "validate"),
