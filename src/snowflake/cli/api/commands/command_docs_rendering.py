@@ -107,8 +107,8 @@ def _render_include_mdx(block: Include) -> str:
     return f"<{block.tag} />"
 
 
-def render_usage_mdx(blocks: Sequence[ContentBlock]) -> str:
-    """Renders structured usage-note blocks as an MDX-ready body."""
+def render_blocks_mdx(blocks: Sequence[ContentBlock]) -> str:
+    """Renders structured content blocks as an MDX-ready body."""
     return "\n\n".join(_render_usage_block_mdx(block) for block in blocks)
 
 

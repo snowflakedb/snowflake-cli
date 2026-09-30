@@ -312,7 +312,9 @@ def unique_includes(
 
 def collect_page_includes(docs: CommandDocs) -> tuple[Include, ...]:
     """Collects banner and usage-note includes for deduped MDX import lines."""
-    includes: list[Include] = list(docs.banners)
+    includes: list[Include] = [
+        block for block in docs.banners if isinstance(block, Include)
+    ]
     if docs.usage_notes is not None:
         for block in docs.usage_notes:
             if isinstance(block, Include):
@@ -330,29 +332,29 @@ class CommandDocs:
     """
 
     related: tuple[RelatedLink, ...] = ()
-    banners: tuple[Include, ...] = ()
+    banners: tuple[ContentBlock, ...] = ()
     usage_notes: tuple[ContentBlock, ...] | None = None
     examples: tuple[Example, ...] | None = None
 
     def __post_init__(self) -> None:
-        self._validate_includes(self.banners, "banners")
+        self._validate_banner_blocks(self.banners, "banners")
         if self.usage_notes is None:
             return
         self._validate_content_blocks(self.usage_notes, "usage_notes")
 
-    def _validate_includes(
-        self, includes: tuple[Include, ...], field_name: str
+    def _validate_banner_blocks(
+        self, blocks: tuple[ContentBlock, ...], field_name: str
     ) -> None:
-        if not isinstance(includes, tuple):
+        if not isinstance(blocks, tuple):
             raise TypeError(
-                f"{field_name} must be a tuple of includes, "
-                f"not {type(includes).__name__}"
+                f"{field_name} must be a tuple of content blocks, "
+                f"not {type(blocks).__name__}"
             )
-        for include in includes:
-            if not isinstance(include, Include):
+        for block in blocks:
+            if not isinstance(block, ContentBlock):
                 raise TypeError(
-                    f"{field_name} entries must be Include values, "
-                    f"not {type(include).__name__}"
+                    f"{field_name} entries must be content blocks, "
+                    f"not {type(block).__name__}"
                 )
 
     def _validate_content_blocks(

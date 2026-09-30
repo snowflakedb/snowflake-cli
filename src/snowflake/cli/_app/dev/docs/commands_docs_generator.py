@@ -27,8 +27,8 @@ from snowflake.cli.api.commands.command_docs import (
 )
 from snowflake.cli.api.commands.command_docs_rendering import (
     mdx_escape,
+    render_blocks_mdx,
     render_paragraph_mdx,
-    render_usage_mdx,
 )
 from snowflake.cli.api.secure_path import SecurePath
 from typer.core import TyperArgument
@@ -106,7 +106,7 @@ def _template_env_with_filters():
     env.filters[get_main_option.__name__] = get_main_option
     env.filters[collapse_whitespace.__name__] = collapse_whitespace
     env.filters[mdx_escape.__name__] = mdx_escape
-    env.filters[render_usage_mdx.__name__] = render_usage_mdx
+    env.filters[render_blocks_mdx.__name__] = render_blocks_mdx
     env.filters[render_paragraph_mdx.__name__] = render_paragraph_mdx
     return env
 

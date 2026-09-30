@@ -19,10 +19,10 @@ import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
 </RelatedTopics>
 
 {% endif -%}
-{% for banner in docs.banners -%}
-<{{ banner.tag }} />
+{% if docs.banners -%}
+{{ docs.banners | render_blocks_mdx }}
 
-{% endfor -%}
+{% endif -%}
 {{ help | collapse_whitespace | mdx_escape }}
 
 ## Syntax
@@ -80,7 +80,7 @@ None
 
 ## Usage notes
 
-{{ docs.usage_notes | render_usage_mdx }}
+{{ docs.usage_notes | render_blocks_mdx }}
 {%- elif usage_notes_fallback %}
 
 ## Usage notes

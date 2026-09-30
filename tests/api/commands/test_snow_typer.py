@@ -579,10 +579,10 @@ def test_unique_includes_deduplicates_by_path():
     )
 
 
-def test_command_docs_rejects_non_include_banners():
-    with pytest.raises(TypeError, match="tuple of includes"):
+def test_command_docs_rejects_invalid_banners():
+    with pytest.raises(TypeError, match="tuple of content blocks"):
         CommandDocs(banners="PublicPreview")  # type: ignore[arg-type]
-    with pytest.raises(TypeError, match="entries must be Include values"):
+    with pytest.raises(TypeError, match="entries must be content blocks"):
         CommandDocs(banners=("PublicPreview",))  # type: ignore[arg-type]
 
 

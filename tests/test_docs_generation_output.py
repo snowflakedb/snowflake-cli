@@ -46,8 +46,8 @@ from snowflake.cli.api.commands.command_docs import (
     RelatedLink,
 )
 from snowflake.cli.api.commands.command_docs_rendering import (
+    render_blocks_mdx,
     render_paragraph_mdx,
-    render_usage_mdx,
 )
 from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 from typer.main import get_command
@@ -322,11 +322,11 @@ def test_command_help_angle_brackets_are_escaped():
     assert "Runs the <object> command." not in overview
 
 
-def test_render_usage_mdx_empty_versus_plain_text():
-    assert render_usage_mdx(()) == ""
-    assert render_usage_mdx((PlainText(parts=()),)) == ""
+def test_render_blocks_mdx_empty_versus_plain_text():
+    assert render_blocks_mdx(()) == ""
+    assert render_blocks_mdx((PlainText(parts=()),)) == ""
     assert (
-        render_usage_mdx(
+        render_blocks_mdx(
             (
                 PlainText(parts=("Use <name>.",)),
                 PlainText(parts=("Second paragraph.",)),
@@ -335,19 +335,19 @@ def test_render_usage_mdx_empty_versus_plain_text():
         == "Use &lt;name&gt;.\n\nSecond paragraph."
     )
     assert (
-        render_usage_mdx((PlainText(parts=("Use ", "<name>", ".")),))
+        render_blocks_mdx((PlainText(parts=("Use ", "<name>", ".")),))
         == "Use &lt;name&gt;."
     )
 
 
-def test_render_usage_mdx_rejects_unknown_blocks():
+def test_render_blocks_mdx_rejects_unknown_blocks():
     with pytest.raises(TypeError, match="Unsupported usage-note block"):
-        render_usage_mdx(("not a block",))  # type: ignore[arg-type]
+        render_blocks_mdx(("not a block",))  # type: ignore[arg-type]
 
 
-def test_render_usage_mdx_code_span_keeps_angle_brackets_unescaped():
+def test_render_blocks_mdx_code_span_keeps_angle_brackets_unescaped():
     assert (
-        render_usage_mdx(
+        render_blocks_mdx(
             (
                 PlainText(
                     parts=("Pass ", Code(value='-D "<key>=<value>"'), " to set it.")
@@ -358,16 +358,18 @@ def test_render_usage_mdx_code_span_keeps_angle_brackets_unescaped():
     )
 
 
-def test_render_usage_mdx_reference():
+def test_render_blocks_mdx_reference():
     assert (
-        render_usage_mdx((PlainText(parts=("Create a ", Ref(name="dcm-object"), ".")),))
+        render_blocks_mdx(
+            (PlainText(parts=("Create a ", Ref(name="dcm-object"), ".")),)
+        )
         == "Create a %dcm-object%."
     )
 
 
-def test_render_usage_mdx_bullet_list():
+def test_render_blocks_mdx_bullet_list():
     assert (
-        render_usage_mdx(
+        render_blocks_mdx(
             (
                 PlainText(parts=("Changes:",)),
                 BulletList(
@@ -382,9 +384,9 @@ def test_render_usage_mdx_bullet_list():
     )
 
 
-def test_render_usage_mdx_bullet_list_with_mixed_spans():
+def test_render_blocks_mdx_bullet_list_with_mixed_spans():
     assert (
-        render_usage_mdx(
+        render_blocks_mdx(
             (
                 BulletList(
                     items=(
@@ -403,9 +405,9 @@ def test_render_usage_mdx_bullet_list_with_mixed_spans():
     )
 
 
-def test_render_usage_mdx_bullet_list_wraps_multiline_items():
+def test_render_blocks_mdx_bullet_list_wraps_multiline_items():
     assert (
-        render_usage_mdx(
+        render_blocks_mdx(
             (
                 BulletList(
                     items=(Bullet(parts=("First line,\nsecond line.",)),),
@@ -416,15 +418,15 @@ def test_render_usage_mdx_bullet_list_wraps_multiline_items():
     )
 
 
-def test_render_usage_mdx_link_empty_versus_titled():
+def test_render_blocks_mdx_link_empty_versus_titled():
     assert (
-        render_usage_mdx(
+        render_blocks_mdx(
             (PlainText(parts=(RelatedLink(href="#label-dcm-projects-deploy"),)),)
         )
         == "[](#label-dcm-projects-deploy)"
     )
     assert (
-        render_usage_mdx(
+        render_blocks_mdx(
             (
                 PlainText(
                     parts=(
@@ -441,8 +443,8 @@ def test_render_usage_mdx_link_empty_versus_titled():
     )
 
 
-def test_render_usage_mdx_note_with_inline_content():
-    assert render_usage_mdx(
+def test_render_blocks_mdx_note_with_inline_content():
+    assert render_blocks_mdx(
         (
             Admonition(
                 parts=(
@@ -596,8 +598,8 @@ def test_render_command_page_keeps_usage_note_links_out_of_related_topics():
     assert "[](/developer-guide/snowflake-cli/index)" in related
 
 
-def test_render_usage_mdx_admonition_title_attributes_are_passed_through():
-    assert render_usage_mdx(
+def test_render_blocks_mdx_admonition_title_attributes_are_passed_through():
+    assert render_blocks_mdx(
         (
             Admonition(
                 parts=("Available to all accounts.",),
@@ -615,11 +617,11 @@ def test_render_usage_mdx_admonition_title_attributes_are_passed_through():
     )
 
 
-def test_render_usage_mdx_admonition_type_is_passed_through():
-    assert render_usage_mdx(
+def test_render_blocks_mdx_admonition_type_is_passed_through():
+    assert render_blocks_mdx(
         (Admonition(parts=("Be careful.",), admonition_type=AdmonitionType.CAUTION),)
     ) == ('<Admonition type="caution">\n\n' "Be careful.\n\n" "</Admonition>")
-    assert render_usage_mdx(
+    assert render_blocks_mdx(
         (Admonition(parts=("Watch out.",), admonition_type=AdmonitionType.WARNING),)
     ) == ('<Admonition type="warning">\n\n' "Watch out.\n\n" "</Admonition>")
 
@@ -670,6 +672,39 @@ def test_render_command_page_with_public_preview_no_gov_banner():
     assert banner_pos > related_end
 
 
+def test_render_command_page_with_admonition_banner_before_intro():
+    command = _demo_click_command()
+    setattr(
+        command.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(
+            related=(RelatedLink(href="/foo", title="Foo"),),
+            banners=(
+                Admonition(
+                    parts=("Use the deploy command instead.",),
+                    admonition_type=AdmonitionType.NOTE,
+                ),
+            ),
+        ),
+    )
+
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    related_end = rendered.index("</RelatedTopics>")
+    admonition_pos = rendered.index('<Admonition type="note">')
+    syntax_pos = rendered.index("## Syntax")
+    intro = rendered[
+        admonition_pos : rendered.index("</Admonition>", admonition_pos)
+        + len("</Admonition>")
+    ]
+    assert admonition_pos > related_end
+    assert "Executes the demo object." in rendered
+    assert rendered.index("Executes the demo object.") > admonition_pos
+    assert rendered.index("Executes the demo object.") < syntax_pos
+    assert "Use the deploy command instead." in intro
+    assert "## Usage notes" not in rendered
+
+
 def test_render_command_page_without_banners():
     rendered = _command_page_markdown(_demo_click_command(), ["plugin", "demo"])
 
@@ -679,10 +714,10 @@ def test_render_command_page_without_banners():
     assert "<PublicPreviewNoGov />" not in rendered
 
 
-def test_render_usage_mdx_include_emits_component_tag():
+def test_render_blocks_mdx_include_emits_component_tag():
     from snowflake.cli.api.commands.command_docs import DBT_DEPLOY_FORCE_WARNING
 
-    assert render_usage_mdx((DBT_DEPLOY_FORCE_WARNING,)) == "<DbtDeployForceWarning />"
+    assert render_blocks_mdx((DBT_DEPLOY_FORCE_WARNING,)) == "<DbtDeployForceWarning />"
 
 
 def test_render_command_page_with_usage_note_include():
