@@ -100,6 +100,11 @@ UnsetDefaultEnvironmentOption = OverrideableOption(
     mutually_exclusive=["default_env"],
 )
 
+_DBT_BASE_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/dbt-commands/overview"),
+)
+
 add_object_command_aliases(
     app=app,
     object_type=ObjectType.DBT_PROJECT,
@@ -109,6 +114,105 @@ add_object_command_aliases(
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["create"],
+    list_docs=CommandDocs(
+        related=_DBT_BASE_RELATED
+        + (
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/deploy"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/dbt-commands/execute/overview"
+            ),
+            link("/developer-guide/snowflake-cli/data-pipelines/dbt-projects"),
+            link("#label-snow" + "cli-snow-dbt-list"),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dbt list"),
+                " command lists all available dbt project objects on Snowflake.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("List all available dbt project objects:"),
+                command="snow dbt list",
+            ),
+            Example(
+                description=plain_text(
+                    "List dbt project objects in the ",
+                    code("product"),
+                    " database whose names begin with ",
+                    code("JAFFLE"),
+                    ":",
+                ),
+                command="snow dbt list --like JAFFLE% --in database product",
+            ),
+        ),
+    ),
+    describe_docs=CommandDocs(
+        related=_DBT_BASE_RELATED
+        + (
+            link("/developer-guide/snowflake-cli/command-reference/dbt-commands/list"),
+            link("/developer-guide/snowflake-cli/data-pipelines/dbt-projects"),
+            link("#label-snow" + "cli-snow-dbt-deploy"),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dbt describe"),
+                " command describes a dbt project object on Snowflake. It returns "
+                "information such as the project name, owner, dbt version and dbt "
+                "snowflake version, default versions with their names and aliases, "
+                "and ",
+                link(
+                    "/developer-guide/external-network-access/creating-using-external-network-access",
+                    "external access integrations",
+                ),
+                ".",
+            ),
+            plain_text(
+                "For more information, see ",
+                link("/sql-reference/sql/desc-dbt-project"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example describes the dbt project object named ",
+                    code("my_dbt_project"),
+                    " in Snowflake:",
+                ),
+                command="snow dbt describe my_dbt_project",
+            ),
+        ),
+    ),
+    drop_docs=CommandDocs(
+        related=_DBT_BASE_RELATED
+        + (
+            link("/developer-guide/snowflake-cli/command-reference/dbt-commands/list"),
+            link("/developer-guide/snowflake-cli/data-pipelines/dbt-projects"),
+            link("#label-snow" + "cli-snow-dbt-deploy"),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow dbt drop"),
+                " command deletes a dbt project object in Snowflake.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example deletes the dbt project object named ",
+                    code("my_dbt_project"),
+                    " in Snowflake:",
+                ),
+                command="snow dbt drop my_dbt_project",
+            ),
+        ),
+    ),
 )
 
 # Wrapper around `snow stage copy` so dbt copy can carry its own CommandDocs without

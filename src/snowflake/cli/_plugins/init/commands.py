@@ -21,6 +21,16 @@ import typer
 import yaml
 from click import ClickException
 from snowflake.cli.__about__ import VERSION
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    note,
+    plain_text,
+)
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
     variables_option,
@@ -186,7 +196,118 @@ def _validate_cli_version(required_version: str) -> None:
         )
 
 
-@app.command(no_args_is_help=True)
+@app.command(
+    no_args_is_help=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/bootstrap-commands/overview",
+                "Snowflake CLI command reference",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow init"),
+                " command initializes a directory specified in the ",
+                code("<path>"),
+                " parameter with a chosen template. It renders all files mentioned "
+                "in the ",
+                code("files_to_render"),
+                " list in the ",
+                code("template.yml"),
+                ", resolving all variables enclosed in ",
+                code("<! … !>"),
+                ". If a ",
+                code("template.yml"),
+                " file is not present in the template's root directory, the command "
+                "finishes with an error. For information about creating project "
+                "templates, see ",
+                link("/developer-guide/snowflake-cli/bootstrap-project/bootstrap"),
+                ".",
+            ),
+            plain_text(
+                "By default, the command interactively prompts you for each parameter "
+                "defined in the ",
+                code("template.yml"),
+                " file. You can bypass the interactive prompts in the following ways:",
+            ),
+            bullet_list(
+                bullet(
+                    "Use the ",
+                    code("-D"),
+                    " option to specify the values for each parameter contained in "
+                    "the project template.",
+                ),
+                bullet(
+                    "Use the ",
+                    code("--no-interactive"),
+                    " option to use default values, if defined, for each template "
+                    "parameter in the ",
+                    code("template.yml"),
+                    " file.",
+                ),
+                bullet(
+                    "Use a combination of the ",
+                    code("-D"),
+                    " and ",
+                    code("--no-interactive"),
+                    " options to define values for some parameters and use the "
+                    "specified default values for the template.",
+                ),
+            ),
+            note(
+                "If you do not provide a value using the ",
+                code("-D"),
+                " option that does not have a corresponding default value defined, "
+                "the snow init command terminates with an error.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Bootstrap a Snowpark project that prompts for the parameters "
+                    "specified in the ",
+                    code("example_snowpark"),
+                    " template contained in the ",
+                    link(
+                        "https://github.com/snowflakedb/snowflake-cli-templates/",
+                        "snowflake-cli-templates Git repository",
+                    ),
+                    ".",
+                ),
+                command=(
+                    "snow init new_snowpark_project --template example_snowpark\n"
+                    "\n"
+                    "  Project identifier (used to determine artifacts stage path) "
+                    "[my_snowpark_project]:\n"
+                    "  What stage should the procedures and functions be deployed to? "
+                    "[dev_deployment]: snowpark"
+                ),
+                output="Initialized the new project in new_snowpark_project",
+            ),
+            Example(
+                description=plain_text(
+                    "Bootstrap a Streamlit project by using the ",
+                    code("-D"),
+                    " option to provide the values for some of the parameters "
+                    "specified in the local ",
+                    code("../local_templates/example_streamlit"),
+                    " template and prompt for others.",
+                ),
+                command=(
+                    "snow init new_streamlit_project "
+                    "--template-source ../local_templates/example_streamlit "
+                    "-D query_warehouse=dev_wareshouse -D stage=testing\n"
+                    "\n"
+                    "  Name of the streamlit app [streamlit_app]: My streamlit"
+                ),
+                output="Initialized the new project in new_streamlit_project",
+            ),
+        ),
+    ),
+)
 def init(
     path: str = PathArgument,
     template: Optional[str] = TemplateOption,

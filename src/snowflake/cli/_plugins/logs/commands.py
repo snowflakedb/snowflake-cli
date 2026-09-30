@@ -1,3 +1,17 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import itertools
 from datetime import datetime
 from typing import Generator, Iterable, Optional, cast
@@ -7,6 +21,13 @@ from click import ClickException
 from snowflake.cli._plugins.logs.manager import LogsManager
 from snowflake.cli._plugins.logs.utils import LOG_LEVELS, LogsQueryRow
 from snowflake.cli._plugins.object.commands import NameArgument, ObjectArgument
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.identifiers import FQN
@@ -19,7 +40,150 @@ from snowflake.cli.api.output.types import (
 app = SnowTyperFactory()
 
 
-@app.command(name="logs", requires_connection=True)
+@app.command(
+    name="logs",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow logs"),
+                " command accesses an event table and retrieves ",
+                link("/developer-guide/logging-tracing/logging", "logs"),
+                " for a specified entity. By default, the command looks for the logs "
+                "in the default event table, which is SNOWFLAKE.TELEMETRY.EVENTS; "
+                "however, you can select a different table with the ",
+                code("--table"),
+                " option. For more information about event tables and default values, "
+                "see ",
+                link("#label-logging-event-table-custom-create"),
+                ".",
+            ),
+            plain_text(
+                "You can use the ",
+                code("--from"),
+                " and ",
+                code("-to"),
+                " options to filter the period during which to retrieve the logs. You "
+                "can use one or both of these option, but if you use both, the ",
+                code("--from"),
+                " time must be earlier than the ",
+                code("-to"),
+                " time. The values for times you provide must comply with the ",
+                link(
+                    "https://www.iso.org/iso-8601-date-and-time-format.html",
+                    "ISO 8601 standard",
+                ),
+                ". For more information, you can also check the Python ",
+                link(
+                    "https://docs.python.org/3/library/datetime.html#datetime.datetime.fromisoformat",
+                    "datetime.fromisoformat()",
+                ),
+                " method documentation.",
+            ),
+            plain_text(
+                "The ",
+                code("--log-level"),
+                " option lets you filter message by ",
+                link("#label-event-table-schema", "severity level"),
+                ". Some logs do not include a severity level. In those cases, messages "
+                "are display for all ",
+                code("--log-level"),
+                " values.",
+            ),
+            plain_text(
+                "The ",
+                code("--partial"),
+                " option lets you retrieve logs that contain a specific string using "
+                "a case-insensitive match. For example, if you searched for logs "
+                "containing ",
+                code("myDb"),
+                " with this option, the results would include logs for databases named ",
+                code("mydb"),
+                ", ",
+                code("MYDB"),
+                ", and ",
+                code("MyDb"),
+                ". Without this option, it would return only logs for databases named "
+                "exactly ",
+                code("myDb"),
+                ".",
+            ),
+            plain_text(
+                "If you want continuous updates for the logs, you can use the ",
+                code("--refresh"),
+                " option and provide the number of seconds between retrievals. You "
+                "cannot use both the ",
+                code("--refresh"),
+                " and ",
+                code("--to"),
+                " options together. To stop streaming the logs, use your system's "
+                "default ",
+                code("Keyboardinterrupt"),
+                " key, such as ",
+                code("CTRL-c"),
+                " in a Mac Terminal.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Display the compute pool logs for a period from a specified "
+                    "starting time to now:"
+                ),
+                command=(
+                    "snow logs compute_pool MY_COMPUTE_POOL --from '2025-04-01 09:00:31'"
+                ),
+                output=(
+                    '10.12.71.201 - - [01/Apr/2025 09:46:07] "GET /healthcheck HTTP/1.1" 200 -\n'
+                    '10.12.71.201 - - [01/Apr/2025 09:46:09] "GET /healthcheck HTTP/1.1" 200 -\n'
+                    '10.12.71.201 - - [01/Apr/2025 09:46:14] "GET /healthcheck HTTP/1.1" 200 -\n'
+                    '10.12.71.201 - - [01/Apr/2025 09:46:19] "GET /healthcheck HTTP/1.1" 200 -\n'
+                    '10.12.71.201 - - [01/Apr/2025 09:46:24] "GET /healthcheck HTTP/1.1" 200 -\n'
+                    '10.12.71.201 - - [01/Apr/2025 09:46:29] "GET /healthcheck HTTP/1.1" 200 -\n'
+                    '10.12.71.201 - - [01/Apr/2025 09:46:34] "GET /healthcheck HTTP/1.1" 200 -'
+                ),
+            ),
+            Example(
+                description=plain_text("Display the logs for a specific event table:"),
+                command=(
+                    "snow logs compute_pool SNOWCLI_COMPUTE_POOL "
+                    '--table "my_db.my_schema.my_events"'
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Display the logs for all databases that contain ",
+                    code("myDb"),
+                    " using a case-insensitive partial match:",
+                ),
+                command="snow logs database myDb --partial",
+            ),
+            Example(
+                description=plain_text(
+                    "Display the logs for a time range where the from time is later "
+                    "than the to time, which causes an error:"
+                ),
+                command=(
+                    "snow logs compute_pool SNOWCLI_COMPUTE_POOL "
+                    "--from '2025-03-24 12:00:31' --to \"2024-01-03 00:00:00\""
+                ),
+                output=(
+                    "╭─ Error ─────────────────────────────────────────────────────────\n"
+                    "│ From_time cannot be later than to_time. Please check the values\n"
+                    "╰─────────────────────────────────────────────────────────────────"
+                ),
+            ),
+        ),
+    ),
+)
 def get_logs(
     object_type: str = ObjectArgument,
     object_name: FQN = NameArgument,

@@ -17,6 +17,13 @@ from snowflake.cli._app.auth.oidc_providers import (
     OidcProviderTypeWithAuto,
 )
 from snowflake.cli._plugins.auth.oidc.manager import OidcManager
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult
 
@@ -34,7 +41,37 @@ AutoProviderTypeOption = typer.Option(
 )
 
 
-@app.command("read-token", requires_connection=False)
+@app.command(
+    "read-token",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/auth-commands/overview",
+                "Snowflake CLI command reference",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow auth read-token"),
+                " command displays the OIDC token, which can be used for "
+                "authentication in Snowflake operations. This command is primarily "
+                "for retrieving the authentication token and must run within the "
+                "supported CI/CD runner.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Display the OIDC token in the current CI/CD environment:"
+                ),
+                command="snow auth oidc read-token --type github",
+            ),
+        ),
+    ),
+)
 def read_token(
     _type: OidcProviderTypeWithAuto = AutoProviderTypeOption,
     **options,

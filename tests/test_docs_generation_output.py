@@ -778,30 +778,43 @@ def test_render_command_page_collects_banner_and_usage_note_includes():
     assert "<DbtDeployForceWarning />" in usage_notes
 
 
-def test_docs_pages_empty_extras_for_command_without_docs(runner, temporary_directory):
-    result = runner.invoke(["--docs-pages"])
-    assert result.exit_code == 0, result.output
+def _command_without_docs_for_page_test() -> Command:
+    app = typer.Typer(add_completion=False)
 
-    page_path = (
-        Path(temporary_directory) / "gen_docs" / "pages" / "object" / "describe.mdx"
+    @app.command("no_command_docs")
+    def no_command_docs(
+        name: str = typer.Argument(help="Placeholder argument."),
+    ):
+        """Dummy command for docs page generation tests."""
+
+    return get_command(app)
+
+
+_DOCS_PAGE_TEST_COMMAND_PATH = ["_docs_page_test", "no_command_docs"]
+
+
+def test_render_command_page_omits_extras_without_command_docs():
+    rendered = _command_page_markdown(
+        _command_without_docs_for_page_test(),
+        _DOCS_PAGE_TEST_COMMAND_PATH,
     )
-    assert page_path.exists()
-    content = page_path.read_text(encoding="utf-8")
-    assert content.startswith("---\n")
-    assert "title: snow object describe" in content
-    assert "description: ''" in content
+
+    assert rendered.startswith("---\n")
+    assert "title: snow _docs_page_test no_command_docs" in rendered
+    assert "description: ''" in rendered
     assert (
-        "import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'" in content
+        "import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'" in rendered
     )
-    assert "# snow object describe" in content
-    assert "<Help />" in content
-    assert "## Syntax" in content
-    assert "## Arguments" in content
-    assert "## Options" in content
-    assert "## Usage notes" not in content
-    assert "## Examples" not in content
-    assert "<RelatedTopics>" not in content
-    assert page_path.read_bytes().endswith(b"\n")
+    assert "# snow _docs_page_test no_command_docs" in rendered
+    assert "<Help />" in rendered
+    assert "## Syntax" in rendered
+    assert "## Arguments" in rendered
+    assert "## Options" in rendered
+    assert "## Usage notes" not in rendered
+    assert "## Examples" not in rendered
+    assert "<RelatedTopics>" not in rendered
+    assert rendered.endswith("\n")
+    assert not rendered.endswith("\n\n")
 
 
 def test_render_command_page_falls_back_to_docstring_sections():
@@ -829,13 +842,6 @@ def test_render_command_page_falls_back_to_docstring_sections():
     assert "## Examples\n\nNone" not in rendered
     assert rendered.endswith("\n")
     assert not rendered.endswith("\n\n")
-
-
-def test_render_command_page_omits_usage_and_examples_when_missing():
-    rendered = _command_page_markdown(_demo_click_command(), ["plugin", "demo"])
-    assert "## Usage notes" not in rendered
-    assert "## Examples" not in rendered
-    assert "<RelatedTopics>" not in rendered
 
 
 def test_empty_command_docs_usage_notes_do_not_fall_back_to_docstring():

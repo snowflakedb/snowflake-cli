@@ -168,11 +168,66 @@ ScopeOption = scope_option(
 
 SUPPORTED_TYPES_MSG = "\n\nSupported types: " + ", ".join(SUPPORTED_OBJECTS)
 
+_OBJECT_BASE_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/overview"),
+)
+
 
 @app.command(
     "list",
     help=f"Lists all available Snowflake objects of given type.{SUPPORTED_TYPES_MSG}",
     requires_connection=True,
+    docs=CommandDocs(
+        related=_OBJECT_BASE_RELATED
+        + (
+            link(
+                "/developer-guide/snowflake-cli/command-reference/object-commands/overview"
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("--like"),
+                " [",
+                code("-l"),
+                "] ",
+                code("<pattern>"),
+                " option lets you specify a SQL LIKE pattern for filtering objects by "
+                "name. For example, ",
+                code('snow object list function --like "my%"'),
+                " lists all functions that begin with ",
+                code("my"),
+                ". For more information about SQL patterns syntax, see ",
+                link(
+                    "https://www.w3schools.com/sql/sql_ref_like.asp",
+                    "SQL LIKE Keyword",
+                ),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example lists all roles beginning with ",
+                    code("public"),
+                    ". The ",
+                    code("--like"),
+                    " option",
+                ),
+                command="snow object list role --like public%",
+                output=(
+                    "show roles like 'public%'\n"
+                    "+-------------------------------------------------------------------------------+\n"
+                    "| created_on                       | name        | is_default | is_current | ...\n"
+                    "|----------------------------------+-------------+------------+------------+----\n"
+                    "| 2023-02-01 15:25:04.105000-08:00 | PUBLIC      | N          | N          | ...\n"
+                    "| 2024-01-15 12:55:05.840000-08:00 | PUBLIC_TEST | N          | N          | ...\n"
+                    "+-------------------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
 )
 def list_(
     object_type: str = ObjectArgument,
@@ -199,6 +254,40 @@ def list_(
 @app.command(
     help=f"Drops Snowflake object of given name and type. {SUPPORTED_TYPES_MSG}",
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("IDENTIFIER"),
+                " for procedures and functions must specify argument types, such as ",
+                code('"hello(int,string)"'),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "To delete a procedure, run a command similar to the following:"
+                ),
+                command='snow object drop procedure "test_procedure()"',
+                output=(
+                    "drop procedure test_procedure()\n"
+                    "+--------------------------------------+\n"
+                    "| status                               |\n"
+                    "|--------------------------------------|\n"
+                    "| TEST_PROCEDURE successfully dropped. |\n"
+                    "+--------------------------------------+"
+                ),
+            ),
+        ),
+    ),
 )
 def drop(
     object_type: str = ObjectArgument,
@@ -220,6 +309,50 @@ DESCRIBE_SUPPORTED_TYPES_MSG = f"\n\nSupported types: {', '.join(obj for obj in 
 @app.command(
     help=f"Provides description of an object of given type. {DESCRIBE_SUPPORTED_TYPES_MSG}",
     requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("IDENTIFIER"),
+                " for procedures and functions must specify argument types, such as ",
+                code('"hello(int,string)"'),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "To describe a function, run a command similar to the following:"
+                ),
+                command='snow object describe function "hello_function(string)"',
+                output=(
+                    "describe function hello_function(string)\n"
+                    "+---------------------------------------------------------------------\n"
+                    "| property           | value\n"
+                    "|--------------------+------------------------------------------------\n"
+                    "| signature          | (NAME VARCHAR)\n"
+                    "| returns            | VARCHAR(16777216)\n"
+                    "| language           | PYTHON\n"
+                    "| null handling      | CALLED ON NULL INPUT\n"
+                    "| volatility         | VOLATILE\n"
+                    "| body               | None\n"
+                    "| imports            |\n"
+                    "| handler            | functions.hello_function\n"
+                    "| runtime_version    | 3.12\n"
+                    "| packages           | ['snowflake-snowpark-python']\n"
+                    "| installed_packages | ['_libgcc_mutex==0.1','_openmp_mutex==5.1',...\n"
+                    "+---------------------------------------------------------------------"
+                ),
+            ),
+        ),
+    ),
 )
 def describe(
     object_type: str = ObjectArgument, object_name: FQN = NameArgument, **options
