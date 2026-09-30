@@ -22,7 +22,13 @@ from typing import List
 import pytest
 from click import Command
 from snowflake.cli._app.dev.docs.commands_docs_generator import _command_page_markdown
-from snowflake.cli.api.commands.command_docs import has_explicit_command_docs
+from snowflake.cli.api.commands.command_docs import (
+    DOCS_ATTRIBUTE,
+    CommandDocs,
+    has_explicit_command_docs,
+    link,
+    plain_text,
+)
 
 _SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(_SCRIPTS_DIR))
@@ -194,7 +200,7 @@ _COMMAND_DOCS_MIGRATION_PENDING_PATHS: frozenset[tuple[str, ...]] = frozenset(
 # ``<RelatedTopics>``, ``## Usage notes``, and ``## Examples`` when CommandDocs
 # (or docstring fallbacks) supply content; Syntax/Arguments/Options are always
 # present.
-_EXPECTED_COMMAND_DOCS_SECTIONS = (
+COMMAND_DOCS_PAGE_SECTIONS = (
     "<RelatedTopics>",
     "## Syntax",
     "## Arguments",
@@ -211,6 +217,30 @@ def _is_command_docs_exempt(path: tuple[str, ...]) -> bool:
         return True
     # snow dbt execute <subcommand> — one shared overview page in prod-docs.
     return len(path) == 3 and path[:2] == ("dbt", "execute")
+
+
+def collect_command_docs_violations(
+    command: Command,
+    path: tuple[str, ...],
+) -> tuple[bool, list[str]]:
+    """Apply the same rules as ``test_command_docs_coverage`` to one command.
+
+    Returns ``(missing_explicit_docs, section_errors)``. Exempt paths yield
+    ``(False, [])``.
+    """
+    if _is_command_docs_exempt(path):
+        return False, []
+
+    if has_explicit_command_docs(command):
+        page = _command_page_markdown(command, list(path))
+        section_errors = [
+            f"snow {' '.join(path)}: missing {section} in generated page"
+            for section in COMMAND_DOCS_PAGE_SECTIONS
+            if section not in page
+        ]
+        return False, section_errors
+
+    return True, []
 
 
 def _iter_terminal_commands(
@@ -251,15 +281,10 @@ def test_command_docs_coverage(runner, get_click_context):
     section_errors = []
 
     for path, command in _iter_terminal_commands(get_click_context().command):
-        if has_explicit_command_docs(command):
-            page = _command_page_markdown(command, list(path))
-            for section in _EXPECTED_COMMAND_DOCS_SECTIONS:
-                if section not in page:
-                    section_errors.append(
-                        f"snow {' '.join(path)}: missing {section} in generated page"
-                    )
-        elif not _is_command_docs_exempt(path):
+        is_missing, errors = collect_command_docs_violations(command, path)
+        if is_missing:
             missing.append("snow " + " ".join(path))
+        section_errors.extend(errors)
 
     assert not section_errors, "\n".join(section_errors)
     assert not missing, "Commands missing docs=CommandDocs(...):\n" + "\n".join(missing)
@@ -292,3 +317,88 @@ def test_command_docs_paths_coverage(runner, get_click_context):
     assert (
         not missing
     ), "Commands missing command_docs_paths.yaml entries:\n" + "\n".join(missing)
+
+
+def _synthetic_command(help_text: str = "Demo command.") -> Command:
+    cmd = Command(name="demo", help=help_text)
+
+    def callback():
+        pass
+
+    cmd.callback = callback
+    return cmd
+
+
+def test_coverage_fails_when_explicit_docs_missing():
+    missing, section_errors = collect_command_docs_violations(
+        _synthetic_command(), ("plugin", "demo")
+    )
+    assert missing is True
+    assert section_errors == []
+
+
+def test_coverage_fails_for_empty_command_docs():
+    """Explicit ``CommandDocs()`` does not auto-fill sections (no related / notes / examples)."""
+    cmd = _synthetic_command()
+    setattr(cmd.callback, DOCS_ATTRIBUTE, CommandDocs())
+
+    missing, section_errors = collect_command_docs_violations(cmd, ("plugin", "demo"))
+    assert missing is False
+    assert section_errors
+    assert any("missing <RelatedTopics>" in err for err in section_errors)
+    assert any("missing ## Usage notes" in err for err in section_errors)
+    assert any("missing ## Examples" in err for err in section_errors)
+    assert not any("missing ## Syntax" in err for err in section_errors)
+
+
+def test_coverage_passes_for_minimal_object_alias_style_docs():
+    """``related`` + ``usage_notes=(plain_text("None."),)`` fills Examples via template fallback."""
+    cmd = _synthetic_command()
+    setattr(
+        cmd.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(
+            related=(link("/developer-guide/snowflake-cli/index"),),
+            usage_notes=(plain_text("None."),),
+        ),
+    )
+
+    missing, section_errors = collect_command_docs_violations(cmd, ("plugin", "demo"))
+    assert missing is False
+    assert section_errors == []
+
+
+def test_coverage_fails_when_related_links_missing():
+    cmd = _synthetic_command()
+    setattr(
+        cmd.callback,
+        DOCS_ATTRIBUTE,
+        CommandDocs(usage_notes=(plain_text("None."),)),
+    )
+
+    missing, section_errors = collect_command_docs_violations(cmd, ("plugin", "demo"))
+    assert missing is False
+    assert any("missing <RelatedTopics>" in err for err in section_errors)
+
+
+def test_docstring_fallback_can_satisfy_usage_and_examples_but_not_related():
+    """With bare ``CommandDocs()``, docstring ``##`` sections can fill Usage/Examples only."""
+    cmd = _synthetic_command(
+        """Sets up a repository.
+
+        ## Usage notes
+
+        From the docstring.
+
+        ## Examples
+
+        snow plugin demo
+        """
+    )
+    setattr(cmd.callback, DOCS_ATTRIBUTE, CommandDocs())
+
+    missing, section_errors = collect_command_docs_violations(cmd, ("plugin", "demo"))
+    assert missing is False
+    assert section_errors == [
+        "snow plugin demo: missing <RelatedTopics> in generated page"
+    ]

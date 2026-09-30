@@ -54,6 +54,7 @@ from enum import Enum
 from typing import Any, Mapping, Optional, Type
 
 import click
+from snowflake.cli.api.commands.command_docs import CommandDocs
 
 
 class _RequiredSentinel:
@@ -138,6 +139,10 @@ class CommandDef:
             command that forwards unrecognised arguments on to something else.
             ``None`` (the default) leaves Click's defaults in place.
         output_type: Documentation hint for reviewers (not enforced at runtime).
+        docs: Rich documentation for prod-docs and extended ``--help`` (see
+            ``CommandDocs``). The bridge forwards this to the Typer command;
+            once the plugin is in ``builtin_plugins.py``, CI uses the same
+            ``test_command_docs_coverage`` check as classic commands.
     """
 
     name: str
@@ -151,6 +156,7 @@ class CommandDef:
     decorators: tuple[str, ...] = ()
     context_settings: Optional[Mapping[str, Any]] = None
     output_type: str = "CommandResult"
+    docs: Optional[CommandDocs] = None
 
 
 @dataclass(frozen=True)
