@@ -196,6 +196,47 @@ def test_pack_managed_tarball_windows_arcname(tmp_path):
         assert extracted.read() == b"fake-snow-exe"
 
 
+def test_resolve_built_binary_passthrough_file(tmp_path):
+    packaging = _load_packaging_module()
+    binary = tmp_path / "snow-3.29.0.dev0"
+    binary.write_bytes(b"snow")
+    assert packaging.resolve_built_binary(binary, version="3.29.0.dev0") == binary
+
+
+def test_resolve_built_binary_linux_hatch_directory(tmp_path):
+    packaging = _load_packaging_module()
+    hatch_dir = tmp_path / "binary"
+    hatch_dir.mkdir()
+    (hatch_dir / "unrelated.txt").write_text("nope")
+    snow = hatch_dir / "snow-3.29.0.dev0"
+    snow.write_bytes(b"snow")
+    assert packaging.resolve_built_binary(hatch_dir, version="3.29.0.dev0") == snow
+
+
+def test_resolve_built_binary_windows_exe_in_directory(tmp_path):
+    packaging = _load_packaging_module()
+    hatch_dir = tmp_path / "binary"
+    hatch_dir.mkdir()
+    snow_exe = hatch_dir / "snow.exe"
+    snow_exe.write_bytes(b"snow-exe")
+    assert packaging.resolve_built_binary(hatch_dir) == snow_exe
+
+
+def test_resolve_built_binary_missing_directory(tmp_path):
+    packaging = _load_packaging_module()
+    hatch_dir = tmp_path / "binary"
+    hatch_dir.mkdir()
+    with pytest.raises(FileNotFoundError, match="expected one snow-\\* file"):
+        packaging.resolve_built_binary(hatch_dir, version="3.29.0.dev0")
+
+
+def test_resolve_built_binary_missing_path(tmp_path):
+    packaging = _load_packaging_module()
+    missing = tmp_path / "nope"
+    with pytest.raises(FileNotFoundError, match="managed binary not found"):
+        packaging.resolve_built_binary(missing)
+
+
 def test_main_exits_when_hatch_produces_no_binary(monkeypatch):
     packaging = _load_packaging_module()
     monkeypatch.setattr(packaging, "build_isolated_binary", lambda: None)

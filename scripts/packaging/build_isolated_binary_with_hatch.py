@@ -390,8 +390,40 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     if completed_proc.returncode:
         print(completed_proc.stderr)
         return None
-    # The binary location is the last line of stderr
+    # Last stderr token is a file on macOS and the dist/binary directory on Linux.
     return Path(completed_proc.stderr.decode().split()[-1])
+
+
+def resolve_built_binary(path: Path, version: str | None = None) -> Path:
+    """Turn hatch's binary-target output into the actual snow file.
+
+    ``hatch build -t binary`` reports ``dist/binary`` (a directory) on Linux
+    and the file itself on macOS. ``pack_managed_tarball`` requires a file;
+    Linux platform jobs failed with FileNotFoundError on the directory.
+    """
+    if path.is_file():
+        return path
+    if not path.is_dir():
+        raise FileNotFoundError(f"managed binary not found: {path}")
+    ordered: list[Path] = []
+    if version:
+        ordered.extend((path / f"snow-{version}", path / f"snow-{version}.exe"))
+    ordered.extend((path / "snow.exe", path / "snow"))
+    for candidate in ordered:
+        if candidate.is_file():
+            return candidate
+    snow_like = sorted(
+        p
+        for p in path.iterdir()
+        if p.is_file()
+        and (p.name in ("snow", "snow.exe") or p.name.startswith("snow-"))
+    )
+    if len(snow_like) == 1:
+        return snow_like[0]
+    names = [p.name for p in snow_like]
+    raise FileNotFoundError(
+        f"managed binary not found in {path}: expected one snow-* file, got {names}"
+    )
 
 
 def _pack_existing_binary(args: argparse.Namespace) -> None:
@@ -435,6 +467,9 @@ def build_isolated_binary() -> Path | None:
         archive_path, settings.python_path_within_archive
     )
     if binary_location:
+        binary_location = resolve_built_binary(
+            binary_location, version=settings.project_version
+        )
         print("-> binary location:", binary_location)
         if should_pack_managed_tarball(source):
             os_name, arch = managed_platform()
