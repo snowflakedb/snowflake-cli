@@ -10,6 +10,8 @@ import pytest
 import tomlkit
 from packaging.version import Version
 from requests import Response
+from snowflake.cli import __about__
+from snowflake.cli.__about__ import CLIInstallationSource
 from snowflake.cli._app.version_check import (
     NEW_VERSION_MESSAGE_INTERVAL,
     VERSION_CACHE_REFRESH_INTERVAL,
@@ -19,16 +21,26 @@ from snowflake.cli._app.version_check import (
     get_version_info,
     record_version_check_displayed,
     reset_background_refresh_thread,
+    should_hide_new_version_banner_for_auto_upgrade,
+    start_background_refresh,
     wait_for_refresh,
     was_warning_shown_recently,
 )
+from snowflake.cli._plugins.upgrade.controls import AUTO_UPGRADE_DONE_ENV
 from snowflake.cli.api.config import (
+    AUTO_UPGRADE_KEY,
     CLI_SECTION,
     IGNORE_NEW_VERSION_WARNING_KEY,
     config_init,
+    get_config_bool_value,
     get_env_variable_name,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
+
+from tests_common.feature_flag_utils import with_feature_flags
+
+AUTO_UPGRADE_ENV = get_env_variable_name(CLI_SECTION, key=AUTO_UPGRADE_KEY)
 
 _WARNING_MESSAGE = (
     "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
@@ -426,6 +438,86 @@ def test_get_new_version_msg_ignored_by_config_file(test_snowcli_config):
     config_init(test_snowcli_config)
 
     assert get_new_version_msg() is None
+
+
+@contextmanager
+def _auto_upgrade_enabled(monkeypatch, *, source: CLIInstallationSource):
+    monkeypatch.setattr(__about__, "INSTALLATION_SOURCE", source)
+    monkeypatch.delenv(AUTO_UPGRADE_DONE_ENV, raising=False)
+    monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
+    with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
+        yield
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_CACHED_VERSION)  # type: ignore
+def test_auto_upgrade_path_hides_banner_and_skips_refresh(
+    monkeypatch, test_snowcli_config
+):
+    config_text = test_snowcli_config.read_text(encoding="utf-8")
+    doc = tomlkit.parse(config_text)
+    if "cli" not in doc:
+        doc["cli"] = {}
+    doc["cli"][AUTO_UPGRADE_KEY] = True
+    doc["cli"][IGNORE_NEW_VERSION_WARNING_KEY] = False
+    test_snowcli_config.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    config_init(test_snowcli_config)
+
+    with _auto_upgrade_enabled(
+        monkeypatch, source=CLIInstallationSource.SNOWFLAKE_MANAGED
+    ):
+        assert should_hide_new_version_banner_for_auto_upgrade() is True
+        assert (
+            get_config_bool_value(
+                CLI_SECTION, key=IGNORE_NEW_VERSION_WARNING_KEY, default=False
+            )
+            is False
+        )
+        assert get_new_version_msg() is None
+        with mock.patch.object(
+            _VersionCache, "schedule_background_refresh"
+        ) as mock_schedule:
+            start_background_refresh()
+        mock_schedule.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [CLIInstallationSource.PYPI, CLIInstallationSource.BINARY],
+    ids=["pypi", "binary"],
+)
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_CACHED_VERSION)  # type: ignore
+def test_non_direct_install_still_shows_banner_when_auto_upgrade_on(
+    monkeypatch, source
+):
+    with _auto_upgrade_enabled(monkeypatch, source=source):
+        assert should_hide_new_version_banner_for_auto_upgrade() is False
+        assert get_new_version_msg() == _WARNING_MESSAGE
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_CACHED_VERSION)  # type: ignore
+def test_managed_install_still_shows_banner_when_auto_upgrade_off(monkeypatch):
+    monkeypatch.setattr(
+        __about__, "INSTALLATION_SOURCE", CLIInstallationSource.SNOWFLAKE_MANAGED
+    )
+    monkeypatch.delenv(AUTO_UPGRADE_ENV, raising=False)
+    monkeypatch.delenv(AUTO_UPGRADE_DONE_ENV, raising=False)
+    with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: False}):
+        assert should_hide_new_version_banner_for_auto_upgrade() is False
+        assert get_new_version_msg() == _WARNING_MESSAGE
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+def test_check_version_still_reports_on_auto_upgrade_path(monkeypatch):
+    with _auto_upgrade_enabled(
+        monkeypatch, source=CLIInstallationSource.SNOWFLAKE_MANAGED
+    ):
+        info = get_version_info()
+    assert info.update_available is True
+    assert info.latest_version == "2.0.0"
 
 
 @patch("snowflake.cli._app.version_check.time.time", lambda: 60)
