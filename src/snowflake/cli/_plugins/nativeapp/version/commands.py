@@ -24,6 +24,17 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    note,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -46,7 +57,164 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/native-apps/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/open-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/run-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/teardown-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-drop"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-list"
+            ),
+        ),
+        usage_notes=(
+            note(
+                "This command does not accept a role or warehouse overrides to your ",
+                code("config.toml"),
+                " file. Please add them to the native app definition in the ",
+                code("snowflake.yml"),
+                " or ",
+                code("snowflake.local.yml"),
+                " instead.",
+            ),
+            plain_text(
+                "This command creates an application package (if it does not exist) with a version and an optional patch."
+            ),
+            bullet_list(
+                bullet(
+                    "If you do not provide a version, the command uses the version specified in the ",
+                    code("manifest.yml"),
+                    " file. If the version is not present in the ",
+                    code("manifest.yml"),
+                    " file, the command throws an error.",
+                ),
+                bullet(
+                    "If you provide both the version argument and the ",
+                    code("--patch"),
+                    " option, and the application package does not already exist, the command throws an error. You should only provide the version argument to create a new application package with the required version.",
+                ),
+                bullet(
+                    "If you provide both the version argument and the ",
+                    code("--patch"),
+                    " option, and the version does not already exist, the command throws an error. You should only provide the version argument to create a new version with a predetermined patch 0.",
+                ),
+                bullet(
+                    "If you are working in a Git repository and execute this command, the command checks for local changes to your working copy. If it finds local changes, it prompts you to confirm whether it is safe to proceed. You can skip this check using ",
+                    code("--skip-git-check"),
+                    " option.",
+                ),
+                bullet(
+                    "If the application package does not exist, a new one is created by the ",
+                    ref("sf-cli"),
+                    " is tagged with a special comment ",
+                    code("GENERATED_BY_SNOWCLI"),
+                    ". It also runs any post-deploy hooks and uploads code files to the stage.",
+                ),
+                bullet(
+                    "If the application package already exists and its distribution property is ",
+                    code("INTERNAL"),
+                    ", the command checks if the package was created by the ",
+                    ref("sf-cli"),
+                    ". If it was not, the command throws an error. If the distribution of the application package is ",
+                    code("EXTERNAL"),
+                    ", no such check is performed.",
+                ),
+                bullet(
+                    "The command warns you if the application package you are working with has a different value for distribution than is set in your resolved project definition, but continues execution.",
+                ),
+                bullet(
+                    "If the version is referenced in a release directive for the application package, the command prompts you to confirm whether you want to create a patch on this version.",
+                ),
+                bullet(
+                    "If the version already exists and you do not provide a ",
+                    code("--patch"),
+                    " option, the Native Apps Framework automatically increments the patch number for this existing version. Else, it creates a custom patch under the version provided by you.",
+                ),
+                bullet(
+                    "The ",
+                    code("--label"),
+                    " option sets a label for the version or patch created with this command. If specified, this value overrides the label specified for the ",
+                    code("version"),
+                    " defined in the application's ",
+                    code("manifest.yml"),
+                    " file.",
+                ),
+                bullet(
+                    "If you specify a named version, such as ",
+                    code("snow app version create my_version"),
+                    ", the ",
+                    code("version"),
+                    " field in the ",
+                    code("manifest.yml"),
+                    " file is ignored.",
+                ),
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "These examples assume you have made the necessary changes to your code files and added them to your ",
+                    code("snowflake.yml"),
+                    " or ",
+                    code("snowflake.local.yml"),
+                    " files.",
+                ),
+                command="",
+            ),
+            Example(
+                description=plain_text(
+                    "If you want to create an application package and add a version V1 to it, use the following command:"
+                ),
+                command='snow app version create V1 --connection="dev"',
+            ),
+            Example(
+                description=plain_text(
+                    "You can also use the command above to create a version V1 on an existing application package."
+                ),
+                command="",
+            ),
+            Example(
+                description=plain_text(
+                    "If you want to add a patch to version V1 using the auto-increment functionality and invoke the interactive mode, use the following command:"
+                ),
+                command='snow app version create V1 --interactive --connection="dev"',
+            ),
+            Example(
+                description=plain_text(
+                    "If you want to add a custom patch number to version ",
+                    code("V1"),
+                    " and bypass the interactive mode, even if you are in an interactive shell, use the following command:",
+                ),
+                command='snow app version create V1 --patch 42 --force --connection="dev"',
+            ),
+            Example(
+                description=plain_text(
+                    "To create a new version from the current content of the stage without syncing files to the stage first, use the following command:"
+                ),
+                command='snow app version create V1 --from-stage --connection="dev"',
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def create(
@@ -117,7 +285,73 @@ def create(
         return MessageResult(message)
 
 
-@app.command("list", requires_connection=True)
+@app.command(
+    "list",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/native-apps/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/open-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/run-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/teardown-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-create"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-list"
+            ),
+        ),
+        usage_notes=(
+            note(
+                "This command does not accept a role or warehouse overrides to your ",
+                code("config.toml"),
+                " file. Please add them to the native app definition in the ",
+                code("snowflake.yml"),
+                " or ",
+                code("snowflake.local.yml"),
+                " instead.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example assumes you have valid ",
+                    code("snowflake.yml"),
+                    " or ",
+                    code("snowflake.local.yml"),
+                    " project definition file(s).",
+                ),
+                command="",
+            ),
+            Example(
+                description=plain_text(
+                    "If you want to list all existing versions of an application package specified in your resolved project definition, use the following command:"
+                ),
+                command='snow app version list --connection="dev" --format JSON',
+            ),
+            Example(
+                description=plain_text(
+                    "This command displays the results in JSON format instead of the default TABLE format."
+                ),
+                command="",
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def version_list(
@@ -139,7 +373,98 @@ def version_list(
     return CollectionResult(cursor)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/native-apps/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/open-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/run-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/teardown-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-create"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-list"
+            ),
+        ),
+        usage_notes=(
+            note(
+                "This command does not accept a role or warehouse overrides to your ",
+                code("config.toml"),
+                " file. Please add them to the native app definition in the ",
+                code("snowflake.yml"),
+                " or ",
+                code("snowflake.local.yml"),
+                " instead.",
+            ),
+            bullet_list(
+                bullet(
+                    "The command warns you if the application package you are working with has a different value for distribution than is set in your resolved project definition, but continues execution.",
+                ),
+                bullet(
+                    "If you do not provide a version, the command uses the version specified in the ",
+                    code("manifest.yml"),
+                    " file. If the version is not present in the ",
+                    code("manifest.yml"),
+                    " file, the command throws an error.",
+                ),
+                bullet(
+                    "If you want to drop a version that is referenced by a release directive, you must first set that release directive to a different version and then run this command.",
+                ),
+                bullet(
+                    "Because this action is destructive, the command prompts you to confirm dropping the version before it proceeds. Use ",
+                    code("--force"),
+                    " option to bypass the prompt and drop the version.",
+                ),
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "These examples assume you have valid ",
+                    code("snowflake.yml"),
+                    " or ",
+                    code("snowflake.local.yml"),
+                    " project definition file(s).",
+                ),
+                command="",
+            ),
+            Example(
+                description=plain_text(
+                    "If you want to drop an existing version V1 from your application package, use the following command:"
+                ),
+                command='snow app version drop V1 --connection="dev"',
+            ),
+            Example(
+                description=plain_text(
+                    "If you want to drop the version and invoke the interactive mode, use the following command:"
+                ),
+                command='snow app version drop V1 --interactive --connection="dev"',
+            ),
+            Example(
+                description=plain_text(
+                    "If you want to drop the version and bypass the interactive mode even if you are in an interactive shell, use the following command:"
+                ),
+                command='snow app version drop V1 --force --connection="dev"',
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def drop(

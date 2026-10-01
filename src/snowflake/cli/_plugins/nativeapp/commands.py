@@ -63,6 +63,17 @@ from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
 )
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    note,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
@@ -280,7 +291,90 @@ def _reject_snowflake_app_options(command: str, **options: object) -> None:
         )
 
 
-@app.command("setup", requires_connection=True, rich_help_panel=SNOWFLAKE_APP_PANEL)
+@app.command(
+    "setup",
+    requires_connection=True,
+    rich_help_panel=SNOWFLAKE_APP_PANEL,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/deploy-app"
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow app setup"),
+                " command bootstraps a new Snowflake App Runtime project by generating an ",
+                code("app.yml"),
+                " file. Edit ",
+                code("app.yml"),
+                " after the command completes, then run ",
+                code("snow app deploy"),
+                " to ship your changes.",
+            ),
+            plain_text(
+                "Starting with ",
+                ref("sf-cli"),
+                " version 3.17.0, ",
+                code("snow app"),
+                " commands support both Snowflake Native Apps (",
+                code("application"),
+                " and ",
+                code("application package"),
+                " entities) and Snowflake App Runtime (",
+                code("snowflake-app"),
+                " entities). Shared subcommands such as ",
+                code("bundle"),
+                ", ",
+                code("deploy"),
+                ", ",
+                code("validate"),
+                ", ",
+                code("open"),
+                ", ",
+                code("events"),
+                ", and ",
+                code("teardown"),
+                " select the correct flow automatically based on the entity type in the project file.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Initialize ",
+                    code("app.yml"),
+                    " for a Snowflake App Runtime project in the current directory:",
+                ),
+                command="snow app setup",
+            ),
+            Example(
+                description=plain_text(
+                    "After running the command, edit ",
+                    code("app.yml"),
+                    " to configure your app, then deploy it:",
+                ),
+                command="snow app deploy",
+            ),
+            Example(
+                description=plain_text(
+                    "Show the resolved configuration without writing ",
+                    code("app.yml"),
+                    ":",
+                ),
+                command="snow app setup --dry-run",
+            ),
+        ),
+    ),
+)
 def app_setup(
     app_name: Optional[str] = typer.Option(
         None,
@@ -380,7 +474,213 @@ def app_diff(
     return None
 
 
-@app.command("run", requires_connection=True, rich_help_panel=NATIVE_APP_PANEL)
+@app.command(
+    "run",
+    requires_connection=True,
+    rich_help_panel=NATIVE_APP_PANEL,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link("/developer-guide/snowflake-cli/native-apps/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/open-app"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/teardown-app"
+            ),
+        ),
+        usage_notes=(
+            note(
+                "This command does not accept a role or warehouse overrides to your ",
+                code("config.toml"),
+                " file. Please add them to the native app definition in the ",
+                code("snowflake.yml"),
+                " or ",
+                code("snowflake.local.yml"),
+                " instead.",
+            ),
+            plain_text(
+                "This command relies on the resolved project definition to determine the stage to which to upload files, which files to upload, and the name of the objects to create. For guidance on defaults, please refer to ",
+                link("/developer-guide/snowflake-cli/native-apps/about-projects"),
+                " and ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/bootstrap-commands/init",
+                    "snow init",
+                ),
+                " usage notes. You can also change them to be according to your own preference, though it is your responsibility to check if there is any clash with existing objects in your account.",
+            ),
+            bullet_list(
+                bullet(
+                    "Objects created by ",
+                    ref("sf-cli"),
+                    " are tagged with a special comment ",
+                    code("GENERATED_BY_SNOWCLI"),
+                    ".",
+                ),
+                bullet(
+                    "The role(s) used to create the application package and instance must have the proper account-level privileges to work with Snowflake Native Applications. See ",
+                    link("/developer-guide/native-apps/creating-app-package"),
+                    " and ",
+                    link("/developer-guide/native-apps/installing-testing-application"),
+                    " for more information.",
+                ),
+            ),
+            plain_text(
+                "By default, the ",
+                code("snow app run"),
+                " command creates an application package in your Snowflake account, uploads code files to its stage, validates the setup script SQL, and then creates (or upgrades) a development-mode instance of that application. You should keep the following in mind when running the default command:",
+            ),
+            bullet_list(
+                bullet(
+                    "All files specified under ",
+                    code("nativeapp.project.artifacts"),
+                    " in the project definition file(s) are uploaded to the Snowflake stage. This artifact must include a ",
+                    code("manifest.yml"),
+                    " file and its related setup script(s).",
+                ),
+                bullet(
+                    "All files specified under ",
+                    code("nativeapp.project.artifacts"),
+                    " must have already been compiled and packaged separately, if needed, before calling ",
+                    code("snow app run"),
+                    ". ",
+                    ref("sf-cli"),
+                    " does not offer any feature to perform these intermediate tasks for you, so you have full control over your build process by executing it in your own scripts.",
+                ),
+                bullet(
+                    ref("sf-cli"),
+                    " uses default application package name, stage name, and application name when creating those objects.",
+                ),
+                bullet(
+                    "Subsequent runs of ",
+                    code("snow app run"),
+                    " after the initial one compare the state of your uploaded files to the files in your local directory, and selectively upload only the modified files to save you time. If any files have changed, the application is upgraded based on the new contents of the stage.",
+                ),
+                bullet(
+                    "If the application package already exists and its distribution property is ",
+                    code("INTERNAL"),
+                    ", the command checks if the package was created by the ",
+                    ref("sf-cli"),
+                    ". If it was not, the command throws an error. If the distribution of the application package is ",
+                    code("EXTERNAL"),
+                    ", no such check is performed.",
+                ),
+                bullet(
+                    "The command warns you if the application package you are working with has a different value for distribution than is set in your resolved project definition, but continues execution.",
+                ),
+                bullet(
+                    "The application instance is created or upgraded in ",
+                    link("#label-native-apps-dev-mode", "development mode"),
+                    ". Specifically, it uses the ",
+                    link(
+                        "#label-native-apps-application-creating-stage",
+                        "staged files",
+                    ),
+                    ".",
+                ),
+            ),
+            plain_text(
+                "If you specify a ",
+                code("--version"),
+                ", ",
+                code("--patch"),
+                " or ",
+                code("--from-release-directive"),
+                " option, this command upgrades your existing application instance, or creates one if the application does not exist. It does not create an application package in this scenario.",
+            ),
+            bullet_list(
+                bullet(
+                    "If ",
+                    ref("sf-cli"),
+                    " is not able to update your application for any reason, such as trying to upgrade an application initially installed in loose files mode to use release directives instead, it attempts to drop the existing application and create a new one using the desired installation strategy. The command prompts you to confirm the drop before performing the action.",
+                ),
+                bullet(
+                    "If you do not want to interact with the command and instead force all actions, use the ",
+                    code("--force"),
+                    " option to bypass all prompts, which proxies as a yes to all the inputs asking whether to proceed with destructive actions.",
+                ),
+                bullet(
+                    ref("sf-cli"),
+                    " tries to determine if you are running the commands in an interactive shell. If ",
+                    code("--force"),
+                    " is not provided and you are executing commands in the interactive shell, it automatically chooses the interactive option for you.",
+                ),
+                bullet(
+                    "If you want to force ",
+                    ref("sf-cli"),
+                    " to interact with you even if not in an interactive shell, use the ",
+                    code("--interactive"),
+                    " option.",
+                ),
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "These examples assume you have made the necessary changes to your code files and added them to your ",
+                    code("snowflake.yml"),
+                    " or ",
+                    code("snowflake.local.yml"),
+                    " files.",
+                ),
+                command="",
+            ),
+            Example(
+                description=plain_text(
+                    "If you want to create an application package and an application using staged files, you can execute:"
+                ),
+                command=(
+                    "cd my_app_project\n"
+                    "my_app_project_build_script.sh\n"
+                    'snow app run --connection="dev"'
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "If you already have an application package with a version and a patch, want to create an application from this version and patch, and invoke the interactive mode, you can execute:"
+                ),
+                command='snow app run --version V1 --patch 12 --interactive --connection="dev"',
+            ),
+            Example(
+                description=plain_text(
+                    "Here, version ",
+                    code("V1"),
+                    " and patch ",
+                    code("12"),
+                    " are used as an example only.",
+                ),
+                command="",
+            ),
+            Example(
+                description=plain_text(
+                    "If you have an existing release directive set on an application package, want to create an application from it and bypass the interactive mode, you can execute:"
+                ),
+                command='snow app run --from-release-directive --force --connection="dev"',
+            ),
+            Example(
+                description=plain_text(
+                    "To create an application from the release directive of a non-default release channel, execute:"
+                ),
+                command='snow app run --from-release-directive --channel ALPHA --connection="dev"',
+            ),
+            Example(
+                description=plain_text(
+                    "This example shows how to pass in multiple environment variables using the ",
+                    code("--env"),
+                    " option:",
+                ),
+                command='snow app run --env source_folder="src/app" --env stage_name=mystage',
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @native_app_only("run")
 @force_project_definition_v2(app_required=True)
@@ -1095,7 +1395,130 @@ class EventResult(ObjectResult, MessageResult):
         return self._element
 
 
-@app.command("publish", requires_connection=True, rich_help_panel=NATIVE_APP_PANEL)
+@app.command(
+    "publish",
+    requires_connection=True,
+    rich_help_panel=NATIVE_APP_PANEL,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link("/developer-guide/snowflake-cli/native-apps/overview"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-create"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/overview"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-directive/overview"
+            ),
+            link("/developer-guide/snowflake-cli/native-apps/publish-app"),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow app publish"),
+                " command lets you add ",
+                ref("native-app"),
+                " versions to a release channel and then sets the selected release directive to use the provided version and patch.",
+            ),
+            plain_text(
+                "For more information on release channels and release directives, see ",
+                link("/developer-guide/snowflake-cli/native-apps/publish-app"),
+                ".",
+            ),
+            note(
+                "The release channels feature might not be available in all regions. Please contact Snowflake Support for more information.\n\nIf the release channel feature is not available, you can ignore the ",
+                code("--channel"),
+                " parameter of this command.",
+            ),
+            plain_text(
+                "This command adds the specified version to the release channel. If the release channel has reached its maximum number of versions, the oldest version not referenced by any release directive is removed from the release channel.\nAfter the version is added to the release channel, the release directive within the release channel is updated to use the provided version and patch."
+            ),
+            plain_text(
+                "If release channels are not enabled for the application package, only the release directive is updated to use the provided version and patch.\nWhen a release channel is not provided, or when using the default release channel, you can use the same commands whether release channels are enabled or not."
+            ),
+            plain_text(
+                "This command assumes that the version and patch already exist in the application package. If the version and patch do not exist, the command fails."
+            ),
+            plain_text(
+                "To create a new version or patch when using this command, use the ",
+                code("--create-version"),
+                " option. By using this option, you can use options like ",
+                code("--from-stage"),
+                " or ",
+                code("--label"),
+                ". For more information, also see the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-create",
+                    "snow app version create",
+                ),
+                " command.",
+            ),
+            plain_text(
+                "The rules for creating a new version are the same rules as for the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-create",
+                    "snow app version create",
+                ),
+                " command. In other words, ",
+                ref("sf-cli"),
+                " uses the same fallback logic to the manifest file if the version field is missing.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Publish version v1 and patch 2 to the default release directive of the default release channel or to the default release directive in the package. In this example, release channels are not enabled:"
+                ),
+                command="snow app publish --version v1 --patch 2",
+            ),
+            Example(
+                description=plain_text(
+                    "Publish version v1 and patch 2 to the ",
+                    code("customers_group_1"),
+                    " release directive of the ALPHA release channel:",
+                ),
+                command="snow app publish --version v1 --patch 2 --channel ALPHA --directive customers_group_1",
+            ),
+            Example(
+                description=plain_text(
+                    "Publish version v1 and patch 2 to the default release directive of the QA release channel:"
+                ),
+                command="snow app publish --version v1 --patch 2 --channel QA",
+            ),
+            Example(
+                description=plain_text(
+                    "Create a new version and publish it to the custom ",
+                    code("early_adopters"),
+                    " release directive of the default release channel:",
+                ),
+                command="snow app publish --version v2 --create-version --directive early_adopters",
+            ),
+            Example(
+                description=plain_text(
+                    "Add a patch to an existing version and publish it to the default release directive of the default release channel. You must use ",
+                    code("--create-version"),
+                    " and either provide the patch number or omit it to use the next available patch number:",
+                ),
+                command="snow app publish --version v2 --create-version",
+            ),
+            Example(
+                description=plain_text(
+                    "Create a new patch from the content of the stage without syncing files to the stage first, and publish it to the default release directive of the default release channel:"
+                ),
+                command="snow app publish --version v2 --patch 11 --create-version --from-stage",
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @native_app_only("publish")
 @force_project_definition_v2()

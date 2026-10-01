@@ -26,6 +26,7 @@ DOCS_ATTRIBUTE = "__snowflake_cli_command_docs__"
 REFERENCE_TEXT: dict[str, str] = {
     "dcm": "DCM Projects",
     "dcm-object": "DCM project",
+    "native-app": "Snowflake Native App",
     "sf-cli": "Snowflake CLI",
 }
 
