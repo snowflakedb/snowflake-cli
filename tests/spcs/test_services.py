@@ -1017,10 +1017,23 @@ def test_logs_incompatible_flags_follow_previous_logs(mock_execute_query, runner
     )
 
 
+def _rich_help_options_panel(help_text: str) -> str:
+    marker = "+- Options "
+    start = help_text.find(marker)
+    if start == -1:
+        return ""
+    end = help_text.find("\n+- ", start + len(marker))
+    if end == -1:
+        return help_text[start:]
+    return help_text[start:end]
+
+
 def test_logs_streaming_flag_is_hidden(runner):
     result = runner.invoke(["spcs", "service", "logs", "--help"])
     assert result.exit_code == 0
-    assert "--follow" not in result.output
+    options_panel = _rich_help_options_panel(result.output)
+    assert "--follow" not in options_panel
+    assert "--follow-interval" not in options_panel
 
 
 @patch(EXECUTE_QUERY)

@@ -732,7 +732,8 @@ def test_has_explicit_command_docs():
     assert not has_explicit_command_docs(group.commands["cmd_without_docs"])
 
 
-def test_command_docs_do_not_appear_in_help_by_default(cli):
+@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: False})
+def test_command_docs_do_not_appear_in_help_when_flag_disabled(cli):
     result = cli(_app_with_docs().create_instance())(["cmd_with_docs", "--help"])
 
     assert result.exit_code == 0, result.output
@@ -741,7 +742,6 @@ def test_command_docs_do_not_appear_in_help_by_default(cli):
     assert "Related topics" not in result.output
 
 
-@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
 def test_command_docs_appear_in_help(cli, os_agnostic_snapshot):
     result = cli(_app_with_docs().create_instance())(["cmd_with_docs", "--help"])
 
@@ -749,7 +749,6 @@ def test_command_docs_appear_in_help(cli, os_agnostic_snapshot):
     assert result.output == os_agnostic_snapshot
 
 
-@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
 @pytest.mark.parametrize(
     "docs",
     [
@@ -797,7 +796,6 @@ def test_command_docs_are_readable_with_connection_options():
     assert get_command_docs(group.commands["other"]) == CommandDocs()
 
 
-@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
 def test_command_docs_usage_notes_are_plain_text_in_help(cli):
     app = SnowTyperFactory(name="demo")
 

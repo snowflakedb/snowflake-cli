@@ -16,9 +16,6 @@ from __future__ import annotations
 
 import pytest
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.feature_flags import FeatureFlag
-
-from tests_common.feature_flag_utils import with_feature_flags
 
 
 @pytest.mark.parametrize(
@@ -64,7 +61,6 @@ def _panel_lines(output: str) -> list[str]:
     return lines
 
 
-@with_feature_flags({FeatureFlag.ENABLE_COMMAND_DOCS_IN_HELP: True})
 @pytest.mark.parametrize("silent", [False, True], ids=["help", "silent-help"])
 def test_cortex_complete_help_includes_command_docs(runner, silent):
     args = ["cortex", "complete"]

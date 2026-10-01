@@ -152,6 +152,42 @@
   |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
+  +- Usage notes ----------------------------------------------------------------+
+  | The streamlit get-url command returns a url link to an existing Streamlit    |
+  | application. You can also use the --open option to automatically open the    |
+  | Streamlit in a new tab in your browser.                                      |
+  |                                                                              |
+  | Note the following requirements:                                             |
+  |                                                                              |
+  | • The app must already be deployed.                                          |
+  | • You must use the same connection that was used to deploy the app.          |
+  | • If your app is running under different database and schema than specified  |
+  |   in the connection, you must provide them in name as a fully-qualified      |
+  |   name, such as database.schema.name.                                        |
+  +------------------------------------------------------------------------------+
+  +- Examples -------------------------------------------------------------------+
+  | Get a URL for an app using the database and schema specified in the default  |
+  | connection and opens it in your browser:                                     |
+  | snow streamlit get-url my_streamlit_app --open                               |
+  | Output:                                                                      |
+  | https://snowflake.com/provider-deduced-from-connection/#/streamlit-apps/DB.P |
+  | UBLIC.MY_STREAMLIT_APP                                                       |
+  |                                                                              |
+  | Get a URL for an app using a fully-qualified database and schema name:       |
+  | snow streamlit get-url database.schema.my_streamlit_app                      |
+  | Output:                                                                      |
+  | https://snowflake.com/provider-deduced-from-connection/#/streamlit-apps/DATA |
+  | BASE.SCHEMA.MY_STREAMLIT_APP                                                 |
+  +------------------------------------------------------------------------------+
+  +- Related topics -------------------------------------------------------------+
+  | • https://docs.snowflake.com/en/developer-guide/snowflake-cli/index          |
+  | • Snowflake CLI command reference                                            |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/overview                                                 |
+  | • Streamlit commands                                                         |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/streamlit-commands/overview                              |
+  +------------------------------------------------------------------------------+
   
   
   '''
