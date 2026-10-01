@@ -12,7 +12,8 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
-from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
+from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
+from snowflake.cli._plugins.sql.lexer import CliLexer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
     DEFAULT_REPL_PROMPT,
@@ -83,6 +84,7 @@ class Repl:
         local_only: bool = False,
         no_prompt_exit_repl: bool = False,
         prompt_format: str | None = None,
+        auto_completion: bool = True,
     ):
         """Requires a `SqlManager` instance to execute queries.
 
@@ -98,6 +100,7 @@ class Repl:
         self._local_only = local_only
         self._no_prompt_exit_repl = no_prompt_exit_repl
         self._prompt_format = prompt_format
+        self._auto_completion = auto_completion
         # Live SnowflakeConnection captured after a successful query so
         # drawing a prompt never looks up the connection cache (that lookup
         # can redial). Only captured when a format is set, and re-read after
@@ -106,7 +109,7 @@ class Repl:
         self._session_connection = None
         self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
-        self._completer = cli_completer
+        self._completer = SqlReplCompleter() if auto_completion else None
         self._repl_key_bindings = self._setup_key_bindings()
         self._yes_no_keybindings = self._setup_yn_key_bindings()
         self._sql_manager = sql_manager
@@ -232,6 +235,7 @@ class Repl:
                 msg,
                 lexer=self._lexer,
                 completer=self._completer,
+                complete_while_typing=False,
                 multiline=True,
                 wrap_lines=True,
                 key_bindings=self._repl_key_bindings,
@@ -358,6 +362,7 @@ class Repl:
                     f"{question} (y/n): ",
                     lexer=None,
                     completer=None,
+                    complete_while_typing=False,
                     multiline=False,
                     wrap_lines=False,
                     key_bindings=self._yes_no_keybindings,

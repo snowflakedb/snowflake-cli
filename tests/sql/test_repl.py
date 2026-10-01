@@ -7,6 +7,7 @@ import pytest
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.keys import Keys
+from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.repl import Repl, _print_sql_elapsed
 from snowflake.cli._plugins.sql.repl_commands import EditCommand
@@ -847,6 +848,56 @@ def test_repl_keeps_historical_default_prompt(repl):
     repl.session.prompt = mock.Mock(return_value="exit")
     repl.repl_prompt()
     assert repl.session.prompt.call_args.args[0] == " > "
+
+
+def test_repl_prompt_disables_complete_while_typing(repl):
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    assert repl.session.prompt.call_args.kwargs["complete_while_typing"] is False
+
+
+def test_repl_uses_sql_repl_completer_when_auto_completion_enabled(repl):
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    completer = repl.session.prompt.call_args.kwargs["completer"]
+    assert isinstance(completer, SqlReplCompleter)
+
+
+def test_repl_uses_no_completer_when_auto_completion_disabled():
+    repl = Repl(SqlManager(), auto_completion=False)
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    assert repl.session.prompt.call_args.kwargs["completer"] is None
+    assert repl.session.prompt.call_args.kwargs["complete_while_typing"] is False
+
+
+@pytest.mark.parametrize(
+    "env_var, config_value, expected",
+    [
+        ({}, {}, True),
+        ({}, {"auto_completion": "false"}, False),
+        ({"SNOWFLAKE_CLI_AUTO_COMPLETION": "false"}, {}, False),
+        ({"SNOWFLAKE_CLI_AUTO_COMPLETION": "true"}, {"auto_completion": "false"}, True),
+    ],
+)
+@mock.patch("snowflake.cli.api.config.get_config_section")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl")
+def test_auto_completion_config_is_passed_to_repl(
+    mock_repl_cls,
+    mock_get_config_section,
+    runner,
+    env_var,
+    config_value,
+    expected,
+):
+    mock_repl_cls.return_value.run.return_value = None
+    mock_get_config_section.return_value = config_value
+
+    with mock.patch.dict(os.environ, env_var):
+        result = runner.invoke(["sql"])
+
+    assert result.exit_code == 0
+    assert mock_repl_cls.call_args.kwargs["auto_completion"] is expected
 
 
 def _config_with_prompt_format(prompt_format: str | None) -> str:

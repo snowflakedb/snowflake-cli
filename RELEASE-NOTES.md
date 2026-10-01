@@ -22,6 +22,7 @@
 * `snow bundle` manages Snowflake code bundles, with `create`, `list`, `alter`, `delete`, `execute`, `status`, `cancel`, and `history` subcommands. A bundle is created from a stage path, a workspace path, or a local directory, and runs at a given entrypoint either synchronously or asynchronously.
 
 * `snow sql` custom REPL prompts now support hexadecimal foreground (`[#rrggbb]`) and background (`[bg:#rrggbb]`) colours. Each directive styles the prompt text that follows it.
+* Interactive `snow sql` completes SQL keywords, functions, and data types when you press Tab. Completions appear only on Tab, not while typing. Set `[cli] auto_completion = false` in `config.toml` to turn this off.
 ## Fixes and improvements
 * `snow sql` no longer aborts a statement whose text contains Rich-markup-like tokens (for example `[/x]`). The statement is echoed and executed as written. The same applies to streamed SPCS image-build and remote-build log lines.
 * `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.

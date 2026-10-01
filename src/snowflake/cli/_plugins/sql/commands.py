@@ -367,6 +367,9 @@ def execute_sql(
             raise CliArgumentError("single transaction cannot be used with REPL")
         from snowflake.cli._plugins.sql.repl import Repl
 
+        auto_completion = get_config_bool_value(
+            "cli", key="auto_completion", default=True
+        )
         Repl(
             SqlManager(),
             data=data,
@@ -375,6 +378,7 @@ def execute_sql(
             local_only=local_only,
             no_prompt_exit_repl=no_prompt_exit_repl,
             prompt_format=prompt_format,
+            auto_completion=auto_completion,
         ).run()
         return EmptyResult()
 
