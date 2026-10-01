@@ -24,6 +24,17 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    PUBLIC_PREVIEW_NO_GOV,
+    CommandDocs,
+    Example,
+    RelatedLink,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import like_option
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -41,8 +52,74 @@ app = SnowTyperFactory(
 
 log = logging.getLogger(__name__)
 
+_NATIVE_APP_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/native-apps/overview"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/native-apps-commands/overview"
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/native-apps-commands/publish-app"
+    ),
+)
 
-@app.command("list", requires_connection=True)
+
+def _release_directive_related(*extra: RelatedLink) -> tuple[RelatedLink, ...]:
+    return (
+        _NATIVE_APP_RELATED
+        + (
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/overview"
+            ),
+            link("/developer-guide/snowflake-cli/native-apps/publish-app"),
+        )
+        + extra
+    )
+
+
+@app.command(
+    "list",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_directive_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow app release-directive list"),
+                " command lists all the release directives available in the current application package.\n",
+                "If no release channel is specified, release directives for all channels are listed. If a release channel is specified, only release directives for that channel are listed. If ",
+                code("--like"),
+                " is provided, only release directives matching the SQL pattern are listed.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "List all release directives associated with all release channels in an application package:"
+                ),
+                command="snow app release-directive list",
+            ),
+            Example(
+                description=plain_text(
+                    "List all release directives associated with a specific release channel in an application package:"
+                ),
+                command="snow app release-directive list --channel ALPHA",
+            ),
+            Example(
+                description=plain_text(
+                    "List all release directives starting with the word ",
+                    code("vip"),
+                    ":",
+                ),
+                command="snow app release-directive list --like vip%",
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_directive_list(
@@ -80,7 +157,79 @@ def release_directive_list(
     return CollectionResult(result)
 
 
-@app.command("set", requires_connection=True)
+@app.command(
+    "set",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_directive_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow app release-directive set"),
+                " command sets the release directive for an application package.\n",
+                "There are two types of release directives: default and custom.",
+            ),
+            bullet_list(
+                bullet(
+                    "When you set the default release directive, target accounts are not accepted."
+                ),
+                bullet(
+                    "When you set a new custom release directive, the target accounts are required."
+                ),
+                bullet(
+                    "When you update an existing custom release directive, the target accounts are optional."
+                ),
+            ),
+            plain_text(
+                "Target accounts are provided in the format ORGANIZATION_NAME.ACCOUNT_NAME, separated by commas.\n\n",
+                "When release channels are enabled in the application package, the release directive is scoped to the specified release channel; otherwise, it is scoped to the application package.\n\n",
+                "Snowflake recommends using the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/publish-app",
+                    "snow app publish",
+                ),
+                " command to publish the application package and using the ",
+                code("snow app release-directive set"),
+                " command for creating custom release directives.\n",
+                "See ",
+                link("/developer-guide/snowflake-cli/native-apps/publish-app"),
+                " for more information.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Set the default release directive for an application package:"
+                ),
+                command="snow app release-directive set DEFAULT --version v1 --patch 1",
+            ),
+            Example(
+                description=plain_text(
+                    "Set a custom release directive for an application package:"
+                ),
+                command=(
+                    "snow app release-directive set CUSTOM_DIR --version v1 --patch 1 "
+                    "--target-accounts ORG1.ACCT1,ORG2.ACCT2"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Update an existing custom release directive for an application package:"
+                ),
+                command="snow app release-directive set CUSTOM_DIR --version v1 --patch 2",
+            ),
+            Example(
+                description=plain_text(
+                    "Set the default release directive of a release channel when the application package has release channels enabled:"
+                ),
+                command=(
+                    "snow app release-directive set DEFAULT --version v1 --patch 1 "
+                    "--channel ALPHA"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_directive_set(
@@ -132,7 +281,44 @@ def release_directive_set(
     return MessageResult("Successfully set release directive.")
 
 
-@app.command("unset", requires_connection=True)
+@app.command(
+    "unset",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_directive_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow app release-directive unset"),
+                " command removes a custom release directive from an application package.\n",
+                "The specified release directive must already exist in the application package.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Remove the custom release directive ",
+                    code("my_directive"),
+                    " from the application package:\n\nWhen release channels are enabled, release directives become part of a release channel.",
+                ),
+                command="snow app release-directive unset my_directive",
+            ),
+            Example(
+                description=plain_text(
+                    "Remove the custom ",
+                    code("special_alpha_directive"),
+                    " release directive associated with release channel ",
+                    code("ALPHA"),
+                    ":",
+                ),
+                command=(
+                    "snow app release-directive unset special_alpha_directive "
+                    "--channel ALPHA"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_directive_unset(
@@ -165,7 +351,54 @@ def release_directive_unset(
     return MessageResult(f"Successfully unset release directive {directive}.")
 
 
-@app.command("add-accounts", requires_connection=True)
+@app.command(
+    "add-accounts",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_directive_related(),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow app release-directive add-accounts"),
+                " command adds a list of accounts to an existing custom release directive for an application package.\n",
+                "The custom release directive must already exist in the application package (or the release channel if enabled).\n\n",
+                "To specify the accounts, provide comma-separated values in the format ORGANIZATION_NAME.ACCOUNT_NAME.\n\n",
+                "To view the available release directives for the application package, use the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-directive/list",
+                    "snow app release-directive list",
+                ),
+                " command.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "To add accounts to the ",
+                    code("my_directive"),
+                    " custom release directive:",
+                ),
+                command=(
+                    "snow app release-directive add-accounts my_directive "
+                    "--target-accounts ORG1.ACCT1,ORG2.ACCT2"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "When release channels are enabled, release directives become part of a release channel. To add accounts to the ",
+                    code("special_alpha_directive"),
+                    " custom release directive associated with release channel ",
+                    code("ALPHA"),
+                    ":",
+                ),
+                command=(
+                    "snow app release-directive add-accounts special_alpha_directive "
+                    "--channel ALPHA --target-accounts ORG1.ACCT1,ORG2.ACCT2"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_directive_add_accounts(
@@ -204,7 +437,55 @@ def release_directive_add_accounts(
     return MessageResult("Successfully added accounts to the release directive.")
 
 
-@app.command("remove-accounts", requires_connection=True)
+@app.command(
+    "remove-accounts",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_directive_related(),
+        banners=(PUBLIC_PREVIEW_NO_GOV,),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow app release-directive remove-accounts"),
+                " command removes a list of accounts from an existing custom release directive for an application package.\n",
+                "The specified release directive must already exist in the application package (or the release channel if enabled).\n\n",
+                "To specify the accounts, provide comma-separated ORGANIZATION_NAME.ACCOUNT_NAME values.\n\n",
+                "To view the available release directives for the application package, use the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-directive/list",
+                    "snow app release-directive list",
+                ),
+                " command.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Remove accounts from the ",
+                    code("my_directive"),
+                    " custom release directive:",
+                ),
+                command=(
+                    "snow app release-directive remove-accounts my_directive "
+                    "--target-accounts ORG1.ACCT1,ORG2.ACCT2"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "When release channels are enabled, release directives become part of a release channel. To remove accounts from the ",
+                    code("special_alpha_directive"),
+                    " custom release directive associated with release channel ",
+                    code("ALPHA"),
+                    ":",
+                ),
+                command=(
+                    "snow app release-directive remove-accounts special_alpha_directive "
+                    "--channel ALPHA --target-accounts ORG1.ACCT1,ORG2.ACCT2"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_directive_remove_accounts(
