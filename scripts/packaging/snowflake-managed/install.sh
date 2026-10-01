@@ -14,7 +14,8 @@
 # limitations under the License.
 
 # snowflake-managed installer for Snowflake CLI.
-# Releng copies this file to https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh
+# SnowflakeCLI-Assemble-Managed stages this file on sfc-eng-jenkins; Releng
+# copyArtifacts publishes it to https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh
 #
 # Layout (must match src/snowflake/cli/_plugins/upgrade/layout.py):
 #   ~/.local/share/snowflake-cli/<version>/snow

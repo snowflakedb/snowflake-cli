@@ -218,7 +218,7 @@ validate_installation() {
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
 
 # Opt-in second output: snowflake-managed tarball of the already-signed binary.
-# BINARY pkg path above is unchanged. Releng sets BUILD_SNOWFLAKE_MANAGED_TARBALL=1 in PR-H.
+# BINARY pkg path above is unchanged. SnowflakeCLI.groovy sets BUILD_SNOWFLAKE_MANAGED_TARBALL=1.
 build_snowflake_managed_tarball() {
   if [[ "${BUILD_SNOWFLAKE_MANAGED_TARBALL:-}" != "1" ]]; then
     return 0

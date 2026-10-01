@@ -48,7 +48,8 @@ execute_build() {
 }
 
 # Opt-in second output: snowflake-managed tarball + manifest fragment.
-# BINARY snow at $DIST_DIR/snow/snow is left untouched. Releng sets this in PR-H.
+# BINARY snow at $DIST_DIR/snow/snow is left untouched.
+# SnowflakeCLI.groovy sets BUILD_SNOWFLAKE_MANAGED_TARBALL=1 on platform jobs.
 build_snowflake_managed_tarball() {
   if [[ "${BUILD_SNOWFLAKE_MANAGED_TARBALL:-}" != "1" ]]; then
     return 0
