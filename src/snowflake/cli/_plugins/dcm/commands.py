@@ -1625,6 +1625,12 @@ def refresh(
         return reporter.process(result)
 
 
+def _test_output_path(output_path: Optional[str]) -> Optional[str]:
+    """Write the scripts result to its own subfolder, so it can't overwrite the
+    expectations run's test_result.json in a combined run."""
+    return f"{output_path}/test" if output_path else None
+
+
 def _process_test_outcomes(
     outcomes: List[Tuple[Reporter, SnowflakeCursor]],
     execution_failures: List[str],
@@ -1816,17 +1822,21 @@ def test(
                         from_location,
                         assets=context.assets,
                     )
-                    unit_test_result = progress.run_step(
-                        TEST.key,
-                        lambda step: manager.unit_test(
-                            project_identifier=project_id,
-                            from_stage=effective_stage,
-                            configuration=context.configuration,
-                            variables=variables,
-                            scripts=scripts,
-                            env_vars=env_vars,
-                        ),
-                    )
+                    with output_stage(
+                        project_id, command_name="test", save_output=save_output
+                    ) as output_path:
+                        unit_test_result = progress.run_step(
+                            TEST.key,
+                            lambda step: manager.unit_test(
+                                project_identifier=project_id,
+                                from_stage=effective_stage,
+                                configuration=context.configuration,
+                                variables=variables,
+                                scripts=scripts,
+                                env_vars=env_vars,
+                                output_path=_test_output_path(output_path),
+                            ),
+                        )
                 except Exception as e:
                     if not combined:
                         raise

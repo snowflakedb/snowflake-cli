@@ -3454,6 +3454,7 @@ class TestDCMTest:
             variables=None,
             scripts=None,
             env_vars={},
+            output_path=None,
         )
         mock_dcm_manager().test.assert_not_called()
 
@@ -3545,6 +3546,7 @@ class TestDCMTest:
             variables=None,
             scripts=expected_scripts,
             env_vars={},
+            output_path=None,
         )
 
     def test_whitespace_only_script_name_is_not_silently_dropped(
@@ -3579,6 +3581,7 @@ class TestDCMTest:
             variables=None,
             scripts=[" "],
             env_vars={},
+            output_path=None,
         )
         mock_dcm_manager().test.assert_not_called()
 
@@ -3639,6 +3642,118 @@ class TestDCMTest:
             )
 
             assert result.exit_code == 0, result.output
+            _assert_json_dumped("unit_test", unit_test_result, project_dir)
+
+    def test_all_scripts_with_save_output_passes_scoped_output_path(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_output_stage,
+    ):
+        unit_test_result = {"status": "SUCCESSFUL", "scripts": []}
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--save-output"]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().unit_test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            from_stage="TMP_STAGE",
+            configuration=None,
+            variables=None,
+            scripts=None,
+            env_vars={},
+            output_path=f"{_created_output_path(mock_output_stage)}/test",
+        )
+        mock_output_stage.get_recursive.assert_called_once()
+
+    def test_all_scripts_without_save_output_creates_no_output_stage(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_output_stage,
+    ):
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps({"status": "SUCCESSFUL", "scripts": []}),)],
+            columns=("result",),
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "my_project", "--all-scripts"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_dcm_manager().unit_test.call_args.kwargs["output_path"] is None
+        mock_output_stage.create.assert_not_called()
+        mock_output_stage.get_recursive.assert_not_called()
+
+    def test_scripts_and_expectations_with_save_output_keep_both_results(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_output_stage,
+    ):
+        """The backend's scripts file is test_result.json, same as the expectations
+        reporter's own file - it must land under out/test/ so both survive."""
+        backend_file = {"version": 2, "status": "SUCCESSFUL", "from_backend": True}
+        unit_test_result = {"status": "SUCCESSFUL", "scripts": []}
+        expectations_result = {"status": "SUCCESSFUL", "expectations": []}
+
+        def download_backend_file(stage_path, dest_path, **kwargs):
+            (dest_path / "test").mkdir(parents=True, exist_ok=True)
+            (dest_path / "test" / "test_result.json").write_text(
+                json.dumps(backend_file)
+            )
+
+        mock_output_stage.get_recursive.side_effect = download_backend_file
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps(expectations_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project") as project_dir:
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "test",
+                    "my_project",
+                    "--all-scripts",
+                    "--expectations",
+                    "--save-output",
+                ]
+            )
+
+            assert result.exit_code == 0, result.output
+            out_dir = project_dir / "out"
+            assert (
+                json.loads((out_dir / "test" / "test_result.json").read_text())
+                == backend_file
+            )
+            _assert_json_dumped("test", expectations_result, project_dir)
             _assert_json_dumped("unit_test", unit_test_result, project_dir)
 
     @pytest.mark.parametrize("format_name", ["json", "json_ext"])

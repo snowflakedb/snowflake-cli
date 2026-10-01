@@ -353,13 +353,15 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         scripts: List[str] | None = None,
         env_vars: dict[str, str] | None = None,
+        output_path: str | None = None,
     ) -> SnowflakeCursor:
         log.info(
-            "Running DCM unit_test manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, scripts_count=%d).",
+            "Running DCM unit_test manager operation (project_identifier=%s, has_configuration=%s, variables_count=%d, scripts_count=%d, has_output_path=%s).",
             project_identifier,
             bool(configuration),
             len(variables or []),
             len(scripts or []),
+            bool(output_path),
         )
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} TEST"
         query += self._get_configuration_and_variables_query(configuration, variables)
@@ -367,6 +369,8 @@ class DCMProjectManager(SqlExecutionMixin):
             query += " ENVIRONMENT (?)"
         query += self._get_from_stage_query(from_stage)
         query += self._get_scripts_query(scripts)
+        if output_path:
+            query += f" OUTPUT_PATH {output_path}"
         return self._execute_with_optional_env_vars(query, env_vars)
 
     def _execute_with_optional_env_vars(

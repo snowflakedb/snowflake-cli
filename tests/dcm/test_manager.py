@@ -676,6 +676,34 @@ def test_unit_test_project_with_env_vars(mock_execute_with_params, mock_execute_
     mock_execute_query.assert_not_called()
 
 
+@mock.patch(execute_queries)
+@pytest.mark.parametrize(
+    "scripts,expected_suffix",
+    [
+        (None, " FROM @test_stage OUTPUT_PATH @output_stage/outputs/test"),
+        (
+            ["script_one"],
+            ' FROM @test_stage SCRIPTS ("script_one")'
+            " OUTPUT_PATH @output_stage/outputs/test",
+        ),
+    ],
+)
+def test_unit_test_project_with_output_path(
+    mock_execute_query, scripts, expected_suffix
+):
+    mgr = DCMProjectManager()
+    mgr.unit_test(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        scripts=scripts,
+        output_path="@output_stage/outputs/test",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') TEST" + expected_suffix
+    )
+
+
 @pytest.mark.parametrize(
     "scripts,expected",
     [
