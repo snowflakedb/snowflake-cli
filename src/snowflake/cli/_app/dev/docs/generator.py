@@ -17,10 +17,7 @@ from __future__ import annotations
 import logging
 
 from click import Command
-from snowflake.cli._app.dev.docs.commands_docs_generator import (
-    generate_command_docs,
-    generate_command_pages,
-)
+from snowflake.cli._app.dev.docs.commands_docs_generator import generate_command_pages
 from snowflake.cli._app.dev.docs.project_definition_docs_generator import (
     generate_project_definition_docs,
 )
@@ -30,21 +27,7 @@ log = logging.getLogger(__name__)
 
 
 def generate_docs(root: SecurePath, command: Command):
-    """
-    Generates documentation for each command, its options and for the project definition.
-    """
-    root.mkdir(exist_ok=True)
-    generate_command_docs(root / "commands", command)
-    generate_project_definition_docs(root / "project_definition")
-
-
-def generate_docs_pages(root: SecurePath, command: Command):
-    """
-    Generates a full MDX page for each terminal command. Usage notes and
-    examples come from the ``docs`` metadata on ``@app.command(...)``. If a
-    section is not declared, the matching docstring ``##`` block is used
-    when present; otherwise the section is omitted. Related topics are
-    included only when declared.
-    """
+    """Generate command-reference MDX and project-definition reference under ``gen_docs``."""
     root.mkdir(exist_ok=True)
     generate_command_pages(root / "pages", command)
+    generate_project_definition_docs(root / "project_definition")

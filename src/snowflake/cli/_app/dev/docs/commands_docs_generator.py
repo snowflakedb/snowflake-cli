@@ -35,32 +35,7 @@ from typer.core import TyperArgument
 
 log = logging.getLogger(__name__)
 
-CMD_USAGE_TMPL = "usage.mdx.jinja2"
-OVERVIEW_TMPL = "overview.mdx.jinja2"
 CMD_PAGE_TMPL = "page.mdx.jinja2"
-
-
-def generate_command_docs(
-    root: SecurePath, command: Command, cmd_parts: Optional[List] = None
-):
-    """
-    Iterates recursively through commands info. Creates a file structure resembling
-    commands structure. For each terminal command creates a "usage" MDX file.
-    """
-    if getattr(command, "hidden", False):
-        return
-
-    root.mkdir(exist_ok=True)
-    if cmd_parts is None:
-        _render_command_usage(command, root, cmd_parts, template_name=OVERVIEW_TMPL)
-
-    cmd_parts = cmd_parts or []
-    if hasattr(command, "commands"):
-        for command_name, command_info in command.commands.items():
-            path = root / command.name if command.name != "default" else root
-            generate_command_docs(path, command_info, [*cmd_parts, command_name])
-    else:
-        _render_command_usage(command, root, cmd_parts)
 
 
 def generate_command_pages(
@@ -120,33 +95,6 @@ def _split_params(command: Command):
         else:
             options.append(param)
     return arguments, options
-
-
-def _render_command_usage(
-    command: Command,
-    root: SecurePath,
-    path: Optional[List] = None,
-    template_name: str = CMD_USAGE_TMPL,
-):
-    # This is end command
-    command_name = command.name
-    env = _template_env_with_filters()
-    template = env.get_template(template_name)
-    arguments, options = _split_params(command)
-
-    # MDX include fragments that hand-authored command-reference pages in
-    # snowflake-prod-docs compose via MDX imports.
-    file_path = root / f"usage-{command_name}.mdx"
-    log.info("Creating %s", file_path)
-    command_help_params = _split_docstring(command.help)
-    template_params = {
-        "name": command_name,
-        "options": options,
-        "arguments": arguments,
-        "path": path,
-    }
-    with file_path.open("w+", encoding="utf-8") as fh:
-        fh.write(template.render(command_help_params | template_params))
 
 
 def _write_command_page(command: Command, root: SecurePath, path: List):

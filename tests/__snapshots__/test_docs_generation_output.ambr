@@ -1,7 +1,22 @@
 # serializer version: 1
-# ---
 # name: test_flags_have_default_values
   '''
+  ---
+  title: snow cortex complete
+  description: ''
+  ---
+  
+  import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
+  
+  # snow cortex complete
+  
+  <RelatedTopics>
+  - [](/developer-guide/snowflake-cli/index)
+  - [Snowflake CLI command reference](/developer-guide/snowflake-cli/command-reference/overview)
+  - [](/developer-guide/snowflake-cli/command-reference/cortex-commands/overview)
+  - [Snowflake Cortex](/user-guide/snowflake-cortex/aisql)
+  </RelatedTopics>
+  
   Given a prompt, the command generates a response using your choice of language model. In the simplest use case, the prompt is a single string. You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
   
   ## Syntax
@@ -65,7 +80,6 @@
   
   </dd>
   </dl>
-  
   
   ## Options
   
@@ -323,6 +337,32 @@
   
   </dd>
   </dl>
+  
+  <Help />
+  
+  ## Usage notes
+  
+  In the simplest use case, the prompt is a single string. You can also provide a JSON file with conversation history, including multiple prompts and responses, for interactive chat-style conversation.
+  
+  ## Examples
+  
+  - Ask a question using the default model.
+    ```snowcli
+    snow cortex complete "Is 5 more than 4? Please answer using one word without a period." -c snowhouse
+    ```
+  
+    ```text
+    Yes
+    ```
+  
+  - Ask a question using a specified model.
+    ```snowcli
+    snow cortex complete "Is 5 more than 4? Please answer using one word without a period." -c snowhouse --model deepseek-r1
+    ```
+  
+    ```text
+    Yes
+    ```
   
   '''
 # ---

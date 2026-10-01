@@ -273,7 +273,7 @@ def list_(...):
 | `Example(...)` | Example command line; optional `description` and `output` |
 | `Include` | Reusable prod-docs MDX fragment (`banners` or embedded in usage notes) |
 
-To preview output, run `snow --docs-pages` and check the generated
+To preview output, run `snow --docs` and check the generated
 `.mdx` files under `gen_docs/pages/`. The left-hand path in
 `scripts/command_docs_paths.yaml` must match that layout (one `.mdx` per
 terminal command, path segments = `snow` subcommand names).

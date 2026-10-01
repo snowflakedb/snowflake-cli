@@ -14,7 +14,7 @@
 
 """Regenerate CLI command pages and copy them into snowflake-prod-docs.
 
-Release helper: run ``snow --docs-pages`` in this repo and copy mapped pages
+Release helper: run ``snow --docs`` in this repo and copy mapped pages
 into a local snowflake-prod-docs checkout.
 
 Writer-only: does not run git or open a PR. Use ``publish_prod_docs.py`` for
@@ -159,7 +159,7 @@ def generate_pages(cli_root: Path) -> Path:
     src = str(cli_root / "src")
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = src if not existing else src + os.pathsep + existing
-    command = [sys.executable, "-m", "snowflake.cli._app", "--docs-pages"]
+    command = [sys.executable, "-m", "snowflake.cli._app", "--docs"]
     completed = subprocess.run(
         command,
         cwd=cli_root,

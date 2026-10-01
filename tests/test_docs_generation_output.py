@@ -185,25 +185,20 @@ def test_all_commands_have_generated_files(
 ):
     runner.invoke(["--docs"])
 
-    commands_path = Path(temporary_directory) / "gen_docs" / "commands"
+    pages_path = Path(temporary_directory) / "gen_docs" / "pages"
 
     errors = []
 
-    def _check(command: Command, directory_path: Path, command_path=None):
-        if command_path is None:
-            command_path = []
+    def _check(command: Command, command_path: list[str] | None = None):
+        command_path = command_path or []
         if getattr(command, "hidden", False):
             return
         if hasattr(command, "commands"):
             for command_name, command_info in command.commands.items():
-                new_directory_path = (
-                    directory_path / command.name
-                    if command.name != "default"
-                    else directory_path
-                )
-                _check(command_info, new_directory_path, [*command_path, command_name])
+                _check(command_info, [*command_path, command_name])
         else:
-            if not (directory_path / f"usage-{command.name}.mdx").exists():
+            page = pages_path.joinpath(*command_path).with_suffix(".mdx")
+            if not page.is_file():
                 errors.append(
                     f"Command `{' '.join(command_path)}` documentation was not properly generated"
                 )
@@ -212,7 +207,7 @@ def test_all_commands_have_generated_files(
     assert (
         len(app.commands) >= 1
     )  # confirm that test is actually checking some commands
-    _check(get_click_context().command, commands_path)
+    _check(app)
 
     assert len(errors) == 0, "\n".join(errors)
 
@@ -224,11 +219,7 @@ def test_flags_have_default_values(runner, temporary_directory, snapshot):
     # "Default: False" case
     # "--diag-log-path" flag, with tempdir path as default value
     example_generated_file = (
-        Path(temporary_directory)
-        / "gen_docs"
-        / "commands"
-        / "cortex"
-        / "usage-complete.mdx"
+        Path(temporary_directory) / "gen_docs" / "pages" / "cortex" / "complete.mdx"
     )
     assert example_generated_file.exists()
     assert example_generated_file.read_text() == snapshot
@@ -913,8 +904,8 @@ def test_command_docs_usage_notes_win_over_docstring():
     assert "From the docstring." not in rendered
 
 
-def test_docs_pages_keep_git_setup_docstring_usage_notes(runner, temporary_directory):
-    result = runner.invoke(["--docs-pages"])
+def test_docs_keep_git_setup_docstring_usage_notes(runner, temporary_directory):
+    result = runner.invoke(["--docs"])
     assert result.exit_code == 0, result.output
 
     page_path = Path(temporary_directory) / "gen_docs" / "pages" / "git" / "setup.mdx"
@@ -926,10 +917,10 @@ def test_docs_pages_keep_git_setup_docstring_usage_notes(runner, temporary_direc
     assert "## Usage notes\n\nNone" not in content
 
 
-def test_docs_pages_generated_for_each_command(
+def test_docs_generated_for_each_command(
     runner, temporary_directory, get_click_context
 ):
-    result = runner.invoke(["--docs-pages"])
+    result = runner.invoke(["--docs"])
     assert result.exit_code == 0, result.output
 
     pages_path = Path(temporary_directory) / "gen_docs" / "pages"

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Maps pages written by `snow --docs-pages` (under gen_docs/pages/) to paths in
+# Maps pages written by `snow --docs` (under gen_docs/pages/) to paths in
 # a local snowflake-prod-docs checkout. Only listed commands are copied.
 
 app/publish.mdx: content/en/developer-guide/snowflake-cli/command-reference/native-apps-commands/publish-app.mdx
