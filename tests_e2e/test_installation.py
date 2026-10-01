@@ -16,7 +16,20 @@ from pathlib import Path
 import pytest
 
 from tests_common import skip_snowpark_on_newest_python
-from tests_e2e.conftest import subprocess_check_output, subprocess_run
+from tests_e2e.conftest import (
+    _clean_output,
+    capture_subprocess_stdout,
+    subprocess_check_output,
+    subprocess_run,
+)
+
+_ROUNDED_TO_SQUARE_BOX = (("╭", "┌"), ("╮", "┐"), ("╰", "└"), ("╯", "┘"))
+
+
+def _simulate_windows_rich_box_corners(text: str) -> str:
+    for rounded, square in _ROUNDED_TO_SQUARE_BOX:
+        text = text.replace(rounded, square)
+    return text
 
 
 @pytest.mark.e2e
@@ -28,12 +41,22 @@ def test_snow_help(snowcli, snapshot):
 
 @pytest.mark.e2e
 @skip_snowpark_on_newest_python
-def test_snow_sql(snowcli, test_root_path, snapshot):
+def test_snow_help_windows_box_drawing_normalizes_like_unix(snowcli):
+    """CI on Windows emits square box chars; must match normalized unix snapshots."""
+    raw = capture_subprocess_stdout([snowcli, "--help"])
+    unix_normalized = _clean_output(raw)
+    windows_normalized = _clean_output(_simulate_windows_rich_box_corners(raw))
+    assert windows_normalized == unix_normalized
+
+
+@pytest.mark.e2e
+@skip_snowpark_on_newest_python
+def test_snow_sql(snowcli, config_file, snapshot):
     output = subprocess_check_output(
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "sql",
             "-q",
             "select round(ln(10), 2)",
@@ -76,12 +99,12 @@ def test_snow_init(temporary_directory, snowcli, template, files_to_check):
 
 
 @pytest.mark.e2e
-def test_command_from_external_plugin(snowcli, test_root_path, snapshot):
+def test_command_from_external_plugin(snowcli, config_file, snapshot):
     output = subprocess_check_output(
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "multilingual-hello",
             "hello-en",
             "John",

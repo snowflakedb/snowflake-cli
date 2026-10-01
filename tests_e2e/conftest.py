@@ -44,26 +44,40 @@ def _clean_output(text: str):
     if text is None:
         return None
     text = "\n".join(line.rstrip() for line in text.splitlines())
+    # Rich picks rounded corners (╭) on some platforms and square (┌) on others.
+    for char in "╭╮╯╰┌┐└┘├┤┬┴":
+        text = text.replace(char, "+")
     return (
         text.replace("│", "|")
         .replace("─", "-")
-        .replace("╭", "+")
-        .replace("╰", "+")
-        .replace("╯", "+")
-        .replace("╮", "+")
         .replace(__about__.VERSION, "0.0.1-test_patched")
     )
 
 
-def subprocess_check_output(cmd, stdin: Optional[str] = None):
+def _subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    # Rich truncates long option names with U+2026; without UTF-8 mode Windows
+    # emits cp1252 (0x85) and subprocess UTF-8 decoding fails on long --help.
+    env.setdefault("PYTHONUTF8", "1")
+    return env
+
+
+def capture_subprocess_stdout(cmd, stdin: Optional[str] = None) -> str:
     try:
-        output = subprocess.check_output(
-            cmd, input=stdin, shell=IS_WINDOWS, stderr=sys.stdout, encoding="utf-8"
+        return subprocess.check_output(
+            cmd,
+            input=stdin,
+            shell=IS_WINDOWS,
+            encoding="utf-8",
+            env=_subprocess_env(),
         )
-        return _clean_output(output)
     except subprocess.CalledProcessError as err:
         print(err.output)
         raise
+
+
+def subprocess_check_output(cmd, stdin: Optional[str] = None) -> str:
+    return _clean_output(capture_subprocess_stdout(cmd, stdin))
 
 
 def subprocess_run(cmd, stdin: Optional[str] = None):
@@ -74,6 +88,7 @@ def subprocess_run(cmd, stdin: Optional[str] = None):
         capture_output=True,
         text=True,
         encoding="utf-8",
+        env=_subprocess_env(),
     )
     p.stdout = _clean_output(p.stdout)
     p.stderr = _clean_output(p.stderr)
@@ -93,6 +108,7 @@ def disable_colors_and_styles_in_output(monkeypatch):
     Also set consistent terminal width to avoid snapshot mismatches.
     """
     monkeypatch.setenv("TERM", "unknown")
+    monkeypatch.setenv("PYTHONUTF8", "1")
     width = 81 if IS_WINDOWS else 80
     monkeypatch.setenv("COLUMNS", str(width))
 
@@ -191,6 +207,7 @@ def prepare_test_config_file(temporary_directory):
     def f(config_file_path: SecurePath):
         target_file_path = Path(temporary_directory) / "config.toml"
         config_file_path.copy(target_file_path)
+        target_file_path.chmod(0o600)
         return target_file_path
 
     return f

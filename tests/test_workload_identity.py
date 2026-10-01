@@ -38,7 +38,7 @@ def test_workload_identity_provider_visible_in_help(runner):
     result = runner.invoke(["sql", "--help"])
     assert result.exit_code == 0, result.output
     assert "--workload-identity-provider" in result.output
-    assert "Connection configuration" in result.output
+    assert "Connection options:" in result.output
 
 
 @mock.patch("snowflake.connector.connect")

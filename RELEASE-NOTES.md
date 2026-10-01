@@ -24,6 +24,7 @@
 * `snow sql` custom REPL prompts now support hexadecimal foreground (`[#rrggbb]`) and background (`[bg:#rrggbb]`) colours. Each directive styles the prompt text that follows it.
 * Interactive `snow sql` completes SQL keywords, functions, and data types when you press Tab. Completions appear only on Tab, not while typing. Set `[cli] auto_completion = false` in `config.toml` to turn this off.
 * Per-command `--help` now includes **Usage notes**, **Examples**, and **Related topics** when those sections are defined for the command. Disable them with `enable_command_docs_in_help = false` under `[cli.features]` in `config.toml` or `SNOWFLAKE_CLI_FEATURES_ENABLE_COMMAND_DOCS_IN_HELP=false`.
+* Per-command `--help` now lists global and connection flags by name instead of full option panels. Use `--help-all` on a command for the previous full option list, or `snow --help` for descriptions. Disable condensed help with `enable_condensed_command_help = false` or `SNOWFLAKE_CLI_FEATURES_ENABLE_CONDENSED_COMMAND_HELP=false`.
 ## Fixes and improvements
 * `snow sql` no longer aborts a statement whose text contains Rich-markup-like tokens (for example `[/x]`). The statement is echoed and executed as written. The same applies to streamed SPCS image-build and remote-build log lines.
 * `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.

@@ -848,7 +848,6 @@ def test_process_result_concludes_deferred_span_on_print_error(monkeypatch):
     assert completed[0]["error"] == "RuntimeError"
 
 
-@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
 def test_condensed_help_help_all_shows_injected_option_panels(cli):
     result = cli(app_factory(SnowTyperFactory))(
         ["cmd_with_connection_options", "--help-all"]
@@ -860,7 +859,6 @@ def test_condensed_help_help_all_shows_injected_option_panels(cli):
     assert "Run `snow --help` for full descriptions" not in result.output
 
 
-@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
 def test_condensed_help_rejects_help_with_help_all(cli):
     result = cli(app_factory(SnowTyperFactory))(
         ["cmd_with_connection_options", "--help", "--help-all"]

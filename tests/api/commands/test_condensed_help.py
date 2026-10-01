@@ -130,7 +130,6 @@ def cli():
     return mock_cli
 
 
-@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
 def test_condensed_panel_lists_global_options_only(cli):
     result = cli(_global_only_app().create_instance())(["cmd", "--help"])
 
@@ -145,7 +144,6 @@ def test_condensed_panel_lists_global_options_only(cli):
     assert "Run `snow --help` for full descriptions" in result.output
 
 
-@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
 def test_condensed_panel_lists_connection_options_only():
     command = _fake_command(include_connection=True, include_global=False)
     ctx = click.Context(command)
@@ -157,7 +155,6 @@ def test_condensed_panel_lists_connection_options_only():
     assert "Run `snow --help` for full descriptions" in output
 
 
-@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
 def test_condensed_panel_lists_connection_and_global_options(cli):
     result = cli(_connection_and_global_app().create_instance())(["cmd", "--help"])
 
@@ -172,7 +169,6 @@ def test_condensed_panel_lists_connection_and_global_options(cli):
     assert "Run `snow --help` for full descriptions" in result.output
 
 
-@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
 def test_root_help_appends_full_shared_option_panels():
     group = get_command(_root_app().create_instance())
     ctx = click.Context(group)
@@ -185,7 +181,6 @@ def test_root_help_appends_full_shared_option_panels():
     assert CONDENSED_HELP_FOOTER not in output
 
 
-@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
 def test_root_snow_help_appends_full_shared_option_panels(runner):
     result = runner.invoke(["--help"])
 
@@ -197,7 +192,6 @@ def test_root_snow_help_appends_full_shared_option_panels(runner):
     assert CONDENSED_HELP_FOOTER not in result.output
 
 
-@with_feature_flags({FeatureFlag.ENABLE_CONDENSED_COMMAND_HELP: True})
 def test_root_snow_no_args_appends_full_shared_option_panels(runner):
     result = runner.invoke([])
 
