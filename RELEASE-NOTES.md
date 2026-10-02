@@ -28,6 +28,7 @@
 ## Fixes and improvements
 * `snow sql` no longer aborts a statement whose text contains Rich-markup-like tokens (for example `[/x]`). The statement is echoed and executed as written. The same applies to streamed SPCS image-build and remote-build log lines.
 * `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.
+* Upgraded snowflake-connector-python from 4.7.5 to 4.8.0.
 
 
 # v3.28.0
