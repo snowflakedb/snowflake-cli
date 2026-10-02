@@ -1739,26 +1739,36 @@ def _requests_event_table_health_monitoring(
 
 
 def _ensure_cng_url_cert_ready(
-    manager: SnowflakeAppManager, *, provision: bool, required: bool
+    manager: SnowflakeAppManager, *, skip: bool, required: bool
 ) -> None:
-    """Pre-check that the account's per-account URL certificate is in place.
+    """Ensure the account's per-account URL certificate is being provisioned.
 
     CNG (serverless) apps serve from per-account URLs backed by a per-account
     TLS certificate whose issuance can take up to ~3 hours — far too long to
     happen inside ``CREATE APPLICATION SERVICE`` — so this probes for it up front
-    (never polling) via a client-side TLS probe.
+    (never polling) via a client-side TLS probe. When the certificate is absent,
+    issuance is started automatically and a full deploy stops so it can be
+    re-run once provisioning completes.
 
     The caller gates this on the app being CNG, which also implies the feature
     flag is on (``compute_resource`` stays ``None`` while it is off), so the flag
     is not re-checked here.
 
+    ``skip`` (``--skip-certs-check``) opts out: no probe and no issuance, and
+    the deploy continues.
+
     ``required`` says whether a missing certificate is fatal for the current
     phase: only the deploy phase creates the service, so only it passes
-    ``required=True``. ``--upload-only`` / ``--build-only`` still probe (early,
-    cheap diagnosis) but only warn, so the user can upload/build now and promote
-    once issuance completes. An inconclusive probe (``UNKNOWN``) or an
-    underivable host never blocks — a false negative must not prevent a deploy.
+    ``required=True``. ``--upload-only`` / ``--build-only`` still start issuance
+    but only warn, so the user can upload/build now and promote once issuance
+    completes. An inconclusive probe (``UNKNOWN``) or an underivable host never
+    blocks and does not start issuance — a false negative must not prevent a
+    deploy or kick off provisioning for a certificate that may already exist.
     """
+    if skip:
+        log.debug("Skipping per-account URL certificate check (--skip-certs-check).")
+        return
+
     probe_host = manager.per_account_cert_probe_host()
     if probe_host is None:
         log.debug(
@@ -1782,25 +1792,16 @@ def _ensure_cng_url_cert_ready(
         )
         return
 
-    # NOT_PROVISIONED.
-    if provision:
-        cli_console.step("Starting per-account URL certificate provisioning...")
-        manager.issue_per_account_url_cert()
-        message = (
-            "This account does not yet have a per-account URL certificate, "
-            "which serverless apps require. Provisioning has been started "
-            f"for you via {PER_ACCOUNT_CERT_ISSUE_FUNCTION}(). This can take up "
-            "to 3 hours. Re-run 'snow app deploy' once provisioning completes."
-        )
-    else:
-        message = (
-            "This account does not yet have a per-account URL certificate, which "
-            "serverless apps require. Start provisioning by running:\n"
-            f"  SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}();\n"
-            "Provisioning can take up to 3 hours. Re-run 'snow app deploy' once "
-            "it completes, or re-run with '--provision-certs' to start it "
-            "automatically."
-        )
+    # NOT_PROVISIONED: start issuance. A full deploy cannot create the service
+    # until the certificate is being served.
+    cli_console.step("Starting per-account URL certificate provisioning...")
+    manager.issue_per_account_url_cert()
+    message = (
+        "This account does not yet have a per-account URL certificate, "
+        "which serverless apps require. Provisioning has been started "
+        f"for you via {PER_ACCOUNT_CERT_ISSUE_FUNCTION}(). This can take up "
+        "to 3 hours. Re-run 'snow app deploy' once provisioning completes."
+    )
 
     if required:
         raise CliError(message)
@@ -2324,7 +2325,7 @@ def _deploy_from_app_yml(
     build_only: bool,
     promote_only: bool,
     interactive: Optional[bool],
-    provision_certs: bool = False,
+    skip_certs_check: bool = False,
 ) -> CommandResult:
     """Deploy a single ``app.yml`` target through upload, build, and deploy.
 
@@ -2373,11 +2374,12 @@ def _deploy_from_app_yml(
     # Probe for the per-account URL certificate up front (see
     # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
     # far too slow to happen inside CREATE OR ALTER APPLICATION SERVICE.
+    # A missing certificate starts provisioning unless --skip-certs-check.
     if _is_cng_compute_resource(compute_resource):
         with metrics.span("snowflake_app.deploy.cng_cert_precheck"):
             _ensure_cng_url_cert_ready(
                 manager,
-                provision=provision_certs,
+                skip=skip_certs_check,
                 required=not upload_only and not build_only,
             )
 
@@ -2466,7 +2468,7 @@ def snowflake_app_deploy(
     build_only: bool,
     promote_only: bool,
     interactive: Optional[bool] = None,
-    provision_certs: bool = False,
+    skip_certs_check: bool = False,
     target: Optional[str] = None,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases.
@@ -2494,7 +2496,7 @@ def snowflake_app_deploy(
             build_only=build_only,
             promote_only=promote_only,
             interactive=interactive,
-            provision_certs=provision_certs,
+            skip_certs_check=skip_certs_check,
         )
 
     run_upload = not build_only and not promote_only

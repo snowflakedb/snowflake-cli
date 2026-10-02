@@ -958,15 +958,14 @@ def app_deploy(
         hidden=True,
         help="Deprecated alias for --promote-only.",
     ),
-    provision_certs: bool = typer.Option(
+    skip_certs_check: bool = typer.Option(
         False,
-        "--provision-certs",
+        "--skip-certs-check",
         hidden=not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled(),
-        help="(Snowflake App Runtime only) When deploying a serverless app whose "
-        "account has no per-account URL certificate yet, trigger certificate "
-        "provisioning automatically instead of only printing the system-function "
-        "command. Provisioning is asynchronous (up to ~3 hours); the deploy still "
-        "stops so it can be re-run once provisioning completes.",
+        help="(Snowflake App Runtime only) Skip the per-account URL certificate "
+        "check when deploying a serverless app. By default, a missing certificate "
+        "starts provisioning automatically and the deploy stops until it completes "
+        "(up to ~3 hours).",
     ),
     target: Optional[str] = _snowflake_app_target_option("deploy"),
     **options,
@@ -1003,7 +1002,7 @@ def app_deploy(
             build_only,
             promote_only or deploy_only,
             interactive=interactive,
-            provision_certs=provision_certs,
+            skip_certs_check=skip_certs_check,
             target=target,
         )
 
@@ -1013,7 +1012,7 @@ def app_deploy(
             "--upload-only": True if upload_only else None,
             "--build-only": True if build_only else None,
             "--promote-only": True if (promote_only or deploy_only) else None,
-            "--provision-certs": True if provision_certs else None,
+            "--skip-certs-check": True if skip_certs_check else None,
             "--target": target,
         },
     )

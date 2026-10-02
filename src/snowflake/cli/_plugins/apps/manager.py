@@ -128,9 +128,9 @@ _APP_AREA_COLUMN_MAP = {
 SERVERLESS_COMPUTE_RESOURCE = "SERVERLESS"
 
 # System function that triggers per-account URL certificate issuance for the
-# account. Issuance is asynchronous and can take up to ~3 hours, so the CLI
-# never blocks on it — it only advises the user to run it (or runs it on their
-# behalf with ``--provision-certs``) as a pre-check before creating a CNG app.
+# account. Issuance is asynchronous and can take up to ~3 hours, so a CNG
+# deploy starts it when the certificate is missing and then stops; the user
+# re-runs once it completes. ``--skip-certs-check`` opts out of the pre-check.
 PER_ACCOUNT_CERT_ISSUE_FUNCTION = "SYSTEM$ISSUE_PER_ACCOUNT_APP_SERVICE_CERTIFICATE"
 
 # Domain that per-account app URLs (Northstar URLs) are served from. Note this

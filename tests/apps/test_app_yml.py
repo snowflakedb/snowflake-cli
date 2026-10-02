@@ -1729,14 +1729,13 @@ class TestDeployFromAppYml:
                 False,
                 False,
                 interactive=False,
-                provision_certs=True,
                 target="prod",
             )
 
-        # Precheck runs before the app exists, honouring --provision-certs and
-        # treating a missing cert as fatal for a full deploy.
+        # Precheck runs before the app exists. A missing cert starts issuance
+        # and is fatal for a full deploy unless --skip-certs-check is set.
         mock_cert.assert_called_once()
-        assert mock_cert.call_args.kwargs["provision"] is True
+        assert mock_cert.call_args.kwargs["skip"] is False
         assert mock_cert.call_args.kwargs["required"] is True
         call = mgr.create_or_alter_app_service.call_args.kwargs
         assert call["compute_resource"] == "SERVERLESS"
@@ -1745,6 +1744,42 @@ class TestDeployFromAppYml:
         spec = yaml.safe_load(call["specification"])
         assert spec["url_prefix"] == "CNG_APP"
         assert spec["health_check"] == "/healthz"
+
+    @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_skip_certs_check_opts_out_of_precheck(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, mock_cert, tmp_path
+    ):
+        """--skip-certs-check is forwarded and a full deploy still proceeds."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "cng.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
+            snowflake_app_deploy(
+                None,
+                False,
+                False,
+                False,
+                interactive=False,
+                skip_certs_check=True,
+                target="prod",
+            )
+
+        mock_cert.assert_called_once()
+        assert mock_cert.call_args.kwargs["skip"] is True
+        assert mock_cert.call_args.kwargs["required"] is True
+        mgr.create_or_alter_app_service.assert_called_once()
 
     @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
     @patch(f"{_COMMANDS}._poll_until")

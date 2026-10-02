@@ -688,11 +688,20 @@ class TestEnsureCngUrlCertReady:
 
     def test_provisioned_proceeds_without_error(self):
         manager = self._manager(PerAccountCertStatus.PROVISIONED)
-        _ensure_cng_url_cert_ready(manager, provision=False, required=True)  # no raise
+        _ensure_cng_url_cert_ready(manager, skip=False, required=True)  # no raise
         manager.per_account_cert_status_for_host.assert_called_once_with(
             self._PROBE_HOST
         )
         manager.issue_per_account_url_cert.assert_not_called()
+
+    def test_skip_does_not_probe_or_issue(self):
+        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _ensure_cng_url_cert_ready(manager, skip=True, required=True)  # no raise
+        manager.per_account_cert_probe_host.assert_not_called()
+        manager.issue_per_account_url_cert.assert_not_called()
+        mock_cc.warning.assert_not_called()
+        mock_cc.step.assert_not_called()
 
     def test_undeterminable_host_skips_silently(self):
         # No app host could be derived → no evidence about the cert, so skip
@@ -700,7 +709,7 @@ class TestEnsureCngUrlCertReady:
         manager = Mock()
         manager.per_account_cert_probe_host.return_value = None
         with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
+            _ensure_cng_url_cert_ready(manager, skip=False, required=True)
         manager.per_account_cert_status_for_host.assert_not_called()
         mock_cc.warning.assert_not_called()
         manager.issue_per_account_url_cert.assert_not_called()
@@ -708,46 +717,25 @@ class TestEnsureCngUrlCertReady:
     def test_unknown_warns_and_proceeds(self):
         manager = self._manager(PerAccountCertStatus.UNKNOWN)
         with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
+            _ensure_cng_url_cert_ready(manager, skip=False, required=True)
         mock_cc.warning.assert_called_once()
         manager.issue_per_account_url_cert.assert_not_called()
 
-    def test_not_provisioned_raises_with_guidance_when_required(self):
-        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
-        with pytest.raises(CliError) as exc:
-            _ensure_cng_url_cert_ready(manager, provision=False, required=True)
-        assert PER_ACCOUNT_CERT_ISSUE_FUNCTION in str(exc.value)
-        assert "--provision-certs" in str(exc.value)
-        manager.issue_per_account_url_cert.assert_not_called()
-
-    def test_not_provisioned_warns_but_does_not_raise_when_not_required(self):
-        # --upload-only / --build-only diagnose early but create no service, so a
-        # missing certificate must warn and let the phase proceed, not abort.
-        manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
-        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-            _ensure_cng_url_cert_ready(
-                manager, provision=False, required=False
-            )  # no raise
-        mock_cc.warning.assert_called_once()
-        assert PER_ACCOUNT_CERT_ISSUE_FUNCTION in mock_cc.warning.call_args.args[0]
-        manager.issue_per_account_url_cert.assert_not_called()
-
-    def test_not_provisioned_with_provision_triggers_issuance_then_raises(self):
+    def test_not_provisioned_starts_issuance_then_raises_when_required(self):
         manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
         with patch("snowflake.cli._plugins.apps.commands.cli_console"):
             with pytest.raises(CliError) as exc:
-                _ensure_cng_url_cert_ready(manager, provision=True, required=True)
+                _ensure_cng_url_cert_ready(manager, skip=False, required=True)
         manager.issue_per_account_url_cert.assert_called_once()
+        assert PER_ACCOUNT_CERT_ISSUE_FUNCTION in str(exc.value)
         assert "Provisioning has been started" in str(exc.value)
 
-    def test_not_provisioned_with_provision_when_not_required_issues_then_warns(self):
-        # --provision-certs --upload-only must still kick off issuance, then warn
-        # (not refuse the upload it was asked to do).
+    def test_not_provisioned_starts_issuance_then_warns_when_not_required(self):
+        # --upload-only / --build-only create no service, so a missing
+        # certificate starts issuance and warns rather than aborting the phase.
         manager = self._manager(PerAccountCertStatus.NOT_PROVISIONED)
         with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-            _ensure_cng_url_cert_ready(
-                manager, provision=True, required=False
-            )  # no raise
+            _ensure_cng_url_cert_ready(manager, skip=False, required=False)  # no raise
         manager.issue_per_account_url_cert.assert_called_once()
         mock_cc.warning.assert_called_once()
         assert "Provisioning has been started" in mock_cc.warning.call_args.args[0]
