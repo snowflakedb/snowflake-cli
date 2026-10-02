@@ -56,6 +56,8 @@ def _config_file_argv(*call_args) -> list[str]:
 def _maybe_init_config_from_args(*call_args) -> None:
     """Apply ``--config-file`` before version-cache work when argv is available."""
     argv = _config_file_argv(*call_args)
+    if "--agent-args" in argv:
+        argv = argv[: argv.index("--agent-args")]
     for index, arg in enumerate(argv):
         if arg == "--config-file" and index + 1 < len(argv):
             config_path = Path(argv[index + 1])
@@ -74,7 +76,10 @@ def _maybe_init_config_from_args(*call_args) -> None:
 
 def _run_cli_invocation(self, run):
     """Shared startup/teardown for both ``__call__`` and ``main`` entry points."""
-    DebugOption.callback(any(param in sys.argv for param in DebugOption.param_decls))
+    argv = sys.argv[1:]
+    if "--agent-args" in argv:
+        argv = argv[: argv.index("--agent-args")]
+    DebugOption.callback(any(param in argv for param in DebugOption.param_decls))
     reset_banner_display_state()
     try:
         return run()

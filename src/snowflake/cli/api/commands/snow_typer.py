@@ -142,6 +142,9 @@ class SnowTyper(typer.Typer):
                     self.process_result(result)
                     execution.complete(ExecutionStatus.SUCCESS)
                 except BaseException as err:
+                    if isinstance(err, click.exceptions.Exit) and err.exit_code == 0:
+                        execution.complete(ExecutionStatus.SUCCESS)
+                        raise
                     execution.complete(ExecutionStatus.FAILURE)
                     exception = self.exception_handler(err, execution)
                     raise exception

@@ -155,10 +155,9 @@ def _coerce_boolean_parameter(connection_key: str, value):
         return try_cast_to_bool(value)
     except ValueError:
         log.warning(
-            "Expected boolean-compatible value for %s but got %r; "
+            "Expected boolean-compatible value for %s; "
             "using raw value without conversion.",
             connection_key,
-            value,
         )
         return value
 
@@ -181,7 +180,7 @@ def _build_silent_streams(
     return _BufferedMirrorStream(mirror_stdout), _BufferedMirrorStream()
 
 
-def connect_to_snowflake(
+def resolve_connection_parameters(
     temporary_connection: bool = False,
     mfa_passcode: Optional[str] = None,
     enable_diag: Optional[bool] = False,
@@ -189,7 +188,7 @@ def connect_to_snowflake(
     diag_allowlist_path: Optional[str] = None,
     connection_name: Optional[str] = None,
     **overrides,
-) -> SnowflakeConnection:
+) -> Dict:
     if temporary_connection and connection_name:
         raise ClickException("Can't use connection name and temporary connection.")
     elif not temporary_connection and not connection_name:
@@ -245,6 +244,23 @@ def connect_to_snowflake(
         k: v for k, v in connection_parameters.items() if v is not None
     }
 
+    return connection_parameters
+
+
+def connect_to_snowflake(
+    temporary_connection: bool = False,
+    mfa_passcode: Optional[str] = None,
+    enable_diag: Optional[bool] = False,
+    diag_log_path: Optional[str] = None,
+    diag_allowlist_path: Optional[str] = None,
+    connection_name: Optional[str] = None,
+    **overrides,
+) -> SnowflakeConnection:
+    connection_parameters = resolve_connection_parameters(
+        temporary_connection=temporary_connection,
+        connection_name=connection_name,
+        **overrides,
+    )
     update_connection_details_with_private_key(connection_parameters)
 
     if mfa_passcode:

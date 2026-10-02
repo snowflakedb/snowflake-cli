@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `snow ai claude` and `snow ai opencode` to launch coding agents through the active connection's Snowflake AI Gateway, with PAT and OAuth authentication. Supported authorization-code OAuth connections renew credentials while the agent runs; pass native agent arguments after `--agent-args`.
 * `snow bundle` manages Snowflake code bundles, with `create`, `list`, `alter`, `delete`, `execute`, `status`, `cancel`, and `history` subcommands. A bundle is created from a stage path, a workspace path, or a local directory, and runs at a given entrypoint either synchronously or asynchronously.
 
 * `snow sql` custom REPL prompts now support hexadecimal foreground (`[#rrggbb]`) and background (`[bg:#rrggbb]`) colours. Each directive styles the prompt text that follows it.
