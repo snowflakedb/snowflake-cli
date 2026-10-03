@@ -466,6 +466,29 @@ def test_rendering_of_sql_with_commands(query):
     assert parsed_source.error == "Could not read: foo.bar"
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "select <% foo",
+        "select &{ foo",
+    ],
+)
+def test_malformed_template_syntax_is_reported_as_rendering_error(query):
+    # GH#3160: malformed template syntax must produce a rendering error entry
+    # instead of escaping as an unexpected exception.
+    stmt_operators = (
+        transpile_snowsql_templates,
+        partial(
+            snowflake_sql_jinja_render,
+            data={},
+            template_syntax_config=SQLTemplateSyntaxConfig(),
+        ),
+    )
+    parsed_source = parse_statement(query, stmt_operators)
+    assert parsed_source.error is not None
+    assert parsed_source.error.startswith("SQL template rendering error")
+
+
 def test_detect_async_queries():
     queries = """select 1;>
     select -1;
