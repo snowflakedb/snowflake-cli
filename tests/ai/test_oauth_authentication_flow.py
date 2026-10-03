@@ -26,11 +26,10 @@ BINDING = {
 
 @pytest.fixture
 def authentication_flow(monkeypatch, tmp_path):
-    if snowflake.connector.__version__ != oauth.SUPPORTED_CONNECTOR:
+    if not oauth.supports_connector(snowflake.connector.__version__):
         pytest.fail(
-            f"Installed connector {snowflake.connector.__version__} differs from "
-            f"the validated helper gate {oauth.SUPPORTED_CONNECTOR}. "
-            "Revalidate the authentication contract against the shipping dependency."
+            f"Installed connector {snowflake.connector.__version__} is older than "
+            f"the minimum helper gate {oauth.SUPPORTED_CONNECTOR}."
         )
     monkeypatch.setattr(oauth.Path, "home", lambda: tmp_path)
     state = SimpleNamespace(

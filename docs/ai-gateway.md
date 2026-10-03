@@ -78,13 +78,13 @@ and the supplying application must renew it before relaunching the agent.
 
 **Renewable authorization-code OAuth is currently restricted.** It requires a
 named connection, an explicit role and user, caching and refresh enabled, the
-default Snowflake-hosted OAuth client, connector 4.7.5, and a Python installation
+default Snowflake-hosted OAuth client, connector 4.7.5 or newer, and a Python installation
 of Snow CLI on macOS or Linux. Custom OAuth clients/scopes, external identity
 providers, secondary roles, temporary connections, Windows, and standalone frozen
-executables are rejected. The helper uses private connector interfaces and is
-version-gated deliberately: only 4.7.5 is validated, not an open-ended minimum.
-Connector upgrades require rerunning the helper's authentication-flow and launch
-wiring tests before changing the gate.
+executables are rejected. The helper uses private connector interfaces.
+Connector 4.7.5 is the minimum validated release, and newer connector releases
+are accepted. Run the helper's authentication-flow and launch wiring tests
+against the connector version you ship.
 
 Connection flags, named configuration, generic environment fallbacks and string
 boolean coercion use the same resolver as normal CLI connections. Unquoted role

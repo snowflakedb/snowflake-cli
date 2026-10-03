@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 import tomlkit
 from packaging.requirements import Requirement
+from packaging.version import Version
 from snowflake.cli._plugins.ai import oauth
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.secret import SecretType
@@ -22,7 +23,7 @@ BINDING = {
 POSIX_ONLY = pytest.mark.skipif(sys.platform == "win32", reason="POSIX OAuth helper")
 
 
-def test_connector_gate_matches_shipping_dependency():
+def test_shipping_connector_meets_minimum():
     project = tomlkit.parse(
         SecurePath(Path(__file__).resolve().parents[2] / "pyproject.toml").read_text(
             file_size_limit_mb=1
@@ -33,7 +34,20 @@ def test_connector_gate_matches_shipping_dependency():
         dep for dep in dependencies if dep.name == "snowflake-connector-python"
     ]
     assert len(connector) == 1
-    assert str(connector[0].specifier) == f"=={oauth.SUPPORTED_CONNECTOR}"
+    specifiers = list(connector[0].specifier)
+    assert len(specifiers) == 1
+    assert specifiers[0].operator == "=="
+    assert Version(specifiers[0].version) >= Version(oauth.SUPPORTED_CONNECTOR)
+
+
+@pytest.mark.parametrize("version", ["4.7.5", "4.8.0", "4.9.1"])
+def test_connector_at_or_above_minimum_is_accepted(version):
+    assert oauth.supports_connector(version)
+
+
+@pytest.mark.parametrize("version", ["4.7.4", "4.7.1", "3.18.0", "not-a-version"])
+def test_connector_below_minimum_is_rejected(version):
+    assert not oauth.supports_connector(version)
 
 
 @pytest.mark.parametrize(

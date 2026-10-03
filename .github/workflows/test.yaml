@@ -68,7 +68,7 @@ jobs:
           hatch env create default
       - if: needs.changes.outputs.code == 'true' && runner.os != 'Windows'
         name: Verify real OAuth authentication contract
-        run: hatch run python -m pytest tests/ai/test_oauth_authentication_flow.py tests/ai/test_oauth.py::test_connector_gate_matches_shipping_dependency -q
+        run: hatch run python -m pytest tests/ai/test_oauth_authentication_flow.py tests/ai/test_oauth.py::test_shipping_connector_meets_minimum -q
       - if: needs.changes.outputs.code == 'true'
         uses: actions/setup-node@v4
         with:

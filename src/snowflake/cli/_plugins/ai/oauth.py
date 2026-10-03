@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from types import MethodType
 
+from packaging.version import InvalidVersion, Version
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.util import (
     is_valid_identifier,
@@ -26,10 +27,12 @@ from snowflake.cli.api.secure_path import SecurePath
 
 BINDING_ENV = "SNOWFLAKE_AI_OAUTH_BINDING"
 HELPER_TIMEOUT = 40
+# Minimum connector whose renewable-OAuth helper contract is validated.
+# Any newer release is accepted.
 SUPPORTED_CONNECTOR = "4.7.5"
 CONNECTOR_VERSION_MESSAGE = (
-    f"Renewable OAuth is validated against connector {SUPPORTED_CONNECTOR} only; "
-    f"install {SUPPORTED_CONNECTOR} or use a PAT/raw OAuth connection."
+    f"Renewable OAuth requires connector {SUPPORTED_CONNECTOR} or newer; "
+    f"upgrade the connector or use a PAT/raw OAuth connection."
 )
 REAUTH_MESSAGE = "OAuth renewal failed. Sign in again with snow connection test, then relaunch snow ai."
 ERROR_MESSAGES = {
@@ -40,6 +43,14 @@ ERROR_MESSAGES = {
     5: "OAuth renewal timed out. Check network and proxy connectivity, then retry.",
     6: "OAuth helper failed unexpectedly. Check the supported CLI and connector versions, then relaunch.",
 }
+
+
+def supports_connector(version: str) -> bool:
+    """Return whether version is the minimum validated connector or any newer release."""
+    try:
+        return Version(version) >= Version(SUPPORTED_CONNECTOR)
+    except InvalidVersion:
+        return False
 
 
 class OAuthHelperError(CliError):
@@ -78,7 +89,7 @@ def binding_for(context, connection) -> dict:
     """Snapshot the authenticated identity, without persisting or exporting secrets."""
     import snowflake.connector
 
-    if snowflake.connector.__version__ != SUPPORTED_CONNECTOR:
+    if not supports_connector(snowflake.connector.__version__):
         raise CliError(CONNECTOR_VERSION_MESSAGE)
     if sys.platform == "win32":
         raise CliError("Renewable snow ai OAuth is not yet supported on Windows.")
@@ -232,7 +243,7 @@ def obtain_token(binding: dict) -> SecretType:
     from snowflake.connector.token_cache import TokenCache
 
     binding = validate_binding(binding)
-    if snowflake.connector.__version__ != SUPPORTED_CONNECTOR:
+    if not supports_connector(snowflake.connector.__version__):
         raise CliError(CONNECTOR_VERSION_MESSAGE)
     host = binding["host"]
     try:

@@ -65,7 +65,7 @@ authorization-code OAuth, the Python connector owns access/refresh token storage
 renewal. Claude invokes the helper through `apiKeyHelper`; OpenCode uses the bundled
 `opencode_oauth.mjs` request hook. Both execute the same connector-backed helper.
 
-Renewal requires connector 4.7.5, a Python installation on macOS/Linux, a named
+Renewal requires connector 4.7.5 or newer, a Python installation on macOS/Linux, a named
 connection with explicit user/role, and caching and refresh enabled. Only default
 Snowflake-hosted OAuth is supported. Custom clients/scopes, secondary roles and
 unsupported transport settings are rejected by name; unrelated session preferences
@@ -171,7 +171,7 @@ cannot be listed and varies by account and deployment.
 ## Known limitations
 
 - Renewable OAuth currently supports only named, default-client Snowflake-hosted
-  authorization-code connections with explicit user/role and connector 4.7.5 on a
+  authorization-code connections with explicit user/role and connector 4.7.5 or newer on a
   Python installation for macOS or Linux. Custom clients/endpoints/scopes, secondary
   roles, unsupported transport options, Windows and frozen executables are
   rejected before agent launch.
