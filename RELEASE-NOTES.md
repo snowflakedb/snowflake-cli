@@ -31,6 +31,7 @@
 * `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.
 * Upgraded snowflake-connector-python from 4.7.5 to 4.8.0.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.21 to 3.10.22.
+* An unexpected error is now always reported, instead of being suppressed with `--format json`, `json_ext`, or `csv`. Those formats mute intermediate console output to keep stdout parseable, which also swallowed the message; the command used to exit with status 1 and print nothing on either stream. The message is now written to stderr, so structured stdout stays clean.
 
 
 # v3.28.0
