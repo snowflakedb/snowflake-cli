@@ -1119,16 +1119,7 @@ def snowflake_app_setup(
 
             manager = SnowflakeAppManager()
             with metrics.span("snowflake_app.setup.resolve_defaults"):
-                # ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` resolves the
-                # ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and drops any
-                # account-configured destination the current role cannot access
-                # server-side. On accounts where that function is not yet
-                # available, ``fetch_app_service_defaults`` transparently falls
-                # back to the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES``
-                # flow, so the resolution below is unaffected either way. The
-                # fetch span nests under this ``resolve_defaults`` span, which it
-                # reads from the metrics span stack.
-                params = manager.fetch_app_service_defaults()
+                params = manager.fetch_app_service_defaults(resolved_app_name)
 
             def _resolve(
                 user_input=None,
@@ -1186,8 +1177,6 @@ def snowflake_app_setup(
                     default_value=personal_db,
                     current_session=session_db,
                 ),
-                # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
-                # a single shared schema for all apps.
                 "schema": _resolve(
                     user_input=cli_schema,
                     account_param=params.get("schema"),
@@ -2062,9 +2051,8 @@ def _resolve_command_service(
 
     Prefers ``app.yml`` (selecting the ``--target`` target); otherwise falls
     back to the ``snowflake.yml`` entity, in which case ``--target`` is not
-    valid. Deploy and teardown need the fuller deploy-defaults resolution
-    (compute pools, artifact repo, code storage) and resolve their target
-    separately.
+    valid. Missing ``snowflake.yml`` location values use the same App Space
+    defaults as deploy.
     """
     manager = SnowflakeAppManager()
     app_def = _load_app_yml_for_command(target)
@@ -2088,6 +2076,10 @@ def _resolve_command_service(
     conn = get_cli_context().connection_context
     database = fqn.database or conn.database
     schema = fqn.schema or conn.schema
+    if not database or not schema:
+        defaults = manager.fetch_app_service_defaults(fqn.name)
+        database = database or defaults.get("database")
+        schema = schema or defaults.get("schema")
     # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix).
     service_fqn = app_fqn(database=database, schema=schema, name=fqn.name)
     return _ResolvedService(manager, service_fqn, database, schema, fqn.name)
@@ -2235,11 +2227,7 @@ def _resolve_teardown_target(
 
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
-    # Resolve db/schema from the active connection in place on the shared
-    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
-    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
-    fqn.using_context()
     metrics = get_cli_context().metrics
     with metrics.span("snowflake_app.teardown.resolve_defaults"):
         defaults = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
@@ -2505,20 +2493,11 @@ def snowflake_app_deploy(
     entity = _get_entity(resolved_entity_id)
 
     # ── Extract entity configuration ──────────────────────────────────
-    # Resolve db/schema from the active connection in place on the shared
-    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
-    # entity.fqn (e.g. perform_bundle) intentionally see the resolved value.
     fqn = entity.fqn
-    fqn.using_context()
     app_name = fqn.name
 
     ctx = get_cli_context()
     metrics = ctx.metrics
-    conn = ctx.connection_context
-    database = fqn.database or conn.database
-    schema = fqn.schema or conn.schema
-
-    query_warehouse = entity.query_warehouse
 
     app_title = entity.meta.title if entity.meta else None
     app_description = entity.meta.description if entity.meta else None

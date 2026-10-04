@@ -103,21 +103,14 @@ PRIVILEGE_CHECK_OBJECT_NAME = "SNOWFLAKE_CLI_PRIVILEGE_CHECK"
 # to the legacy ``SHOW PARAMETERS`` flow (see ``fetch_app_service_defaults``).
 APP_SERVICE_DEFAULTS_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS"
 
-# Table function that supersedes ``APP_SERVICE_DEFAULTS_FUNCTION`` for resolving
-# Snowflake App Runtime deploy defaults (the "app area" model). It is rolling
-# out soon, so ``fetch_app_service_defaults`` tries it first and falls back to
-# ``APP_SERVICE_DEFAULTS_FUNCTION`` (and its legacy flow) on any failure. It
-# returns zero or one rows with columns ``DATABASE_NAME``, ``SCHEMA_NAME``,
-# ``QUERY_WAREHOUSE``, and ``BUILD_EXTERNAL_ACCESS_INTEGRATION`` (the last two
-# nullable). Remove the fallback once this function is live everywhere.
-DEFAULT_APP_AREA_FUNCTION = "SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA"
+# App Spaces table function. Remove the fallback to
+# ``APP_SERVICE_DEFAULTS_FUNCTION`` once this function is available everywhere.
+DEFAULT_APP_SPACE_FUNCTION = "SNOWFLAKE.APPS.GET_DEFAULT_APP_SPACE"
 
-# Maps ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` result columns to the CLI's
-# internal deploy-defaults resolution keys. ``APP_AREA_NAME`` is intentionally
-# omitted: it is informational and not part of the resolved defaults.
-_APP_AREA_COLUMN_MAP = {
+# ``APP_SPACE_NAME`` is metadata, and ``SCHEMA_NAME`` is deprecated. App schemas
+# are generated from app names instead.
+_APP_SPACE_COLUMN_MAP = {
     "DATABASE_NAME": "database",
-    "SCHEMA_NAME": "schema",
     "QUERY_WAREHOUSE": "query_warehouse",
     "BUILD_EXTERNAL_ACCESS_INTEGRATION": "build_eai",
 }
@@ -744,9 +737,7 @@ def _resolve_deploy_defaults(
     """Resolve deploy defaults using a four-tier precedence:
 
     1. Values explicitly set in ``snowflake.yml`` (highest priority)
-    2. Snowflake App Runtime defaults (``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``,
-       or the legacy ``SHOW PARAMETERS`` flow on accounts where that function is
-       not yet available — see :meth:`SnowflakeAppManager.fetch_app_service_defaults`)
+    2. App Space defaults, with the older defaults flow as a fallback
     3. Built-in defaults (personal DB for database, ``<app-id>_REPO`` for artifact repository)
     4. Current session values (lowest priority)
 
@@ -769,10 +760,12 @@ def _resolve_deploy_defaults(
     """
 
     # ── 1. snowflake.yml values ───────────────────────────────────────
-    # Resolve db/schema from the active connection in place on the shared
-    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
-    # entity.fqn intentionally see the resolved value.
+    # Record which location parts came from snowflake.yml before the connection
+    # fills gaps on the shared FQN. An App Space schema should beat the connection
+    # default, but never an explicit project value.
     fqn = entity.fqn
+    has_explicit_database = fqn.database is not None
+    has_explicit_schema = fqn.schema is not None
     fqn.using_context()
     if app_name is None:
         app_name = fqn.name
@@ -795,19 +788,14 @@ def _resolve_deploy_defaults(
         "artifact_repo_schema": (
             entity.artifact_repository.schema_ if entity.artifact_repository else None
         ),
-        "database": fqn.database,
-        "schema": fqn.schema,
+        "database": fqn.database if has_explicit_database else None,
+        "schema": fqn.schema if has_explicit_schema else None,
     }
 
     # ── 2. Snowflake App Runtime defaults (server-resolved) ──────────
-    # ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` resolves the
-    # ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and applies authorization-based
-    # fallbacks server-side (personal database when the destination is unset or
-    # inaccessible, ``PUBLIC`` schema, current session warehouse), so the CLI
-    # no longer probes deploy privileges itself.
     param_vals: Dict[str, Optional[str]] = {}
     cli_console.step("Fetching Snowflake App Runtime defaults...")
-    raw_params = manager.fetch_app_service_defaults()
+    raw_params = manager.fetch_app_service_defaults(app_name)
     if raw_params:
         cli_console.step(
             "Loaded Snowflake App Runtime defaults: "
@@ -1700,121 +1688,85 @@ class SnowflakeAppManager(SqlExecutionMixin):
         desc = self.describe_app_service(service_fqn)
         return self.resolve_application_service_url_from_describe(desc)
 
-    def fetch_app_service_defaults(self) -> Dict[str, str]:
+    def fetch_app_service_defaults(self, app_name: str) -> Dict[str, str]:
         """Fetch the effective Snowflake App Runtime deploy defaults.
 
-        Tries the new ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()`` table function
-        first (:meth:`_fetch_default_app_area`). When it returns nothing — the
-        function is missing, the call fails, or the caller's role has no default
-        app area — falls back to ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``
-        (:meth:`_fetch_app_service_defaults_via_system_function`), which in turn
-        falls back to the legacy ``SHOW PARAMETERS`` flow on older accounts.
-
-        Both sources return the same keys (``database``, ``schema``,
-        ``query_warehouse``, ``build_eai``). Identifier values are ready to
-        embed in SQL verbatim (quoted only when required, e.g. ``"lower_db"``)
-        and unset values are omitted. Returns an empty dict when neither source
-        yields defaults, so resolution falls back to the CLI's built-in
-        defaults.
+        Tries the App Spaces table function first. If it returns a row, the
+        deprecated ``SCHEMA_NAME`` value is ignored and the schema is generated
+        from *app_name*. Any failure falls back to the older defaults flow.
         """
-        area = self._fetch_default_app_area()
-        if area:
-            return area
+        space = self._fetch_default_app_space(app_name)
+        if space:
+            return space
         return self._fetch_app_service_defaults_via_system_function()
 
-    def _fetch_default_app_area(self) -> Dict[str, str]:
-        """Fetch deploy defaults from ``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()``.
-
-        The forward-looking replacement for
-        ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``, rolling out soon. It is a
-        table function returning zero or one rows with columns ``DATABASE_NAME``,
-        ``SCHEMA_NAME``, ``QUERY_WAREHOUSE``, and
-        ``BUILD_EXTERNAL_ACCESS_INTEGRATION`` (the last two nullable), mapped to
-        the CLI's internal keys via :data:`_APP_AREA_COLUMN_MAP` (see
-        :meth:`_parse_app_area_row`).
-
-        Returns an empty dict on any failure — the function is missing, the call
-        fails, or the caller's role has no default app area — so
-        :meth:`fetch_app_service_defaults` falls back to the system-function
-        flow. The call runs in a ``<caller>.fetch_default_app_area`` telemetry
-        span (prefix taken from the enclosing span, else ``snowflake_app``), and
-        each failure is recorded on it so fallbacks stay observable during
-        rollout.
-        """
+    def _fetch_default_app_space(self, app_name: str) -> Dict[str, str]:
+        """Fetch App Space defaults and generate the app's schema name."""
         metrics = get_cli_context().metrics
         parent = metrics.current_span
         prefix = parent.name if parent else "snowflake_app"
-        with metrics.span(f"{prefix}.fetch_default_app_area") as span:
+        with metrics.span(f"{prefix}.fetch_default_app_space") as span:
             try:
                 cursor = self.execute_query(
-                    f"SELECT * FROM TABLE({DEFAULT_APP_AREA_FUNCTION}())",
+                    f"SELECT * FROM TABLE({DEFAULT_APP_SPACE_FUNCTION}())",
                     cursor_class=DictCursor,
                 )
                 row = cursor.fetchone()
             except Exception as exc:  # noqa: BLE001 - any failure → fall back
                 log.info(
                     "%s is unavailable on this account; falling back to %s.",
-                    DEFAULT_APP_AREA_FUNCTION,
+                    DEFAULT_APP_SPACE_FUNCTION,
                     APP_SERVICE_DEFAULTS_FUNCTION,
                 )
-                log.debug("%s call failed.", DEFAULT_APP_AREA_FUNCTION, exc_info=True)
+                log.debug("%s call failed.", DEFAULT_APP_SPACE_FUNCTION, exc_info=True)
                 span.finish(error=exc)
                 return {}
 
             if not row:
-                # No default app area for the caller's role. Expected on accounts
-                # that have not set one up, so fall back to the system-function
-                # flow (which supplies personal-database fallbacks).
                 log.debug(
-                    "%s returned no default app area; falling back to %s.",
-                    DEFAULT_APP_AREA_FUNCTION,
+                    "%s returned no default App Space; falling back to %s.",
+                    DEFAULT_APP_SPACE_FUNCTION,
                     APP_SERVICE_DEFAULTS_FUNCTION,
                 )
                 span.finish(
-                    error=CliError(f"{DEFAULT_APP_AREA_FUNCTION} returned no row")
+                    error=CliError(f"{DEFAULT_APP_SPACE_FUNCTION} returned no row")
                 )
                 return {}
 
-            result = self._parse_app_area_row(row)
+            result = self._parse_app_space_row(row, app_name)
             if not result:
                 log.debug(
                     "%s returned no usable defaults; falling back to %s.",
-                    DEFAULT_APP_AREA_FUNCTION,
+                    DEFAULT_APP_SPACE_FUNCTION,
                     APP_SERVICE_DEFAULTS_FUNCTION,
                 )
                 span.finish(
                     error=CliError(
-                        f"{DEFAULT_APP_AREA_FUNCTION} returned no usable defaults"
+                        f"{DEFAULT_APP_SPACE_FUNCTION} returned no usable defaults"
                     )
                 )
             return result
 
     @staticmethod
-    def _parse_app_area_row(row: Dict[str, Any]) -> Dict[str, str]:
-        """Map a ``GET_DEFAULT_APP_AREA()`` result row to internal resolution keys.
-
-        ``DictCursor`` may surface column names in any case, so each mapped
-        column is looked up case-insensitively. NULL/empty values are dropped
-        (the nullable ``QUERY_WAREHOUSE`` / ``BUILD_EXTERNAL_ACCESS_INTEGRATION``
-        columns, and any unset location). Each retained value is normalized with
-        :func:`to_identifier` so names that require quoting are quoted and ready
-        to embed in SQL verbatim.
-        """
+    def _parse_app_space_row(row: Dict[str, Any], app_name: str) -> Dict[str, str]:
+        """Map an App Space row and ignore its deprecated schema value."""
         result: Dict[str, str] = {}
-        for column, key in _APP_AREA_COLUMN_MAP.items():
+        for column, key in _APP_SPACE_COLUMN_MAP.items():
             value = row.get(column)
             if value is None:
                 value = row.get(column.lower())
             if value:
                 result[key] = to_identifier(str(value))
+        if result:
+            result["schema"] = to_identifier(app_name)
         return result
 
     def _fetch_app_service_defaults_via_system_function(self) -> Dict[str, str]:
         """Fetch deploy defaults via ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``.
 
-        The existing (pre-``SNOWFLAKE.APPS.GET_DEFAULT_APP_AREA()``) behavior,
+        The existing (pre-App Spaces) behavior,
         kept as the fallback :meth:`fetch_app_service_defaults` uses when the
-        forward-looking app area function is unavailable. Calls
+        App Spaces function is unavailable. Calls
         ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``, which returns a JSON
         object with keys ``database``, ``schema``, ``query_warehouse``, and
         ``build_eai`` — the same internal resolution names the CLI uses. The
