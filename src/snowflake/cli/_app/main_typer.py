@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import typer
+
 from snowflake.cli._app.version_check import (
     maybe_show_new_version_banner,
     reset_banner_display_state,
@@ -26,16 +27,20 @@ from snowflake.cli._app.version_check import (
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
 from snowflake.cli.api.config import config_init
-from snowflake.cli.api.console import cli_console
 
 
 def _handle_exception(exception: Exception):
     if get_cli_context().enable_tracebacks:
         raise exception
     else:
-        cli_console.warning(
+        # Written straight to stderr instead of through cli_console: intermediate
+        # console output is muted for the structured output formats (json, csv),
+        # which would swallow this message and leave the command exiting 1 without
+        # saying why. stderr keeps structured stdout parseable in every format.
+        sys.stderr.write(
             "\nAn unexpected exception occurred. Use --debug option to see the traceback. Exception message:\n\n"
             + exception.__str__()
+            + "\n"
         )
         raise SystemExit(1)
 
