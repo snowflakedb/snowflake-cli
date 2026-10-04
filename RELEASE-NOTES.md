@@ -31,6 +31,7 @@
 * `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.
 * Upgraded snowflake-connector-python from 4.7.5 to 4.8.0.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.21 to 3.10.22.
+* Comparing an `FQN` against a value that is not an `FQN` (a plain string, `None`, or any other type) now returns `False` instead of raising `AttributeError`, matching how `AccountIdentifier` compares.
 
 
 # v3.28.0
