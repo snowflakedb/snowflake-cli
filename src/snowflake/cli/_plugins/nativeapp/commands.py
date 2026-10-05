@@ -88,7 +88,6 @@ from snowflake.cli.api.exceptions import (
     IncompatibleParametersError,
     UnmetParametersError,
 )
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -961,7 +960,7 @@ def app_deploy(
     skip_certs_check: bool = typer.Option(
         False,
         "--skip-certs-check",
-        hidden=not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled(),
+        hidden=True,
         help="(Snowflake App Runtime only) Skip the per-account URL certificate "
         "check when deploying a serverless app. By default, a missing certificate "
         "starts provisioning automatically and the deploy stops until it completes "

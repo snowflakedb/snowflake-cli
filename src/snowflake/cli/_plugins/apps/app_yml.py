@@ -253,11 +253,10 @@ class _AppYmlServiceConfig(UpdatableModel):
         title="Maximum number of running instances", default=None
     )
     # Backend for the application service (the write-once ``COMPUTE_RESOURCE`` DDL
-    # field). Parsed unconditionally but only applied at deploy time when the
-    # ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag is on.
-    compute_resource: Optional[str] = Field(
-        title="Compute resource backing the service (SERVERLESS or "
-        "MANAGED_COMPUTE_POOL)",
+    # field). Parsed when set, but not advertised: ``SERVERLESS`` is applied only
+    # when the account parameters allow it.
+    compute_resource: SkipJsonSchema[Optional[str]] = Field(
+        title="Compute resource backing the service",
         default=None,
     )
     url_prefix: Optional[str] = Field(

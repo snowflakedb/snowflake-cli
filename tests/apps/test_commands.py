@@ -28,7 +28,6 @@ from snowflake.cli._plugins.apps.commands import (
     _ensure_cng_url_cert_ready,
     _ensure_utf8_output,
     _entity_code_storage,
-    _honoured_compute_resource,
     _is_cng_compute_resource,
     _log_service_logs,
     _make_build_log_streamer,
@@ -44,6 +43,7 @@ from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_TIMEOUT_SECONDS,
     MAX_UPLOAD_ATTEMPTS,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
+    SERVERLESS_ACCOUNT_PARAMETERS,
     SNOWFLAKE_APP_ENTITY_TYPE,
     UPLOAD_RETRY_BASE_DELAY_SECONDS,
     UPLOAD_RETRY_MAX_DELAY_SECONDS,
@@ -62,7 +62,6 @@ from snowflake.cli._plugins.apps.manager import (
 from snowflake.cli._plugins.apps.upload_errors import UploadError
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLIMetrics, CLIMetricsSpan
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
@@ -627,27 +626,6 @@ class TestIsCngComputeResource:
         assert _is_cng_compute_resource(value) is expected
 
 
-class TestHonouredComputeResource:
-    """``compute_resource`` is only honoured while the CNG feature flag is on."""
-
-    def test_returns_value_when_flag_on(self):
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            assert _honoured_compute_resource("SERVERLESS") == "SERVERLESS"
-            assert _honoured_compute_resource(None) is None
-
-    def test_returns_none_when_flag_off(self):
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=False,
-        ):
-            assert _honoured_compute_resource("SERVERLESS") is None
-
-
 class TestRequestsEventTableHealthMonitoring:
     """Event-table health monitoring is metric, lifecycle, and windowed logs."""
 
@@ -671,6 +649,64 @@ class TestRequestsEventTableHealthMonitoring:
         self, stream, since, until
     ):
         assert _requests_event_table_health_monitoring(stream, since, until) is True
+
+
+class TestServerlessAccountParameters:
+    """SERVERLESS is allowed only when every required account parameter is true."""
+
+    def _manager(self, rows):
+        mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
+
+        def execute(query, cursor_class=None):
+            name = query.split("'")[1]
+            cursor = Mock()
+            cursor.fetchone.return_value = rows.get(name)
+            return cursor
+
+        mgr.execute_query = Mock(side_effect=execute)
+        return mgr
+
+    def test_enabled_when_all_parameters_are_true(self):
+        rows = {
+            name: {"key": name, "value": "true"}
+            for name in SERVERLESS_ACCOUNT_PARAMETERS
+        }
+        # The feature parameter is ENABLED/DISABLED, not a Boolean.
+        rows["FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS"] = {
+            "key": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+            "value": "ENABLED",
+        }
+        mgr = self._manager(rows)
+        assert mgr.serverless_account_parameters_enabled() is True
+
+    def test_disabled_when_any_parameter_is_false(self):
+        rows = {
+            name: {"key": name, "value": "true"}
+            for name in SERVERLESS_ACCOUNT_PARAMETERS
+        }
+        rows[SERVERLESS_ACCOUNT_PARAMETERS[0]] = {
+            "key": SERVERLESS_ACCOUNT_PARAMETERS[0],
+            "value": "false",
+        }
+        mgr = self._manager(rows)
+        assert mgr.serverless_account_parameters_enabled() is False
+
+    def test_disabled_when_feature_parameter_is_not_enabled(self):
+        rows = {
+            name: {"key": name, "value": "true"}
+            for name in SERVERLESS_ACCOUNT_PARAMETERS
+        }
+        rows["FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS"] = {
+            "key": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+            "value": "DISABLED",
+        }
+        mgr = self._manager(rows)
+        assert mgr.serverless_account_parameters_enabled() is False
+
+    def test_disabled_when_a_parameter_cannot_be_read(self):
+        mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
+        mgr.execute_query = Mock(side_effect=ProgrammingError("denied"))
+        assert mgr.serverless_account_parameters_enabled() is False
 
 
 class TestEnsureCngUrlCertReady:
@@ -746,30 +782,13 @@ class TestWarnIfCngUrlCertMissing:
 
     _URL = "https://myapp.sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
 
-    def test_noop_when_flag_disabled(self):
-        manager = Mock()
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=False,
-        ):
-            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-                _warn_if_cng_url_cert_missing(manager, self._URL)
-        manager.per_account_cert_status_for_url.assert_not_called()
-        mock_cc.warning.assert_not_called()
-
     def test_warns_when_not_provisioned(self):
         manager = Mock()
         manager.per_account_cert_status_for_url.return_value = (
             PerAccountCertStatus.NOT_PROVISIONED
         )
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-                _warn_if_cng_url_cert_missing(manager, self._URL)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _warn_if_cng_url_cert_missing(manager, self._URL)
         manager.per_account_cert_status_for_url.assert_called_once_with(self._URL)
         mock_cc.warning.assert_called_once()
 
@@ -779,24 +798,14 @@ class TestWarnIfCngUrlCertMissing:
     def test_quiet_when_provisioned_or_unknown(self, status):
         manager = Mock()
         manager.per_account_cert_status_for_url.return_value = status
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
-                _warn_if_cng_url_cert_missing(manager, self._URL)
+        with patch("snowflake.cli._plugins.apps.commands.cli_console") as mock_cc:
+            _warn_if_cng_url_cert_missing(manager, self._URL)
         mock_cc.warning.assert_not_called()
 
     def test_probe_error_swallowed(self):
         manager = Mock()
         manager.per_account_cert_status_for_url.side_effect = RuntimeError("boom")
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            _warn_if_cng_url_cert_missing(manager, self._URL)  # should not raise
+        _warn_if_cng_url_cert_missing(manager, self._URL)  # should not raise
 
 
 class TestPerAccountAppHostname:
@@ -2516,22 +2525,16 @@ class TestSnowflakeAppManager:
     @patch(EXECUTE_QUERY)
     def test_create_app_service_never_emits_compute_resource(self, mock_execute):
         """The snowflake.yml path builds ``CREATE APPLICATION SERVICE`` without a
-        ``COMPUTE_RESOURCE`` clause, so CNG stays reachable only from app.yml v2
-        — even with the CNG feature flag on."""
+        ``COMPUTE_RESOURCE`` clause, so CNG stays reachable only from app.yml v2."""
         mock_execute.return_value = Mock()
 
         fqn = FQN(database="DB", schema="SCHEMA", name="my_app")
-        with patch.object(
-            FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE,
-            "is_enabled",
-            return_value=True,
-        ):
-            SnowflakeAppManager().create_app_service(
-                service_fqn=fqn,
-                artifact_repo_fqn="DB.SCHEMA.REPO",
-                package_name="my_app",
-                compute_pool="SVC_POOL",
-            )
+        SnowflakeAppManager().create_app_service(
+            service_fqn=fqn,
+            artifact_repo_fqn="DB.SCHEMA.REPO",
+            package_name="my_app",
+            compute_pool="SVC_POOL",
+        )
         create_query = self._find_query(
             mock_execute.call_args_list, "CREATE APPLICATION SERVICE"
         )

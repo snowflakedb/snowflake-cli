@@ -120,6 +120,14 @@ _APP_SPACE_COLUMN_MAP = {
 # per-account TLS certificate to be provisioned for the account.
 SERVERLESS_COMPUTE_RESOURCE = "SERVERLESS"
 
+# Account parameters that must all be true before ``compute_resource: SERVERLESS``
+# is applied. This is intentionally not advertised in help or release notes.
+SERVERLESS_ACCOUNT_PARAMETERS = (
+    "ENABLE_EAA_FOR_CNG_INGRESS",
+    "ENABLE_OAUTH_DELEGATED_PROXY_FLOW",
+    "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+)
+
 # System function that triggers per-account URL certificate issuance for the
 # account. Issuance is asynchronous and can take up to ~3 hours, so a CNG
 # deploy starts it when the certificate is missing and then stops; the user
@@ -2265,6 +2273,42 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """
         self.execute_query(f"SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}()")
 
+    def serverless_account_parameters_enabled(self) -> bool:
+        """Return whether this account may use ``compute_resource: SERVERLESS``.
+
+        All of :data:`SERVERLESS_ACCOUNT_PARAMETERS` must be on. Boolean
+        parameters use ``true``; ``FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS``
+        uses ``ENABLED``. A missing parameter, any other value, or a failure
+        to read it is not enabled.
+        """
+        for name in SERVERLESS_ACCOUNT_PARAMETERS:
+            if not self._account_parameter_is_true(name):
+                log.debug("Account parameter %s is not enabled.", name)
+                return False
+        return True
+
+    def _account_parameter_is_true(self, name: str) -> bool:
+        """Return whether account parameter *name* is on.
+
+        Boolean parameters store ``true``. The serverless feature parameter
+        stores ``ENABLED`` when the account is allowed to use it.
+        """
+        try:
+            cursor = self.execute_query(
+                f"SHOW PARAMETERS LIKE '{name}' IN ACCOUNT",
+                cursor_class=DictCursor,
+            )
+            row = cursor.fetchone()
+        except ProgrammingError:
+            log.debug("Could not read account parameter %s.", name, exc_info=True)
+            return False
+        if not row:
+            return False
+        value = row.get("value")
+        if value is None:
+            value = row.get("VALUE")
+        return str(value).strip().lower() in {"true", "enabled"}
+
     def create_app_service(
         self,
         service_fqn: FQN,
@@ -2279,8 +2323,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """Create an application service from an artifact repository package.
 
         The ``COMPUTE_RESOURCE`` DDL field (CNG/serverless) is intentionally not
-        emitted here: it is only reachable from the ``app.yml`` deploy path, and
-        only with the ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag on
+        emitted here: it is only reachable from the ``app.yml`` deploy path
         (see :meth:`create_or_alter_app_service`).
         """
         parts = [
@@ -2341,10 +2384,10 @@ class SnowflakeAppManager(SqlExecutionMixin):
         written. When ``database`` / ``schema`` are omitted the value passes
         through unchanged.
 
-        ``url_prefix`` and ``health_check`` are CNG-only (serverless) fields, so
+        ``url_prefix`` and ``health_check`` are serverless-only fields, so
         they are emitted only when *include_url_prefix* / *include_health_check*
-        are set — the caller gates them on the CNG compute resource behind the
-        feature flag — and dropped otherwise.
+        are set — the caller gates them on ``compute_resource: SERVERLESS`` —
+        and dropped otherwise.
 
         Deployment-location fields (``name`` / ``database`` / ``schema`` /
         ``account``) locate and name the service and are not part of the
@@ -2414,9 +2457,8 @@ class SnowflakeAppManager(SqlExecutionMixin):
         ``compute_resource`` (``SERVERLESS`` or ``MANAGED_COMPUTE_POOL``) maps to
         the write-once ``COMPUTE_RESOURCE`` DDL clause — it is not owned by the
         ``SPECIFICATION`` and so is emitted alongside it. It is immutable after
-        the first deploy, and callers gate it behind the
-        ``ENABLE_APP_SERVICE_COMPUTE_RESOURCE`` feature flag; when ``None`` the
-        clause is omitted and the server defaults the backend.
+        the first deploy. When ``None`` the clause is omitted and the server
+        defaults the backend.
 
         The specification is dollar-quoted (``$$...$$``) and embeds
         user-supplied app.yml values verbatim (``label`` / ``description`` /

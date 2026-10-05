@@ -26,10 +26,7 @@ from snowflake.cli._plugins.apps.app_yml import (
 )
 from snowflake.cli._plugins.apps.manager import SnowflakeAppManager
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-
-_CNG_FLAG = FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE
 
 _APP_YML = dedent(
     """\
@@ -353,6 +350,15 @@ class TestAppYmlDefinition:
         assert AppYmlTarget(account="myorg-acct").account == "myorg-acct"
         assert "account" not in AppYmlTarget.model_json_schema()["properties"]
         assert "account" not in AppYmlDefinition.model_json_schema()["properties"]
+
+    def test_compute_resource_is_parsed_but_hidden_from_schema(self):
+        assert (
+            AppYmlTarget(compute_resource="SERVERLESS").compute_resource == "SERVERLESS"
+        )
+        assert "compute_resource" not in AppYmlTarget.model_json_schema()["properties"]
+        assert (
+            "compute_resource" not in AppYmlDefinition.model_json_schema()["properties"]
+        )
 
     def test_code_workspace_parsed(self):
         model = _definition(code_workspace="DB.SCHEMA.MY_WS")
@@ -940,8 +946,8 @@ class TestBuildServiceSpecification:
         assert spec == {"query_warehouse": "WH"}
 
     def test_url_prefix_emitted_only_when_included(self):
-        # ``url_prefix`` is a CNG-only field: emitted only when the caller opts in
-        # (the deploy path gates it on the CNG compute resource behind the flag).
+        # ``url_prefix`` is a serverless-only field: emitted only when the caller
+        # opts in (the deploy path gates it on ``compute_resource: SERVERLESS``).
         target = AppYmlTarget(query_warehouse="WH", url_prefix="MY_APP")
         included = yaml.safe_load(
             SnowflakeAppManager.build_service_specification(
@@ -957,9 +963,8 @@ class TestBuildServiceSpecification:
         assert "url_prefix" not in default
 
     def test_health_check_emitted_only_when_included(self):
-        # ``health_check`` is a CNG-only field: emitted only when the caller opts
-        # in (the deploy path gates it on the CNG compute resource behind the
-        # flag).
+        # ``health_check`` is a serverless-only field: emitted only when the caller
+        # opts in (the deploy path gates it on ``compute_resource: SERVERLESS``).
         target = AppYmlTarget(query_warehouse="WH", health_check="/healthz")
         included = yaml.safe_load(
             SnowflakeAppManager.build_service_specification(
@@ -1106,6 +1111,7 @@ def _make_manager_mock(mock_mgr_cls):
     )
     mgr.build_app_artifact_repo.return_value = "Build job submitted: DB.SC.BUILD_JOB_1"
     mgr.current_role.return_value = "TEST_ROLE"
+    mgr.serverless_account_parameters_enabled.return_value = True
     # build_service_specification / resolve_application_service_url are pure —
     # delegate to the real implementations so the deploy path builds a real spec.
     mgr.build_service_specification.side_effect = (
@@ -1709,8 +1715,8 @@ class TestDeployFromAppYml:
     def test_cng_target_runs_cert_precheck_and_emits_compute_resource(
         self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, mock_cert, tmp_path
     ):
-        """A SERVERLESS target (flag on) runs the per-account cert precheck and
-        forwards COMPUTE_RESOURCE to CREATE OR ALTER."""
+        """A SERVERLESS target runs the per-account cert precheck and
+        forwards COMPUTE_RESOURCE to CREATE OR ALTER when the account allows it."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
 
         (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
@@ -1722,15 +1728,14 @@ class TestDeployFromAppYml:
             {"url": "cng.snowflakecomputing.app", "is_upgrading": "false"},
         ]
 
-        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
-            snowflake_app_deploy(
-                None,
-                False,
-                False,
-                False,
-                interactive=False,
-                target="prod",
-            )
+        snowflake_app_deploy(
+            None,
+            False,
+            False,
+            False,
+            interactive=False,
+            target="prod",
+        )
 
         # Precheck runs before the app exists. A missing cert starts issuance
         # and is fatal for a full deploy unless --skip-certs-check is set.
@@ -1765,16 +1770,15 @@ class TestDeployFromAppYml:
             {"url": "cng.snowflakecomputing.app", "is_upgrading": "false"},
         ]
 
-        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
-            snowflake_app_deploy(
-                None,
-                False,
-                False,
-                False,
-                interactive=False,
-                skip_certs_check=True,
-                target="prod",
-            )
+        snowflake_app_deploy(
+            None,
+            False,
+            False,
+            False,
+            interactive=False,
+            skip_certs_check=True,
+            target="prod",
+        )
 
         mock_cert.assert_called_once()
         assert mock_cert.call_args.kwargs["skip"] is True
@@ -1786,33 +1790,24 @@ class TestDeployFromAppYml:
     @patch(f"{_COMMANDS}.perform_bundle")
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
-    def test_compute_resource_ignored_when_flag_disabled(
+    def test_serverless_refused_when_account_parameters_disabled(
         self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, mock_cert, tmp_path
     ):
-        """CNG is off by default even though app.yml v2 is on: compute_resource
-        is not honoured, so there is no cert precheck and no COMPUTE_RESOURCE."""
+        """SERVERLESS is refused when the account parameters are not all enabled."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
 
         (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
-        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
-        mock_poll.side_effect = [
-            "DONE",
-            {"url": "cng.snowflakecomputing.app", "is_upgrading": "false"},
-        ]
+        mgr.serverless_account_parameters_enabled.return_value = False
 
-        snowflake_app_deploy(
-            None, False, False, False, interactive=False, target="prod"
-        )
+        with pytest.raises(CliError, match="not enabled for this account"):
+            snowflake_app_deploy(
+                None, False, False, False, interactive=False, target="prod"
+            )
 
         mock_cert.assert_not_called()
-        call = mgr.create_or_alter_app_service.call_args.kwargs
-        assert call["compute_resource"] is None
-        # Without the CNG path there is no url_prefix or health_check to emit.
-        spec = yaml.safe_load(call["specification"])
-        assert "url_prefix" not in spec
-        assert "health_check" not in spec
+        mgr.create_or_alter_app_service.assert_not_called()
 
     @patch(f"{_COMMANDS}._poll_until")
     @patch(f"{_COMMANDS}.perform_bundle")
@@ -2197,12 +2192,11 @@ class TestCngHealthMonitoringDisabled:
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
 
-        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
-            with pytest.raises(
-                CliError,
-                match="Health monitoring is not available for serverless apps",
-            ):
-                snowflake_app_events(None, None, target="prod", **kwargs)
+        with pytest.raises(
+            CliError,
+            match="Health monitoring is not available for serverless apps",
+        ):
+            snowflake_app_events(None, None, target="prod", **kwargs)
 
         mgr.get_event_table_data.assert_not_called()
         mgr.get_service_logs.assert_not_called()
@@ -2219,8 +2213,7 @@ class TestCngHealthMonitoringDisabled:
         mgr = _make_manager_mock(mock_mgr_cls)
         mgr.get_service_logs.return_value = "cng-live-log"
 
-        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
-            result = snowflake_app_events(None, None, target="prod")
+        result = snowflake_app_events(None, None, target="prod")
 
         mgr.get_service_logs.assert_called_once()
         mgr.get_event_table_data.assert_not_called()
@@ -2238,8 +2231,7 @@ class TestCngHealthMonitoringDisabled:
         mgr = _make_manager_mock(mock_mgr_cls)
         mgr.get_service_logs.return_value = "cng-live-log"
 
-        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
-            result = snowflake_app_events(None, None, event_type="log", target="prod")
+        result = snowflake_app_events(None, None, event_type="log", target="prod")
 
         mgr.get_service_logs.assert_called_once()
         mgr.get_event_table_data.assert_not_called()
@@ -2247,16 +2239,15 @@ class TestCngHealthMonitoringDisabled:
 
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
-    def test_event_table_allowed_when_cng_flag_off(
+    def test_event_table_allowed_when_serverless_parameters_disabled(
         self, mock_ctx, mock_mgr_cls, tmp_path
     ):
-        # Flag off: SERVERLESS in app.yml is not honoured, so the app is not
-        # treated as CNG and health monitoring stays available.
         from snowflake.cli._plugins.apps.commands import snowflake_app_events
 
         (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.serverless_account_parameters_enabled.return_value = False
         mgr.get_event_table_data.return_value = "[]"
 
         result = snowflake_app_events(None, None, event_type="metric", target="prod")
@@ -2277,10 +2268,7 @@ class TestCngHealthMonitoringDisabled:
         mgr = _make_manager_mock(mock_mgr_cls)
         mgr.get_event_table_data.return_value = "[]"
 
-        with patch.object(_CNG_FLAG, "is_enabled", return_value=True):
-            result = snowflake_app_events(
-                None, None, event_type="lifecycle", target="prod"
-            )
+        result = snowflake_app_events(None, None, event_type="lifecycle", target="prod")
 
         mgr.get_event_table_data.assert_called_once()
         mgr.get_service_logs.assert_not_called()

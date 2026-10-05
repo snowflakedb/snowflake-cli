@@ -81,11 +81,6 @@ class FeatureFlag(FeatureFlagMixin):
     )
     ENABLE_SPCS_BUILD_IMAGE = BooleanFlag("ENABLE_SPCS_BUILD_IMAGE", False)
     ENABLE_DBT_GIT_METADATA = BooleanFlag("ENABLE_DBT_GIT_METADATA", True)
-    # CNG (serverless COMPUTE_RESOURCE) has its own flag: app.yml v2 is now
-    # generally available, but CNG is not ready yet.
-    ENABLE_APP_SERVICE_COMPUTE_RESOURCE = BooleanFlag(
-        "ENABLE_APP_SERVICE_COMPUTE_RESOURCE", False
-    )
     ENABLE_DCM_PROJECT_ENV_VARS = BooleanFlag("ENABLE_DCM_PROJECT_ENV_VARS", False)
     ENABLE_DCM_PREVIEW_FEATURES = BooleanFlag("ENABLE_DCM_PREVIEW_FEATURES", False)
     ENABLE_DCM_UNIT_TEST_FEATURES = BooleanFlag("ENABLE_DCM_UNIT_TEST_FEATURES", False)

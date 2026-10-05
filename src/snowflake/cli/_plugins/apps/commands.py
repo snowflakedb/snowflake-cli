@@ -89,7 +89,6 @@ from snowflake.cli.api.config import (
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -1696,20 +1695,32 @@ def _log_service_logs(manager: SnowflakeAppManager, service_fqn: FQN) -> None:
 
 
 def _is_cng_compute_resource(compute_resource: Optional[str]) -> bool:
-    """Return ``True`` for the CNG (serverless) app-service backend."""
+    """Return ``True`` for the serverless app-service backend."""
     return (compute_resource or "").upper() == SERVERLESS_COMPUTE_RESOURCE
 
 
-def _honoured_compute_resource(compute_resource: Optional[str]) -> Optional[str]:
-    """Return *compute_resource* when the CNG feature flag is on.
+def _effective_compute_resource(
+    manager: SnowflakeAppManager,
+    compute_resource: Optional[str],
+    *,
+    required: bool,
+) -> Optional[str]:
+    """Return *compute_resource*, dropping ``SERVERLESS`` when the account disallows it.
 
-    CNG is not ready yet, so ``SERVERLESS`` is only honoured while the flag
-    is on. When the flag is off this returns ``None`` and the server uses
-    the default backend.
+    ``required`` raises when ``SERVERLESS`` was requested but the account
+    parameters are not all enabled. Callers that only observe an existing
+    service pass ``required=False`` and treat that request as unset.
     """
-    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
-        return None
-    return compute_resource
+    if not _is_cng_compute_resource(compute_resource):
+        return compute_resource
+    if manager.serverless_account_parameters_enabled():
+        return compute_resource
+    if required:
+        raise CliError("compute_resource SERVERLESS is not enabled for this account.")
+    log.debug(
+        "Ignoring compute_resource SERVERLESS; account parameters are not enabled."
+    )
+    return None
 
 
 def _requests_event_table_health_monitoring(
@@ -1739,9 +1750,7 @@ def _ensure_cng_url_cert_ready(
     issuance is started automatically and a full deploy stops so it can be
     re-run once provisioning completes.
 
-    The caller gates this on the app being CNG, which also implies the feature
-    flag is on (``compute_resource`` stays ``None`` while it is off), so the flag
-    is not re-checked here.
+    The caller gates this on the app being CNG.
 
     ``skip`` (``--skip-certs-check``) opts out: no probe and no issuance, and
     the deploy continues.
@@ -1807,14 +1816,11 @@ def _warn_if_cng_url_cert_missing(manager: SnowflakeAppManager, url: str) -> Non
     probes the resolved *url*'s host directly (the exact certificate the browser
     would see). Unlike the deploy pre-check — which knows the app is CNG from its
     resolved ``compute_resource`` — ``open`` does not resolve the entity, so it
-    gates on the CNG feature flag (no CNG app can exist while it is off) and
     leans on ``per_account_cert_status_for_url`` returning ``UNKNOWN`` for
     non-per-account hosts (e.g. SPCS ``snowflakecomputing.app``), so an SPCS
     app's TLS state is never misattributed to a per-account cert. Any probe error
     is swallowed so ``open`` never breaks on this advisory.
     """
-    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
-        return
     try:
         status = manager.per_account_cert_status_for_url(url)
     except Exception:
@@ -2029,9 +2035,9 @@ class _ResolvedService(NamedTuple):
     (the ``--target`` target) or the ``snowflake.yml`` entity, so ``open`` and
     ``events`` share one resolution path instead of each re-deriving it.
 
-    ``compute_resource`` is the honoured backend (``SERVERLESS`` or
+    ``compute_resource`` is the backend (``SERVERLESS`` or
     ``MANAGED_COMPUTE_POOL``) from the ``app.yml`` target, or ``None`` when
-    the CNG feature flag is off or the project uses ``snowflake.yml``.
+    the project uses ``snowflake.yml``.
     """
 
     manager: SnowflakeAppManager
@@ -2064,7 +2070,9 @@ def _resolve_command_service(
             dep.database,
             dep.schema,
             dep.service_name,
-            _honoured_compute_resource(dep.target.compute_resource),
+            _effective_compute_resource(
+                manager, dep.target.compute_resource, required=False
+            ),
         )
 
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -2354,10 +2362,12 @@ def _deploy_from_app_yml(
             "Promoting the latest built package (skipping upload and build)."
         )
 
-    # ``compute_resource`` selects the CNG (serverless) or SPCS backend and is
-    # write-once. CNG is not ready yet, so it is only honoured while the feature
-    # flag is on; when off it is ignored and the server defaults the backend.
-    compute_resource = _honoured_compute_resource(tgt.compute_resource)
+    # ``compute_resource`` selects the serverless or SPCS backend and is
+    # write-once. ``SERVERLESS`` is applied only when the account parameters
+    # allow it. When it is unset the server defaults the backend.
+    compute_resource = _effective_compute_resource(
+        manager, tgt.compute_resource, required=True
+    )
 
     # Probe for the per-account URL certificate up front (see
     # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
@@ -2411,9 +2421,8 @@ def _deploy_from_app_yml(
         return result
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
-    # ``url_prefix`` and ``health_check`` are CNG-only fields, so they are only
-    # emitted on the CNG (serverless) path, which already requires the feature
-    # flag (compute_resource stays None while it is off).
+    # ``url_prefix`` and ``health_check`` are serverless-only fields, so they
+    # are only emitted when ``compute_resource`` is ``SERVERLESS``.
     is_cng = _is_cng_compute_resource(compute_resource)
     specification = manager.build_service_specification(
         tgt,
