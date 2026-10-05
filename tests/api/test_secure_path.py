@@ -223,6 +223,18 @@ def test_permissions(temporary_directory, save_logs):
     )
 
 
+def test_touch_honors_permissions_mask_when_umask_allows(
+    temporary_directory, _widen_umask_for_testing
+):
+    file = SecurePath(temporary_directory) / "group.txt"
+    file.touch(permissions_mask=0o660)
+    writable_and_readable_by_group = stat.S_IRGRP | stat.S_IWGRP
+    assert (
+        file.path.stat().st_mode & writable_and_readable_by_group
+        == writable_and_readable_by_group
+    )
+
+
 def test_mkdir(temporary_directory, save_logs, _widen_umask_for_testing):
     dir1 = SecurePath(temporary_directory) / "dir1"
     dir2 = SecurePath(temporary_directory) / "dir2" / "a" / "b" / "c" / "d"

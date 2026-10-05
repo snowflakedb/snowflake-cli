@@ -23,6 +23,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Any, Generator, Optional, Union
 
+from snowflake.cli.api.constants import IS_WINDOWS
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
 from snowflake.cli.api.secure_utils import (
     chmod as secure_chmod,
@@ -37,6 +38,8 @@ UNLIMITED = -1
 
 
 class SecurePath:
+    """Path wrapper. New files/dirs are owner-only (POSIX ``mode & ~umask``; Windows ACL)."""
+
     def __init__(self, path: Union[Path, str]):
         self._path = Path(os.path.expanduser(path))
 
@@ -137,19 +140,18 @@ class SecurePath:
         return self._path.name
 
     def restrict_permissions(self) -> None:
-        """
-        Restrict file/directory permissions to owner-only.
-        """
+        """Restrict this path to the current user."""
         restrict_file_permissions(self._path)
 
     def touch(self, permissions_mask: int = 0o600, exist_ok: bool = True) -> None:
-        """
-        Create a file at this given path. For details, check pathlib.Path.touch()
-        """
+        """Create a file. ``permissions_mask`` is POSIX ``mode & ~umask``; ignored on Windows."""
         already_exists = self.exists()
         if not already_exists:
             log.info("Creating file %s", str(self._path))
         self._path.touch(mode=permissions_mask, exist_ok=exist_ok)
+        if not already_exists and IS_WINDOWS:
+            # Path.touch ignores mode=.
+            self.restrict_permissions()
 
     def mkdir(
         self,
@@ -157,9 +159,7 @@ class SecurePath:
         parents: bool = False,
         exist_ok: bool = False,
     ) -> None:
-        """
-        Create a directory at this given path. For details, check pathlib.Path.mkdir()
-        """
+        """Create a directory. ``permissions_mask`` is POSIX ``mode & ~umask``; ignored on Windows."""
         if parents and not self.parent.exists():
             self.parent.mkdir(
                 permissions_mask=permissions_mask, exist_ok=exist_ok, parents=True
@@ -168,6 +168,9 @@ class SecurePath:
         if not already_exists:
             log.info("Creating directory %s", str(self._path))
         self._path.mkdir(mode=permissions_mask, exist_ok=exist_ok)
+        if not already_exists and IS_WINDOWS:
+            # Path.mkdir ignores mode=.
+            self.restrict_permissions()
 
     def read_text(
         self,

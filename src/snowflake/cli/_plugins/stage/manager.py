@@ -378,15 +378,36 @@ class StageManager(SqlExecutionMixin):
             spath.mkdir(parents=True)
         spath.assert_is_directory()
 
+    @staticmethod
+    @contextmanager
+    def _restrict_created_or_updated(directory: Path) -> Generator[None, None, None]:
+        """Lock down files GET just wrote. Skip neighbors and existing dirs."""
+
+        def _signature(path: Path) -> tuple[int, int]:
+            stat = path.stat()
+            return (stat.st_mtime_ns, stat.st_size)
+
+        before = {child.name: _signature(child) for child in directory.iterdir()}
+        try:
+            yield
+        finally:
+            for child in directory.iterdir():
+                previous = before.get(child.name)
+                if previous is not None and child.is_dir():
+                    continue
+                if previous != _signature(child):
+                    SecurePath(child).restrict_permissions()
+
     def get(
         self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> SnowflakeCursor:
         spath = self.build_path(stage_path)
         self._assure_is_existing_directory(dest_path)
         dest_directory = f"{dest_path}/"
-        return self.execute_query(
-            f"get {spath.path_for_sql()} {self._to_uri(dest_directory)} parallel={parallel}"
-        )
+        with self._restrict_created_or_updated(dest_path):
+            return self.execute_query(
+                f"get {spath.path_for_sql()} {self._to_uri(dest_directory)} parallel={parallel}"
+            )
 
     @staticmethod
     def _check_for_path_traversal(resolved_dest: Path, local_dir: Path) -> None:
@@ -417,9 +438,10 @@ class StageManager(SqlExecutionMixin):
             StageManager._check_for_path_traversal(resolved_dest, local_dir)
             self._assure_is_existing_directory(local_dir)
 
-            result = self.execute_query(
-                f"get {file_path.path_for_sql()} {self._to_uri(f'{local_dir}/')} parallel={parallel}"
-            )
+            with self._restrict_created_or_updated(local_dir):
+                result = self.execute_query(
+                    f"get {file_path.path_for_sql()} {self._to_uri(f'{local_dir}/')} parallel={parallel}"
+                )
             results.append(result)
 
         return results

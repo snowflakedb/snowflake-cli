@@ -54,7 +54,6 @@ from snowflake.cli.api.secure_utils import (
     file_permissions_are_strict,
     get_windows_permission_warning,
     issue_unix_permissions_warning,
-    restrict_file_permissions,
     should_skip_permission_warning,
 )
 from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
@@ -596,17 +595,9 @@ def get_config_bool_value(*path, key: str, default: Optional[bool]) -> Optional[
 
 
 def _initialise_config(config_file: Path) -> None:
-    config_dir = config_file.parent
-    parent_existed = config_dir.exists()
-
     secure_config_file = SecurePath(config_file)
     secure_config_file.parent.mkdir(parents=True, exist_ok=True)
-    if IS_WINDOWS and not parent_existed:
-        restrict_file_permissions(config_dir)
-
     secure_config_file.touch()
-    if IS_WINDOWS:
-        restrict_file_permissions(config_file)
 
     _initialise_cli_section()
     _initialise_logs_section()
