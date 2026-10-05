@@ -18,9 +18,11 @@ import hashlib
 import importlib.util
 import json
 import subprocess
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from snowflake.cli._plugins.upgrade.rollout import RolloutPolicy, parse_rollout
 
 PLATFORMS = (
     ("linux", "amd64"),
@@ -111,31 +113,13 @@ def _install_scripts(tmp_path: Path) -> tuple[Path, Path]:
     return install_sh, install_ps1
 
 
-def test_assemble_writes_signed_channel(tmp_path):
-    assemble = _load_assemble_module()
-    fragments = tmp_path / "fragments"
-    fragments.mkdir()
-    _write_all_fragments(fragments)
-    install_sh, install_ps1 = _install_scripts(tmp_path)
-    output = tmp_path / "out"
-    key = _rsa_key(tmp_path)
+FROZEN_NOW = datetime(2026, 9, 28, 12, 0, tzinfo=timezone.utc)
+FROZEN_RELEASED_AT = "2026-09-28T12:00:00Z"
 
-    version = assemble.assemble(fragments, output, install_sh, install_ps1, key)
 
-    assert version == "3.13.1"
+def _openssl_verify(output: Path, key: Path, tmp_path: Path) -> None:
     manifest_bytes = (output / "manifest.json").read_bytes()
     assert b"\r\n" not in manifest_bytes
-    assert manifest_bytes.endswith(b"\n")
-    manifest = json.loads(manifest_bytes.decode("utf-8"))
-    assert set(manifest["packages"]) == {"linux", "darwin", "windows"}
-    windows = manifest["packages"]["windows"]["amd64"]
-    assert windows["name"] == "snowflake-cli-3.13.1-windows-amd64.tar.gz"
-    assert windows["checksum"] == hashlib.sha256(b"windows-amd64\n").hexdigest()
-    assert (output / "manifest.json.sig").stat().st_size > 0
-    assert (output / "install.sh").read_text(encoding="utf-8") == "#!/bin/sh\n"
-    assert (output / "install.ps1").read_text(encoding="utf-8") == "Write-Host hi\n"
-    stable = (output / "stable_version.txt").read_bytes()
-    assert stable == b"3.13.1\n"
     pub = tmp_path / "managed.pub"
     subprocess.check_call(
         ["openssl", "rsa", "-in", str(key), "-pubout", "-out", str(pub)],
@@ -154,6 +138,42 @@ def test_assemble_writes_signed_channel(tmp_path):
             str(output / "manifest.json"),
         ]
     )
+
+
+def test_assemble_writes_signed_channel(tmp_path):
+    assemble = _load_assemble_module()
+    fragments = tmp_path / "fragments"
+    fragments.mkdir()
+    _write_all_fragments(fragments)
+    install_sh, install_ps1 = _install_scripts(tmp_path)
+    output = tmp_path / "out"
+    key = _rsa_key(tmp_path)
+
+    version = assemble.assemble(
+        fragments, output, install_sh, install_ps1, key, now=FROZEN_NOW
+    )
+
+    assert version == "3.13.1"
+    manifest_bytes = (output / "manifest.json").read_bytes()
+    assert b"\r\n" not in manifest_bytes
+    assert manifest_bytes.endswith(b"\n")
+    manifest = json.loads(manifest_bytes.decode("utf-8"))
+    assert set(manifest["packages"]) == {"linux", "darwin", "windows"}
+    windows = manifest["packages"]["windows"]["amd64"]
+    assert windows["name"] == "snowflake-cli-3.13.1-windows-amd64.tar.gz"
+    assert windows["checksum"] == hashlib.sha256(b"windows-amd64\n").hexdigest()
+    assert manifest["rollout"] == {
+        "policy": "staged",
+        "released_at": FROZEN_RELEASED_AT,
+    }
+    assert "fraction" not in manifest
+    assert "fraction" not in manifest["rollout"]
+    assert (output / "manifest.json.sig").stat().st_size > 0
+    assert (output / "install.sh").read_text(encoding="utf-8") == "#!/bin/sh\n"
+    assert (output / "install.ps1").read_text(encoding="utf-8") == "Write-Host hi\n"
+    stable = (output / "stable_version.txt").read_bytes()
+    assert stable == b"3.13.1\n"
+    _openssl_verify(output, key, tmp_path)
 
 
 def test_assemble_accepts_sha256_checksum_prefix(tmp_path):
@@ -255,6 +275,250 @@ def test_assemble_rejects_mismatched_versions(tmp_path):
         assemble.assemble(
             fragments, tmp_path / "out", install_sh, install_ps1, _rsa_key(tmp_path)
         )
+
+
+@pytest.mark.parametrize("policy", ("immediate", "hold"))
+def test_assemble_stamps_explicit_rollout_policy(tmp_path, policy):
+    assemble = _load_assemble_module()
+    fragments = tmp_path / "fragments"
+    fragments.mkdir()
+    _write_all_fragments(fragments)
+    install_sh, install_ps1 = _install_scripts(tmp_path)
+    output = tmp_path / "out"
+    key = _rsa_key(tmp_path)
+
+    assemble.assemble(
+        fragments,
+        output,
+        install_sh,
+        install_ps1,
+        key,
+        rollout_policy=policy,
+        now=FROZEN_NOW,
+    )
+
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["rollout"] == {
+        "policy": policy,
+        "released_at": FROZEN_RELEASED_AT,
+    }
+    assert "fraction" not in manifest["rollout"]
+    _openssl_verify(output, key, tmp_path)
+
+
+@pytest.mark.parametrize("policy", ("staged", "immediate", "hold"))
+def test_assembled_manifest_parse_rollout_round_trip(tmp_path, policy):
+    assemble = _load_assemble_module()
+    fragments = tmp_path / "fragments"
+    fragments.mkdir()
+    _write_all_fragments(fragments)
+    install_sh, install_ps1 = _install_scripts(tmp_path)
+    output = tmp_path / "out"
+    key = _rsa_key(tmp_path)
+
+    assemble.assemble(
+        fragments,
+        output,
+        install_sh,
+        install_ps1,
+        key,
+        rollout_policy=policy,
+        now=FROZEN_NOW,
+    )
+
+    manifest = json.loads((output / "manifest.json").read_bytes().decode("utf-8"))
+    assert manifest["rollout"] == {
+        "policy": policy,
+        "released_at": FROZEN_RELEASED_AT,
+    }
+    rollout = parse_rollout(manifest)
+    assert rollout.policy is RolloutPolicy(policy)
+    if policy == "staged":
+        assert rollout.released_at == FROZEN_NOW
+    _openssl_verify(output, key, tmp_path)
+
+
+def test_rollout_policies_match_client_enum():
+    assemble = _load_assemble_module()
+    assert set(assemble.ROLLOUT_POLICIES) == {member.value for member in RolloutPolicy}
+
+
+def test_assemble_rejects_unknown_rollout_policy_before_sign(tmp_path):
+    assemble = _load_assemble_module()
+    fragments = tmp_path / "fragments"
+    fragments.mkdir()
+    _write_all_fragments(fragments)
+    install_sh, install_ps1 = _install_scripts(tmp_path)
+    output = tmp_path / "out"
+    key = _rsa_key(tmp_path)
+
+    output.mkdir()
+    (output / "manifest.json").write_text("sentinel\n", encoding="utf-8")
+    (output / "manifest.json.sig").write_bytes(b"old-sig")
+
+    with pytest.raises(SystemExit, match="invalid rollout policy"):
+        assemble.assemble(
+            fragments,
+            output,
+            install_sh,
+            install_ps1,
+            key,
+            rollout_policy="canary",
+        )
+
+    assert (output / "manifest.json").read_text(encoding="utf-8") == "sentinel\n"
+    assert (output / "manifest.json.sig").read_bytes() == b"old-sig"
+
+
+def test_assemble_ignores_fragment_fraction_and_rollout(tmp_path):
+    assemble = _load_assemble_module()
+    fragments = tmp_path / "fragments"
+    fragments.mkdir()
+    _write_all_fragments(fragments)
+    path = fragments / "manifest-linux-amd64.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["fraction"] = 1
+    payload["rollout"] = {"policy": "immediate", "fraction": 0.5}
+    payload["packages"]["linux"]["amd64"]["fraction"] = 0.5
+    payload["packages"]["linux"]["amd64"]["rollout"] = {
+        "policy": "immediate",
+        "fraction": 0.25,
+    }
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    install_sh, install_ps1 = _install_scripts(tmp_path)
+    output = tmp_path / "out"
+    key = _rsa_key(tmp_path)
+
+    assemble.assemble(fragments, output, install_sh, install_ps1, key, now=FROZEN_NOW)
+
+    signed = (output / "manifest.json").read_bytes()
+    assert b"fraction" not in signed
+    merged_only, _ = assemble.merge_fragments(fragments)
+    assert "rollout" not in merged_only
+    assert b"fraction" not in json.dumps(merged_only).encode()
+    manifest = json.loads(signed.decode("utf-8"))
+    linux = manifest["packages"]["linux"]["amd64"]
+    assert set(linux) == {"name", "checksum"}
+    assert manifest["rollout"] == {
+        "policy": "staged",
+        "released_at": FROZEN_RELEASED_AT,
+    }
+    _openssl_verify(output, key, tmp_path)
+
+
+def test_main_rollout_policy_immediate(tmp_path):
+    assemble = _load_assemble_module()
+    fragments = tmp_path / "fragments"
+    fragments.mkdir()
+    _write_all_fragments(fragments)
+    install_sh, install_ps1 = _install_scripts(tmp_path)
+    output = tmp_path / "out"
+    key = _rsa_key(tmp_path)
+
+    rc = assemble.main(
+        [
+            "--fragments-dir",
+            str(fragments),
+            "--output-dir",
+            str(output),
+            "--install-sh",
+            str(install_sh),
+            "--install-ps1",
+            str(install_ps1),
+            "--sign-key",
+            str(key),
+            "--rollout-policy",
+            "immediate",
+        ]
+    )
+
+    assert rc == 0
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["rollout"]["policy"] == "immediate"
+    assert manifest["rollout"]["released_at"].endswith("Z")
+    assert "fraction" not in manifest["rollout"]
+    _openssl_verify(output, key, tmp_path)
+
+
+def test_main_defaults_to_staged(tmp_path):
+    assemble = _load_assemble_module()
+    fragments = tmp_path / "fragments"
+    fragments.mkdir()
+    _write_all_fragments(fragments)
+    install_sh, install_ps1 = _install_scripts(tmp_path)
+    output = tmp_path / "out"
+    key = _rsa_key(tmp_path)
+
+    rc = assemble.main(
+        [
+            "--fragments-dir",
+            str(fragments),
+            "--output-dir",
+            str(output),
+            "--install-sh",
+            str(install_sh),
+            "--install-ps1",
+            str(install_ps1),
+            "--sign-key",
+            str(key),
+        ]
+    )
+
+    assert rc == 0
+    signed = (output / "manifest.json").read_bytes()
+    manifest = json.loads(signed.decode("utf-8"))
+    assert manifest["rollout"]["policy"] == "staged"
+    released = datetime.strptime(
+        manifest["rollout"]["released_at"], "%Y-%m-%dT%H:%M:%SZ"
+    ).replace(tzinfo=timezone.utc)
+    assert abs((released - datetime.now(timezone.utc)).total_seconds()) < 300
+    assert "fraction" not in manifest
+    _openssl_verify(output, key, tmp_path)
+
+
+def test_released_at_iso_converts_offset_and_naive_to_z():
+    assemble = _load_assemble_module()
+    offset = timezone(timedelta(hours=2))
+    assert (
+        assemble.released_at_iso(datetime(2026, 9, 28, 14, 0, tzinfo=offset))
+        == FROZEN_RELEASED_AT
+    )
+    assert assemble.released_at_iso(datetime(2026, 9, 28, 12, 0)) == FROZEN_RELEASED_AT
+
+
+def test_main_rejects_bad_rollout_policy_before_sign(tmp_path):
+    assemble = _load_assemble_module()
+    fragments = tmp_path / "fragments"
+    fragments.mkdir()
+    _write_all_fragments(fragments)
+    install_sh, install_ps1 = _install_scripts(tmp_path)
+    output = tmp_path / "out"
+    key = _rsa_key(tmp_path)
+
+    output.mkdir()
+    (output / "manifest.json").write_text("sentinel\n", encoding="utf-8")
+    (output / "manifest.json.sig").write_bytes(b"old-sig")
+
+    with pytest.raises(SystemExit, match="invalid rollout policy"):
+        assemble.main(
+            [
+                "--fragments-dir",
+                str(fragments),
+                "--output-dir",
+                str(output),
+                "--install-sh",
+                str(install_sh),
+                "--install-ps1",
+                str(install_ps1),
+                "--sign-key",
+                str(key),
+                "--rollout-policy",
+                "canary",
+            ]
+        )
+
+    assert (output / "manifest.json").read_text(encoding="utf-8") == "sentinel\n"
+    assert (output / "manifest.json.sig").read_bytes() == b"old-sig"
 
 
 def test_assemble_requires_signing_key(tmp_path):

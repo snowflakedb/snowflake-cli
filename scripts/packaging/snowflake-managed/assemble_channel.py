@@ -36,6 +36,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 EXPECTED_PLATFORMS = frozenset(
@@ -52,6 +53,8 @@ PACKAGE_NAME_RE = re.compile(
     r"-(?P<os>linux|darwin|windows)-(?P<arch>amd64|arm64)\.tar\.gz$"
 )
 _SHA256_PREFIX = "sha256:"
+ROLLOUT_POLICIES = ("staged", "immediate", "hold")
+DEFAULT_ROLLOUT_POLICY = "staged"
 
 
 def version_from_package_name(name: str, os_name: str, arch: str) -> str:
@@ -103,7 +106,9 @@ def merge_fragments(fragments_dir: Path) -> tuple[dict, str]:
                     raise SystemExit(f"missing name for {os_name}-{arch}")
                 if arch in dest:
                     raise SystemExit(f"duplicate fragment for {os_name}-{arch}")
-                dest[arch] = info
+                dest[arch] = {
+                    key: info[key] for key in ("name", "checksum") if key in info
+                }
                 versions.add(version_from_package_name(info["name"], os_name, arch))
     present = {
         (os_name, arch)
@@ -140,6 +145,24 @@ def verify_package_artifacts(merged: dict, artifacts_dir: Path) -> None:
                 )
 
 
+def validate_rollout_policy(policy: str) -> str:
+    if policy not in ROLLOUT_POLICIES:
+        allowed = ", ".join(ROLLOUT_POLICIES)
+        raise SystemExit(
+            f"invalid rollout policy {policy!r}; expected one of {allowed}"
+        )
+    return policy
+
+
+def released_at_iso(now: datetime | None = None) -> str:
+    current = now if now is not None else datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    else:
+        current = current.astimezone(timezone.utc)
+    return current.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def sign_manifest(manifest_path: Path, sig_path: Path, key_path: Path) -> None:
     if not key_path.is_file():
         raise SystemExit(f"signing key is missing: {key_path}")
@@ -164,7 +187,10 @@ def assemble(
     install_ps1: Path,
     sign_key: Path,
     artifacts_dir: Path | None = None,
+    rollout_policy: str = DEFAULT_ROLLOUT_POLICY,
+    now: datetime | None = None,
 ) -> str:
+    policy = validate_rollout_policy(rollout_policy)
     if not install_sh.is_file() or not install_ps1.is_file():
         raise SystemExit(
             "snowflake-managed install.sh/install.ps1 missing. "
@@ -172,6 +198,10 @@ def assemble(
         )
     merged, version = merge_fragments(fragments_dir)
     verify_package_artifacts(merged, artifacts_dir or fragments_dir)
+    merged["rollout"] = {
+        "policy": policy,
+        "released_at": released_at_iso(now),
+    }
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / "manifest.json"
     manifest_path.write_text(
@@ -201,6 +231,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--install-sh", type=Path, required=True)
     parser.add_argument("--install-ps1", type=Path, required=True)
     parser.add_argument("--sign-key", type=Path, required=True)
+    parser.add_argument(
+        "--rollout-policy",
+        default=DEFAULT_ROLLOUT_POLICY,
+        help=(
+            "Auto-upgrade policy stamped into the signed manifest as "
+            "rollout.policy (staged, immediate, or hold). released_at is "
+            "assemble-clock UTC. The client ramps staged over 96h; Releng "
+            "does not bump a fraction."
+        ),
+    )
     args = parser.parse_args(argv)
     version = assemble(
         args.fragments_dir,
@@ -209,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         args.install_ps1,
         args.sign_key,
         args.artifacts_dir,
+        rollout_policy=args.rollout_policy,
     )
     print(f"assembled snowflake-managed channel {version}", flush=True)
     return 0
