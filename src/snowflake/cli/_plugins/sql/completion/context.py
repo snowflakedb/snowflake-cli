@@ -136,6 +136,9 @@ _REL_THIRD = (CompletionKind.TABLE, CompletionKind.VIEW)
 
 @dataclass(frozen=True)
 class SuggestContext:
+    """`path` and `simple_relation` hold resolved names: unquoted segments
+    uppercased, quoted segments verbatim."""
+
     slot: CompletionSlot
     kinds: tuple[CompletionKind, ...]
     path: tuple[str, ...]
@@ -465,7 +468,7 @@ def _read_segment_backward(buffer: str, start: int, end: int) -> tuple[str | Non
         i -= 1
     if i == end:
         return None, end
-    return buffer[i:end], i
+    return buffer[i:end].upper(), i
 
 
 def _is_ident_char(char: str) -> bool:
@@ -706,7 +709,7 @@ def _read_dotted_name(
     while index < len(tokens):
         tok = tokens[index]
         if tok[0] in {"WORD", "IDENT"}:
-            parts.append(tok[1])
+            parts.append(tok[1].upper() if tok[0] == "WORD" else tok[1])
             index += 1
             if index < len(tokens) and tokens[index] == ("PUNCT", "."):
                 index += 1

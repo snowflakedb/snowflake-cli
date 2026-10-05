@@ -1,9 +1,11 @@
+import threading
 import time
 from contextlib import contextmanager
 from logging import getLogger
 from typing import Iterable, Tuple
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import ThreadedCompleter
 from prompt_toolkit.filters import Condition, is_done, is_searching
 from prompt_toolkit.formatted_text import AnyFormattedText
 from prompt_toolkit.history import FileHistory
@@ -12,7 +14,15 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
+from snowflake.cli._plugins.sql.completion.catalog import ObjectCatalog, SessionScope
 from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
+from snowflake.cli._plugins.sql.completion.fetch_indicator import (
+    FetchIndicator,
+    IndicatingProvider,
+)
+from snowflake.cli._plugins.sql.completion.introspection import (
+    SnowflakeMetadataProvider,
+)
 from snowflake.cli._plugins.sql.lexer import CliLexer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
@@ -109,10 +119,30 @@ class Repl:
         self._session_connection = None
         self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
-        self._completer = SqlReplCompleter() if auto_completion else None
+        self._user_sql_in_flight = False
+        self._connection_lock = threading.Lock()
+        self._sql_manager = sql_manager
+        self._catalog = ObjectCatalog(provider=None) if auto_completion else None
+        self._completer = (
+            SqlReplCompleter(catalog=self._catalog) if auto_completion else None
+        )
+        self._fetch_indicator = FetchIndicator(invalidate=self._redraw_prompt)
+        if self._catalog is not None:
+            catalog = self._catalog
+            catalog.set_provider(
+                IndicatingProvider(
+                    SnowflakeMetadataProvider(
+                        connection_factory=lambda: self._sql_manager.connection,
+                        is_busy=lambda: self._user_sql_in_flight,
+                        generation=lambda: catalog.generation,
+                        connection_lock=self._connection_lock,
+                    ),
+                    self._fetch_indicator,
+                )
+            )
+            sql_manager.on_compiled_success = catalog.on_success
         self._repl_key_bindings = self._setup_key_bindings()
         self._yes_no_keybindings = self._setup_yn_key_bindings()
-        self._sql_manager = sql_manager
         self.session = PromptSession(history=self._history)
         self._next_input: str | None = None
 
@@ -203,6 +233,9 @@ class Repl:
 
         return kb
 
+    def _redraw_prompt(self) -> None:
+        self.session.app.invalidate()
+
     def _current_prompt(self) -> AnyFormattedText:
         """Build the prompt for this iteration of the REPL loop.
 
@@ -234,7 +267,10 @@ class Repl:
             return self.session.prompt(
                 msg,
                 lexer=self._lexer,
-                completer=self._completer,
+                completer=(
+                    ThreadedCompleter(self._completer) if self._completer else None
+                ),
+                rprompt=self._fetch_indicator.text if self._completer else None,
                 complete_while_typing=False,
                 multiline=True,
                 wrap_lines=True,
@@ -301,9 +337,19 @@ class Repl:
                 try:
                     log.debug("executing query")
                     with sql_client_query_span() as gate:
-                        expected_results_cnt, cursors = self._execute(user_input)
-                        gate.record = expected_results_cnt > 0
-                        print_result(MultipleResults(QueryResult(c) for c in cursors))
+                        with self._connection_lock:
+                            self._user_sql_in_flight = True
+                            try:
+                                expected_results_cnt, cursors = self._execute(
+                                    user_input
+                                )
+                                gate.record = expected_results_cnt > 0
+                                print_result(
+                                    MultipleResults(QueryResult(c) for c in cursors)
+                                )
+                                self._sync_catalog_scope()
+                            finally:
+                                self._user_sql_in_flight = False
                     elapsed = time.monotonic() - started
 
                     if expected_results_cnt > 0:
@@ -352,6 +398,31 @@ class Repl:
     def history(self) -> FileHistory:
         """Get the FileHistory instance used by the REPL."""
         return self._history
+
+    def refresh_completion_catalog(self) -> None:
+        """Drop object snapshots. Disabled REPL prints one line and does no SHOW."""
+        if not self._auto_completion or self._catalog is None:
+            cli_console.message("Autocomplete is disabled.")
+            return
+        self._catalog.drop_all()
+        cli_console.message("Object cache cleared.")
+
+    def _sync_catalog_scope(self) -> None:
+        if self._catalog is None:
+            return
+        try:
+            conn = self._sql_manager.connection
+        except Exception:
+            return
+        session_id = getattr(conn, "session_id", None)
+        self._catalog.set_scope(
+            SessionScope(
+                database=getattr(conn, "database", None),
+                schema=getattr(conn, "schema", None),
+                primary_role=getattr(conn, "role", None),
+                session_id=str(session_id) if session_id is not None else None,
+            )
+        )
 
     def ask_yn(self, question: str) -> bool:
         """Asks user a Yes/No question."""

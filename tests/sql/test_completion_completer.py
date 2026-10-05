@@ -115,3 +115,194 @@ def test_completer_swallows_classify_errors():
             )
             == []
         )
+
+
+def test_from_nonempty_prefix_uses_catalog_and_format():
+    from snowflake.cli._plugins.sql.completion.catalog import (
+        ObjectCatalog,
+        SessionScope,
+    )
+    from snowflake.cli._plugins.sql.completion.context import CompletionKind
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def lookup(self, kind, path, prefix):
+            self.calls.append((kind, path, prefix))
+            if kind is CompletionKind.TABLE:
+                return ["T_ONE", "T_mixed"]
+            return []
+
+    catalog = ObjectCatalog(
+        Provider(),
+        scope=SessionScope(database="DB", schema="SCH", session_id="s1"),
+    )
+    document = Document("FROM t", cursor_position=6)
+    texts = [
+        c.text
+        for c in SqlReplCompleter(catalog=catalog).get_completions(
+            document, CompleteEvent(completion_requested=True)
+        )
+    ]
+    assert "T_ONE" in texts
+    assert '"T_mixed"' in texts
+
+
+def test_from_empty_prefix_does_not_call_catalog_provider():
+    from snowflake.cli._plugins.sql.completion.catalog import (
+        ObjectCatalog,
+        SessionScope,
+    )
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def lookup(self, kind, path, prefix):
+            self.calls.append((kind, path, prefix))
+            return ["SHOULD_NOT"]
+
+    provider = Provider()
+    catalog = ObjectCatalog(
+        provider,
+        scope=SessionScope(database="DB", schema="SCH", session_id="s1"),
+    )
+    document = Document("FROM ", cursor_position=5)
+    texts = [
+        c.text
+        for c in SqlReplCompleter(catalog=catalog).get_completions(
+            document, CompleteEvent(completion_requested=True)
+        )
+    ]
+    assert texts == []
+    assert provider.calls == []
+
+
+def test_column_slot_empty_prefix_uses_catalog():
+    from snowflake.cli._plugins.sql.completion.catalog import (
+        ObjectCatalog,
+        SessionScope,
+    )
+    from snowflake.cli._plugins.sql.completion.context import CompletionKind
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def lookup(self, kind, path, prefix):
+            self.calls.append((kind, path, prefix))
+            if kind is CompletionKind.COLUMN:
+                return ["COL_A", "col mixed"]
+            return []
+
+    provider = Provider()
+    catalog = ObjectCatalog(
+        provider,
+        scope=SessionScope(database="DB", schema="SCH", session_id="s1"),
+    )
+    document = Document("rel.", cursor_position=4)
+    texts = [
+        completion.text
+        for completion in SqlReplCompleter(catalog=catalog).get_completions(
+            document, CompleteEvent(completion_requested=True)
+        )
+    ]
+    assert "COL_A" in texts
+    assert '"col mixed"' in texts
+    assert any(kind is CompletionKind.COLUMN for kind, _path, _prefix in provider.calls)
+
+
+def test_unqualified_select_columns_use_simple_relation():
+    from snowflake.cli._plugins.sql.completion.catalog import (
+        ObjectCatalog,
+        SessionScope,
+    )
+    from snowflake.cli._plugins.sql.completion.context import CompletionKind
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def lookup(self, kind, path, prefix):
+            self.calls.append((kind, path, prefix))
+            return ["ID"] if kind is CompletionKind.COLUMN else []
+
+    provider = Provider()
+    catalog = ObjectCatalog(
+        provider,
+        scope=SessionScope(database="DB", schema="SCH", session_id="s1"),
+    )
+    document = Document("SELECT  FROM only_rel", cursor_position=7)
+    texts = [
+        completion.text
+        for completion in SqlReplCompleter(catalog=catalog).get_completions(
+            document, CompleteEvent(completion_requested=True)
+        )
+    ]
+    assert "ID" in texts
+    column_calls = [call for call in provider.calls if call[0] is CompletionKind.COLUMN]
+    assert column_calls
+    assert column_calls[0][1] == ("ONLY_REL",)
+
+
+def test_unqualified_columns_pass_fqn_as_identifier_segments():
+    from snowflake.cli._plugins.sql.completion.catalog import (
+        ObjectCatalog,
+        SessionScope,
+    )
+    from snowflake.cli._plugins.sql.completion.context import CompletionKind
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def lookup(self, kind, path, prefix):
+            self.calls.append((kind, path, prefix))
+            return ["ID"] if kind is CompletionKind.COLUMN else []
+
+    provider = Provider()
+    catalog = ObjectCatalog(
+        provider,
+        scope=SessionScope(database="DB", schema="SCH", session_id="s1"),
+    )
+    document = Document("SELECT  FROM db.sch.t", cursor_position=7)
+    texts = [
+        completion.text
+        for completion in SqlReplCompleter(catalog=catalog).get_completions(
+            document, CompleteEvent(completion_requested=True)
+        )
+    ]
+    assert "ID" in texts
+    column_calls = [call for call in provider.calls if call[0] is CompletionKind.COLUMN]
+    assert column_calls[0][1] == ("DB", "SCH", "T")
+
+
+def test_next_tab_retries_after_timeout():
+    from snowflake.cli._plugins.sql.completion.catalog import (
+        ObjectCatalog,
+        SessionScope,
+    )
+    from snowflake.cli._plugins.sql.completion.introspection import MetadataError
+
+    class Provider:
+        def __init__(self):
+            self.calls = 0
+
+        def lookup(self, kind, path, prefix):
+            self.calls += 1
+            raise MetadataError("timeout")
+
+    provider = Provider()
+    catalog = ObjectCatalog(
+        provider,
+        scope=SessionScope(database="DB", schema="SCH", session_id="s1"),
+    )
+    completer = SqlReplCompleter(catalog=catalog)
+    document = Document("FROM t", cursor_position=6)
+    event = CompleteEvent(completion_requested=True)
+    assert list(completer.get_completions(document, event)) == []
+    after_first = provider.calls
+    assert after_first >= 1
+    assert list(completer.get_completions(document, event)) == []
+    assert provider.calls > after_first

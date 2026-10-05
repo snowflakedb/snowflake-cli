@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.completion import ThreadedCompleter
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.keys import Keys
 from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
@@ -860,7 +861,18 @@ def test_repl_uses_sql_repl_completer_when_auto_completion_enabled(repl):
     repl.session.prompt = mock.Mock(return_value="exit")
     repl.repl_prompt()
     completer = repl.session.prompt.call_args.kwargs["completer"]
-    assert isinstance(completer, SqlReplCompleter)
+    assert isinstance(completer, ThreadedCompleter)
+    assert isinstance(completer.completer, SqlReplCompleter)
+
+
+def test_repl_prompt_shows_fetch_spinner_while_catalog_fetches(repl):
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    rprompt = repl.session.prompt.call_args.kwargs["rprompt"]
+    assert rprompt() == []
+    with repl._fetch_indicator.running():  # noqa: SLF001
+        assert "fetching names" in rprompt()[0][1]
+    assert rprompt() == []
 
 
 def test_repl_uses_no_completer_when_auto_completion_disabled():
@@ -869,6 +881,7 @@ def test_repl_uses_no_completer_when_auto_completion_disabled():
     repl.repl_prompt()
     assert repl.session.prompt.call_args.kwargs["completer"] is None
     assert repl.session.prompt.call_args.kwargs["complete_while_typing"] is False
+    assert repl.session.prompt.call_args.kwargs["rprompt"] is None
 
 
 @pytest.mark.parametrize(
@@ -1251,3 +1264,82 @@ def test_repl_skips_elapsed_when_silent(repl, capsys):
         run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
 
     assert "Time Elapsed" not in capsys.readouterr().out
+
+
+def test_refresh_completion_catalog_disabled_says_so(capsys):
+    repl = Repl(SqlManager(), auto_completion=False)
+    repl.refresh_completion_catalog()
+    assert "disabled" in capsys.readouterr().out.lower()
+
+
+def test_refresh_completion_catalog_drops_when_enabled():
+    from snowflake.cli._plugins.sql.completion.catalog import ObjectCatalog
+    from snowflake.cli._plugins.sql.completion.context import CompletionKind
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def lookup(self, kind, path, prefix):
+            self.calls.append((kind, path, prefix))
+            return ["OLD"]
+
+    repl = Repl(SqlManager(), auto_completion=True)
+    assert repl._catalog is not None  # noqa: SLF001
+    provider = Provider()
+    repl._catalog = ObjectCatalog(provider)  # noqa: SLF001
+    repl._sql_manager.on_compiled_success = repl._catalog.on_success  # noqa: SLF001
+    repl._catalog.lookup(CompletionKind.TABLE, (), "OL")  # noqa: SLF001
+    assert repl._catalog.lookup(CompletionKind.TABLE, (), "OL") == (  # noqa: SLF001
+        "OLD",
+    )  # noqa: SLF001
+    assert repl._catalog.lookup(CompletionKind.TABLE, (), "") == ()  # noqa: SLF001
+    assert len(provider.calls) == 1
+    repl.refresh_completion_catalog()
+    provider.calls.clear()
+    assert repl._catalog.lookup(CompletionKind.TABLE, (), "") == ()  # noqa: SLF001
+    assert provider.calls == []
+    assert repl._catalog.lookup(CompletionKind.TABLE, (), "OL") == (  # noqa: SLF001
+        "OLD",
+    )  # noqa: SLF001
+    assert provider.calls
+
+
+def test_enabled_repl_wires_success_hook_to_catalog():
+    repl = Repl(SqlManager(), auto_completion=True)
+    hook = repl._sql_manager.on_compiled_success  # noqa: SLF001
+    assert hook is not None
+    assert hook.__self__ is repl._catalog  # noqa: SLF001
+
+
+def test_disabled_session_constructs_no_metadata_provider():
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl.SnowflakeMetadataProvider"
+    ) as provider_cls:
+        repl = Repl(SqlManager(), auto_completion=False)
+        repl.refresh_completion_catalog()
+    provider_cls.assert_not_called()
+    assert repl._completer is None  # noqa: SLF001
+    assert repl._catalog is None  # noqa: SLF001
+
+
+def test_disabled_repl_prompt_cannot_issue_show():
+    executes = []
+
+    class Cursor:
+        def execute(self, *args, **kwargs):
+            executes.append((args, kwargs))
+            return self
+
+        def close(self):
+            return None
+
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl.SnowflakeMetadataProvider"
+    ) as provider_cls:
+        repl = Repl(SqlManager(), auto_completion=False)
+        repl.session.prompt = mock.Mock(return_value="exit")
+        repl.repl_prompt()
+    provider_cls.assert_not_called()
+    assert repl.session.prompt.call_args.kwargs["completer"] is None
+    assert executes == []

@@ -47,6 +47,8 @@ logger = logging.getLogger(__name__)
 
 
 class SqlManager(SqlExecutionMixin):
+    on_compiled_success = None
+
     def execute(
         self,
         query: str | None,
@@ -183,5 +185,15 @@ class SqlManager(SqlExecutionMixin):
                 yield from self.execute_string(
                     stmt.statement, cursor_class=cursor_class
                 )
+                self._notify_compiled_success(stmt.statement)
             if stmt.command:
                 stmt.command.execute(self._conn)
+
+    def _notify_compiled_success(self, statement: str) -> None:
+        hook = getattr(self, "on_compiled_success", None)
+        if hook is None:
+            return
+        try:
+            hook(statement)
+        except Exception:
+            logger.debug("compiled-statement success hook failed", exc_info=True)

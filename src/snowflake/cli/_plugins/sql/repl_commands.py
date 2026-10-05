@@ -546,6 +546,23 @@ class EditCommand(ReplCommand):
         return CompileCommandResult(command=cls(sql_content=sql_content))
 
 
+@register_command("!rehash")
+@dataclass
+class RehashCommand(ReplCommand):
+    """Drop the REPL object-completion cache. Does not prefetch."""
+
+    def execute(self, connection: SnowflakeConnection):
+        repl = get_cli_context().repl
+        if repl is None:
+            cli_console.message("Autocomplete is disabled.")
+            return
+        repl.refresh_completion_catalog()
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        return CompileCommandResult(command=cls())
+
+
 def detect_command(input_text: str) -> tuple[str, str] | None:
     """Detect if input text matches a command pattern.
 

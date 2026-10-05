@@ -5,6 +5,7 @@ from snowflake.cli._plugins.sql.repl_commands import (
     AbortCommand,
     CompileCommandResult,
     QueriesCommand,
+    RehashCommand,
     ReplCommand,
     ResultCommand,
     UnknownCommandError,
@@ -285,6 +286,7 @@ def test_queries_execute_help(mock_print, mock_ctx):
         ("!result", [_FAKE_QID], ResultCommand(_FAKE_QID)),
         ("!abort", [_FAKE_QID], AbortCommand(_FAKE_QID)),
         ("!queries", ["amount=3", "user=jdoe"], QueriesCommand(amount=3, user="jdoe")),
+        ("!rehash", [], RehashCommand()),
         ("!QuERies", ["session"], QueriesCommand(from_current_session=True)),
         (
             "!ResUlT",
@@ -318,3 +320,21 @@ def test_compile_commands(command, args, expected):
         assert str(exc_info.value) == expected
     else:
         assert compile_repl_command(full_command) == expected_result
+
+
+def test_rehash_from_args():
+    assert RehashCommand.from_args("", {}) == CompileCommandResult(
+        command=RehashCommand()
+    )
+
+
+def test_rehash_execute_calls_refresh():
+    repl = mock.Mock()
+    ctx = mock.Mock()
+    ctx.repl = repl
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl_commands.get_cli_context",
+        return_value=ctx,
+    ):
+        RehashCommand().execute(mock.Mock())
+    repl.refresh_completion_catalog.assert_called_once()
