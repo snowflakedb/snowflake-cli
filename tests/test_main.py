@@ -27,6 +27,8 @@ from unittest import mock
 import pytest
 import snowflake.connector
 from click import Command
+from snowflake.cli import __about__
+from snowflake.cli.__about__ import CLIInstallationSource
 from snowflake.cli._app.cli_app import _connector_version
 from typer.core import TyperArgument, TyperOption
 
@@ -89,6 +91,17 @@ def test_info_callback(runner, config_manager):
     ]
 
 
+@mock.patch.dict(os.environ, {"SNOWFLAKE_HOME": "FooBar"}, clear=True)
+def test_info_callback_direct_install(runner, config_manager, monkeypatch):
+    monkeypatch.setattr(
+        __about__, "INSTALLATION_SOURCE", CLIInstallationSource.SNOWFLAKE_MANAGED
+    )
+    result = runner.invoke(["--info"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert {"key": "installation_source", "value": "direct-install"} in payload
+
+
 def test_connector_version_unknown_when_import_fails():
     with mock.patch.dict(sys.modules, {"snowflake.connector": None}):
         assert _connector_version() == "unknown"
@@ -111,6 +124,7 @@ def test_version_callback_has_no_installation_source(runner):
     assert result.exit_code == 0, result.output
     assert result.output.startswith("Snowflake CLI version: 0.0.0-test_patched")
     assert "snowflake-managed" not in result.output
+    assert "direct-install" not in result.output
     assert "(pypi)" not in result.output
     assert "(binary)" not in result.output
 

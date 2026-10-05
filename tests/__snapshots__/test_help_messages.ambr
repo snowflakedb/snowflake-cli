@@ -16870,11 +16870,10 @@
                                                                                   
    Usage: root upgrade [OPTIONS] [global options]                                 
                                                                                   
-   Upgrade the snowflake-managed distribution of Snowflake CLI.                   
+   Upgrade a direct install of Snowflake CLI.                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --revert             Point the shim at the previous snowflake-managed        |
-  |                      version.                                                |
+  | --revert             Point the shim at the previous direct install version.  |
   | --dry-run            Show what would change without downloading or           |
   |                      retargeting the shim.                                   |
   | --help     -h        Show this message and exit.                             |

@@ -32,6 +32,7 @@
 * `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.21 to 3.10.22.
 * Files the CLI creates and files downloaded from a stage (`snow stage get`, `snow git copy`, `snow dcm --save-output`) are now restricted to the current user, including on Windows. Existing files in the download directory are left unchanged.
+* The `installation_source` value on `snow --info` for a curl|sh / irm|iex install is now `direct-install` (was `snowflake-managed`). `snow --version` is unchanged.
 
 
 # v3.28.0

@@ -292,7 +292,7 @@ def test_upgrade_happy_path_retargets_shim(
     result = runner.invoke(["upgrade", "--format", "JSON"])
     assert result.exit_code == 0, result.output
     payload = _parse_json(result.output)
-    assert payload["channel"] == "snowflake-managed"
+    assert payload["channel"] == "direct-install"
     assert payload["status"] == STATUS_UPGRADED
     assert payload["from"] == "3.12.0"
     assert payload["to"] == "3.13.1"
@@ -466,7 +466,7 @@ def test_revert_retargets_previous_without_fetching(
     result = runner.invoke(["upgrade", "--revert", "--format", "JSON"])
     assert result.exit_code == 0, result.output
     payload = _parse_json(result.output)
-    assert payload["channel"] == "snowflake-managed"
+    assert payload["channel"] == "direct-install"
     assert payload["status"] == STATUS_REVERTED
     assert payload["from"] == "3.13.1"
     assert payload["to"] == "3.12.0"

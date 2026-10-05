@@ -107,10 +107,10 @@ def refuse_result() -> UpgradeDecision:
     channel = _channel()
     command = install_command()
     message = (
-        "snow upgrade can only be used with the snowflake-managed distribution of Snowflake CLI.\n"
+        "snow upgrade can only be used with a direct install of Snowflake CLI.\n"
         f"This install is {channel}.\n"
         "\n"
-        "Install the snowflake-managed distribution:\n"
+        "Install using a direct install:\n"
         f"  {command}"
     )
     return UpgradeDecision(

@@ -47,7 +47,7 @@ def upgrade(
     revert: bool = typer.Option(
         False,
         "--revert",
-        help="Point the shim at the previous snowflake-managed version.",
+        help="Point the shim at the previous direct install version.",
     ),
     dry_run: bool = typer.Option(
         False,
@@ -56,7 +56,7 @@ def upgrade(
     ),
     **options,
 ) -> CommandResult:
-    """Upgrade the snowflake-managed distribution of Snowflake CLI."""
+    """Upgrade a direct install of Snowflake CLI."""
     suppress_new_version_banner()
     started = time.monotonic()
     decision = plan_upgrade(dry_run=dry_run, revert=revert)

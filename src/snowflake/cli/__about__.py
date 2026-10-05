@@ -45,7 +45,7 @@ def get_display_version() -> str:
 class CLIInstallationSource(Enum):
     BINARY = "binary"
     PYPI = "pypi"
-    SNOWFLAKE_MANAGED = "snowflake-managed"
+    SNOWFLAKE_MANAGED = "direct-install"
 
 
 # This variable is changed in binary release script

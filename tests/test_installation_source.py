@@ -46,7 +46,7 @@ PYPI_ASSIGNMENT = "INSTALLATION_SOURCE = CLIInstallationSource.PYPI"
 
 def test_git_tree_stays_pypi():
     assert __about__.INSTALLATION_SOURCE is CLIInstallationSource.PYPI
-    assert CLIInstallationSource.SNOWFLAKE_MANAGED.value == "snowflake-managed"
+    assert CLIInstallationSource.SNOWFLAKE_MANAGED.value == "direct-install"
 
 
 def test_rewrite_defaults_to_binary():
