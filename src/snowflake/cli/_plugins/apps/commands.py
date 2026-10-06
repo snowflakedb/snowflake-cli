@@ -97,7 +97,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
-from snowflake.cli.api.project.util import identifier_for_url
+from snowflake.cli.api.project.util import identifier_for_url, unquote_identifier
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector.errors import OperationalError, ProgrammingError
 
@@ -253,6 +253,43 @@ class _CodeStorageRef(NamedTuple):
     database: Optional[str]
     schema_: Optional[str]
     encryption_type: Optional[str] = None
+
+
+def _ensure_app_derived_schema(
+    manager: SnowflakeAppManager,
+    *,
+    database: Optional[str],
+    schema: Optional[str],
+    app_name: str,
+) -> None:
+    """Create a missing schema when its name was derived from the app name.
+
+    App Space defaults give the CLI a database and derive one schema per app.
+    Other schema names remain user-managed, preserving their existing behavior.
+    """
+    if (
+        not database
+        or not schema
+        or unquote_identifier(schema) != unquote_identifier(app_name)
+    ):
+        return
+
+    cli_console.step(
+        "Creating app schema "
+        f"{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)} "
+        "if it does not exist"
+    )
+    try:
+        manager.create_schema_if_not_exists(database, schema)
+    except ProgrammingError as e:
+        raise CliError(
+            "Could not create app-derived schema "
+            f"'{sanitize_for_terminal(database)}."
+            f"{sanitize_for_terminal(schema)}': {e}. "
+            f"Grant CREATE SCHEMA on database "
+            f"'{sanitize_for_terminal(database)}' to the active role, "
+            "or create the schema manually."
+        ) from e
 
 
 def _resolve_code_storage(
@@ -2357,6 +2394,13 @@ def _deploy_from_app_yml(
     else:
         cli_console.step(f"Deploying application service {service_label}.")
 
+    _ensure_app_derived_schema(
+        manager,
+        database=database,
+        schema=schema,
+        app_name=dep.service_name,
+    )
+
     if promote_only:
         cli_console.step(
             "Promoting the latest built package (skipping upload and build)."
@@ -2519,6 +2563,12 @@ def snowflake_app_deploy(
 
     database = defaults["database"]
     schema = defaults["schema"]
+    _ensure_app_derived_schema(
+        manager,
+        database=database,
+        schema=schema,
+        app_name=app_name,
+    )
     build_compute_pool = defaults["build_compute_pool"]
     service_compute_pool = defaults["service_compute_pool"]
     query_warehouse = defaults["query_warehouse"]
