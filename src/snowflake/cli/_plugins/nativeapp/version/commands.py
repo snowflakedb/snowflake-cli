@@ -493,4 +493,6 @@ def drop(
         interactive=interactive,
         force=force,
     )
-    return MessageResult(f"Version drop is now complete.")
+    return MessageResult(
+        "Version drop in progress. This may take a few minutes to complete."
+    )
