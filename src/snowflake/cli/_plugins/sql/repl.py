@@ -14,6 +14,10 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
+from snowflake.cli._plugins.sql.completion import telemetry as completion_telemetry
+from snowflake.cli._plugins.sql.completion.acceptance import (
+    CompletionAcceptanceTracker,
+)
 from snowflake.cli._plugins.sql.completion.catalog import ObjectCatalog, SessionScope
 from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
 from snowflake.cli._plugins.sql.completion.fetch_indicator import (
@@ -145,6 +149,13 @@ class Repl:
         self._yes_no_keybindings = self._setup_yn_key_bindings()
         self.session = PromptSession(history=self._history)
         self._next_input: str | None = None
+        self._acceptance = (
+            CompletionAcceptanceTracker(
+                self.session.default_buffer, self._completer.notify_accepted
+            )
+            if self._completer is not None
+            else None
+        )
 
     def _setup_key_bindings(self) -> KeyBindings:
         """Key bindings for repl. Helps detecting ; at end of buffer."""
@@ -262,9 +273,11 @@ class Repl:
         if msg is None:
             msg = self._current_prompt()
         default_text = self._next_input
+        if self._acceptance is not None:
+            self._acceptance.reset()
 
         try:
-            return self.session.prompt(
+            result = self.session.prompt(
                 msg,
                 lexer=self._lexer,
                 completer=(
@@ -280,6 +293,9 @@ class Repl:
         finally:
             if self._next_input == default_text:
                 self._next_input = None
+        if self._acceptance is not None:
+            self._acceptance.commit_on_submit()
+        return result
 
     @property
     def _welcome_banner(self) -> str:
@@ -322,6 +338,8 @@ class Repl:
         Honors Ctrl-C and Ctrl-D in REPL loop.
         """
         while True:
+            if self._completer is not None:
+                completion_telemetry.drain()
             try:
                 user_input = self.repl_prompt().strip()
 

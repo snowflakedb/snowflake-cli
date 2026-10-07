@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import platform
 import sys
+import threading
 from enum import Enum, unique
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -120,6 +121,7 @@ class TelemetryEvent(Enum):
     CMD_EXECUTION_ERROR = "error_executing_command"
     CMD_EXECUTION_RESULT = "result_executing_command"
     UPGRADE = "upgrade"
+    REPL_COMPLETION = "repl_completion"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -211,6 +213,22 @@ def _find_command_info() -> TelemetryDict:
         info[CLITelemetryField.APP_FLOW] = app_flow
 
     return info
+
+
+def _command_info_without_click() -> TelemetryDict:
+    """Command fields when Click's thread-local context is absent.
+
+    ``ThreadedCompleter`` runs completion on a worker. Click's context stack
+    does not follow that thread, and telemetry must still queue.
+    """
+    return {
+        CLITelemetryField.COMMAND: [],
+        CLITelemetryField.COMMAND_GROUP: "",
+        CLITelemetryField.COMMAND_FLAGS: {},
+        CLITelemetryField.COMMAND_OUTPUT_TYPE: OutputFormat.TABLE.value,
+        CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
+        CLITelemetryField.MODE: _get_cli_running_mode(),
+    }
 
 
 def _get_cli_running_mode() -> str:
@@ -545,6 +563,7 @@ class CLITelemetryClient:
 
     def __init__(self):
         self._pending: List[Tuple[Dict[str, Any], int]] = []
+        self._lock = threading.Lock()
 
     @property
     def _ctx(self) -> _CliGlobalContextAccess:
@@ -553,7 +572,10 @@ class CLITelemetryClient:
     @staticmethod
     def generate_telemetry_data_dict(
         telemetry_payload: TelemetryDict,
+        command_info: TelemetryDict | None = None,
     ) -> Dict[str, Any]:
+        if command_info is None:
+            command_info = _find_command_info()
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
             CLITelemetryField.INSTALLATION_SOURCE: __about__.INSTALLATION_SOURCE.value,
@@ -569,7 +591,7 @@ class CLITelemetryClient:
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
-            **_find_command_info(),
+            **command_info,
             **_get_config_telemetry(),
             **telemetry_payload,
         }
@@ -597,17 +619,44 @@ class CLITelemetryClient:
             return None
         return connection._telemetry  # noqa
 
+    def _enqueue(self, message: Dict[str, Any], timestamp: int) -> None:
+        """Append one event, keeping only the newest ``_PENDING_LIMIT`` entries."""
+        with self._lock:
+            self._pending.append((message, timestamp))
+            # Keep the newest events if a run somehow never connects; the list
+            # holds two entries for a command that succeeds (usage + result)
+            # and three when it also reports an error. REPL completion events
+            # share the same cap, so they must be drained before they evict
+            # the command usage event.
+            del self._pending[: -self._PENDING_LIMIT]
+
     def send(self, payload: TelemetryDict):
         # Timestamp now, but keep the raw dict: _drain backfills the fields that
         # are only knowable once a connection exists.
-        self._pending.append(
-            (self.generate_telemetry_data_dict(payload), get_time_millis())
-        )
-        # Keep the newest events if a run somehow never connects; the list holds
-        # two entries for a command that succeeds (usage + result) and three when
-        # it also reports an error.
-        del self._pending[: -self._PENDING_LIMIT]
+        self._enqueue(self.generate_telemetry_data_dict(payload), get_time_millis())
         self._drain()
+
+    def log_repl_completion(self, payload: Dict[str, Any]) -> None:
+        """Queue a privacy-safe REPL completion event.
+
+        Does not need a Click context. A worker thread omits the command path
+        instead of raising ``RuntimeError`` from ``click.get_current_context``.
+        The worker only enqueues. The REPL drains on the UI thread.
+        """
+        message_payload = {
+            TelemetryField.KEY_TYPE: TelemetryEvent.REPL_COMPLETION.value,
+            **payload,
+        }
+        try:
+            command_info = _find_command_info()
+        except RuntimeError:
+            command_info = _command_info_without_click()
+        self._enqueue(
+            self.generate_telemetry_data_dict(
+                message_payload, command_info=command_info
+            ),
+            get_time_millis(),
+        )
 
     def _drain(self):
         """Hand any buffered events to the channel, if there is one.
@@ -623,7 +672,8 @@ class CLITelemetryClient:
         telemetry = self._telemetry
         if telemetry is None:
             return
-        pending, self._pending = self._pending, []
+        with self._lock:
+            pending, self._pending = self._pending, []
         auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
         for message, timestamp in pending:
             # An event buffered before the connection opened could not resolve the
@@ -690,10 +740,30 @@ class CLITelemetryClient:
             # this client is a module-level singleton, and leaving events queued
             # would attribute them to whatever command runs next in the same
             # process.
-            self._pending.clear()
+            with self._lock:
+                self._pending.clear()
+
+    def drain_if_open(self) -> None:
+        """Hand queued events to an already-open connection.
+
+        Returns immediately when nothing is connected. Does not call
+        ``_telemetry_may_open_connection`` or ``connection``, so it cannot dial.
+        """
+        if self._ctx.connection_if_open is not None:
+            self._drain()
 
 
 _telemetry = CLITelemetryClient()
+
+
+@ignore_exceptions()
+def log_repl_completion(payload: Dict[str, Any]) -> None:
+    _telemetry.log_repl_completion(payload)
+
+
+@ignore_exceptions()
+def drain_repl_completions() -> None:
+    _telemetry.drain_if_open()
 
 
 @ignore_exceptions()

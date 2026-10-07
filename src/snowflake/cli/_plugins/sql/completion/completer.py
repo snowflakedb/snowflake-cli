@@ -26,6 +26,10 @@ from snowflake.cli._plugins.sql.completion.context import (
     classify,
 )
 from snowflake.cli._plugins.sql.completion.identifiers import format_catalog_name
+from snowflake.cli._plugins.sql.completion.telemetry import (
+    emit_completion,
+    on_completion_accepted,
+)
 from snowflake.cli._plugins.sql.lexer.functions import FUNCTIONS
 from snowflake.cli._plugins.sql.lexer.keywords import KEYWORDS
 from snowflake.cli._plugins.sql.lexer.types import TYPES
@@ -38,15 +42,15 @@ _IDENTIFIER_SLOTS = frozenset({CompletionSlot.OBJECT, CompletionSlot.COLUMN})
 class SqlReplCompleter(Completer):
     """Tab-only ranking completer for interactive ``snow sql``.
 
-    Identifier slots ask an optional catalog on nonempty prefixes (and on
-    column slots with a one-object path). Keyword and type slots use the
-    static lexer lists. Inserted object names go through
-    ``format_catalog_name``. With ``catalog=None``, object lookups are empty
-    and keywords/types are still offered.
+    Identifier slots ask the catalog on nonempty prefixes (and on column
+    slots with a one-object path). Keyword and type slots use the static
+    lexer lists. Inserted object names go through ``format_catalog_name``.
     """
 
     def __init__(self, catalog=None):
         self._catalog = catalog
+        self._last_slot = "none"
+        self._last_kind = "none"
 
     def get_completions(
         self, document: Document, complete_event
@@ -54,13 +58,60 @@ class SqlReplCompleter(Completer):
         try:
             ctx = classify(document.text, document.cursor_position)
         except Exception:
-            log.debug("REPL completion failed", exc_info=True)
+            _emit_internal_error("none", "none")
             return
+        self._last_slot = ctx.slot.value
+        self._last_kind = _kind(ctx)
+        shown = False
         try:
-            yield from _completions_for(ctx, self._catalog)
+            for completion in _completions_for(ctx, self._catalog):
+                shown = True
+                yield completion
         except Exception:
-            log.debug("REPL completion failed", exc_info=True)
+            _emit_internal_error(ctx.slot.value, _kind(ctx))
             return
+        outcome = "shown" if shown else "empty"
+        _safe_emit(
+            event="requested",
+            slot=ctx.slot.value,
+            kind=_kind(ctx),
+            cache="none",
+            outcome=outcome,
+        )
+        if ctx.slot in _IDENTIFIER_SLOTS:
+            _safe_emit(
+                event="lookup",
+                slot=ctx.slot.value,
+                kind=_kind(ctx),
+                cache="none",
+                outcome=outcome,
+            )
+
+    def notify_accepted(self) -> None:
+        on_completion_accepted(slot=self._last_slot, kind=self._last_kind)
+
+
+def _safe_emit(**kwargs) -> None:
+    try:
+        emit_completion(**kwargs)
+    except Exception:
+        log.debug("REPL completion telemetry failed", exc_info=True)
+
+
+def _emit_internal_error(slot: str, kind: str) -> None:
+    log.debug("REPL completion failed", exc_info=True)
+    _safe_emit(
+        event="requested",
+        slot=slot,
+        kind=kind,
+        cache="none",
+        outcome="error",
+        error_class="internal",
+    )
+
+
+def _kind(ctx: SuggestContext) -> str:
+    return ctx.kinds[0].value if ctx.kinds else "none"
 
 
 def _completions_for(ctx: SuggestContext, catalog) -> Iterator[Completion]:

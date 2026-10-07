@@ -306,3 +306,22 @@ def test_next_tab_retries_after_timeout():
     assert after_first >= 1
     assert list(completer.get_completions(document, event)) == []
     assert provider.calls > after_first
+
+
+def test_catalog_completions_yield_before_later_kinds():
+    from snowflake.cli._plugins.sql.completion.context import CompletionKind
+
+    seen: list = []
+
+    class Catalog:
+        def lookup(self, kind, path, prefix, allow_empty_prefix=False):
+            seen.append(kind)
+            return ["T1"] if kind is CompletionKind.TABLE else []
+
+    document = Document("FROM db.sch.t", cursor_position=len("FROM db.sch.t"))
+    generator = SqlReplCompleter(catalog=Catalog()).get_completions(
+        document, CompleteEvent(completion_requested=True)
+    )
+    first = next(generator)
+    assert first.text == "T1"
+    assert seen == [CompletionKind.TABLE]
