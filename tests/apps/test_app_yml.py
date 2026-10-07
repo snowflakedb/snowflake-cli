@@ -1128,6 +1128,45 @@ class TestDeployFromAppYml:
     @patch(f"{_COMMANDS}.perform_bundle")
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
+    def test_deploy_creates_app_derived_schema(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(
+            dedent(
+                """\
+                version: 2
+                name: NEXT_SIMPLE
+                database: TEMP
+                schema: next_simple
+                query_warehouse: DEFAULT
+                """
+            )
+        )
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "next-simple.snowflake.app", "is_upgrading": "false"},
+        ]
+
+        result = snowflake_app_deploy(
+            None, False, False, False, interactive=False, target=None
+        )
+
+        assert "next-simple.snowflake.app" in result.message
+        mgr.create_schema_if_not_exists.assert_called_once_with("TEMP", "next_simple")
+        call = mgr.create_or_alter_app_service.call_args.kwargs
+        assert call["service_fqn"] == FQN(
+            database="TEMP", schema="next_simple", name="NEXT_SIMPLE"
+        )
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
     def test_deploy_default_target(
         self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
     ):
@@ -1242,6 +1281,7 @@ class TestDeployFromAppYml:
         )
         spec = yaml.safe_load(call["specification"])
         assert spec["query_warehouse"] == "WH"
+        mgr.create_schema_if_not_exists.assert_not_called()
 
     @patch(f"{_COMMANDS}._poll_until")
     @patch(f"{_COMMANDS}.perform_bundle")

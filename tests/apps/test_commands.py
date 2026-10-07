@@ -1316,6 +1316,34 @@ class TestSchemaExists:
         assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
 
 
+class TestCreateSchemaIfNotExists:
+    @patch(EXECUTE_QUERY)
+    def test_creates_schema(self, mock_execute):
+        SnowflakeAppManager().create_schema_if_not_exists("MY_DB", "MY_SCHEMA")
+
+        mock_execute.assert_called_once_with(
+            "CREATE SCHEMA IF NOT EXISTS IDENTIFIER('MY_DB.MY_SCHEMA')"
+        )
+
+    def test_continues_when_schema_exists_without_create_privilege(self):
+        manager = SnowflakeAppManager()
+        create_error = ProgrammingError("insufficient privileges")
+        with patch.object(
+            manager, "execute_query", side_effect=create_error
+        ), patch.object(manager, "schema_exists", return_value=True):
+            manager.create_schema_if_not_exists("MY_DB", "MY_SCHEMA")
+
+    def test_raises_create_error_when_schema_is_missing(self):
+        manager = SnowflakeAppManager()
+        create_error = ProgrammingError("insufficient privileges")
+        with patch.object(
+            manager, "execute_query", side_effect=create_error
+        ), patch.object(manager, "schema_exists", return_value=False), pytest.raises(
+            ProgrammingError, match="insufficient privileges"
+        ):
+            manager.create_schema_if_not_exists("MY_DB", "MY_SCHEMA")
+
+
 class TestCurrentRole:
     @patch(EXECUTE_QUERY)
     def test_returns_role(self, mock_execute):
@@ -10415,7 +10443,9 @@ class TestDeployCommand:
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
         entity.code_stage = None
         entity.code_workspace = Mock(database=None, schema_=None)
         entity.code_workspace.name = "MY_APP_CODE"
@@ -10672,7 +10702,9 @@ class TestDeployCommand:
         from snowflake.cli.api.project.project_paths import ProjectPaths
 
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
         entity.code_stage = None
         entity.code_workspace = None
         entity.artifacts = []
@@ -10718,7 +10750,9 @@ class TestDeployCommand:
     ):
         """--build-only should not require service_compute_pool or query_warehouse."""
         entity = Mock()
-        entity.fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA", name="MY_APP")
+        fqn = Mock(database="TEST_DB", schema="TEST_SCHEMA")
+        fqn.name = "MY_APP"
+        entity.fqn = fqn
         entity.code_stage = None
         entity.code_workspace = None
         entity.artifacts = []

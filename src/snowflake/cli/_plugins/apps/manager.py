@@ -1076,6 +1076,26 @@ class SnowflakeAppManager(SqlExecutionMixin):
         )
         return cursor.fetchone() is not None
 
+    def create_schema_if_not_exists(self, database: str, schema: str) -> None:
+        """Create *database.schema*, or continue when it already exists.
+
+        ``CREATE SCHEMA IF NOT EXISTS`` still requires ``CREATE SCHEMA`` even
+        when the schema exists. If that statement is not permitted, verify that
+        the schema is already visible before surfacing the original error.
+        """
+        schema_fqn = FQN(database=None, schema=database, name=schema)
+        try:
+            self.execute_query(
+                f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}"
+            )
+        except ProgrammingError as create_error:
+            try:
+                if self.schema_exists(database, schema):
+                    return
+            except ProgrammingError:
+                pass
+            raise create_error
+
     def current_role(self) -> Optional[str]:
         """Return the active role name, or ``None`` when it cannot be resolved."""
         try:

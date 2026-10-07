@@ -6,16 +6,20 @@ python.exe --version
 python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}')"
 
 python.exe -m pip install click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
-FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
+REM WiX/MSI and the unsigned zip use the 4-integer Windows version (3.29.0.dev0 -> 3.29.0.0).
+REM The managed tarball/fragment must use hatch version so Assemble-Managed can merge with Linux/Mac.
+FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION_WIN=%%I
+FOR /F "delims=" %%I IN ('hatch version') DO SET CLI_VERSION=%%I
 FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
 FOR /F "delims=" %%I IN ('echo %releaseType%') DO SET RELEASE_TYPE=%%I
 
 echo CLI_VERSION = `%CLI_VERSION%`
+echo CLI_VERSION_WIN = `%CLI_VERSION_WIN%`
 echo REVISION = `%REVISION%`
 echo RELEASE_TYPE = %RELEASE_TYPE%`
 
-set CLI_ZIP=snowflake-cli-%CLI_VERSION%.zip
-set CLI_MSI=snowflake-cli-%CLI_VERSION%-x86_64.msi
+set CLI_ZIP=snowflake-cli-%CLI_VERSION_WIN%.zip
+set CLI_MSI=snowflake-cli-%CLI_VERSION_WIN%-x86_64.msi
 set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%RELEASE_TYPE%/windows_x86_64/%REVISION%
 set RELEASE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/%RELEASE_TYPE%/windows_x86_64/%REVISION%
 
@@ -41,7 +45,7 @@ if exist dist\snowflake-managed\snow.exe (
 
 candle.exe ^
   -arch x64 ^
-  -dSnowflakeCLIVersion=%CLI_VERSION% ^
+  -dSnowflakeCLIVersion=%CLI_VERSION_WIN% ^
   scripts\packaging\win\snowflake_cli.wxs ^
   scripts\packaging\win\snowflake_cli_exitdlg.wxs || goto :error
 
