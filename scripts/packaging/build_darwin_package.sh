@@ -12,7 +12,8 @@ python3.11 -m venv venv
 python --version
 
 echo "--- installing dependencies ---"
-pip install click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
+# hatch pulls uv; pin in uv.constraint (Artifactory 403 on unpinned latest).
+pip install -c scripts/packaging/uv.constraint click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
 
 # install cargo
 if [[ ${MACHINE} == "arm64" ]]; then

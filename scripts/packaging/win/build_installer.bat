@@ -5,11 +5,12 @@ set PATH=C:\Program Files\7-Zip;C:\Users\jenkins\AppData\Local\Programs\Python\P
 python.exe --version
 python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}')"
 
-REM hatch==1.15.1 pulls uv; Artifactory 403 on that wheel leaves hatch off PATH
-REM (Win installer #597-#599). tomlkit is enough for --pack-tarball. Versions
-REM come from __about__.py so a hatch miss cannot stamp snowflake-cli-.zip.
+REM hatch==1.15.1 pulls uv; Artifactory 403 on unpinned latest leaves hatch off
+REM PATH (Win installer #597-#599, MacArm64 #945). Pin uv in uv.constraint.
+REM tomlkit is enough for --pack-tarball. Versions come from __about__.py so a
+REM hatch miss cannot stamp snowflake-cli-.zip.
 python.exe -m pip install click==8.2.1 virtualenv==20.39.1 tomlkit || goto :error
-python.exe -m pip install hatch==1.15.1
+python.exe -m pip install hatch==1.15.1 -c scripts\packaging\uv.constraint
 set PYTHONPATH=%CD%\src
 REM WiX ProductVersion is 4 integers only (3.29.0.dev0 -> 3.29.0.0). The unsigned
 REM zip uses that too. Releng copy is {RELEASE_VERSION}.0-x86_64.msi, so the

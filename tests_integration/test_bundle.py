@@ -457,7 +457,15 @@ def test_create_rejects_local_source_that_is_not_a_directory(
 @pytest.mark.integration
 def test_list_filters(runner, bundle_schema, local_bundle_source):
     database, schema = bundle_schema.split(".")
-    for name in ("alpha_cb", "beta_cb"):
+    # Unique names: `--in database` / `--in-account` --like is account-wide, and
+    # concurrent integration jobs share the database. Hardcoded `alpha_cb` made
+    # `list --like alpha%` return two ALPHA_CB rows.
+    token = uuid.uuid4().hex[:8]
+    alpha = f"alpha_{token}_cb"
+    beta = f"beta_{token}_cb"
+    alpha_name = alpha.upper()
+    beta_name = beta.upper()
+    for name in (alpha, beta):
         result = runner.invoke_with_connection(
             [
                 "bundle",
@@ -474,22 +482,22 @@ def test_list_filters(runner, bundle_schema, local_bundle_source):
         ["bundle", "list", "--in", "schema", bundle_schema]
     )
     assert result.exit_code == 0, result.output
-    assert sorted(row["name"] for row in result.json) == ["ALPHA_CB", "BETA_CB"]
+    assert sorted(row["name"] for row in result.json) == [alpha_name, beta_name]
     assert {row["schema_name"] for row in result.json} == {schema.upper()}
 
     # --like narrows the result set
     result = runner.invoke_with_connection_json(
-        ["bundle", "list", "--like", "alpha%", "--in", "schema", bundle_schema]
+        ["bundle", "list", "--like", f"alpha_{token}%", "--in", "schema", bundle_schema]
     )
     assert result.exit_code == 0, result.output
-    assert [row["name"] for row in result.json] == ["ALPHA_CB"]
+    assert [row["name"] for row in result.json] == [alpha_name]
 
     # -l is the short form of --like
     result = runner.invoke_with_connection_json(
-        ["bundle", "list", "-l", "beta%", "--in", "schema", bundle_schema]
+        ["bundle", "list", "-l", f"beta_{token}%", "--in", "schema", bundle_schema]
     )
     assert result.exit_code == 0, result.output
-    assert [row["name"] for row in result.json] == ["BETA_CB"]
+    assert [row["name"] for row in result.json] == [beta_name]
 
     # A non-matching pattern yields no rows rather than an error.
     result = runner.invoke_with_connection_json(
@@ -500,19 +508,21 @@ def test_list_filters(runner, bundle_schema, local_bundle_source):
 
     # --in database sees bundles in the schema below it.
     result = runner.invoke_with_connection_json(
-        ["bundle", "list", "--like", "alpha%", "--in", "database", database]
+        ["bundle", "list", "--like", f"alpha_{token}%", "--in", "database", database]
     )
     assert result.exit_code == 0, result.output
-    assert [row["name"] for row in result.json] == ["ALPHA_CB"]
+    assert [(row["schema_name"], row["name"]) for row in result.json] == [
+        (schema.upper(), alpha_name)
+    ]
 
     # --in-account crosses databases.
     result = runner.invoke_with_connection_json(
-        ["bundle", "list", "--like", "alpha_cb", "--in-account"]
+        ["bundle", "list", "--like", alpha, "--in-account"]
     )
     assert result.exit_code == 0, result.output
     assert {
         (row["database_name"], row["schema_name"], row["name"]) for row in result.json
-    } >= {(database.upper(), schema.upper(), "ALPHA_CB")}
+    } >= {(database.upper(), schema.upper(), alpha_name)}
 
 
 @pytest.mark.integration
