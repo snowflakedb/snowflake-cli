@@ -22,6 +22,7 @@
 
 ## Fixes and improvements
 * Upgraded setuptools from 80.8.0 to 84.0.0.
+* Comparing an `FQN` against a value that is not an `FQN` instance now returns `False` instead of raising `AttributeError`.
 
 
 # v3.29.0
