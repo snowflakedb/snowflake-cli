@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Upgraded setuptools from 80.8.0 to 84.0.0.
 
 
 # v3.29.0
