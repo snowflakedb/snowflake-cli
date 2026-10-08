@@ -88,6 +88,12 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
         del usage_command_event["message"][
             "command_agent_session_id"
         ]  # to avoid side effect from CORTEX_SESSION_ID
+        del usage_command_event["message"][
+            "command_cortex_client_surface"
+        ]  # to avoid side effect from CORTEX_CODE_CLIENT_SURFACE
+        del usage_command_event["message"][
+            "command_cortex_terminal_launcher"
+        ]  # to avoid side effect from CORTEX_TERMINAL_LAUNCHER_SOURCE
         assert usage_command_event == {
             "message": {
                 "driver_type": "PythonConnector",
@@ -167,6 +173,12 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
         del usage_command_event["message"][
             "command_agent_session_id"
         ]  # to avoid side effect from CORTEX_SESSION_ID
+        del usage_command_event["message"][
+            "command_cortex_client_surface"
+        ]  # to avoid side effect from CORTEX_CODE_CLIENT_SURFACE
+        del usage_command_event["message"][
+            "command_cortex_terminal_launcher"
+        ]  # to avoid side effect from CORTEX_TERMINAL_LAUNCHER_SOURCE
 
         # Verify common fields
         message = usage_command_event["message"]
@@ -289,6 +301,9 @@ def test_detect_agent_environment_returns_unknown_when_no_agent():
     "env_var, env_value, expected_agent",
     [
         ("CORTEX_SESSION_ID", "abc123", "CORTEX"),
+        ("CORTEX_CODE_CLIENT_SURFACE", "coco_desktop", "CORTEX"),
+        ("CORTEX_TERMINAL_LAUNCHER_SOURCE", "sandbox", "CORTEX"),
+        ("COCO_AGENT", "1", "CORTEX"),
         ("CURSOR_AGENT", "1", "CURSOR"),
         ("GEMINI_CLI", "1", "GEMINI_CLI"),
         ("CLAUDECODE", "1", "CLAUDE_CODE"),
@@ -390,6 +405,152 @@ def test_agent_session_id_empty_in_telemetry_when_unset(_, mock_conn, runner):
     )
 
     assert usage_command_event["message"]["command_agent_session_id"] == ""
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("coco_cli", "coco_cli"),
+        ("coco_desktop", "coco_desktop"),
+        ("other_host", "other_host"),
+        ("  CoCo_Desktop  ", "coco_desktop"),
+        ("sandbox", "sandbox"),
+        ("", ""),
+        ("not a real surface", ""),
+        ("https://example.com", ""),
+        ("-leading-hyphen", ""),
+        ("x" * 64, "x" * 64),
+        ("x" * 80, "x" * 64),
+    ],
+)
+def test_sanitize_cortex_telemetry_token(raw, expected):
+    from snowflake.cli._app.telemetry import _sanitize_cortex_telemetry_token
+
+    assert _sanitize_cortex_telemetry_token(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "env, expected_surface, expected_launcher",
+    [
+        ({}, "", ""),
+        ({"CORTEX_CODE_CLIENT_SURFACE": "coco_cli"}, "coco_cli", ""),
+        ({"CORTEX_CODE_CLIENT_SURFACE": "coco_desktop"}, "coco_desktop", ""),
+        ({"CORTEX_CODE_CLIENT_SURFACE": "other_host"}, "other_host", ""),
+        (
+            {"CORTEX_TERMINAL_LAUNCHER_SOURCE": "sandbox"},
+            "",
+            "sandbox",
+        ),
+        (
+            {
+                "CORTEX_CODE_CLIENT_SURFACE": "coco_cli",
+                "CORTEX_TERMINAL_LAUNCHER_SOURCE": "sandbox",
+            },
+            "coco_cli",
+            "sandbox",
+        ),
+        ({"CORTEX_CODE_CLIENT_SURFACE": "not a real surface"}, "", ""),
+        ({"CORTEX_CODE_CLIENT_SURFACE": "  CoCo_Desktop  "}, "coco_desktop", ""),
+    ],
+)
+def test_cortex_surface_and_launcher_from_env(env, expected_surface, expected_launcher):
+    from snowflake.cli._app.telemetry import (
+        _get_cortex_client_surface,
+        _get_cortex_terminal_launcher,
+    )
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        assert _get_cortex_client_surface() == expected_surface
+        assert _get_cortex_terminal_launcher() == expected_launcher
+
+
+@pytest.mark.parametrize(
+    "env, expected_agent, expected_session_id, expected_surface, expected_launcher",
+    [
+        (
+            {
+                "CORTEX_SESSION_ID": "conv-1",
+                "CORTEX_CODE_CLIENT_SURFACE": "coco_cli",
+            },
+            "CORTEX",
+            "conv-1",
+            "coco_cli",
+            "",
+        ),
+        (
+            {"CORTEX_CODE_CLIENT_SURFACE": "coco_desktop"},
+            "CORTEX",
+            "",
+            "coco_desktop",
+            "",
+        ),
+        (
+            {"CORTEX_TERMINAL_LAUNCHER_SOURCE": "sandbox"},
+            "CORTEX",
+            "",
+            "",
+            "sandbox",
+        ),
+        (
+            {
+                "CORTEX_CODE_CLIENT_SURFACE": "coco_cli",
+                "CORTEX_TERMINAL_LAUNCHER_SOURCE": "sandbox",
+            },
+            "CORTEX",
+            "",
+            "coco_cli",
+            "sandbox",
+        ),
+    ],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_cortex_surface_appears_in_telemetry(
+    _,
+    mock_conn,
+    runner,
+    env,
+    expected_agent,
+    expected_session_id,
+    expected_surface,
+    expected_launcher,
+):
+    with mock.patch.dict(os.environ, env, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    message = usage_command_event["message"]
+    assert message["command_agent_environment"] == expected_agent
+    assert message["command_agent_session_id"] == expected_session_id
+    assert message["command_cortex_client_surface"] == expected_surface
+    assert message["command_cortex_terminal_launcher"] == expected_launcher
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_cortex_surface_empty_in_telemetry_when_unset(_, mock_conn, runner):
+    with mock.patch.dict(os.environ, {}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_cortex_client_surface"] == ""
+    assert usage_command_event["message"]["command_cortex_terminal_launcher"] == ""
 
 
 def test_agent_context_non_tty_with_agent_detected():

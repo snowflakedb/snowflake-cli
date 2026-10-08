@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import sys
 import threading
 from enum import Enum, unique
@@ -70,6 +71,8 @@ class CLITelemetryField(Enum):
     COMMAND_AUTH_TYPE = "command_auth_type"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     COMMAND_AGENT_SESSION_ID = "command_agent_session_id"
+    COMMAND_CORTEX_CLIENT_SURFACE = "command_cortex_client_surface"
+    COMMAND_CORTEX_TERMINAL_LAUNCHER = "command_cortex_terminal_launcher"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
     CONFIG_PROVIDER_TYPE = "config_provider_type"
@@ -469,9 +472,45 @@ def _telemetry_may_open_connection() -> bool:
         return False
 
 
+_CORTEX_CLIENT_SURFACE_ENV = "CORTEX_CODE_CLIENT_SURFACE"
+_CORTEX_TERMINAL_LAUNCHER_ENV = "CORTEX_TERMINAL_LAUNCHER_SOURCE"
+_CORTEX_TELEMETRY_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+_CORTEX_TELEMETRY_TOKEN_MAX_LEN = 64
+
+
+def _sanitize_cortex_telemetry_token(raw: str) -> str:
+    """Lowercase host-set tokens. Drop non-identifiers; cap length at 64."""
+    token = raw.strip().lower()
+    if not _CORTEX_TELEMETRY_TOKEN_RE.fullmatch(token):
+        return ""
+    return token[:_CORTEX_TELEMETRY_TOKEN_MAX_LEN]
+
+
+def _get_cortex_client_surface() -> str:
+    return _sanitize_cortex_telemetry_token(
+        os.environ.get(_CORTEX_CLIENT_SURFACE_ENV, "")
+    )
+
+
+def _get_cortex_terminal_launcher() -> str:
+    return _sanitize_cortex_telemetry_token(
+        os.environ.get(_CORTEX_TERMINAL_LAUNCHER_ENV, "")
+    )
+
+
+def _is_cortex_environment() -> bool:
+    if "CORTEX_SESSION_ID" in os.environ:
+        return True
+    if _get_cortex_client_surface():
+        return True
+    if _get_cortex_terminal_launcher():
+        return True
+    return _is_env_truthy("COCO_AGENT")
+
+
 def _detect_agent_environment() -> str:
     """Detect AI coding agent based on environment variables."""
-    if "CORTEX_SESSION_ID" in os.environ:
+    if _is_cortex_environment():
         return "CORTEX"
     if _is_env_truthy("CURSOR_AGENT"):
         return "CURSOR"
@@ -588,6 +627,8 @@ class CLITelemetryClient:
             CLITelemetryField.COMMAND_AUTH_TYPE: _get_auth_type(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.COMMAND_AGENT_SESSION_ID: _get_agent_session_id(),
+            CLITelemetryField.COMMAND_CORTEX_CLIENT_SURFACE: _get_cortex_client_surface(),
+            CLITelemetryField.COMMAND_CORTEX_TERMINAL_LAUNCHER: _get_cortex_terminal_launcher(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
