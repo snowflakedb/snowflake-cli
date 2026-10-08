@@ -32,11 +32,14 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Python 3.10
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
           cache: pip
           cache-dependency-path: pyproject.toml
+      # Key on the resolved CPython patch. Do not restore `py3.10-` prefixes:
+      # a 3.10.22 venv restored onto 3.10.21 makes `pytest: not found`.
       - name: Cache hatch envs
         uses: actions/cache@v4
         with:
@@ -44,12 +47,22 @@ jobs:
             ~/.local/share/hatch
             ~/Library/Application Support/hatch
             ~\AppData\Local\hatch
-          key: hatch-performance-${{ runner.os }}-py3.10-${{ hashFiles('pyproject.toml', 'pylock.toml') }}
-          restore-keys: |
-            hatch-performance-${{ runner.os }}-py3.10-
+          key: hatch-performance-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'pylock.toml') }}
       - name: Install hatch
+        shell: bash
+        env:
+          HATCH_ENV: performance
         run: |
-          pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
-          hatch env create default
+          python -m pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
+          python -m hatch env create "$HATCH_ENV"
+          probe() {
+            python -m hatch run "${HATCH_ENV}:python" -c "import pytest, sys; assert sys.prefix != sys.base_prefix"
+          }
+          if ! probe; then
+            echo "Hatch env '${HATCH_ENV}' is missing pytest; recreating (likely a CPython-patch cache mismatch)" >&2
+            python -m hatch env remove "$HATCH_ENV" || true
+            python -m hatch env create "$HATCH_ENV"
+            probe
+          fi
       - name: Run performance tests
         run: hatch run performance:test

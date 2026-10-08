@@ -38,11 +38,13 @@ jobs:
           persist-credentials: false
       - if: inputs.should-run == 'true'
         name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
+      # Key on the resolved CPython patch so 3.10.21 / 3.10.22 do not share a venv.
       - if: inputs.should-run == 'true'
         name: Cache hatch envs
         uses: actions/cache@v4
@@ -51,14 +53,24 @@ jobs:
             ~/.local/share/hatch
             ~/Library/Application Support/hatch
             ~\AppData\Local\hatch
-          key: hatch-${{ inputs.python-env }}-${{ runner.os }}-py${{ inputs.python-version }}-${{ hashFiles('pyproject.toml', 'pylock.toml') }}
-          restore-keys: |
-            hatch-${{ inputs.python-env }}-${{ runner.os }}-py${{ inputs.python-version }}-
+          key: hatch-${{ inputs.python-env }}-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'pylock.toml') }}
       - if: inputs.should-run == 'true'
         name: Install dependencies
+        shell: bash
+        env:
+          HATCH_ENV: ${{ inputs.python-env }}
         run: |
           python -m pip install --upgrade pip click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
-          python -m hatch env create ${{ inputs.python-env }}
+          python -m hatch env create "$HATCH_ENV"
+          probe() {
+            python -m hatch run "${HATCH_ENV}:python" -c "import pytest, sys; assert sys.prefix != sys.base_prefix"
+          }
+          if ! probe; then
+            echo "Hatch env '${HATCH_ENV}' is missing pytest; recreating (likely a CPython-patch cache mismatch)" >&2
+            python -m hatch env remove "$HATCH_ENV" || true
+            python -m hatch env create "$HATCH_ENV"
+            probe
+          fi
       - if: inputs.should-run == 'true'
         name: Run integration tests
         env:
