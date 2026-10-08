@@ -276,6 +276,14 @@ def test_threaded_completer_queues_event_without_click_context():
                 _telemetry.drain_if_open()
             assert channel.try_add_log_to_batch.call_count == len(queued)
             assert _telemetry._pending == []  # noqa: SLF001
+            for call in channel.try_add_log_to_batch.call_args_list:
+                sent = call.args[0].to_dict()["message"]
+                assert sent["type"] == "repl_completion"
+                assert sent["source"] == "snowcli"
+                assert sent["event"]
+                sent_blob = json.dumps(sent)
+                assert "SEL" not in sent_blob
+                assert "SELECT" not in sent_blob
     finally:
         _telemetry._pending.clear()  # noqa: SLF001
 
@@ -367,6 +375,7 @@ def test_concurrent_completion_enqueue_and_drain_lose_nothing(monkeypatch):
             for thread in threads:
                 thread.join()
             _telemetry.drain_if_open()
+            assert _telemetry._pending == []  # noqa: SLF001
         assert channel.try_add_log_to_batch.call_count == 800
     finally:
         for thread in threads:

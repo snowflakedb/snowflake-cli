@@ -20,7 +20,7 @@ import re
 import sys
 import threading
 from enum import Enum, unique
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import click
 import typer
@@ -680,23 +680,36 @@ class CLITelemetryClient:
     def log_repl_completion(self, payload: Dict[str, Any]) -> None:
         """Queue a privacy-safe REPL completion event.
 
-        Does not need a Click context. A worker thread omits the command path
-        instead of raising ``RuntimeError`` from ``click.get_current_context``.
-        The worker only enqueues. The REPL drains on the UI thread.
+        The worker only enqueues the allowlisted payload. Assembling the full
+        record reads the shared CLI context and config; doing that on the
+        completion thread races, and ``ignore_exceptions`` then drops the
+        event. ``_drain`` enriches it on the UI thread.
         """
-        message_payload = {
-            TelemetryField.KEY_TYPE: TelemetryEvent.REPL_COMPLETION.value,
+        message = {
+            TelemetryField.KEY_TYPE.value: TelemetryEvent.REPL_COMPLETION.value,
             **payload,
         }
+        self._enqueue(message, get_time_millis())
+
+    def _enrich_repl_completion(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Add command and config fields. Keep ``message`` if assembly fails."""
         try:
-            command_info = _find_command_info()
-        except RuntimeError:
-            command_info = _command_info_without_click()
-        self._enqueue(
-            self.generate_telemetry_data_dict(
-                message_payload, command_info=command_info
-            ),
-            get_time_millis(),
+            try:
+                command_info = _find_command_info()
+            except Exception:
+                command_info = _command_info_without_click()
+            return self.generate_telemetry_data_dict(
+                cast(TelemetryDict, message), command_info=command_info
+            )
+        except Exception:
+            return message
+
+    @staticmethod
+    def _is_bare_repl_completion(message: Dict[str, Any]) -> bool:
+        return (
+            message.get(TelemetryField.KEY_TYPE.value)
+            == TelemetryEvent.REPL_COMPLETION.value
+            and CLITelemetryField.SOURCE.value not in message
         )
 
     def _drain(self):
@@ -716,17 +729,28 @@ class CLITelemetryClient:
         with self._lock:
             pending, self._pending = self._pending, []
         auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
-        for message, timestamp in pending:
-            # An event buffered before the connection opened could not resolve the
-            # authenticator yet; fill it in now that one is available, so the field
-            # is not lost on the pre-command event.
-            if not message.get(auth_type_field):
-                message[auth_type_field] = _get_auth_type()
-            telemetry.try_add_log_to_batch(
-                TelemetryData.from_telemetry_data_dict(
-                    from_dict=message, timestamp=timestamp
+        sent = 0
+        try:
+            for message, timestamp in pending:
+                if self._is_bare_repl_completion(message):
+                    message = self._enrich_repl_completion(message)
+                # An event buffered before the connection opened could not resolve the
+                # authenticator yet; fill it in now that one is available, so the field
+                # is not lost on the pre-command event.
+                if not message.get(auth_type_field):
+                    message[auth_type_field] = _get_auth_type()
+                telemetry.try_add_log_to_batch(
+                    TelemetryData.from_telemetry_data_dict(
+                        from_dict=message, timestamp=timestamp
+                    )
                 )
-            )
+                sent += 1
+        finally:
+            # A send that raises must not drop the tail. Put it back ahead of
+            # anything enqueued while this batch was in flight.
+            if sent < len(pending):
+                with self._lock:
+                    self._pending[0:0] = pending[sent:]
 
     def _flush_upgrade_spool(
         self, telemetry, auth_type_field: str
