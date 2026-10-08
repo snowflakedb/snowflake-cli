@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* `snow app version drop` now reports that the drop is in progress and may take a few minutes, instead of saying it is already complete.
 * Upgraded setuptools from 80.8.0 to 84.0.0.
 * Comparing an `FQN` against a value that is not an `FQN` instance now returns `False` instead of raising `AttributeError`.
 
