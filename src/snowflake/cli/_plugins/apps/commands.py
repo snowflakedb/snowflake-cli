@@ -1745,7 +1745,7 @@ def _effective_compute_resource(
     """Return *compute_resource*, dropping ``SERVERLESS`` when the account disallows it.
 
     ``required`` raises when ``SERVERLESS`` was requested but the account
-    parameters are not all enabled. Callers that only observe an existing
+    feature parameter is not enabled. Callers that only observe an existing
     service pass ``required=False`` and treat that request as unset.
     """
     if not _is_cng_compute_resource(compute_resource):
@@ -1755,7 +1755,8 @@ def _effective_compute_resource(
     if required:
         raise CliError("compute_resource SERVERLESS is not enabled for this account.")
     log.debug(
-        "Ignoring compute_resource SERVERLESS; account parameters are not enabled."
+        "Ignoring compute_resource SERVERLESS; "
+        "the account feature parameter is not enabled."
     )
     return None
 
@@ -2407,8 +2408,8 @@ def _deploy_from_app_yml(
         )
 
     # ``compute_resource`` selects the serverless or SPCS backend and is
-    # write-once. ``SERVERLESS`` is applied only when the account parameters
-    # allow it. When it is unset the server defaults the backend.
+    # write-once. ``SERVERLESS`` is applied only when the account feature
+    # parameter allows it. When it is unset the server defaults the backend.
     compute_resource = _effective_compute_resource(
         manager, tgt.compute_resource, required=True
     )

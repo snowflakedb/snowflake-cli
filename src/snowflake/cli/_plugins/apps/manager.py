@@ -120,13 +120,11 @@ _APP_SPACE_COLUMN_MAP = {
 # per-account TLS certificate to be provisioned for the account.
 SERVERLESS_COMPUTE_RESOURCE = "SERVERLESS"
 
-# Account parameters that must all be true before ``compute_resource: SERVERLESS``
-# is applied. This is intentionally not advertised in help or release notes.
-SERVERLESS_ACCOUNT_PARAMETERS = (
-    "ENABLE_EAA_FOR_CNG_INGRESS",
-    "ENABLE_OAUTH_DELEGATED_PROXY_FLOW",
-    "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
-)
+# ``compute_resource: SERVERLESS`` is applied only when
+# ``FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS`` is ``ENABLED``.
+# The value is read from UI parameters (``CLIENT_PARAMS_INFO``), not
+# ``SHOW PARAMETERS``. This check is intentionally not advertised in help or
+# release notes.
 
 # System function that triggers per-account URL certificate issuance for the
 # account. Issuance is asynchronous and can take up to ~3 hours, so a CNG
@@ -201,7 +199,9 @@ from snowflake.cli._plugins.apps.snowflake_app_project_paths import (
     SnowflakeAppProjectPaths,
 )
 from snowflake.cli._plugins.connection.util import (
+    UIParameter,
     get_account_identifier,
+    get_ui_parameter,
     guess_regioned_host_from_allowlist,
 )
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
@@ -2296,38 +2296,29 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def serverless_account_parameters_enabled(self) -> bool:
         """Return whether this account may use ``compute_resource: SERVERLESS``.
 
-        All of :data:`SERVERLESS_ACCOUNT_PARAMETERS` must be on. Boolean
-        parameters use ``true``; ``FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS``
-        uses ``ENABLED``. A missing parameter, any other value, or a failure
-        to read it is not enabled.
+        ``FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS`` must be
+        ``ENABLED`` or ``ENABLED_PUBLIC_PREVIEW``. It is read with
+        :func:`get_ui_parameter`. A missing parameter, any other value, or a
+        failure to read it is not enabled.
         """
-        for name in SERVERLESS_ACCOUNT_PARAMETERS:
-            if not self._account_parameter_is_true(name):
-                log.debug("Account parameter %s is not enabled.", name)
-                return False
-        return True
-
-    def _account_parameter_is_true(self, name: str) -> bool:
-        """Return whether account parameter *name* is on.
-
-        Boolean parameters store ``true``. The serverless feature parameter
-        stores ``ENABLED`` when the account is allowed to use it.
-        """
+        parameter = UIParameter.FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS
         try:
-            cursor = self.execute_query(
-                f"SHOW PARAMETERS LIKE '{name}' IN ACCOUNT",
-                cursor_class=DictCursor,
+            value = get_ui_parameter(self.connection, parameter, None)
+        except Exception:
+            log.debug(
+                "Could not read account parameter %s.", parameter.value, exc_info=True
             )
-            row = cursor.fetchone()
-        except ProgrammingError:
-            log.debug("Could not read account parameter %s.", name, exc_info=True)
             return False
-        if not row:
-            return False
-        value = row.get("value")
-        if value is None:
-            value = row.get("VALUE")
-        return str(value).strip().lower() in {"true", "enabled"}
+        # ENABLED_PUBLIC_PREVIEW is the system-level public-preview value.
+        # DISABLED_PRIVATE_PREVIEW is not on.
+        if value is not None and str(value).strip().lower() in {
+            "true",
+            "enabled",
+            "enabled_public_preview",
+        }:
+            return True
+        log.debug("Account parameter %s is not enabled.", parameter.value)
+        return False
 
     def create_app_service(
         self,

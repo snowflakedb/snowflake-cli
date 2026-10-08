@@ -1833,7 +1833,7 @@ class TestDeployFromAppYml:
     def test_serverless_refused_when_account_parameters_disabled(
         self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, mock_cert, tmp_path
     ):
-        """SERVERLESS is refused when the account parameters are not all enabled."""
+        """SERVERLESS is refused when the account feature parameter is not enabled."""
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
 
         (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)

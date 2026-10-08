@@ -906,6 +906,36 @@ def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
     )
 
 
+def test_get_ui_parameter_reads_serverless_feature_parameter(mock_cursor):
+    connection = MagicMock()
+    connection.execute_string.return_value = (
+        None,
+        mock_cursor(
+            [
+                (
+                    """\
+                    {
+                        "clientParamsInfo": [{
+                            "name": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+                            "value": "ENABLED"
+                        }]
+                    }
+                    """,
+                )
+            ],
+            [],
+        ),
+    )
+    assert (
+        get_ui_parameter(
+            connection,
+            UIParameter.FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS,
+            "DISABLED",
+        )
+        == "ENABLED"
+    )
+
+
 def test_with_feature_flags():
     class _TestFlags(FeatureFlagMixin):
         FOO = BooleanFlag("FOO", False)

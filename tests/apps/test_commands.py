@@ -43,7 +43,6 @@ from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_TIMEOUT_SECONDS,
     MAX_UPLOAD_ATTEMPTS,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
-    SERVERLESS_ACCOUNT_PARAMETERS,
     SNOWFLAKE_APP_ENTITY_TYPE,
     UPLOAD_RETRY_BASE_DELAY_SECONDS,
     UPLOAD_RETRY_MAX_DELAY_SECONDS,
@@ -652,60 +651,45 @@ class TestRequestsEventTableHealthMonitoring:
 
 
 class TestServerlessAccountParameters:
-    """SERVERLESS is allowed only when every required account parameter is true."""
+    """SERVERLESS is allowed only when the UI feature parameter is ENABLED."""
 
-    def _manager(self, rows):
+    def _manager(self):
         mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
-
-        def execute(query, cursor_class=None):
-            name = query.split("'")[1]
-            cursor = Mock()
-            cursor.fetchone.return_value = rows.get(name)
-            return cursor
-
-        mgr.execute_query = Mock(side_effect=execute)
+        object.__setattr__(mgr, "_connection", Mock())
         return mgr
 
-    def test_enabled_when_all_parameters_are_true(self):
-        rows = {
-            name: {"key": name, "value": "true"}
-            for name in SERVERLESS_ACCOUNT_PARAMETERS
-        }
-        # The feature parameter is ENABLED/DISABLED, not a Boolean.
-        rows["FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS"] = {
-            "key": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
-            "value": "ENABLED",
-        }
-        mgr = self._manager(rows)
+    @pytest.mark.parametrize("value", ["ENABLED", "ENABLED_PUBLIC_PREVIEW"])
+    @patch("snowflake.cli._plugins.apps.manager.get_ui_parameter")
+    def test_enabled_when_feature_parameter_is_enabled(self, mock_get, value):
+        from snowflake.cli._plugins.connection.util import UIParameter
+
+        mock_get.return_value = value
+        mgr = self._manager()
         assert mgr.serverless_account_parameters_enabled() is True
+        mock_get.assert_called_once_with(
+            mgr.connection,
+            UIParameter.FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS,
+            None,
+        )
 
-    def test_disabled_when_any_parameter_is_false(self):
-        rows = {
-            name: {"key": name, "value": "true"}
-            for name in SERVERLESS_ACCOUNT_PARAMETERS
-        }
-        rows[SERVERLESS_ACCOUNT_PARAMETERS[0]] = {
-            "key": SERVERLESS_ACCOUNT_PARAMETERS[0],
-            "value": "false",
-        }
-        mgr = self._manager(rows)
+    @pytest.mark.parametrize("value", ["DISABLED", "DISABLED_PRIVATE_PREVIEW"])
+    @patch("snowflake.cli._plugins.apps.manager.get_ui_parameter")
+    def test_disabled_when_feature_parameter_is_not_enabled(self, mock_get, value):
+        mock_get.return_value = value
+        mgr = self._manager()
         assert mgr.serverless_account_parameters_enabled() is False
 
-    def test_disabled_when_feature_parameter_is_not_enabled(self):
-        rows = {
-            name: {"key": name, "value": "true"}
-            for name in SERVERLESS_ACCOUNT_PARAMETERS
-        }
-        rows["FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS"] = {
-            "key": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
-            "value": "DISABLED",
-        }
-        mgr = self._manager(rows)
+    @patch("snowflake.cli._plugins.apps.manager.get_ui_parameter", return_value=None)
+    def test_disabled_when_feature_parameter_is_missing(self, mock_get):
+        mgr = self._manager()
         assert mgr.serverless_account_parameters_enabled() is False
 
-    def test_disabled_when_a_parameter_cannot_be_read(self):
-        mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
-        mgr.execute_query = Mock(side_effect=ProgrammingError("denied"))
+    @patch(
+        "snowflake.cli._plugins.apps.manager.get_ui_parameter",
+        side_effect=ProgrammingError("denied"),
+    )
+    def test_disabled_when_a_parameter_cannot_be_read(self, mock_get):
+        mgr = self._manager()
         assert mgr.serverless_account_parameters_enabled() is False
 
 
