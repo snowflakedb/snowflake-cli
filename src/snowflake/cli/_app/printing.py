@@ -29,6 +29,11 @@ from rich import print as rich_print
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
+from snowflake.cli._app.ascii_table import (
+    maybe_log_large_result,
+    probe_rows,
+    stream_probed_table,
+)
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
@@ -224,21 +229,36 @@ def _render_console_for_table() -> Console:
 
 
 def _print_multiple_table_results(obj: CollectionResult):
-    items = obj.result
+    items = iter(obj.result)
     try:
         first_item = next(items)
     except StopIteration:
         rich_print(NO_ITEMS_FOUND, end="\n\n")
         return
+    probed = probe_rows(first_item, items)
+    if probed.use_rich:
+        _print_rich_table(probed.columns, probed.rows)
+        return
+    console = _render_console_for_table()
+    is_tty = _stdout_is_terminal()
+    maybe_log_large_result(probed.cells, probed.chars, is_tty)
+
+    def _trailer() -> None:
+        if console.is_terminal:
+            sys.stdout.write("\n")
+        rich_print(flush=True)
+
+    stream_probed_table(probed, console=console, is_tty=is_tty, on_success=_trailer)
+
+
+def _print_rich_table(columns: list[str], rows: list[list[str]]) -> None:
     table = _get_table()
-    for column in first_item.keys():
+    for column in columns:
         table.add_column(column, overflow="fold")
     console = _render_console_for_table()
     with Live(table, console=console, refresh_per_second=4):
-        table.add_row(*[__to_str(i) for i in first_item.values()])
-        for item in items:
-            table.add_row(*[__to_str(i) for i in item.values()])
-    # Add separator between tables
+        for row in rows:
+            table.add_row(*row)
     rich_print(flush=True)
 
 

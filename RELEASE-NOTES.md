@@ -50,6 +50,8 @@
 * Per-command `--help` now lists global and connection flags by name instead of full option panels. Use `--help-all` on a command for the previous full option list, or `snow --help` for descriptions. Disable condensed help with `enable_condensed_command_help = false` or `SNOWFLAKE_CLI_FEATURES_ENABLE_CONDENSED_COMMAND_HELP=false`.
 * Tab in `snow sql` also completes databases, schemas, tables, views, and columns visible to the current session. An empty prefix does not run an unbounded SHOW. `!rehash` clears the in-session object cache.
 ## Fixes and improvements
+* Table cells in `snow sql` results no longer pass terminal control sequences through. ANSI color codes and other control characters are stripped before the table is drawn.
+* Large `snow sql` table results now stream with bounded memory instead of rendering the whole table at once.
 * `snow sql` no longer aborts a statement whose text contains Rich-markup-like tokens (for example `[/x]`). The statement is echoed and executed as written. The same applies to streamed SPCS image-build and remote-build log lines.
 * `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.21 to 3.10.22.
