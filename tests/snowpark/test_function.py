@@ -1109,3 +1109,43 @@ def _put_query(project_root: Path, source: str, dest: str):
     return dedent(
         f"put file://{project_root.resolve() / 'output' / 'bundle' / 'snowpark' / source} {dest} auto_compress=false parallel=4 overwrite=True"
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock_session_has_warehouse
+def test_deploy_function_quotes_each_part_of_eai_and_secret_names(
+    mock_object_manager,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    alter_snowflake_yml,
+):
+    mock_object_manager.return_value.show.return_value = [
+        {"name": "my-eai", "type": "EXTERNAL_ACCESS"},
+    ]
+    mock_object_manager.return_value.describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    with project_directory("snowpark_function_external_access") as project_dir:
+        snowflake_yml = project_dir / "snowflake.yml"
+        alter_snowflake_yml(
+            snowflake_yml,
+            "snowpark.functions.0.external_access_integrations",
+            ["my-eai"],
+        )
+        alter_snowflake_yml(
+            snowflake_yml,
+            "snowpark.functions.0.secrets",
+            {"cred": "db.schema.my-secret"},
+        )
+        result = runner.invoke(["snowpark", "deploy"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    query = ctx.get_queries()[-1]
+    assert 'external_access_integrations=("my-eai")' in query
+    assert "secrets=('cred'=db.schema.\"my-secret\")" in query

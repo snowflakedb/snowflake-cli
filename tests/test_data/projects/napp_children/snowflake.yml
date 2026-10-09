@@ -17,5 +17,6 @@ entities:
   my_streamlit:
     type: streamlit
     main_file: streamlit_app.py
+    query_warehouse: test_warehouse
     artifacts:
       - streamlit_app.py

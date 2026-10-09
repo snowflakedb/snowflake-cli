@@ -15,6 +15,8 @@
  -->
 # Unreleased version
 ## Backward incompatibility
+* `snow streamlit deploy` no longer defaults `query_warehouse` to the identifier `streamlit` when the field is omitted from `snowflake.yml`. A new app uses the connection warehouse instead, and deploy fails if that is also unset. An existing app keeps its warehouse unless `snowflake.yml` sets `query_warehouse`.
+* `snow streamlit deploy --replace` now UNSETs Streamlit properties (title, comment, external access integrations, secrets, imports, compute_pool) that were cleared from `snowflake.yml`, and REVOKEs object grants that disappeared from `grants:` (OWNERSHIP is left alone). Omitting `grants:` still leaves live grants untouched. If the app's current grants cannot be listed, deploy fails rather than skip the revoke.
 
 ## Deprecations
 
@@ -26,6 +28,13 @@
 * Comparing an `FQN` against a value that is not an `FQN` instance now returns `False` instead of raising `AttributeError`.
 * Upgraded keyring from 25.6.0 to 25.7.0.
 * Upgraded jaraco.context from 6.0.1 to 6.1.2.
+* `snow streamlit deploy` includes `environment.yml` and the pages directory (`pages_dir`, or `pages/` by default) when they exist on disk, even if a native v2 project lists only `main_file` in `artifacts`. Overlapping `pages/` and `pages/*.py` artifacts no longer fail the bundle.
+* `snow streamlit deploy` treats only Snowflake error 2003 from `DESCRIBE STREAMLIT` as "object does not exist". Other programming errors are no longer swallowed into a misleading `CREATE STREAMLIT IF NOT EXISTS`. Because 2003 also means "not authorized", `--replace` no longer turns it into `CREATE OR REPLACE`.
+* Improved sanitization of external access integration and secret values in generated Streamlit and Snowpark SQL, and of import and stage location values in generated Streamlit SQL. `imports`, `external_access_integrations`, `secrets`, `runtime_name`, and `compute_pool` in `snowflake.yml` no longer accept a backslash.
+* `snow streamlit get-url` and the URL printed after deploy now fail when the connection has no account or region, instead of opening `https://app.snowflake.com` with no app path.
+* `snow streamlit logs` accepts any `SYSTEM$ST_CONTAINER_RUNTIME*` runtime, matching deploy/restart. A newer container runtime such as `..._PY3_12` is also accepted in `snowflake.yml`.
+* Replacing a legacy `ROOT_LOCATION` Streamlit app with a versioned deploy copies files from the old stage onto the new versioned stage when possible.
+* `ALTER STREAMLIT ... ADD LIVE VERSION` quotes each database, schema, and name part so hyphenated or reserved identifiers parse.
 
 # v3.29.0
 

@@ -86,10 +86,11 @@ class StreamlitTestClass:
             return_value="https://foo.bar",
         ).start()
 
-        self.mock_streamlit_exists = mock.patch(
+        self._object_exists_patcher = mock.patch(
             "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
             lambda _, **kwargs: False,
-        ).start()
+        )
+        self.mock_streamlit_exists = self._object_exists_patcher.start()
 
         # Mock describe() to return a versioned stage path for versioned deployments
         self.mock_describe = mock.patch(

@@ -497,10 +497,13 @@ def streamlit_deploy(
     **options,
 ) -> CommandResult:
     """
-    Deploys a Streamlit app defined in the project definition file (snowflake.yml). By default, the command uploads
-    environment.yml and any other pages or folders, if present. If you don't specify a stage name, the `streamlit`
-    stage is used. If the specified stage does not exist, the command creates it. If multiple Streamlits are defined
-    in snowflake.yml and no entity_id is provided then command will raise an error.
+    Deploys a Streamlit app defined in the project definition file (snowflake.yml).
+    The bundle always includes main_file. If environment.yml or a pages directory
+    (pages_dir, or pages/ by default) exists in the project root, they are included
+    even when omitted from artifacts. The stage name comes from the entity's stage
+    field (default: streamlit); the command creates that stage if needed. If the
+    app already exists, re-run with --replace to update it. If multiple Streamlits
+    are defined and no entity_id is provided, the command raises an error.
     """
 
     cli_context = get_cli_context()

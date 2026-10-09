@@ -34,7 +34,8 @@ from snowflake.cli._plugins.streamlit.proto_codec import (
     encode_stream_logs_request,
 )
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
-    SPCS_RUNTIME_V2_NAME,
+    SPCS_CONTAINER_RUNTIME_PREFIX,
+    is_spcs_container_runtime,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
@@ -141,10 +142,10 @@ def validate_spcs_v2_runtime(conn: SnowflakeConnection, fqn: FQN) -> None:
     columns = {desc[0].lower(): val for desc, val in zip(description, row)}
     runtime_name = columns.get("runtime_name")
 
-    if runtime_name != SPCS_RUNTIME_V2_NAME:
+    if not is_spcs_container_runtime(runtime_name):
         raise CliError(
             f"Log streaming is only supported for Streamlit apps running on "
-            f"SPCSv2 runtime ({SPCS_RUNTIME_V2_NAME}). "
+            f"an SPCS container runtime ({SPCS_CONTAINER_RUNTIME_PREFIX}*). "
             f"App '{fqn}' has runtime_name='{runtime_name}'."
         )
 

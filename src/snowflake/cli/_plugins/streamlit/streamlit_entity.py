@@ -3,7 +3,6 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, NamedTuple, Optional
 
-from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.object.common import Tag
@@ -13,11 +12,14 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
     WAREHOUSE_RUNTIME_NAME,
     StreamlitEntityModel,
+    is_spcs_container_runtime,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.constants import DEFAULT_ENV_FILE, DEFAULT_PAGES_DIR
 from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.entities.utils import EntityActions, sync_deploy_root_with_stage
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
@@ -27,6 +29,7 @@ from snowflake.cli.api.project.util import (
     to_string_literal,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -35,7 +38,6 @@ log = logging.getLogger(__name__)
 # Snowflake errno / SQLSTATE for "live version already exists" (same codes as
 # SnowflakeAppManager.ensure_workspace_live_version).
 _LIVE_VERSION_EXISTS_ERRNO = 99106
-_SPCS_CONTAINER_RUNTIME_PREFIX = "SYSTEM$ST_CONTAINER_RUNTIME"
 _RESTART_STREAMLIT_FUNCTION = "SYSTEM$RESTART_STREAMLIT"
 
 
@@ -58,12 +60,11 @@ def _describe_row_is_spcs_v2(current: Dict[str, Any]) -> bool:
 
     Uses the live row, not snowflake.yml: a content-only project file can omit
     ``runtime_name`` while the object already runs on
-    ``SYSTEM$ST_CONTAINER_RUNTIME_*``. Prefix-match so later Python runtimes
-    still restart. Warehouse runtimes copy source per viewer and do not keep a
+    ``SYSTEM$ST_CONTAINER_RUNTIME_*``. Matches the whole container-runtime
+    family, so later Python runtimes still restart. Warehouse runtimes copy source per viewer and do not keep a
     process-global ``ScriptCache``, so they do not need a restart.
     """
-    runtime = (current.get("runtime_name") or "").strip().upper()
-    return runtime.startswith(_SPCS_CONTAINER_RUNTIME_PREFIX)
+    return is_spcs_container_runtime(current.get("runtime_name"))
 
 
 class _TagRef(NamedTuple):
@@ -72,7 +73,7 @@ class _TagRef(NamedTuple):
 
 
 def _main_file_covered_by_artifacts(
-    main_file: str, artifacts: list[PathMapping]
+    main_file: str, artifacts: list[PathMapping], project_root: Path
 ) -> bool:
     """Return True if main_file would already be deployed by an existing artifact.
 
@@ -82,18 +83,38 @@ def _main_file_covered_by_artifacts(
     that the auto-insert would). Artifacts with a different ``dest`` deploy
     main_file to a different location, so the auto-insert is still needed.
     """
-    main_path = Path(main_file)
-    return any(_artifact_covers_path(artifact, main_path) for artifact in artifacts)
+    return _path_covered_by_artifacts(main_file, artifacts, project_root)
 
 
-def _artifact_covers_path(artifact: PathMapping, target_path: Path) -> bool:
+def _path_covered_by_artifacts(
+    target: str, artifacts: list[PathMapping], project_root: Path
+) -> bool:
+    """True if auto-inserting ``target`` would be a no-op given ``artifacts``."""
+    target_path = Path(target)
+    return any(
+        _artifact_covers_path(artifact, target_path, project_root)
+        for artifact in artifacts
+    )
+
+
+def _artifact_covers_path(
+    artifact: PathMapping, target_path: Path, project_root: Path
+) -> bool:
     """True if target_path would land at the same deploy path via this artifact
-    as it would via a standalone auto-insert. Glob-style srcs (e.g. ``*.py``)
-    fail the ``relative_to`` check and intentionally fall through to file-level
-    dedup in :class:`_ArtifactPathMap`.
+    as it would via a standalone auto-insert.
+
+    Directory and exact-file srcs use ``relative_to``. Glob-style srcs
+    (e.g. ``pages/*.py``) are expanded with ``project_root.glob``, the same
+    way :class:`BundleMap` expands them. :meth:`Path.match` is not enough: it
+    is right-anchored, so ``src/app.py`` "matches" ``*.py`` even though the
+    bundle never picks it up. Dest-level collisions that still slip through
+    are handled by :class:`_ArtifactPathMap`.
     """
     if not artifact.src:
         return False
+
+    if _src_is_glob(artifact.src):
+        return _glob_artifact_covers_path(artifact, target_path, project_root)
 
     src_path = Path(artifact.src)
     try:
@@ -102,6 +123,25 @@ def _artifact_covers_path(artifact: PathMapping, target_path: Path) -> bool:
         return False
 
     return _artifact_dest_root(artifact, src_path) / relative_target == target_path
+
+
+def _src_is_glob(src: str) -> bool:
+    return any(ch in src for ch in "*?[]")
+
+
+def _glob_artifact_covers_path(
+    artifact: PathMapping, target_path: Path, project_root: Path
+) -> bool:
+    if (project_root / target_path) not in project_root.glob(artifact.src):
+        return False
+    if not artifact.dest:
+        return True
+    # Mirrors BundleMap._add_mapping: a trailing "/" maps each match into
+    # dest by name; otherwise the match is copied to dest itself.
+    dest_path = Path(artifact.dest.rstrip("/"))
+    if artifact.dest.endswith("/"):
+        return dest_path / target_path.name == target_path
+    return dest_path == target_path
 
 
 def _artifact_dest_root(artifact: PathMapping, src_path: Path) -> Path:
@@ -171,13 +211,55 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             and self.model.runtime_name != WAREHOUSE_RUNTIME_NAME
         )
 
+    def _resolved_query_warehouse(self, live_warehouse: Optional[str] = None) -> str:
+        """Warehouse for CREATE: YAML, then the live object's, then the connection.
+
+        The historical fallback identifier ``streamlit`` is not a real
+        warehouse in most accounts and made first deploys fail after a
+        deprecation warning. Prefer the connection warehouse so a typical
+        ``snowflake.yml`` that omits ``query_warehouse`` still works.
+        ``live_warehouse`` is set when CREATE OR REPLACE converts an existing
+        app, so the connection does not silently swap the app's warehouse.
+        ALTER does not call this; see :meth:`get_alter_sql`.
+        """
+        if self.model.query_warehouse:
+            return self.model.query_warehouse
+        if live_warehouse and live_warehouse.strip():
+            return live_warehouse
+        warehouse = self._workspace_ctx.default_warehouse
+        if isinstance(warehouse, str) and warehouse.strip():
+            return warehouse
+        raise CliError(
+            "query_warehouse is not set in snowflake.yml and the current "
+            "connection has no warehouse. Set query_warehouse on the Streamlit "
+            "entity, or configure a warehouse on the connection."
+        )
+
     def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
         artifacts = list(self._entity_model.artifacts or [])
 
         # Ensure main_file is included in artifacts
         main_file = self._entity_model.main_file
-        if main_file and not _main_file_covered_by_artifacts(main_file, artifacts):
+        if main_file and not _main_file_covered_by_artifacts(
+            main_file, artifacts, self.root
+        ):
             artifacts.insert(0, PathMapping(src=main_file))
+
+        # Native v2 projects used to require listing these. Docs and v1→v2
+        # conversion already treated them as default uploads; include them
+        # when they exist so `artifacts: [streamlit_app.py]` still ships a
+        # working multi-page app.
+        env_file = DEFAULT_ENV_FILE
+        if (self.root / env_file).exists() and not _path_covered_by_artifacts(
+            env_file, artifacts, self.root
+        ):
+            artifacts.append(PathMapping(src=env_file))
+
+        pages_dir = self._entity_model.pages_dir or DEFAULT_PAGES_DIR
+        if (self.root / pages_dir).exists() and not _path_covered_by_artifacts(
+            pages_dir, artifacts, self.root
+        ):
+            artifacts.append(PathMapping(src=pages_dir))
 
         return build_bundle(
             self.root,
@@ -211,8 +293,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         object_exists = self._object_exists()
 
         if object_exists and not replace:
-            raise ClickException(
-                f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
+            raise CliError(
+                f"Streamlit {self.model.fqn.sql_identifier} already exists. "
+                "Re-run with --replace to update the existing app."
             )
 
         if legacy and self.model.runtime_name == SPCS_RUNTIME_V2_NAME:
@@ -249,8 +332,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             if existing_is_legacy and not legacy:
                 console.warning(
                     "Replacing legacy ROOT_LOCATION deployment with versioned deployment. "
-                    "Files from the old stage location will not be automatically migrated. "
-                    "The new deployment will use a separate versioned stage location."
+                    "Files from the old stage location will be copied onto the new "
+                    "versioned stage when possible. Review the new stage if the copy fails."
                 )
             elif not existing_is_legacy and legacy:
                 console.warning(
@@ -259,17 +342,17 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                     "If needed, manually copy any additional files to the legacy stage after deployment."
                 )
 
+        # --replace only acts on an object DESCRIBE could see. When it could
+        # not, the create paths below never use CREATE OR REPLACE.
         if legacy:
             self._deploy_legacy(
                 bundle_map=bundle_map,
-                replace=replace,
                 prune=prune,
                 object_exists=object_exists,
             )
         else:
             self._deploy_versioned(
                 bundle_map=bundle_map,
-                replace=replace,
                 prune=prune,
                 object_exists=object_exists,
             )
@@ -287,8 +370,18 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     def get_add_live_version_sql(
         self, schema: Optional[str] = None, database: Optional[str] = None
     ):
-        # this query unlike most others doesn't accept fqn wrapped in `IDENTIFIER('')`
-        return f"ALTER STREAMLIT {self._get_identifier(schema, database)} ADD LIVE VERSION FROM LAST;"
+        # ADD LIVE VERSION rejects IDENTIFIER('db.schema.name'). Quote each
+        # part the same way as the rest of the entity SQL so hyphenated or
+        # reserved names still parse. Qualifiers mirror FQN.prefix: a database
+        # without a schema means PUBLIC, since "db.name" would read as
+        # schema.name.
+        fqn = self._get_fqn(schema, database)
+        if fqn.database:
+            qualifiers = [fqn.database, fqn.schema or "PUBLIC"]
+        else:
+            qualifiers = [fqn.schema] if fqn.schema else []
+        parts = [to_identifier(part) for part in (*qualifiers, fqn.name)]
+        return f"ALTER STREAMLIT {'.'.join(parts)} ADD LIVE VERSION FROM LAST;"
 
     def get_restart_sql(self) -> str:
         """Return the restart CALL with the identifier left as a bind placeholder.
@@ -335,35 +428,37 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             if not current or _str(cur.get("main_file")) != desired:
                 clauses.append(f"MAIN_FILE = {to_string_literal(desired)}")
 
-        if _list(self.model.imports) != _list(cur.get("import_urls")) or not current:
-            if self.model.imports:
-                clauses.append(self.model.get_imports_sql())
-
+        # Only snowflake.yml changes the warehouse of an existing app. Falling
+        # back to the connection here would rewrite a live warehouse, or fail
+        # a --replace when the connection has none.
         desired_wh = self.model.query_warehouse
-        if not desired_wh:
-            self._workspace_ctx.console.warning(
-                "[Deprecation] In next major version we will remove default query_warehouse='streamlit'."
-            )
-            desired_wh = "streamlit"
-        if not current or _id(cur.get("query_warehouse")) != _id(desired_wh):
+        if desired_wh and (
+            not current or _id(cur.get("query_warehouse")) != _id(desired_wh)
+        ):
             clauses.append(f"QUERY_WAREHOUSE = {to_identifier(desired_wh)}")
 
+        unset_clauses: list[str] = []
+
         desired_title = _str(self.model.title)
-        if desired_title and (not current or _str(cur.get("title")) != desired_title):
+        current_title = _str(cur.get("title")) if current else ""
+        if desired_title and (not current or current_title != desired_title):
             clauses.append(f"TITLE = {to_string_literal(desired_title)}")
+        elif current and current_title and not desired_title:
+            unset_clauses.append("TITLE")
 
         desired_comment = _str(self.model.comment)
-        if desired_comment and (
-            not current or _str(cur.get("comment")) != desired_comment
-        ):
+        current_comment = _str(cur.get("comment")) if current else ""
+        if desired_comment and (not current or current_comment != desired_comment):
             clauses.append(f"COMMENT = {to_string_literal(desired_comment)}")
+        elif current and current_comment and not desired_comment:
+            unset_clauses.append("COMMENT")
 
         desired_eais = _list(self.model.external_access_integrations)
-        if desired_eais and (
-            not current
-            or _list(cur.get("external_access_integrations")) != desired_eais
-        ):
+        current_eais = _list(cur.get("external_access_integrations")) if current else []
+        if desired_eais and (not current or current_eais != desired_eais):
             clauses.append(self.model.get_external_access_integrations_sql())
+        elif current and current_eais and not desired_eais:
+            unset_clauses.append("EXTERNAL_ACCESS_INTEGRATIONS")
 
         if not legacy:
             desired_secrets = self.model.secrets or {}
@@ -375,6 +470,17 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                     cur_secrets = {}
             if desired_secrets and (not current or cur_secrets != desired_secrets):
                 clauses.append(self.model.get_secrets_sql())
+            elif current and cur_secrets and not desired_secrets:
+                unset_clauses.append("SECRETS")
+
+        desired_imports = _list(self.model.imports)
+        current_imports = _list(cur.get("import_urls")) if current else []
+        if desired_imports != current_imports or not current:
+            if self.model.imports:
+                clauses.append(self.model.get_imports_sql())
+            elif current and current_imports:
+                # ALTER STREAMLIT UNSET does not list IMPORTS; clear via SET.
+                clauses.append("IMPORTS = ()")
 
         if not from_stage_name and not legacy:
             runtime_changing = bool(self.model.runtime_name) and (
@@ -396,9 +502,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                         f"{sanitize_for_terminal(str(live_runtime))} to "
                         f"{self.model.runtime_name}. This changes how the app runs."
                     )
-            # A pool left attached to an app moved onto the warehouse runtime needs no
-            # handling here: there is no UNSET path for COMPUTE_POOL, but Snowflake
-            # ignores the property for that runtime, so the leftover is inert.
             if self._compute_pool_applies() and (
                 not current
                 or _id(cur.get("compute_pool")) != _id(self.model.compute_pool)
@@ -406,15 +509,34 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 clauses.append(
                     f"COMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
                 )
+            elif (
+                current
+                and _str(cur.get("compute_pool"))
+                and not self._compute_pool_applies()
+            ):
+                # ALTER STREAMLIT UNSET does not list COMPUTE_POOL. Snowflake
+                # ignores a leftover pool on the warehouse runtime; say so
+                # rather than emit an UNSET the server may reject.
+                self._workspace_ctx.console.warning(
+                    "COMPUTE_POOL remains set on "
+                    f"{self.model.fqn.sql_identifier} but is ignored for "
+                    f"{self.model.runtime_name or WAREHOUSE_RUNTIME_NAME}."
+                )
 
-        if not clauses:
+        if not clauses and not unset_clauses:
             return None
 
-        return (
-            f"ALTER STREAMLIT {self._get_sql_identifier(schema, database)} SET\n"
-            + "\n".join(clauses)
-            + ";"
-        )
+        identifier = self._get_sql_identifier(schema, database)
+        statements = []
+        if clauses:
+            statements.append(
+                f"ALTER STREAMLIT {identifier} SET\n" + "\n".join(clauses) + ";"
+            )
+        if unset_clauses:
+            statements.append(
+                f"ALTER STREAMLIT {identifier} UNSET {', '.join(unset_clauses)};"
+            )
+        return "\n".join(statements)
 
     def get_set_tag_sql(self) -> Optional[str]:
         if not self.model.tags:
@@ -473,6 +595,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         schema: Optional[str] = None,
         database: Optional[str] = None,
         legacy: bool = False,
+        live_query_warehouse: Optional[str] = None,
         *args,
         **kwargs,
     ) -> str:
@@ -495,13 +618,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if self.model.imports:
             query += "\n" + self.model.get_imports_sql()
 
-        if self.model.query_warehouse:
-            query += f"\nQUERY_WAREHOUSE = {to_identifier(self.model.query_warehouse)}"
-        else:
-            self._workspace_ctx.console.warning(
-                "[Deprecation] In next major version we will remove default query_warehouse='streamlit'."
-            )
-            query += f"\nQUERY_WAREHOUSE = {to_identifier('streamlit')}"
+        warehouse = self._resolved_query_warehouse(live_query_warehouse)
+        query += f"\nQUERY_WAREHOUSE = {to_identifier(warehouse)}"
 
         if self.model.title:
             query += f"\nTITLE = {to_string_literal(self.model.title)}"
@@ -555,8 +673,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         try:
             self.describe()
             return True
-        except ProgrammingError:
-            return False
+        except ProgrammingError as exc:
+            # 2003 is Snowflake's "does not exist or not authorized". Any other
+            # ProgrammingError (syntax, warehouse, network-wrapped) must not be
+            # treated as a missing object — that used to fall through to
+            # CREATE STREAMLIT IF NOT EXISTS and hide the real failure.
+            # Snowflake cannot tell missing from unauthorized, so callers never
+            # follow a False here with CREATE OR REPLACE.
+            if getattr(exc, "errno", None) == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                return False
+            raise
 
     def _is_legacy_deployment(self) -> bool:
         """Check if the existing streamlit uses legacy ROOT_LOCATION deployment."""
@@ -568,10 +694,52 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             # If we can't determine, assume it doesn't exist or is inaccessible
             return False
 
+    def _copy_legacy_stage_if_present(
+        self, old_root: Optional[str], new_stage_root: str
+    ) -> None:
+        """Copy leftover files from a ROOT_LOCATION stage onto the versioned stage.
+
+        CREATE OR REPLACE does not migrate the old stage. Extra files that lived
+        only there would otherwise vanish. Failure is a warning: the new bundle
+        upload still runs and is the source of truth for files in snowflake.yml.
+        """
+        if not old_root:
+            self._workspace_ctx.console.warning(
+                "The previous Streamlit app had no ROOT_LOCATION, so extra files "
+                "from the old stage could not be copied. Add any missing files to "
+                "artifacts in snowflake.yml."
+            )
+            return
+        try:
+            # path_for_sql leaves a plain @stage/path bare and makes anything
+            # else (quotes, spaces, ";") a string literal, so the DESCRIBE
+            # value can never end the statement.
+            source = StagePath.from_stage_str(old_root).path_for_sql()
+        except (ValueError, IndexError) as exc:
+            self._workspace_ctx.console.warning(
+                f"Could not copy files from legacy stage "
+                f"{sanitize_for_terminal(old_root)}: {sanitize_for_terminal(str(exc))}. "
+                "Files listed in artifacts will still be uploaded."
+            )
+            return
+        dest_uri = new_stage_root.rstrip("/") + "/"
+        copy_sql = f"COPY FILES INTO {to_string_literal(dest_uri)} FROM {source}"
+        try:
+            self._execute_query(copy_sql)
+            self._workspace_ctx.console.warning(
+                f"Copied files from legacy stage {sanitize_for_terminal(old_root)} "
+                f"to {sanitize_for_terminal(new_stage_root)}."
+            )
+        except Exception as exc:  # noqa: BLE001 — copy is best-effort
+            self._workspace_ctx.console.warning(
+                f"Could not copy files from legacy stage "
+                f"{sanitize_for_terminal(old_root)}: {sanitize_for_terminal(str(exc))}. "
+                "Files listed in artifacts will still be uploaded."
+            )
+
     def _deploy_legacy(
         self,
         bundle_map: BundleMap,
-        replace: bool = False,
         prune: bool = False,
         object_exists: bool = False,
     ):
@@ -608,9 +776,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 self._execute_query(alter_sql)
             self._sync_tags()
         else:
+            # Plain CREATE: an app DESCRIBE could not see fails here as
+            # "already exists" instead of being replaced.
             self._execute_query(
                 self.get_deploy_sql(
-                    replace=replace,
                     from_stage_name=stage_root,
                     legacy=True,
                 )
@@ -668,7 +837,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     def _deploy_versioned(
         self,
         bundle_map: BundleMap,
-        replace: bool = False,
         prune: bool = False,
         object_exists: bool = False,
     ):
@@ -680,13 +848,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 # Legacy ROOT_LOCATION app: recreate as versioned rather than
                 # ALTER + ADD LIVE VERSION on an object that still has
                 # ROOT_LOCATION (unverified / leaves a hybrid state).
+                old_root = current.get("root_location")
                 self._execute_query(
                     self.get_deploy_sql(
                         replace=True,
                         legacy=False,
+                        live_query_warehouse=current.get("query_warehouse"),
                     )
                 )
                 stage_root = self._ensure_live_version_location_uri()
+                self._copy_legacy_stage_if_present(old_root, stage_root)
             else:
                 # Already versioned — update properties in place and upload to
                 # the existing live URI (do not re-issue ADD LIVE VERSION).
@@ -698,14 +869,25 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 # runtime_name while the live object is already SPCS v2.
                 restart_after_upload = _describe_row_is_spcs_v2(current)
         else:
+            # IF NOT EXISTS, never OR REPLACE: an app DESCRIBE could not see is
+            # left alone, and ADD LIVE VERSION below fails on it instead.
             self._execute_query(
                 self.get_deploy_sql(
                     if_not_exists=True,
-                    replace=replace,
                     legacy=False,
                 )
             )
-            stage_root = self._ensure_live_version_location_uri()
+            try:
+                stage_root = self._ensure_live_version_location_uri()
+            except ProgrammingError as exc:
+                if getattr(exc, "errno", None) != DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                    raise
+                raise CliError(
+                    f"Streamlit {self.model.fqn.sql_identifier} was not created, "
+                    "or the current role cannot access it. It may already exist "
+                    "and be owned by another role. Deploy with a role that owns "
+                    "the app, or choose a different identifier."
+                ) from exc
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
         diff = sync_deploy_root_with_stage(

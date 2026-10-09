@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import re
 from typing import Any, List, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -23,21 +24,25 @@ from snowflake.cli.api.project.schemas.entities.common import (
     ExternalAccessBaseModel,
     GrantBaseModel,
     ImportsBaseModel,
+    reject_backslashes,
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 
 # SPCS Runtime v2 constants
 SPCS_RUNTIME_V2_NAME = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+SPCS_CONTAINER_RUNTIME_PREFIX = "SYSTEM$ST_CONTAINER_RUNTIME"
+# The family suffix is limited to what a runtime name uses (``_PY3_12``). A bare
+# prefix match also accepted a trailing backslash, which hides the closing quote
+# of the RUNTIME_NAME literal from the connector's statement splitter.
+_SPCS_CONTAINER_RUNTIME_NAME = re.compile(
+    rf"{re.escape(SPCS_CONTAINER_RUNTIME_PREFIX)}[A-Z0-9_]*"
+)
 WAREHOUSE_RUNTIME_NAME = "SYSTEM$WAREHOUSE_RUNTIME"
 
-# Runtimes this CLI knows how to deploy. An unrecognized runtime_name is rejected
-# rather than dropped from the DDL, so that a typo, or a runtime newer than this
-# CLI, cannot silently deploy the app onto a different runtime than was asked for.
-#
-# This is deliberately fail-closed, and the cost is that a runtime released after
-# a given CLI version is unusable until that CLI is upgraded. Supporting a new
-# runtime means adding its constant to this set; prefer that over loosening the
-# check, so the failure stays a clear local error rather than a server-side one.
+# Named runtimes this CLI documents. A typo is still rejected rather than
+# dropped from the DDL. The container-runtime *family* (the prefix plus
+# ``[A-Z0-9_]*``, see :func:`is_known_runtime_name`) is accepted so a newer
+# ``..._PY3_12`` can deploy, restart, and stream logs without a CLI upgrade.
 KNOWN_RUNTIME_NAMES = frozenset({SPCS_RUNTIME_V2_NAME, WAREHOUSE_RUNTIME_NAME})
 
 
@@ -50,6 +55,19 @@ def normalize_runtime_name(runtime_name: Optional[str]) -> str:
     CLI never has to repeat this normalization.
     """
     return (runtime_name or "").strip().upper()
+
+
+def is_spcs_container_runtime(runtime_name: Optional[str]) -> bool:
+    """True when ``runtime_name`` is any SPCS container runtime (any Python version)."""
+    return bool(
+        _SPCS_CONTAINER_RUNTIME_NAME.fullmatch(normalize_runtime_name(runtime_name))
+    )
+
+
+def is_known_runtime_name(runtime_name: Optional[str]) -> bool:
+    """True when the CLI will emit this runtime rather than reject it as unknown."""
+    normalized = normalize_runtime_name(runtime_name)
+    return normalized in KNOWN_RUNTIME_NAMES or is_spcs_container_runtime(normalized)
 
 
 class StreamlitEntityModel(
@@ -112,13 +130,15 @@ class StreamlitEntityModel(
         """
         if runtime_name is None or not isinstance(runtime_name, str):
             return runtime_name
+        reject_backslashes("runtime_name", [runtime_name])
         normalized = normalize_runtime_name(runtime_name)
-        if normalized in KNOWN_RUNTIME_NAMES:
+        if is_known_runtime_name(normalized):
             return normalized
         # Report the value as the user wrote it, not the normalized form.
         supported = ", ".join(sorted(KNOWN_RUNTIME_NAMES))
         raise ValueError(
-            f"Unknown runtime_name '{runtime_name}'. Supported values are: {supported}"
+            f"Unknown runtime_name '{runtime_name}'. Supported values are: {supported} "
+            f"(or {SPCS_CONTAINER_RUNTIME_PREFIX} followed by letters, digits, or '_')"
         )
 
     @field_validator("compute_pool", mode="before")
@@ -143,6 +163,7 @@ class StreamlitEntityModel(
             # a blank runtime_name is: the key being present expresses an intent
             # that silently dropping it would defeat.
             raise ValueError("compute_pool must not be empty")
+        reject_backslashes("compute_pool", [stripped])
         return stripped
 
     @model_validator(mode="after")

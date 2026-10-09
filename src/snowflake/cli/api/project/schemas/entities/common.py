@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import re
 from abc import ABC
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
@@ -28,7 +29,43 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 from snowflake.cli.api.project.util import (
     is_valid_unquoted_identifier,
     to_identifier,
+    to_string_literal,
 )
+
+# One part of a dotted object name: a quoted identifier (which may itself
+# contain dots) or a run of anything other than "." and '"'.
+_NAME_PART = r'"(?:[^"]|"")*"|[^."]+'
+_DOTTED_NAME = re.compile(rf"(?:{_NAME_PART})(?:\.(?:{_NAME_PART}))*")
+
+
+def _sql_object_name(name: str) -> str:
+    """Quote an object name, including a dotted ``db.schema.object`` FQN.
+
+    ``to_identifier`` on the whole string would quote ``db.schema.secret`` as
+    one identifier. Split on the dots outside quotes and quote each part on
+    its own, so ``db.schema.my-secret`` becomes ``db.schema."my-secret"``
+    and an already-quoted ``"my-secret"`` is left alone. A name that does not
+    split cleanly (a stray quote, an empty part) is quoted as one identifier.
+    """
+    if not _DOTTED_NAME.fullmatch(name):
+        return to_identifier(name)
+    return ".".join(to_identifier(part) for part in re.findall(_NAME_PART, name))
+
+
+def reject_backslashes(field: str, values: List[str]) -> None:
+    """Fail validation for a value that cannot be quoted into SQL safely.
+
+    The connector's ``split_statements`` reads ``\\'`` and ``\\"`` as escapes,
+    so a backslash before the closing quote from :func:`to_string_literal` or
+    :func:`to_identifier` hides it, and the next value's text ends up outside
+    any quotes. Stage paths and object names never need a backslash.
+    """
+    for value in values:
+        if "\\" in value:
+            raise ValueError(
+                f"{field} must not contain a backslash, got {value!r}. "
+                "Remove it from snowflake.yml (stage paths use forward slashes)."
+            )
 
 
 class SqlScriptHookType(UpdatableModel):
@@ -201,10 +238,16 @@ class ImportsBaseModel:
         default=[],
     )
 
+    @field_validator("imports")
+    @classmethod
+    def _imports_have_no_backslash(cls, imports: Optional[List[str]]):
+        reject_backslashes("imports", imports or [])
+        return imports
+
     def get_imports_sql(self) -> str | None:
         if not self.imports:
             return None
-        imports = ", ".join(f"'{i}'" for i in self.imports)
+        imports = ", ".join(to_string_literal(i) for i in self.imports)
         return f"IMPORTS = ({imports})"
 
 
@@ -279,6 +322,12 @@ class Grant(UpdatableModel):
         )
         return f"{statement} WITH GRANT OPTION" if self.with_grant_option else statement
 
+    def get_revoke_sql(self, entity_model: EntityModelBase) -> str:
+        return (
+            f"REVOKE {self.privilege} ON {entity_model.get_type().upper()}"
+            f" {entity_model.fqn.sql_identifier} FROM {self.grantee_sql}"
+        )
+
 
 class GrantBaseModel(UpdatableModel):
     grants: Optional[List[Grant]] = Field(title="List of grants", default=None)
@@ -299,16 +348,34 @@ class ExternalAccessBaseModel:
         default={},
     )
 
+    @field_validator("external_access_integrations")
+    @classmethod
+    def _integrations_have_no_backslash(cls, integrations: Optional[List[str]]):
+        reject_backslashes("external_access_integrations", integrations or [])
+        return integrations
+
+    @field_validator("secrets")
+    @classmethod
+    def _secrets_have_no_backslash(cls, secrets: Optional[Dict[str, str]]):
+        for key, value in (secrets or {}).items():
+            reject_backslashes("secrets", [key, value])
+        return secrets
+
     def get_external_access_integrations_sql(self) -> str | None:
         if not self.external_access_integrations:
             return None
-        external_access_integration_name = ", ".join(self.external_access_integrations)
+        external_access_integration_name = ", ".join(
+            _sql_object_name(name) for name in self.external_access_integrations
+        )
         return f"external_access_integrations=({external_access_integration_name})"
 
     def get_secrets_sql(self) -> str | None:
         if not self.secrets:
             return None
-        secrets = ", ".join(f"'{key}'={value}" for key, value in self.secrets.items())
+        secrets = ", ".join(
+            f"{to_string_literal(key)}={_sql_object_name(value)}"
+            for key, value in self.secrets.items()
+        )
         return f"secrets=({secrets})"
 
 

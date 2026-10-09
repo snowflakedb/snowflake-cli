@@ -118,7 +118,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         expected_query = dedent(
             f"""
-                    CREATE OR REPLACE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
+                    CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                     ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                     MAIN_FILE = 'streamlit_app.py'
                     QUERY_WAREHOUSE = test_warehouse
@@ -422,8 +422,9 @@ class TestStreamlitCommands(StreamlitTestClass):
                     parameter_path="entities.test_streamlit.artifacts",
                     value=["streamlit_app.py", "environment.yml", "pages/"],
                 )
-            # Simulate a new (non-existing) app so --replace triggers
-            # CREATE OR REPLACE rather than ALTER.
+            # Simulate a new (non-existing) app. DESCRIBE's 2003 cannot tell
+            # missing from unauthorized, so --replace must not become
+            # CREATE OR REPLACE; it creates with IF NOT EXISTS instead.
             with mock.patch(
                 "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
                 return_value=False,
@@ -432,7 +433,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         expected_query = dedent(
             f"""
-                    CREATE OR REPLACE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
+                    CREATE STREAMLIT IF NOT EXISTS IDENTIFIER('{STREAMLIT_NAME}')
                     MAIN_FILE = 'streamlit_app.py'
                     QUERY_WAREHOUSE = test_warehouse
                     TITLE = 'My Fancy Streamlit';
@@ -813,7 +814,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         expected_query = dedent(
             f"""
-                CREATE OR REPLACE STREAMLIT IDENTIFIER('{entity_id}')
+                CREATE STREAMLIT IDENTIFIER('{entity_id}')
                 ROOT_LOCATION = '@streamlit/{entity_id}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = streamlit;"""
@@ -842,7 +843,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         expected_query = dedent(
             f"""
-                CREATE OR REPLACE STREAMLIT IDENTIFIER('test_streamlit_deploy_snowcli')
+                CREATE STREAMLIT IDENTIFIER('test_streamlit_deploy_snowcli')
                 ROOT_LOCATION = '@streamlit/test_streamlit_deploy_snowcli'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = xsmall

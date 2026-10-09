@@ -1,8 +1,10 @@
+import io
 import re
 from pathlib import Path
 from unittest import mock
 
 import pytest
+from pydantic import ValidationError
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.streamlit.streamlit_entity import (
     StreamlitEntity,
@@ -14,15 +16,21 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
     WAREHOUSE_RUNTIME_NAME,
     StreamlitEntityModel,
+    is_spcs_container_runtime,
 )
 from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES, SQL_COMPILATION_ERROR
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
+    INSUFFICIENT_PRIVILEGES,
+    SQL_COMPILATION_ERROR,
+)
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.schemas.updatable_model import context
 from snowflake.connector.errors import ProgrammingError
+from snowflake.connector.util_text import split_statements
 
 from tests.conftest import MockCursor
 from tests.streamlit.streamlit_test_class import (
@@ -36,6 +44,11 @@ from tests.streamlit.streamlit_test_class import (
 )
 
 CONNECTOR = "snowflake.connector.connect"
+
+
+def _statement_count(sql: str) -> int:
+    """How many statements the connector's splitter sees, as execute_stream does."""
+    return len(list(split_statements(io.StringIO(sql))))
 
 
 class TestStreamlitEntity(StreamlitTestClass):
@@ -75,6 +88,7 @@ class TestStreamlitEntity(StreamlitTestClass):
             identifier="test_streamlit",
             runtime_name=runtime_name,
             compute_pool=compute_pool,
+            query_warehouse="test_warehouse",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
         )
@@ -301,9 +315,8 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert (output / "app.py").exists()
 
     def test_bundle_handles_glob_overlap_with_main_file(self, tmp_path):
-        """Glob-style src (``pages/*.py``) fails the helper's ``relative_to``
-        check, so the auto-insert fires. Downstream file-level dedup in
-        ``_ArtifactPathMap.put()`` handles the overlap without raising."""
+        """A glob src (``pages/*.py``) that expands to main_file covers it, so
+        the auto-insert is skipped and main_file is bundled exactly once."""
         self._write_file(tmp_path / "pages" / "main.py")
         self._write_file(tmp_path / "pages" / "page.py")
         entity = self._create_entity(
@@ -882,7 +895,8 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         assert alter_sql is not None
         assert f"RUNTIME_NAME = '{WAREHOUSE_RUNTIME_NAME}'" in alter_sql
-        assert "COMPUTE_POOL" not in alter_sql
+        assert "UNSET COMPUTE_POOL" not in alter_sql
+        assert "COMPUTE_POOL = " not in alter_sql
 
     def test_get_alter_sql_omits_unchanged_warehouse_runtime_name(
         self, workspace_context
@@ -897,8 +911,7 @@ class TestStreamlitEntity(StreamlitTestClass):
             }
         )
 
-        assert alter_sql is not None
-        assert "RUNTIME_NAME" not in alter_sql
+        assert alter_sql is None or "RUNTIME_NAME" not in alter_sql
 
     def test_get_alter_sql_warns_when_moving_a_live_app_between_runtimes(
         self, workspace_context
@@ -1225,6 +1238,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         legacy_describe.fetchone.return_value = {
             "live_version_location_uri": None,
             "query_warehouse": "test_warehouse",
+            "root_location": "@streamlit/test_streamlit",
         }
         versioned_describe = mock.Mock()
         versioned_describe.fetchone.return_value = {
@@ -1262,6 +1276,13 @@ class TestStreamlitEntity(StreamlitTestClass):
         ]
         assert len(add_live_calls) == 1
         mock_stage_manager.stage_path_parts_from_str.assert_called_once_with(live_uri)
+        copy_calls = [
+            c for c in self.mock_execute.call_args_list if "COPY FILES INTO" in str(c)
+        ]
+        assert len(copy_calls) == 1
+        assert copy_calls[0].args[0] == (
+            f"COPY FILES INTO '{live_uri}' FROM @streamlit/test_streamlit"
+        )
         mock_sync.assert_called_once()
         assert mock_sync.call_args.kwargs["force_overwrite"] is True
         assert restart_calls(self.mock_execute_with_params) == []
@@ -2032,3 +2053,503 @@ class TestStreamlitEntity(StreamlitTestClass):
         unset_sql = mock_exec.call_args.args[0]
         assert "GOV_DB.GOV_SCHEMA.GOV_TAG" in unset_sql
         assert "UNSET TAG GOV_DB.GOV_SCHEMA.GOV_TAG" in unset_sql
+
+    def test_query_warehouse_falls_back_to_connection(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(legacy=False)
+
+        assert "QUERY_WAREHOUSE = mock_warehouse" in sql
+        assert "QUERY_WAREHOUSE = streamlit" not in sql
+
+    def test_query_warehouse_fails_when_connection_has_none(self):
+        workspace_ctx = WorkspaceContext(
+            console=mock.MagicMock(spec=AbstractConsole),
+            project_root=Path().resolve(),
+            get_default_role=lambda: "mock_role",
+            get_default_warehouse=lambda: None,
+        )
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_ctx, entity_model=model)
+
+        with pytest.raises(CliError, match="query_warehouse is not set"):
+            entity.get_deploy_sql(legacy=False)
+
+    def test_bundle_auto_includes_env_and_pages_for_native_v2(self, tmp_path):
+        self._write_file(tmp_path / "streamlit_app.py")
+        self._write_file(tmp_path / "environment.yml", "name: app\n")
+        self._write_file(tmp_path / "pages" / "my_page.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+
+        entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert (output / "streamlit_app.py").exists()
+        assert (output / "environment.yml").exists()
+        assert (output / "pages" / "my_page.py").exists()
+
+    def test_object_exists_treats_only_missing_as_absent(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        self._object_exists_patcher.stop()
+        missing = ProgrammingError(
+            errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED, msg="does not exist"
+        )
+        other = ProgrammingError(errno=INSUFFICIENT_PRIVILEGES, msg="denied")
+        with mock.patch.object(entity, "describe", side_effect=missing):
+            assert entity._object_exists() is False  # noqa: SLF001
+        with mock.patch.object(entity, "describe", side_effect=other):
+            with pytest.raises(ProgrammingError):
+                entity._object_exists()  # noqa: SLF001
+
+    def test_get_alter_sql_unsets_cleared_properties(self, workspace_context):
+        entity = self._runtime_entity(workspace_context)
+
+        alter_sql = entity.get_alter_sql(
+            current={
+                "query_warehouse": "test_warehouse",
+                "title": "Old title",
+                "comment": "Old comment",
+                "external_access_integrations": '["OLD_EAI"]',
+                "external_access_secrets": '{"key": "OLD_SECRET"}',
+                "import_urls": '["@stage/old.py"]',
+                "compute_pool": "OLD_POOL",
+                "runtime_name": WAREHOUSE_RUNTIME_NAME,
+            }
+        )
+
+        assert alter_sql is not None
+        assert "UNSET TITLE" in alter_sql
+        assert "UNSET" in alter_sql and "COMMENT" in alter_sql
+        assert "EXTERNAL_ACCESS_INTEGRATIONS" in alter_sql
+        assert "SECRETS" in alter_sql
+        assert "IMPORTS = ()" in alter_sql
+        assert "UNSET COMPUTE_POOL" not in alter_sql
+
+    def test_secrets_and_eai_sql_quotes_identifiers(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            query_warehouse="test_warehouse",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            external_access_integrations=["my-eai"],
+            secrets={"api-key": '"my-secret"'},
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+
+        assert 'external_access_integrations=("my-eai")' in sql
+        assert "secrets=('api-key'=\"my-secret\")" in sql
+
+        model.secrets = {"key": "snowcli_db.public.test_secret"}
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
+        assert "secrets=('key'=snowcli_db.public.test_secret)" in sql
+        assert '"snowcli_db.public.test_secret"' not in sql
+
+    def test_add_live_version_quotes_each_fqn_part(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+        self.mock_conn.database = "my-db"
+        self.mock_conn.schema = "my schema"
+
+        sql = entity.get_add_live_version_sql()
+
+        assert "IDENTIFIER(" not in sql
+        assert '"my-db"."my schema".test_streamlit' in sql
+        assert sql.endswith("ADD LIVE VERSION FROM LAST;")
+
+    @pytest.mark.parametrize(
+        "conn_database, conn_schema, expected_target",
+        [
+            # "my_db.test_streamlit" would be read as schema.name.
+            ("my_db", None, "my_db.PUBLIC.test_streamlit"),
+            (None, "my_schema", "my_schema.test_streamlit"),
+            (None, None, "test_streamlit"),
+        ],
+    )
+    def test_add_live_version_qualifies_like_fqn_prefix(
+        self, conn_database, conn_schema, expected_target, workspace_context
+    ):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier={"name": "test_streamlit"},
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+        self.mock_conn.database = conn_database
+        self.mock_conn.schema = conn_schema
+
+        sql = entity.get_add_live_version_sql()
+
+        assert sql == f"ALTER STREAMLIT {expected_target} ADD LIVE VERSION FROM LAST;"
+
+    def test_container_runtime_family_is_accepted(self):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_12",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        assert model.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_12"
+
+    @pytest.mark.parametrize(
+        "root_location, expected_source",
+        [
+            ("@stage/app; DROP TABLE t", "'@stage/app; DROP TABLE t'"),
+            ("@stage/it's", "'@stage/it''s'"),
+            ("@db.schema.stage/app/", "@db.schema.stage/app/"),
+        ],
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_legacy_stage_copy_keeps_root_location_in_one_statement(
+        self,
+        mock_bundle,
+        mock_is_legacy,
+        mock_object_exists,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        root_location,
+        expected_source,
+        workspace_context,
+        action_context,
+    ):
+        live_uri = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        legacy_describe = mock.Mock()
+        legacy_describe.fetchone.return_value = {
+            "live_version_location_uri": None,
+            "query_warehouse": "test_warehouse",
+            "root_location": root_location,
+        }
+        versioned_describe = mock.Mock()
+        versioned_describe.fetchone.return_value = {
+            "live_version_location_uri": live_uri
+        }
+        entity, _, _ = self._setup_versioned_replace_mocks(
+            mock_bundle,
+            mock_is_legacy,
+            mock_object_exists,
+            mock_stage_manager_cls,
+            workspace_context,
+            existing_is_legacy=True,
+            live_uri=live_uri,
+            describe_side_effect=[legacy_describe, versioned_describe],
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        executed = [c.args[0] for c in self.mock_execute.call_args_list]
+        assert all(_statement_count(sql) == 1 for sql in executed), executed
+        assert f"COPY FILES INTO '{live_uri}' FROM {expected_source}" in executed
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._execute_query"
+    )
+    def test_legacy_stage_copy_skips_unparseable_root_location(
+        self, mock_execute, workspace_context
+    ):
+        entity = self._runtime_entity(workspace_context)
+
+        entity._copy_legacy_stage_if_present(  # noqa: SLF001
+            "@", f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        )
+
+        mock_execute.assert_not_called()
+        workspace_context.console.warning.assert_called_once()
+        assert "Could not copy files from legacy stage" in str(
+            workspace_context.console.warning.call_args
+        )
+
+    def test_bundle_auto_inserts_nested_main_file_not_expanded_by_root_glob(
+        self, tmp_path
+    ):
+        # Path("src/streamlit_app.py").match("*.py") is True, but
+        # project_root.glob("*.py") only expands top-level files.
+        self._write_file(tmp_path / "helper.py")
+        self._write_file(tmp_path / "src" / "streamlit_app.py")
+        entity = self._create_entity(
+            project_root=tmp_path,
+            main_file="src/streamlit_app.py",
+            artifacts=["*.py"],
+        )
+
+        bundle_map = entity.bundle()
+        output = self._bundle_output(tmp_path)
+
+        assert sorted(p.as_posix() for p in bundle_map.all_sources()) == [
+            "helper.py",
+            "src/streamlit_app.py",
+        ]
+        assert (output / "src" / "streamlit_app.py").exists()
+
+    @pytest.mark.parametrize("connection_warehouse", [None, "other_warehouse"])
+    def test_get_alter_sql_keeps_live_warehouse_when_yaml_omits_it(
+        self, connection_warehouse
+    ):
+        workspace_ctx = WorkspaceContext(
+            console=mock.MagicMock(spec=AbstractConsole),
+            project_root=Path().resolve(),
+            get_default_role=lambda: "mock_role",
+            get_default_warehouse=lambda: connection_warehouse,
+        )
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            title="My app",
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_ctx, entity_model=model)
+
+        alter_sql = entity.get_alter_sql(
+            current={"query_warehouse": "LIVE_WAREHOUSE", "title": "Old title"}
+        )
+
+        assert alter_sql is not None
+        assert "TITLE = 'My app'" in alter_sql
+        assert "QUERY_WAREHOUSE" not in alter_sql
+
+    def test_get_alter_sql_sets_warehouse_named_in_yaml(self, workspace_context):
+        entity = self._runtime_entity(workspace_context)
+
+        alter_sql = entity.get_alter_sql(current={"query_warehouse": "LIVE_WAREHOUSE"})
+
+        assert alter_sql is not None
+        assert "QUERY_WAREHOUSE = test_warehouse" in alter_sql
+
+    def test_replacing_legacy_app_keeps_live_warehouse(self, workspace_context):
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        sql = entity.get_deploy_sql(
+            replace=True, legacy=False, live_query_warehouse="LIVE_WAREHOUSE"
+        )
+
+        assert "QUERY_WAREHOUSE = LIVE_WAREHOUSE" in sql
+        assert "mock_warehouse" not in sql
+
+    @pytest.mark.parametrize(
+        "legacy, expected_create",
+        [
+            (False, f"CREATE STREAMLIT IF NOT EXISTS IDENTIFIER('{STREAMLIT_NAME}')"),
+            (True, f"CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')"),
+        ],
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StageManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_replace_never_recreates_an_object_describe_could_not_see(
+        self,
+        mock_bundle,
+        mock_stage_manager_cls,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        legacy,
+        expected_create,
+        action_context,
+    ):
+        """DESCRIBE errno 2003 means "missing or not authorized". --replace
+        must not turn that into CREATE OR REPLACE of an app the role cannot see.
+        """
+        workspace_ctx = WorkspaceContext(
+            console=mock.MagicMock(spec=AbstractConsole),
+            project_root=Path().resolve(),
+            get_default_role=lambda: "mock_role",
+            get_default_warehouse=lambda: "mock_warehouse",
+        )
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_ctx.project_root,
+            deploy_root=workspace_ctx.project_root / "output",
+        )
+        mock_stage_manager_cls.get_standard_stage_prefix.return_value = (
+            f"@streamlit/{STREAMLIT_NAME}"
+        )
+        entity = self._runtime_entity(workspace_ctx, runtime_name=None)
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=legacy)
+
+        executed = [c.args[0] for c in self.mock_execute.call_args_list]
+        assert not any("CREATE OR REPLACE" in sql for sql in executed), executed
+        assert any(sql.startswith(expected_create) for sql in executed), executed
+
+    def test_imports_are_string_literals_in_create_and_alter(self, workspace_context):
+        # Without the leading quote the old f"'{i}'" closed the literal early
+        # and the connector split DROP TABLE off as a second statement.
+        malicious = "@stage/foo'); DROP TABLE t; --"
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            query_warehouse="test_warehouse",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            imports=["@stage/lib.zip", malicious],
+        )
+        model.set_entity_id("test_streamlit")
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+
+        create_sql = entity.get_deploy_sql(legacy=False)
+        alter_sql = entity.get_alter_sql(current={"import_urls": '["@stage/old.zip"]'})
+
+        expected = "IMPORTS = ('@stage/lib.zip', '@stage/foo''); DROP TABLE t; --')"
+        assert expected in create_sql
+        assert alter_sql is not None and expected in alter_sql
+        assert _statement_count(create_sql) == 1
+        assert _statement_count(alter_sql) == 1
+
+    def test_runtime_and_compute_pool_stay_one_statement(self, workspace_context):
+        entity = self._runtime_entity(
+            workspace_context,
+            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_12",
+            compute_pool="x'); DROP TABLE t; --",
+        )
+
+        create_sql = entity.get_deploy_sql(legacy=False)
+        alter_sql = entity.get_alter_sql(
+            current={"runtime_name": WAREHOUSE_RUNTIME_NAME, "compute_pool": "OLD"}
+        )
+
+        assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_12'" in create_sql
+        assert "COMPUTE_POOL = 'x''); DROP TABLE t; --'" in create_sql
+        assert alter_sql is not None and "COMPUTE_POOL = " in alter_sql
+        assert _statement_count(create_sql) == 1
+        assert _statement_count(alter_sql) == 1
+
+    @pytest.mark.parametrize(
+        "runtime_name, expected",
+        [
+            ("SYSTEM$ST_CONTAINER_RUNTIME_PY3_11", True),
+            ("system$st_container_runtime_py3_12", True),
+            ("SYSTEM$ST_CONTAINER_RUNTIME\\", False),
+            ("SYSTEM$ST_CONTAINER_RUNTIME'", False),
+            ("SYSTEM$ST_CONTAINER_RUNTIME_PY3.12", False),
+            (WAREHOUSE_RUNTIME_NAME, False),
+        ],
+    )
+    def test_container_runtime_family_allows_only_name_characters(
+        self, runtime_name, expected
+    ):
+        assert is_spcs_container_runtime(runtime_name) is expected
+
+    @pytest.mark.parametrize(
+        "field, value",
+        [
+            ("imports", ["@stage/a\\", "x); DROP TABLE t; --"]),
+            ("external_access_integrations", ["e\\", "f); DROP TABLE u; --"]),
+            ("secrets", {"key\\": "my_secret"}),
+            ("secrets", {"key": "db.schema.my_secret\\"}),
+            ("runtime_name", "SYSTEM$ST_CONTAINER_RUNTIME\\"),
+            ("compute_pool", "pool\\"),
+        ],
+    )
+    def test_backslash_is_rejected_where_sql_quoting_cannot_hold(self, field, value):
+        # The connector's splitter reads a backslash before the closing quote
+        # as an escape, so the next value's text would land outside quotes.
+        with pytest.raises(ValidationError, match="must not contain a backslash"):
+            StreamlitEntityModel(
+                type="streamlit",
+                identifier="test_streamlit",
+                main_file="streamlit_app.py",
+                artifacts=["streamlit_app.py"],
+                **{field: value},
+            )
+
+    @mock.patch("snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitManager")
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.sync_deploy_root_with_stage"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_replace_fails_clearly_when_role_cannot_see_existing_app(
+        self,
+        mock_bundle,
+        mock_sync,
+        mock_streamlit_manager_cls,
+        workspace_context,
+        action_context,
+    ):
+        """CREATE ... IF NOT EXISTS leaves an app the role cannot see alone;
+        ADD LIVE VERSION then reports 2003, and deploy must stop there."""
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+
+        def _execute(sql, *args, **kwargs):
+            if "ADD LIVE VERSION" in sql:
+                raise ProgrammingError(
+                    errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED, msg="not authorized"
+                )
+            return mock.Mock()
+
+        self.mock_execute.side_effect = _execute
+        entity = self._runtime_entity(workspace_context, runtime_name=None)
+
+        with pytest.raises(CliError, match="cannot access it"):
+            entity.action_deploy(
+                action_context, _open=False, replace=True, legacy=False
+            )
+
+        mock_sync.assert_not_called()
+        mock_streamlit_manager_cls.return_value.grant_privileges.assert_not_called()

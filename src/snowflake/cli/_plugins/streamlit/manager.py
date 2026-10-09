@@ -17,21 +17,22 @@ from __future__ import annotations
 import logging
 from typing import List, Sequence, Tuple
 
-from snowflake.cli._plugins.connection.util import (
-    MissingConnectionAccountError,
-    MissingConnectionRegionError,
-    make_snowsight_url,
-)
+from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Grant
-from snowflake.cli.api.project.util import to_identifier, to_string_literal
+from snowflake.cli.api.project.util import (
+    to_identifier,
+    to_string_literal,
+    unquote_identifier,
+)
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -102,17 +103,90 @@ class StreamlitManager(SqlExecutionMixin):
         return problems
 
     def grant_privileges(self, entity_model: StreamlitEntityModel):
-        if not entity_model.grants:
+        if entity_model.grants is None:
             return
+        for grant in self._grants_to_revoke(entity_model):
+            self.execute_query(grant.get_revoke_sql(entity_model))
         for grant in entity_model.grants:
             self.execute_query(grant.get_grant_sql(entity_model))
 
-    def get_url(self, streamlit_name: FQN) -> str:
+    def _grants_to_revoke(self, entity_model: StreamlitEntityModel) -> list[Grant]:
+        """Object grants that are on Snowflake but no longer listed in YAML.
+
+        OWNERSHIP is never revoked. A SHOW GRANTS failure raises before any
+        REVOKE or GRANT runs: reading it as "no current grants" would make
+        ``grants: []`` look synced while every old grant stays in place.
+        """
+        desired = {_grant_key(grant) for grant in entity_model.grants or []}
+        return [
+            grant
+            for grant in self._current_object_grants(entity_model)
+            if _grant_key(grant) not in desired
+        ]
+
+    def _current_object_grants(self, entity_model: StreamlitEntityModel) -> list[Grant]:
         try:
-            fqn = streamlit_name.using_connection(self._conn)
-            return make_snowsight_url(
-                self._conn,
-                f"/#/streamlit-apps/{fqn.url_identifier}",
+            rows = self.execute_query(
+                f"SHOW GRANTS ON STREAMLIT {entity_model.fqn.sql_identifier}",
+                cursor_class=DictCursor,
+            ).fetchall()
+        except ProgrammingError as error:
+            raise CliError(
+                f"Could not list the grants on Streamlit {entity_model.fqn}, so "
+                "grants removed from snowflake.yml were not revoked: "
+                f"{sanitize_for_terminal(str(error.msg))}. Check that the current "
+                "role can run SHOW GRANTS on the app, or remove grants from "
+                "snowflake.yml to leave the app's grants unmanaged."
+            ) from error
+
+        grants: list[Grant] = []
+        for row in rows:
+            normalized = {str(key).lower(): value for key, value in dict(row).items()}
+            privilege = str(normalized.get("privilege") or "")
+            if privilege.upper() == "OWNERSHIP":
+                continue
+            granted_to = str(normalized.get("granted_to") or "").upper()
+            grantee = normalized.get("grantee_name")
+            if not privilege or not grantee:
+                continue
+            grant_option = (
+                str(normalized.get("grant_option") or "").upper()
+                in {
+                    "TRUE",
+                    "YES",
+                }
+                or normalized.get("grant_option") is True
             )
-        except (MissingConnectionRegionError, MissingConnectionAccountError) as e:
-            return "https://app.snowflake.com"
+            try:
+                if granted_to == "ROLE":
+                    grants.append(
+                        Grant(
+                            privilege=privilege,
+                            role=str(grantee),
+                            with_grant_option=grant_option,
+                        )
+                    )
+                elif granted_to == "USER":
+                    grants.append(
+                        Grant(
+                            privilege=privilege,
+                            user=str(grantee),
+                            with_grant_option=grant_option,
+                        )
+                    )
+            except ValueError:
+                continue
+        return grants
+
+    def get_url(self, streamlit_name: FQN) -> str:
+        fqn = streamlit_name.using_connection(self._conn)
+        return make_snowsight_url(
+            self._conn,
+            f"/#/streamlit-apps/{fqn.url_identifier}",
+        )
+
+
+def _grant_key(grant: Grant) -> tuple[str, str, str]:
+    kind = "ROLE" if grant.role else "USER"
+    name = unquote_identifier(grant.role or grant.user or "")
+    return (grant.privilege.upper(), kind, name.upper())
