@@ -6,9 +6,9 @@ python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}'
 
 python.exe -m pip install --upgrade pip click==8.2.1 hatch==1.15.1 virtualenv==20.39.1 -c scripts\packaging\uv.constraint
 
-curl -o rustup-init.exe https://win.rustup.rs/
-rustup-init.exe -y
-del rustup-init.exe
+REM cmd: "if errorlevel 1" is true when the previous exit code is >= 1, not exactly 1.
+python.exe scripts\packaging\install_verified_rust.py
+if errorlevel 1 exit /b 1
 set PATH=%PATH%;%USERPROFILE%\.cargo\bin\
 
 @echo off

@@ -11,10 +11,8 @@ DIST_DIR="${ROOT_DIR}/dist"
 VERSION=$(hatch version)
 
 install_cargo() {
-  curl https://sh.rustup.rs -sSf > rustup-init.sh
-  bash rustup-init.sh -y
+  python3 "${ROOT_DIR}/scripts/packaging/install_verified_rust.py"
   . $HOME/.cargo/env
-  rm rustup-init.sh
 }
 
 clean_build_workspace() {
