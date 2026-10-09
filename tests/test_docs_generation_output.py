@@ -564,6 +564,49 @@ def test_render_command_page_with_structured_docs(snapshot):
     assert rendered == snapshot
 
 
+def test_example_fence_indent_is_emitted_only_when_there_is_a_command():
+    docs = CommandDocs(
+        examples=(
+            Example(
+                description=PlainText(parts=("These examples assume a project file.",)),
+                command="",
+            ),
+            Example(
+                description=PlainText(parts=("Run the command:",)),
+                command="snow plugin demo MY_OBJECT",
+            ),
+        ),
+    )
+    command = _demo_click_command()
+    setattr(command.callback, DOCS_ATTRIBUTE, docs)
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    assert "- These examples assume a project file.\n\n- Run the command:" in rendered
+    assert "- These examples assume a project file.\n  \n" not in rendered
+    assert "- Run the command:\n  ```snowcli\n  snow plugin demo MY_OBJECT\n  ```" in (
+        rendered
+    )
+
+
+def test_example_command_fence_joins_list_marker_when_description_is_missing():
+    docs = CommandDocs(
+        examples=(
+            Example(command="snow plugin demo MY_OBJECT"),
+            Example(
+                description=PlainText(parts=()),
+                command="snow plugin demo OTHER",
+            ),
+        ),
+    )
+    command = _demo_click_command()
+    setattr(command.callback, DOCS_ATTRIBUTE, docs)
+    rendered = _command_page_markdown(command, ["plugin", "demo"])
+
+    assert "- ```snowcli\n  snow plugin demo MY_OBJECT\n  ```" in rendered
+    assert "- ```snowcli\n  snow plugin demo OTHER\n  ```" in rendered
+    assert "- \n  ```snowcli" not in rendered
+
+
 def test_render_command_page_keeps_usage_note_links_out_of_related_topics():
     docs = CommandDocs(
         related=(RelatedLink(href="/developer-guide/snowflake-cli/index"),),

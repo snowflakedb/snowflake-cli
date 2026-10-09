@@ -90,12 +90,16 @@ None
 {%- if docs.examples %}
 
 ## Examples
-{%- for example in docs.examples %}
-
-- {% if example.description %}{{ example.description | render_paragraph_mdx }}
-  {% endif %}{% if example.command %}```snowcli
+{%- for example in docs.examples -%}
+{% set description = (example.description | render_paragraph_mdx) if example.description else "" -%}
+{% if example.command -%}
+{{ "\n\n" }}- {% if description %}{{ description }}
+  ```snowcli{% else %}```snowcli{% endif %}
 {{ example.command | indent(2, first=True) }}
-  ```{% endif %}
+  ```
+{%- else -%}
+{{ "\n\n" }}- {{ description }}
+{%- endif %}
 {%- if example.output %}
 
   ```text

@@ -154,7 +154,7 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
             plain_text(
                 "With no query source, the command opens an interactive REPL. The prompt "
                 "stays ",
-                code(" > "),
+                code('" > "'),
                 " unless you set ",
                 code("--prompt-format"),
                 ", for example ",

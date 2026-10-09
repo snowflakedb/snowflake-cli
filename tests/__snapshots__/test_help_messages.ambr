@@ -2298,10 +2298,8 @@
   +------------------------------------------------------------------------------+
   +- Examples -------------------------------------------------------------------+
   | Remove the custom release directive my_directive from the application        |
-  | package:                                                                     |
-  |                                                                              |
-  | When release channels are enabled, release directives become part of a       |
-  | release channel.                                                             |
+  | package. When release channels are enabled, release directives become part   |
+  | of a release channel.                                                        |
   | snow app release-directive unset my_directive                                |
   |                                                                              |
   | Remove the custom special_alpha_directive release directive associated with  |
@@ -14510,10 +14508,9 @@
   | snow spcs service logs echo_service --container-name echo --instance-id 0    |
   | --num-lines 3                                                                |
   | Output:                                                                      |
-  |   10.18.94.31 - - [22/Nov/2024 09:16:47] "GET /healthcheck HTTP/1.1" 200 -   |
-  |   10.18.94.31 - - [22/Nov/2024 09:16:52] "GET /healthcheck HTTP/1.1" 200 -   |
-  |   10.18.94.31 - - [22/Nov/2024 09:16:57] "GET /healthcheck HTTP/1.1" 200 -   |
-  |                                                                              |
+  | 10.18.94.31 - - [22/Nov/2024 09:16:47] "GET /healthcheck HTTP/1.1" 200 -     |
+  | 10.18.94.31 - - [22/Nov/2024 09:16:52] "GET /healthcheck HTTP/1.1" 200 -     |
+  | 10.18.94.31 - - [22/Nov/2024 09:16:57] "GET /healthcheck HTTP/1.1" 200 -     |
   |                                                                              |
   | This example streams the logs for the echo_service service and updates them  |
   | every 10 seconds:                                                            |
@@ -15536,7 +15533,7 @@
   | piping input (for example cat my.sql | snow sql -i).                         |
   |                                                                              |
   | With no query source, the command opens an interactive REPL. The prompt      |
-  | stays  >  unless you set --prompt-format, for example --prompt-format        |
+  | stays " > " unless you set --prompt-format, for example --prompt-format      |
   | "[user]#[warehouse]@[database].[schema]> ". Placeholders: [user], [host],    |
   | [account], [role], [warehouse], [database], [schema], and [connection] (the  |
   | -c connection name). They update after USE. Use [#rrggbb] for foreground     |

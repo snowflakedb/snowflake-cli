@@ -401,8 +401,8 @@ def app_setup(
     """
     (Snowflake App Runtime only) Initializes an app.yml for a Snowflake App Runtime project.
 
-    Creates an ``app.yml`` in the current directory: a flat ``version: 2``
-    manifest whose ``name``, ``database``, ``schema``, and ``query_warehouse``
+    Creates an `app.yml` in the current directory: a flat `version: 2`
+    manifest whose `name`, `database`, `schema`, and `query_warehouse`
     are preconfigured from account parameters and the current connection.
     This command does not apply to Native App projects.
     """

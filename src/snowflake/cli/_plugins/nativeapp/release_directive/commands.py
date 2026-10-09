@@ -299,7 +299,7 @@ def release_directive_set(
                 description=plain_text(
                     "Remove the custom release directive ",
                     code("my_directive"),
-                    " from the application package:\n\nWhen release channels are enabled, release directives become part of a release channel.",
+                    " from the application package. When release channels are enabled, release directives become part of a release channel.",
                 ),
                 command="snow app release-directive unset my_directive",
             ),
