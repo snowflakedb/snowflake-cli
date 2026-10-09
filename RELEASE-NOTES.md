@@ -24,7 +24,8 @@
 * `snow app version drop` now reports that the drop is in progress and may take a few minutes, instead of saying it is already complete.
 * Upgraded setuptools from 80.8.0 to 84.0.0.
 * Comparing an `FQN` against a value that is not an `FQN` instance now returns `False` instead of raising `AttributeError`.
-
+* Upgraded keyring from 25.6.0 to 25.7.0.
+* Upgraded jaraco.context from 6.0.1 to 6.1.2.
 
 # v3.29.0
 

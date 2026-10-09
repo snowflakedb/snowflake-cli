@@ -299,9 +299,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/7f/66/b15ce62552d84bb
 
 [[packages]]
 name = "jaraco-context"
-version = "6.0.1"
-sdist = { url = "https://files.pythonhosted.org/packages/df/ad/f3777b81bf0b6e7bc7514a1656d3e637b2e8e15fab2ce3235730b3e7a4e6/jaraco_context-6.0.1.tar.gz", upload-time = 2024-08-20T03:39:27Z, size = 13912, hashes = { sha256 = "9bae4ea555cf0b14938dc0aee7c9f32ed303aa20a3b73e7dc80111628792d1b3" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/ff/db/0c52c4cf5e4bd9f5d7135ec7669a3a767af21b3a308e1ed3674881e52b62/jaraco.context-6.0.1-py3-none-any.whl", upload-time = 2024-08-20T03:39:25Z, size = 6825, hashes = { sha256 = "f797fc481b490edb305122c9181830a3a5b76d84ef6d1aef2fb9b47ab956f9e4" } }]
+version = "6.1.2"
+sdist = { url = "https://files.pythonhosted.org/packages/af/50/4763cd07e722bb6285316d390a164bc7e479db9d90daa769f22578f698b4/jaraco_context-6.1.2.tar.gz", upload-time = 2026-03-20T22:13:33Z, size = 16801, hashes = { sha256 = "f1a6c9d391e661cc5b8d39861ff077a7dc24dc23833ccee564b234b81c82dfe3" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/f2/58/bc8954bda5fcda97bd7c19be11b85f91973d67a706ed4a3aec33e7de22db/jaraco_context-6.1.2-py3-none-any.whl", upload-time = 2026-03-20T22:13:32Z, size = 7871, hashes = { sha256 = "bf8150b79a2d5d91ae48629d8b427a8f7ba0e1097dd6202a9059f29a36379535" } }]
 
 [[packages]]
 name = "jaraco-functools"
@@ -330,9 +330,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/31/b4/b9b800c45527aad
 
 [[packages]]
 name = "keyring"
-version = "25.6.0"
-sdist = { url = "https://files.pythonhosted.org/packages/70/09/d904a6e96f76ff214be59e7aa6ef7190008f52a0ab6689760a98de0bf37d/keyring-25.6.0.tar.gz", upload-time = 2024-12-25T15:26:45Z, size = 62750, hashes = { sha256 = "0b39998aa941431eb3d9b0d4b2460bc773b9df6fed7621c2dfb291a7e0187a66" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/d3/32/da7f44bcb1105d3e88a0b74ebdca50c59121d2ddf71c9e34ba47df7f3a56/keyring-25.6.0-py3-none-any.whl", upload-time = 2024-12-25T15:26:44Z, size = 39085, hashes = { sha256 = "552a3f7af126ece7ed5c89753650eec89c7eaae8617d0aa4d9ad2b75111266bd" } }]
+version = "25.7.0"
+sdist = { url = "https://files.pythonhosted.org/packages/43/4b/674af6ef2f97d56f0ab5153bf0bfa28ccb6c3ed4d1babf4305449668807b/keyring-25.7.0.tar.gz", upload-time = 2025-11-16T16:26:09Z, size = 63516, hashes = { sha256 = "fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/81/db/e655086b7f3a705df045bf0933bdd9c2f79bb3c97bfef1384598bb79a217/keyring-25.7.0-py3-none-any.whl", upload-time = 2025-11-16T16:26:08Z, size = 39160, hashes = { sha256 = "be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f" } }]
 
 [[packages]]
 name = "markdown-it-py"
