@@ -5,6 +5,15 @@ import pytest
 from tests_e2e.conftest import subprocess_check_output, subprocess_run
 
 
+@pytest.fixture(autouse=True)
+def isolate_snowsql_home(tmp_path, monkeypatch):
+    """Keep ``~/.snowsql`` on this machine out of the import subprocess."""
+    home = tmp_path / "empty-home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+
+
 def _get_connections_list_output(snowcli, config_file) -> str:
     """Helper function to get connections list output as string."""
     return subprocess_check_output(
@@ -179,7 +188,7 @@ def test_import_prompt_for_different_default_connection_name_on_conflict(
     )
     assert result.returncode == 0
 
-    # After import, snowsql2 should be the default
+    # The prompted name of the unnamed section is the CLI default.
     final_output = _get_connections_list_output(snowcli, empty_config_file)
     final_connections = _parse_connections(final_output)
 
@@ -191,8 +200,8 @@ def test_import_prompt_for_different_default_connection_name_on_conflict(
     expected_connections = {"snowsql1", "snowsql2", "example", "snowsql3", "default"}
     _assert_connections_present(final_connections, expected_connections)
 
-    # Validate that snowsql2 is the default (not "default")
-    _assert_default_connection(final_connections, "snowsql2")
+    # The unnamed section was renamed to "default", and that is the CLI default.
+    _assert_default_connection(final_connections, "default")
 
     # Validate snowsql2 parameters
     _assert_connection_parameters(
@@ -202,7 +211,7 @@ def test_import_prompt_for_different_default_connection_name_on_conflict(
             "account": "a2",
             "user": "u2",
             "host": "h2",
-            "port": 1234,
+            "port": "1234",
             "database": "d2",
             "schema": "public",
             "warehouse": "w2",
@@ -259,7 +268,8 @@ def test_import_confirm_on_conflict_with_existing_cli_connection(
     # Validate default connection
     _assert_default_connection(final_connections, "default")
 
-    # Validate that "example" was overwritten with snowsql config values
+    # [connections.example] sets only account and user. Named sections do not
+    # receive keys from the unnamed [connections] section.
     _assert_connection_parameters(
         final_connections,
         "example",
@@ -268,6 +278,8 @@ def test_import_confirm_on_conflict_with_existing_cli_connection(
             "user": "username",
         },
     )
+    example = next(c for c in final_connections if c["connection_name"] == "example")
+    assert set(example["parameters"]) == {"account", "user"}
 
 
 @pytest.mark.e2e
