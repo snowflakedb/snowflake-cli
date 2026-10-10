@@ -22,6 +22,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for LOG_LEVEL, METRIC_LEVEL and TRACE_LEVEL
 
 ## Fixes and improvements
 * `snow app version drop` now reports that the drop is in progress and may take a few minutes, instead of saying it is already complete.
