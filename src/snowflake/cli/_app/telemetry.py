@@ -522,6 +522,8 @@ def _detect_agent_environment() -> str:
         return "OPENCODE"
     if "CODEX_API_KEY" in os.environ:
         return "CODEX"
+    if _is_env_truthy("COPILOT_CLI"):
+        return "COPILOT_CLI"
     return "UNKNOWN"
 
 

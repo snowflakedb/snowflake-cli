@@ -309,6 +309,7 @@ def test_detect_agent_environment_returns_unknown_when_no_agent():
         ("CLAUDECODE", "1", "CLAUDE_CODE"),
         ("CODEX_API_KEY", "key123", "CODEX"),
         ("OPENCODE", "1", "OPENCODE"),
+        ("COPILOT_CLI", "1", "COPILOT_CLI"),
     ],
 )
 def test_detect_agent_environment_returns_correct_agent(
