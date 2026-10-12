@@ -52,6 +52,7 @@ jobs:
             '^docs/'
             '^LICENSE$'
             '^\.github/CODEOWNERS$'
+            '^\.github/CODEOWNERS\.public$'
             '^\.ai/review/'
             '^scripts/mirroring/'
             '^\.github/workflows/mirror-'
