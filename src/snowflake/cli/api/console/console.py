@@ -17,6 +17,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Optional
 
+from click import echo
 from rich import get_console
 from rich.console import Console
 from rich.panel import Panel
@@ -192,3 +193,8 @@ def get_cli_console() -> AbstractConsole:
 
 
 cli_console = get_cli_console()
+
+
+def write_raw_line(text: str, file=None) -> None:
+    """Write one exact line. file overrides stderr."""
+    echo(text, file=file, err=file is None)

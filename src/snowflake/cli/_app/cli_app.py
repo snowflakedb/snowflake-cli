@@ -43,6 +43,7 @@ from snowflake.cli.api.config import (
     get_config_manager,
     get_feature_flags_section,
 )
+from snowflake.cli.api.exceptions import install_plain_remediation_error_renderer
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult
@@ -200,6 +201,7 @@ class CliAppFactory:
         return callback
 
     def create_or_get_app(self) -> SnowCliMainTyper:
+        install_plain_remediation_error_renderer()
         if self._app:
             return self._app
 
