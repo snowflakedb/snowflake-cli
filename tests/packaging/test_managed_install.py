@@ -212,15 +212,11 @@ def test_install_sh_against_fake_repo_leaves_working_shim(
 
     assert (root / ".current").read_text().strip() == "3.13.1"
 
-    bashrc = home / ".bashrc"
-    assert bashrc.is_file()
-    text = bashrc.read_text()
-    assert PATH_BEGIN in text
     bin_dir = str(root / "bin")
-    assert bin_dir in text
-    assert str(home / ".local" / "bin") not in text
-    assert f'export PATH="{bin_dir}:$PATH"' in text
-    assert f'export PATH="{bin_dir}:$PATH"' in result.stdout or bin_dir in result.stdout
+    assert f'export PATH="{bin_dir}:$PATH"' in result.stdout
+    assert str(home / ".local" / "bin") not in result.stdout
+    for name in (".bashrc", ".bash_profile", ".bash_login", ".profile"):
+        assert not (home / name).exists()
 
 
 @requires_posix_shell
@@ -237,6 +233,136 @@ def test_install_sh_prints_export_path_when_skip_path_prompt(
     assert f'export PATH="{bin_dir}:$PATH"' in result.stdout
     assert not (home / ".bashrc").exists()
     assert "SKIP_PATH_PROMPT" in result.stdout
+
+
+def _assert_path_block(path: Path, bin_dir: Path, *, present: bool) -> None:
+    if not present:
+        if path.exists() and not path.is_symlink():
+            assert PATH_BEGIN not in path.read_text()
+        return
+    text = path.read_text()
+    assert PATH_BEGIN in text
+    assert f'export PATH="{bin_dir}:$PATH"' in text
+    assert str(path.parent / ".local" / "bin") not in text
+
+
+@requires_posix_shell
+@pytest.mark.parametrize("name", [".bash_profile", ".bash_login", ".profile"])
+def test_install_sh_updates_existing_bash_login_profile(
+    tmp_path: Path, httpserver: HTTPServer, name: str
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    home.mkdir()
+    login = home / name
+    login.write_text("# existing\n")
+    _run_install(tmp_path, httpserver, pub_file)
+
+    bin_dir = home / ".local" / "share" / "snowflake-cli" / "bin"
+    _assert_path_block(login, bin_dir, present=True)
+    for other in (".bashrc", ".bash_profile", ".bash_login", ".profile"):
+        if other != name:
+            assert not (home / other).exists()
+
+
+@requires_posix_shell
+def test_install_sh_updates_bashrc_when_it_already_exists(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    home.mkdir()
+    profile = home / ".profile"
+    bashrc = home / ".bashrc"
+    profile.write_text("# profile\n")
+    bashrc.write_text("# bashrc\n")
+    _run_install(tmp_path, httpserver, pub_file)
+
+    bin_dir = home / ".local" / "share" / "snowflake-cli" / "bin"
+    _assert_path_block(profile, bin_dir, present=True)
+    _assert_path_block(bashrc, bin_dir, present=True)
+    assert not (home / ".bash_profile").exists()
+    assert not (home / ".bash_login").exists()
+
+
+@requires_posix_shell
+def test_install_sh_bash_profile_symlink_to_profile_edits_target(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    home.mkdir()
+    profile = home / ".profile"
+    profile.write_text("# profile\n")
+    bash_profile = home / ".bash_profile"
+    bash_profile.symlink_to(".profile")
+    _run_install(tmp_path, httpserver, pub_file)
+
+    assert bash_profile.is_symlink()
+    assert os.readlink(bash_profile) == ".profile"
+    bin_dir = home / ".local" / "share" / "snowflake-cli" / "bin"
+    _assert_path_block(profile, bin_dir, present=True)
+    assert not (home / ".bashrc").exists()
+
+
+@requires_posix_shell
+def test_install_sh_skips_bash_profile_symlink_outside_login_chain(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    home.mkdir()
+    outside = tmp_path / "outside"
+    outside.write_text("# outside\n")
+    bash_profile = home / ".bash_profile"
+    bash_profile.symlink_to(outside)
+    profile = home / ".profile"
+    profile.write_text("# profile\n")
+    bashrc = home / ".bashrc"
+    bashrc.write_text("# bashrc\n")
+    _run_install(tmp_path, httpserver, pub_file)
+
+    assert bash_profile.is_symlink()
+    assert outside.read_text() == "# outside\n"
+    bin_dir = home / ".local" / "share" / "snowflake-cli" / "bin"
+    _assert_path_block(profile, bin_dir, present=False)
+    _assert_path_block(bashrc, bin_dir, present=True)
+
+
+@requires_posix_shell
+def test_install_sh_dangling_bash_profile_uses_next_login_profile(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".bash_profile").symlink_to("missing-profile")
+    login = home / ".bash_login"
+    login.write_text("# login\n")
+    _run_install(tmp_path, httpserver, pub_file)
+
+    bin_dir = home / ".local" / "share" / "snowflake-cli" / "bin"
+    _assert_path_block(login, bin_dir, present=True)
+    assert not (home / ".bashrc").exists()
+
+
+@requires_posix_shell
+def test_install_sh_creates_zshrc(tmp_path: Path, httpserver: HTTPServer):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    result = _run_install(
+        tmp_path, httpserver, pub_file, extra_env={"SHELL": "/bin/zsh"}
+    )
+    home = tmp_path / "home"
+    zshrc = home / ".zshrc"
+    bin_dir = home / ".local" / "share" / "snowflake-cli" / "bin"
+    _assert_path_block(zshrc, bin_dir, present=True)
+    assert f"source {zshrc}" in result.stdout
 
 
 @requires_posix_shell

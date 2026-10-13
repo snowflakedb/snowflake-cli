@@ -606,6 +606,76 @@ append_path_block() {
     print_success "Updated $config_file to prepend $BIN_DIR"
 }
 
+# Bash login shells read the first existing file among ~/.bash_profile,
+# ~/.bash_login, and ~/.profile. Creating an earlier file would hide the one
+# the user already has, so this never creates a login profile. A symlink is
+# followed only when it points at a later file in that list. A symlink that
+# points elsewhere is skipped: bash will read it, and a later profile will not.
+bash_login_profile() {
+    local candidate path aliased target
+    for candidate in .bash_profile .bash_login .profile; do
+        path="${HOME}/${candidate}"
+        if [ -L "$path" ]; then
+            # A dangling symlink is not readable, so bash tries the next profile.
+            if [ ! -e "$path" ]; then
+                continue
+            fi
+            case "$candidate" in
+                .bash_profile)
+                    for aliased in .bash_login .profile; do
+                        target="${HOME}/${aliased}"
+                        if [ ! -L "$target" ] && [ -f "$target" ] && [ "$path" -ef "$target" ]; then
+                            printf '%s\n' "$target"
+                            return 0
+                        fi
+                    done
+                    ;;
+                .bash_login)
+                    target="${HOME}/.profile"
+                    if [ ! -L "$target" ] && [ -f "$target" ] && [ "$path" -ef "$target" ]; then
+                        printf '%s\n' "$target"
+                        return 0
+                    fi
+                    ;;
+            esac
+            return 0
+        fi
+        if [ -f "$path" ]; then
+            printf '%s\n' "$path"
+            return 0
+        fi
+    done
+    return 0
+}
+
+append_selected_path_files() {
+    local shell_name=$1
+    local config_files=$2
+    local config_file
+    local updated=0
+    while IFS= read -r config_file; do
+        if [ -z "$config_file" ]; then
+            continue
+        fi
+        append_path_block "$config_file" "$shell_name"
+        updated=1
+    done <<EOF
+$config_files
+EOF
+    if [ "$updated" -eq 0 ]; then
+        return 0
+    fi
+    echo ""
+    while IFS= read -r config_file; do
+        if [ -z "$config_file" ]; then
+            continue
+        fi
+        printf 'Run '\''source %s'\'' or restart your shell to update PATH.\n' "$config_file"
+    done <<EOF
+$config_files
+EOF
+}
+
 suggest_path_update() {
     print_session_path
 
@@ -620,28 +690,51 @@ suggest_path_update() {
 
     local shell_name
     shell_name=$(basename "${SHELL:-/bin/sh}")
-    local config_file=""
+    local config_files=""
+    local create_if_missing=0
     local show_manual_instructions=0
+    local login bashrc config_file
 
     case "$shell_name" in
-        zsh) config_file="$HOME/.zshrc" ;;
-        bash) config_file="${HOME}/$( [ -f "$HOME/.bash_profile" ] && echo .bash_profile || echo .bashrc )" ;;
-        fish) config_file="$HOME/.config/fish/config.fish" ;;
-        *) config_file="" ;;
+        zsh)
+            config_files="${HOME}/.zshrc
+"
+            create_if_missing=1
+            ;;
+        fish)
+            config_files="${HOME}/.config/fish/config.fish
+"
+            create_if_missing=1
+            ;;
+        bash)
+            # Also update an existing ~/.bashrc so a non-login interactive shell
+            # sees the shim. Do not create ~/.bashrc when it is missing.
+            login=$(bash_login_profile)
+            if [ -n "$login" ]; then
+                config_files="${login}
+"
+            fi
+            bashrc="${HOME}/.bashrc"
+            if [ -f "$bashrc" ] && { [ -z "$login" ] || [ ! "$login" -ef "$bashrc" ]; }; then
+                config_files="${config_files}${bashrc}
+"
+            fi
+            ;;
+        *) ;;
     esac
 
-    if [ -n "$config_file" ]; then
+    if [ -n "$config_files" ]; then
         if [ -n "$NON_INTERACTIVE" ]; then
-            append_path_block "$config_file" "$shell_name"
-            echo ""
-            printf 'Run '\''source %s'\'' or restart your shell to update PATH.\n' "$config_file"
+            append_selected_path_files "$shell_name" "$config_files"
             return
         fi
 
-        if [ -f "$config_file" ]; then
-            printf '\033[93m%s is not in your PATH but must be to use Snowflake CLI. Would you like to add this? [\033[1;32my\033[0m/\033[1;31mN\033[0m]\033[0m ' "$BIN_DIR"
-        else
+        config_file=${config_files%%
+*}
+        if [ "$create_if_missing" -eq 1 ] && [ ! -e "$config_file" ]; then
             printf '\033[93m%s is not in your PATH but must be to use Snowflake CLI. Would you like to create %s and add this? [\033[1;32my\033[0m/\033[1;31mN\033[0m]\033[0m ' "$BIN_DIR" "$config_file"
+        else
+            printf '\033[93m%s is not in your PATH but must be to use Snowflake CLI. Would you like to add this? [\033[1;32my\033[0m/\033[1;31mN\033[0m]\033[0m ' "$BIN_DIR"
         fi
 
         if [ -e /dev/tty ]; then
@@ -651,9 +744,7 @@ suggest_path_update() {
         fi
 
         if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
-            append_path_block "$config_file" "$shell_name"
-            echo ""
-            printf 'Run '\''source %s'\'' or restart your shell to update PATH.\n' "$config_file"
+            append_selected_path_files "$shell_name" "$config_files"
         else
             show_manual_instructions=1
         fi
