@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 import platform
 from dataclasses import dataclass
 from typing import Optional, Protocol
@@ -29,6 +30,8 @@ from snowflake.cli._plugins.upgrade.layout import (
 from snowflake.cli._plugins.upgrade.repo import HttpRepo
 from snowflake.cli.api.config import is_air_gapped
 from snowflake.cli.api.exceptions import CliError
+
+log = logging.getLogger(__name__)
 
 STATUS_REFUSED = "refused"
 STATUS_ALREADY_CURRENT = "already_current"
@@ -124,15 +127,21 @@ def refuse_result() -> UpgradeDecision:
     )
 
 
-def evaluate_managed_upgrade(*, dry_run: bool) -> UpgradeDecision:
-    """Gate, version-compare, and (unless dry-run) download + retarget."""
+def evaluate_managed_upgrade(
+    *, dry_run: bool, allow_major: bool = False
+) -> UpgradeDecision:
+    """Gate, version-compare, and (unless dry-run) download + retarget.
+
+    ``allow_major`` is for auto-upgrade only. Manual ``snow upgrade`` keeps
+    the default (same-major).
+    """
     channel = _channel()
     current = _current_version()
     latest = get_version_source().latest_version()
     current_v = parse_cli_version(current)
     latest_v = parse_cli_version(latest)
 
-    if latest_v.major > current_v.major:
+    if latest_v.major > current_v.major and not allow_major:
         return UpgradeDecision(
             payload={
                 "channel": channel,
@@ -180,8 +189,9 @@ def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
     layout = ManagedLayout()
     materialize(latest, layout)
     shim_target = layout.retarget(latest)
-    layout.gc()
-    clear_reverted_from(layout)
+    # The shim already points at ``latest``. GC and stamp clear are cleanup;
+    # a failure here must not report the upgrade as failed.
+    _best_effort_after_retarget(layout)
     return UpgradeDecision(
         payload={
             "channel": _channel(),
@@ -192,6 +202,21 @@ def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
         },
         message=f"Upgraded {current} → {latest}.",
     )
+
+
+def _best_effort_after_retarget(layout: ManagedLayout) -> None:
+    """Run post-retarget cleanup without failing an upgrade that already landed."""
+    try:
+        layout.gc()
+    except Exception:
+        log.debug("GC after retarget failed; shim already moved", exc_info=True)
+    try:
+        clear_reverted_from(layout)
+    except Exception:
+        log.debug(
+            "Clearing reverted-from after retarget failed; shim already moved",
+            exc_info=True,
+        )
 
 
 def apply_revert(*, dry_run: bool) -> UpgradeDecision:

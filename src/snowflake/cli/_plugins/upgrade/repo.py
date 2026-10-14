@@ -20,6 +20,7 @@ import logging
 import os
 import platform
 import tarfile
+import time
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -112,10 +113,16 @@ class HttpRepo:
         self._public_key_pem = (
             public_key_pem if public_key_pem is not None else DEFAULT_PUBLIC_KEY_PEM
         )
+        # Manual ``snow upgrade`` keeps these. Auto-upgrade sets
+        # ``check_deadline`` so pointer, manifest, and signature share one
+        # budget, then moves the deadline for the download.
+        self.pointer_timeout = POINTER_TIMEOUT_SECONDS
+        self.download_timeout = DOWNLOAD_TIMEOUT_SECONDS
+        self.check_deadline: Optional[float] = None
 
     def latest_version(self) -> str:
         url = f"{self.base_url}/{POINTER_NAME}"
-        text = _http_get_text(url, timeout=POINTER_TIMEOUT_SECONDS)
+        text = _http_get_text(url, timeout=self._request_timeout(self.pointer_timeout))
         version = text.strip()
         if not version:
             raise CliError(f"{POINTER_NAME} from {self.base_url} is empty.")
@@ -156,7 +163,9 @@ class HttpRepo:
         name = package["name"]
         expected = package["checksum"]
         url = f"{self.base_url}/{version}/{name}"
-        digest = _download_file(url, dest)
+        digest = _download_file(
+            url, dest, timeout=self._request_timeout(self.download_timeout)
+        )
         if digest != expected:
             dest.unlink(missing_ok=True)
             raise CliError(
@@ -168,10 +177,12 @@ class HttpRepo:
     def _signed_manifest(self, version: str) -> dict:
         url = f"{self.base_url}/{version}/{MANIFEST_NAME}"
         sig_url = f"{self.base_url}/{version}/{MANIFEST_SIG_NAME}"
-        manifest_bytes = _http_get_bytes(url, timeout=POINTER_TIMEOUT_SECONDS)
+        manifest_bytes = _http_get_bytes(
+            url, timeout=self._request_timeout(self.pointer_timeout)
+        )
         signature = _http_get_bytes(
             sig_url,
-            timeout=POINTER_TIMEOUT_SECONDS,
+            timeout=self._request_timeout(self.pointer_timeout),
             missing_message=MISSING_SIGNATURE_MESSAGE,
         )
         verify_manifest_signature(
@@ -187,6 +198,20 @@ class HttpRepo:
 
     def _package_for(self, version: str, os_name: str, arch: str) -> dict:
         return _package_entry(self._signed_manifest(version), os_name, arch)
+
+    def _request_timeout(self, default: float) -> float:
+        """Cap one HTTP call at ``default``, or at the auto-upgrade deadline.
+
+        With no deadline (manual ``snow upgrade``) this is ``default``.
+        Auto-upgrade sets ``check_deadline`` so the check's pointer, manifest,
+        and signature share 15s, then replaces it so the download shares 60s.
+        """
+        if self.check_deadline is None:
+            return default
+        remaining = self.check_deadline - time.monotonic()
+        if remaining <= 0:
+            raise requests.Timeout("auto-upgrade HTTP budget exceeded")
+        return min(default, remaining)
 
 
 def _package_entry(manifest: object, os_name: str, arch: str) -> dict:
@@ -247,14 +272,14 @@ def _http_get_bytes(
     return response.content
 
 
-def _download_file(url: str, dest: Path) -> str:
+def _download_file(
+    url: str, dest: Path, timeout: float = DOWNLOAD_TIMEOUT_SECONDS
+) -> str:
     """Stream ``url`` to ``dest``. Fail closed on a truncated body. Return SHA-256."""
     hasher = hashlib.sha256()
     received = 0
     try:
-        with requests.get(
-            url, timeout=DOWNLOAD_TIMEOUT_SECONDS, stream=True
-        ) as response:
+        with requests.get(url, timeout=timeout, stream=True) as response:
             response.raise_for_status()
             expected = _content_length(response)
             dest_secure = SecurePath(dest)

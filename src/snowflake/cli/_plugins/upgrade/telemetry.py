@@ -110,13 +110,14 @@ def record_upgrade_event(
     to_version: Optional[str] = None,
     skip_reason: Optional[str] = None,
     rollout_bucket: Optional[int] = None,
+    rollout_score: Optional[float] = None,
     layout: Optional[ManagedLayout] = None,
 ) -> None:
     """Append one upgrade event to the managed-home spool.
 
     Does not open a Snowflake connection. ``CLITelemetryClient.flush`` uploads
     the spool the next time a silent or already-open connection exists.
-    Never writes a machine id.
+    Never writes a machine id. ``rollout_score`` is the ``[0, 1)`` hash only.
     """
     from snowflake.cli._app.telemetry import (
         CLITelemetryClient,
@@ -140,6 +141,12 @@ def record_upgrade_event(
         payload[CLITelemetryField.UPGRADE_SKIP_REASON] = skip_reason
     if rollout_bucket is not None:
         payload[CLITelemetryField.UPGRADE_ROLLOUT_BUCKET] = int(rollout_bucket)
+    if (
+        rollout_score is not None
+        and not isinstance(rollout_score, bool)
+        and isinstance(rollout_score, (int, float))
+    ):
+        payload[CLITelemetryField.UPGRADE_ROLLOUT_SCORE] = float(rollout_score)
 
     message = CLITelemetryClient.generate_telemetry_data_dict(payload)
     append_spool_record(

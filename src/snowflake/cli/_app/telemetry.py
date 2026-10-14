@@ -117,6 +117,7 @@ class CLITelemetryField(Enum):
     UPGRADE_FROM = "upgrade_from"
     UPGRADE_TO = "upgrade_to"
     UPGRADE_ROLLOUT_BUCKET = "upgrade_rollout_bucket"
+    UPGRADE_ROLLOUT_SCORE = "upgrade_rollout_score"
 
 
 class TelemetryEvent(Enum):
@@ -616,7 +617,11 @@ class CLITelemetryClient:
         command_info: TelemetryDict | None = None,
     ) -> Dict[str, Any]:
         if command_info is None:
-            command_info = _find_command_info()
+            try:
+                command_info = _find_command_info()
+            except RuntimeError:
+                # Auto-upgrade records before Typer pushes a Click context.
+                command_info = _command_info_without_click()
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
             CLITelemetryField.INSTALLATION_SOURCE: __about__.INSTALLATION_SOURCE.value,
