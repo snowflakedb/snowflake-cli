@@ -2,7 +2,10 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
-from snowflake.cli._plugins.connection.util import MissingConnectionAccountError
+from snowflake.cli._plugins.connection.util import (
+    MissingConnectionAccountError,
+    MissingConnectionRegionError,
+)
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
 from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES
@@ -76,6 +79,15 @@ class TestStreamlitManager(StreamlitTestClass):
 
         assert problems == []
         mock_execute_query.assert_not_called()
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.manager.make_snowsight_url",
+        side_effect=MissingConnectionRegionError("acct.custom.tld"),
+    )
+    def test_get_url_does_not_substitute_commercial_host(self, _mock_url):
+        manager = StreamlitManager(MagicMock())
+        with pytest.raises(MissingConnectionRegionError):
+            manager.get_url(FQN.from_string("db.sch.my_app"))
 
     @mock.patch(
         "snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query"

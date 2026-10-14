@@ -75,6 +75,13 @@ def test_upgrade_help_is_callable_when_hidden(runner):
     assert "direct install" in result.output
 
 
+def test_upgrade_errors_when_air_gapped(runner, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    result = runner.invoke(["upgrade"])
+    assert result.exit_code != 0, result.output
+    assert "cli.air_gapped" in result.output
+
+
 def test_refuse_pypi_default_install(runner, monkeypatch):
     monkeypatch.setattr(manager.platform, "system", lambda: "Linux")
     result = runner.invoke(["upgrade"])

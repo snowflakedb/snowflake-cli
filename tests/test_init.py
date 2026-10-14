@@ -83,6 +83,24 @@ def _raise_missing_configuration_exception():
     raise MissingConfigurationError("No connection configured")
 
 
+@pytest.mark.parametrize(
+    "source",
+    ["http://example.invalid/templates", "HTTP://example.invalid/templates"],
+)
+def test_error_plaintext_http_template_source(runner, temporary_directory, source):
+    result = runner.invoke(
+        [
+            "init",
+            "http_project",
+            "--template-source",
+            source,
+        ]
+    )
+    assert result.exit_code == 1
+    assert "Plaintext http:// template sources are not allowed" in result.output
+    assert not Path("http_project").exists()
+
+
 def test_error_missing_template_yml(runner, test_projects_path, temporary_directory):
     # no template.yml
     project_name = "example_streamlit_no_defaults"
@@ -809,3 +827,48 @@ def test_default_computed_connection_account_key_missing(
         )
         assert result.exit_code == 1
         assert "Cannot determine value of variable account_name" in result.output
+
+
+def test_init_errors_when_air_gapped_and_default_source(
+    runner, temporary_directory, monkeypatch
+):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.delenv("SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE", raising=False)
+    result = runner.invoke(["init", "airgap_project"])
+    assert result.exit_code == 1
+    assert "cli.air_gapped" in result.output
+    assert "SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE" in result.output
+    assert not Path("airgap_project").exists()
+
+
+def test_init_allows_local_source_when_air_gapped(
+    runner, test_projects_path, temporary_directory, monkeypatch
+):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    project_name = "project_templating"
+    result = runner.invoke(
+        [
+            "init",
+            "local_airgap_project",
+            "--template-source",
+            test_projects_path / project_name,
+            "-D",
+            "required_project_name=name",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert Path("local_airgap_project").exists()
+
+
+def test_default_template_source_from_env(monkeypatch):
+    from snowflake.cli._plugins.init.commands import get_default_template_source
+
+    monkeypatch.delenv("SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE", raising=False)
+    assert (
+        get_default_template_source()
+        == "https://github.com/snowflakedb/snowflake-cli-templates"
+    )
+    monkeypatch.setenv(
+        "SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE", "https://git.internal/templates"
+    )
+    assert get_default_template_source() == "https://git.internal/templates"

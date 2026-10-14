@@ -22,12 +22,14 @@ from snowflake.cli._app.version_check import (
     record_version_check_displayed,
     reset_background_refresh_thread,
     should_hide_new_version_banner_for_auto_upgrade,
+    should_ignore_new_version_warning,
     start_background_refresh,
     wait_for_refresh,
     was_warning_shown_recently,
 )
 from snowflake.cli._plugins.upgrade.controls import AUTO_UPGRADE_DONE_ENV
 from snowflake.cli.api.config import (
+    AIR_GAPPED_KEY,
     AUTO_UPGRADE_KEY,
     CLI_SECTION,
     IGNORE_NEW_VERSION_WARNING_KEY,
@@ -41,6 +43,7 @@ from snowflake.cli.api.secure_path import SecurePath
 from tests_common.feature_flag_utils import with_feature_flags
 
 AUTO_UPGRADE_ENV = get_env_variable_name(CLI_SECTION, key=AUTO_UPGRADE_KEY)
+AIR_GAPPED_ENV = get_env_variable_name(CLI_SECTION, key=AIR_GAPPED_KEY)
 
 _WARNING_MESSAGE = (
     "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
@@ -518,6 +521,32 @@ def test_check_version_still_reports_on_auto_upgrade_path(monkeypatch):
         info = get_version_info()
     assert info.update_available is True
     assert info.latest_version == "2.0.0"
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_CACHED_VERSION)  # type: ignore
+def test_air_gapped_ignores_new_version_warning(monkeypatch):
+    monkeypatch.setenv(AIR_GAPPED_ENV, "true")
+    assert should_ignore_new_version_warning() is True
+    assert get_new_version_msg() is None
+    with mock.patch.object(
+        _VersionCache, "schedule_background_refresh"
+    ) as mock_schedule:
+        start_background_refresh()
+    mock_schedule.assert_not_called()
+
+
+@patch(*_PATCH_VERSION)
+def test_air_gapped_get_version_info_does_not_query_repositories(monkeypatch):
+    monkeypatch.setenv(AIR_GAPPED_ENV, "true")
+    with mock.patch.object(
+        _VersionCache, "_get_version_from_brew"
+    ) as brew, mock.patch.object(_VersionCache, "_get_version_from_pypi") as pypi:
+        info = get_version_info(force_refresh=True)
+    brew.assert_not_called()
+    pypi.assert_not_called()
+    assert info.latest_version is None
+    assert info.update_available is False
 
 
 @patch("snowflake.cli._app.version_check.time.time", lambda: 60)

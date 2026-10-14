@@ -37,8 +37,15 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
+from snowflake.cli.api.config import (
+    CLI_SECTION,
+    INIT_TEMPLATE_SOURCE_KEY,
+    get_config_value,
+    get_env_variable_name,
+    is_air_gapped,
+)
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.exceptions import InvalidTemplateError
+from snowflake.cli.api.exceptions import CliError, InvalidTemplateError
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -51,7 +58,21 @@ from snowflake.cli.api.secure_path import SecurePath
 app = SnowTyperFactory()
 
 
-DEFAULT_SOURCE = "https://github.com/snowflakedb/snowflake-cli-templates"
+_DEFAULT_TEMPLATE_REPO = "https://github.com/snowflakedb/snowflake-cli-templates"
+TEMPLATE_SOURCE_ENV = get_env_variable_name(CLI_SECTION, key=INIT_TEMPLATE_SOURCE_KEY)
+
+
+def get_default_template_source() -> str:
+    return get_config_value(
+        CLI_SECTION, key=INIT_TEMPLATE_SOURCE_KEY, default=_DEFAULT_TEMPLATE_REPO
+    )
+
+
+def _is_default_public_template_source(source: str | None) -> bool:
+    if source is None:
+        return True
+    return source.rstrip("/") == _DEFAULT_TEMPLATE_REPO.rstrip("/")
+
 
 log = logging.getLogger(__name__)
 
@@ -78,9 +99,12 @@ TemplateOption = typer.Option(
     show_default=False,
 )
 SourceOption = typer.Option(
-    DEFAULT_SOURCE,
+    get_default_template_source,
     "--template-source",
-    help=f"local path to template directory or URL to git repository with templates.",
+    help=(
+        "local path to template directory or URL to git repository with templates. "
+        f"Default: {_DEFAULT_TEMPLATE_REPO}. Override with {TEMPLATE_SOURCE_ENV}."
+    ),
 )
 VariablesOption = variables_option(
     "String in `key=value` format. Provided variables will not be prompted for."
@@ -322,9 +346,21 @@ def init(
     variables_from_flags = {
         v.key: v.value for v in parse_key_value_variables(variables)
     }
-    is_remote = template_source is not None and any(
-        template_source.startswith(prefix)
-        for prefix in ["git@", "http://", "https://"]  # type: ignore
+    if template_source and template_source.lower().startswith("http://"):
+        raise CliError(
+            "Plaintext http:// template sources are not allowed. "
+            "Use https://, git@, or a local path."
+        )
+    if is_air_gapped() and _is_default_public_template_source(template_source):
+        raise CliError(
+            "The default snow init template repository is disabled because "
+            "cli.air_gapped is set. Set cli.init_template_source or "
+            f"{TEMPLATE_SOURCE_ENV} to a local path or an in-region git URL, "
+            "or pass --template-source."
+        )
+    is_remote = template_source is not None and (
+        template_source.startswith("git@")
+        or template_source.lower().startswith("https://")
     )
     args_error_msg = f"Check whether {TemplateOption.param_decls[0]} and {SourceOption.param_decls[0]} arguments are correct."
 

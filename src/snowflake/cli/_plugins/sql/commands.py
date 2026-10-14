@@ -293,7 +293,7 @@ def execute_sql(
         callback=_local_only_callback,
         help=(
             "Restrict !source and !load to local files. When set, "
-            "!source/!load directives that reference http:// or https:// URLs "
+            "!source/!load directives that reference https:// URLs "
             "are rejected instead of being fetched. Use this flag in "
             "environments where SQL inputs should not trigger outbound "
             "network requests, or when running SQL files whose content "

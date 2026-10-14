@@ -22,7 +22,10 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
-from snowflake.cli._plugins.connection.util import get_account_identifier
+from snowflake.cli._plugins.connection.util import (
+    get_account_identifier,
+    get_host_apex,
+)
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
@@ -44,7 +47,9 @@ from snowflake.cli._plugins.spcs.services.service_project_paths import (
 )
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.utils import bundle_artifacts
+from snowflake.cli.api.config import is_air_gapped
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
 from snowflake.cli.api.project.util import to_string_literal
@@ -359,9 +364,21 @@ class ServiceManager(SqlExecutionMixin):
             )
 
         # Build the image registry URL
-        # Format: <org>-<account-name>.registry-local.snowflakecomputing.com/<db>/<schema>/<repo>
+        # Format: <org>-<account-name>.registry-local.<apex>/<db>/<schema>/<repo>
+        # Commercial stays on snowflakecomputing.com. Custom DNS is only used
+        # when air-gapped, so a missing or invalid host does not break
+        # existing pipelines that omit a FQDN host.
+        if is_air_gapped():
+            apex = get_host_apex(getattr(self._conn, "host", None))
+            if not apex:
+                raise CliError(
+                    "Could not determine the image registry domain from the connection host. "
+                    "Set the connection host to a fully qualified account URL."
+                )
+        else:
+            apex = "snowflakecomputing.com"
         image_registry_url = (
-            f"{org_name}-{account_name}.registry-local.snowflakecomputing.com/"
+            f"{org_name}-{account_name}.registry-local.{apex}/"
             f"{repo_fqn.database.lower()}/{repo_fqn.schema.lower()}/{repo_fqn.name.lower()}"
         )
 

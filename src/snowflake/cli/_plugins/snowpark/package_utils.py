@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import tomlkit
-from click import ClickException
 from snowflake.cli._plugins.snowpark.models import (
     Requirement,
     RequirementWithFiles,
@@ -36,7 +35,11 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
 from snowflake.cli.api.config import get_subprocess_encoding
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.exceptions import CliArgumentError
+from snowflake.cli.api.exceptions import CliArgumentError, CliError
+from snowflake.cli.api.pip_index import (
+    ensure_https_pip_index,
+    pip_index_invocation_args,
+)
 from snowflake.cli.api.secure_path import SecurePath
 from tomlkit.exceptions import TOMLKitError
 
@@ -367,13 +370,13 @@ def pip_wheel(
     dependencies: bool = True,
     raise_on_error: bool = True,
 ) -> int:
+    resolved_index = ensure_https_pip_index(index_url)
     command = ["-m", "pip", "wheel", "-w", str(download_dir)]
     if package_name:
         command.append(package_name)
     if requirements_file:
         command.extend(["-r", str(requirements_file)])
-    if index_url:
-        command.extend(["-i", index_url])
+    command.extend(pip_index_invocation_args(resolved_index))
     if not dependencies:
         command.append("--no-deps")
 
@@ -395,7 +398,7 @@ def pip_wheel(
             result.stdout + result.stderr,
         )
         if raise_on_error:
-            raise ClickException(
+            raise CliError(
                 f"pip wheel finished with error code {result.returncode}. Please re-run with --verbose or --debug for more details."
             )
     else:

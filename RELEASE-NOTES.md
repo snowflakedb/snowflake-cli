@@ -22,8 +22,11 @@
 ## Deprecations
 
 ## New additions
+* Air-gapped mode configures the CLI for isolated environments that cannot reach the public internet. Enable it with `cli.air_gapped` in `config.toml` or `SNOWFLAKE_CLI_AIR_GAPPED`. The environment variable is read at runtime and is not copied into a newly created `config.toml`. Commands that talk to external services may change or refuse to run, including PyPI and Homebrew version checks, `snow upgrade`, auto-upgrade, `snow init` against the public GitHub template default, and pip-backed flows such as `snow snowpark build`. Pip in those flows uses `--isolated` and only `--index-url` or `PIP_INDEX_URL`. When air-gapped mode is set, Snowsight no longer falls back to `app.snowflake.com`. Override remaining defaults with `cli.per_account_app_domain` in `config.toml` or `SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN`, and with `SNOWFLAKE_AUDIENCE` for GitHub OIDC.
+* Override the default `snow init` template repository with `cli.init_template_source` in `config.toml` or `SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE`. Air-gapped mode requires this override, a local `--template-source`, or an in-region git URL.
 
 ## Fixes and improvements
+* Connection diagnostics and the per-account cert probe now require TLS 1.3. `snow init --template-source`, SQL `!source`/`!load`, and pip index URLs reject plaintext `http://`.
 * `snow app version drop` now reports that the drop is in progress and may take a few minutes, instead of saying it is already complete.
 * Upgraded setuptools from 80.8.0 to 84.0.0.
 * Comparing an `FQN` against a value that is not an `FQN` instance now returns `False` instead of raising `AttributeError`.

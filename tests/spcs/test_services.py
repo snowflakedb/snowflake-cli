@@ -27,6 +27,7 @@ from snowflake.cli._plugins.spcs.common import NoPropertiesProvidedError
 from snowflake.cli._plugins.spcs.services.commands import _service_name_callback
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
 from snowflake.connector import ProgrammingError
@@ -2280,6 +2281,7 @@ def test_build_image(mock_execute_query):
     mock_conn.database = None
     mock_conn.schema = None
     mock_conn.account = "test_account"
+    mock_conn.host = "test_account.us-east-1.snowflakecomputing.com"
 
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -2345,6 +2347,75 @@ def test_build_image(mock_execute_query):
     }
 
     assert result == cursor
+
+
+@patch(EXECUTE_QUERY)
+def test_build_image_requires_connection_host_apex(mock_execute_query, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {
+        "ORG": "TEST_ORG",
+        "ACCT": "TEST_ACCOUNT",
+    }
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+    mock_conn.host = None
+    manager = ServiceManager(connection=mock_conn)
+    with pytest.raises(CliError, match="image registry domain"):
+        manager.build_image(
+            job_service_name="test_build_job",
+            compute_pool="test_pool",
+            image_repository="test_db.test_schema.test_repo",
+            image_name="my_image",
+            image_tag="v1.0",
+            stage="test_stage",
+            build_context_path="build_contexts/test",
+            external_access_integrations=["eai1"],
+            async_mode=True,
+        )
+
+
+@patch(EXECUTE_QUERY)
+def test_build_image_registry_url_uses_connection_host_apex(
+    mock_execute_query, monkeypatch
+):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    mock_org_cursor = Mock()
+    mock_org_cursor.fetchone.return_value = {
+        "ORG": "TEST_ORG",
+        "ACCT": "TEST_ACCOUNT",
+    }
+    mock_conn = Mock()
+    mock_conn.execute_string.return_value = (None, mock_org_cursor)
+    mock_conn.database = None
+    mock_conn.schema = None
+    mock_conn.account = "test_account"
+    mock_conn.host = "test_account.us-east-1.aws.custom.tld"
+
+    mock_execute_query.return_value = Mock(spec=SnowflakeCursor)
+    manager = ServiceManager(connection=mock_conn)
+    manager.build_image(
+        job_service_name="test_build_job",
+        compute_pool="test_pool",
+        image_repository="test_db.test_schema.test_repo",
+        image_name="my_image",
+        image_tag="v1.0",
+        stage="test_stage",
+        build_context_path="build_contexts/test",
+        external_access_integrations=["eai1"],
+        async_mode=True,
+    )
+    spec_arg = mock_execute_query.mock_calls[0].args[0]
+    match = re.search(r"\$\$\s*(\{.*?\})\s*\$\$", spec_arg, re.DOTALL)
+    assert match is not None
+    spec = json.loads(match.group(1))
+    assert (
+        spec["spec"]["containers"][0]["env"]["IMAGE_REGISTRY_URL"]
+        == "test_org-test_account.registry-local.custom.tld/test_db/test_schema/test_repo"
+    )
 
 
 def test_build_image_repository_validation():

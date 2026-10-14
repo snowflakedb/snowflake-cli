@@ -138,6 +138,20 @@ PER_ACCOUNT_CERT_ISSUE_FUNCTION = "SYSTEM$ISSUE_PER_ACCOUNT_APP_SERVICE_CERTIFIC
 # (``*.<org>-<account>.<infra>.snowflake.app``).
 PER_ACCOUNT_APP_DOMAIN = "snowflake.app"
 
+
+def get_per_account_app_domain() -> str:
+    return get_config_value(
+        CLI_SECTION, key=PER_ACCOUNT_APP_DOMAIN_KEY, default=PER_ACCOUNT_APP_DOMAIN
+    )
+
+
+def _per_account_app_domain_overridden() -> bool:
+    return (
+        get_config_value(CLI_SECTION, key=PER_ACCOUNT_APP_DOMAIN_KEY, default=None)
+        is not None
+    )
+
+
 # Synthetic single-label subdomain used to probe the account's per-account URL
 # certificate before any app exists. A per-account cert is a wildcard for
 # ``*.<org>-<account>.<infra>.snowflake.app``, so any single label exercises it —
@@ -201,12 +215,20 @@ from snowflake.cli._plugins.apps.snowflake_app_project_paths import (
 from snowflake.cli._plugins.connection.util import (
     UIParameter,
     get_account_identifier,
+    get_host_apex,
     get_ui_parameter,
     guess_regioned_host_from_allowlist,
+    host_labels,
 )
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.config import (
+    CLI_SECTION,
+    PER_ACCOUNT_APP_DOMAIN_KEY,
+    get_config_value,
+    is_air_gapped,
+)
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.errno import OBJECT_ALREADY_EXISTS_NO_PRIVILEGES
 from snowflake.cli.api.exceptions import CliError
@@ -2146,17 +2168,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def _infra_from_sql_host(host: Optional[str]) -> Optional[str]:
         """Return the ``<infra>`` labels of a *regioned* SQL host, or ``None``.
 
-        A regioned host is ``<account>.<infra…>.snowflakecomputing.com`` (four or
-        more labels); the infra is everything between the account label and the
-        ``snowflakecomputing.com`` registrable domain. A trailing ``privatelink``
-        label is preserved, matching the per-account cert's PrivateLink SAN.
-        Region-less hosts (``<org>-<account>.snowflakecomputing.com``) have no
-        infra and return ``None`` so the caller can fall back to the allowlist.
+        A regioned host is ``<account>.<infra…>.<apex>`` (four or more labels);
+        the infra is everything between the account label and the registrable
+        domain. Outside air-gapped mode the apex must be
+        ``snowflakecomputing.com``. When air-gapped, the last two labels are
+        the apex. A trailing ``privatelink`` label is preserved, matching the
+        per-account cert's PrivateLink SAN. Region-less hosts
+        (``<org>-<account>.<apex>``) have no infra and return ``None`` so the
+        caller can fall back to the allowlist.
         """
-        if not host:
+        labels = host_labels(host)
+        if not labels or labels == ["local"] or len(labels) < 4:
             return None
-        labels = host.split(".")
-        if len(labels) < 4 or labels[-2:] != ["snowflakecomputing", "com"]:
+        if not is_air_gapped() and labels[-2:] != ["snowflakecomputing", "com"]:
             return None
         infra = ".".join(labels[1:-2])
         return infra or None
@@ -2174,7 +2198,20 @@ class SnowflakeAppManager(SqlExecutionMixin):
         slug = self._org_account_slug()
         if not slug:
             return None
-        return f"{slug}.{infra}.{PER_ACCOUNT_APP_DOMAIN}"
+        domain = get_per_account_app_domain()
+        if (
+            is_air_gapped()
+            and domain == PER_ACCOUNT_APP_DOMAIN
+            and not _per_account_app_domain_overridden()
+        ):
+            try:
+                host = getattr(get_cli_context().connection, "host", None)
+            except Exception:
+                return None
+            apex = get_host_apex(host)
+            if apex not in ("snowflakecomputing.com", "local"):
+                return None
+        return f"{slug}.{infra}.{domain}"
 
     @staticmethod
     def _url_hostname(url: str) -> Optional[str]:
@@ -2213,6 +2250,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         # certs, or a private-CA (e.g. PrivateLink) handshake would verify and
         # reintroduce the hostname-vs-trust ambiguity this classification removes.
         context = ssl.create_default_context(cafile=DEFAULT_CA_BUNDLE_PATH)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
         try:
             with socket.create_connection(
                 (probe_host, 443), timeout=CERT_PROBE_TIMEOUT_SECONDS
@@ -2267,7 +2305,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         ``snowflakecomputing.app`` — since such a probe says nothing about the
         per-account certificate and must not be attributed to it.
         """
-        if not host or not host.endswith(f".{PER_ACCOUNT_APP_DOMAIN}"):
+        if not host or not host.endswith(f".{get_per_account_app_domain()}"):
             log.debug(
                 "Host %r is not a per-account URL host; skipping cert probe.", host
             )

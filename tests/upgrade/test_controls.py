@@ -100,6 +100,14 @@ def test_already_done_env_turns_off(auto_upgrade_config, monkeypatch):
             assert is_auto_upgrade_enabled() is False
 
 
+def test_air_gapped_disables_auto_upgrade(auto_upgrade_config, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
+    with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = true\n"):
+        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
+            assert is_auto_upgrade_enabled() is False
+
+
 def test_ignore_new_version_warning_does_not_disable_auto_upgrade(auto_upgrade_config):
     with auto_upgrade_config(
         f"[cli]\n{AUTO_UPGRADE_KEY} = true\n{IGNORE_NEW_VERSION_WARNING_KEY} = true\n"

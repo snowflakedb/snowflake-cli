@@ -21,6 +21,7 @@ from snowflake.cli._app.auth.errors import (
     OidcProviderError,
     OidcProviderNotFoundError,
     OidcProviderUnavailableError,
+    OidcTokenRetrievalError,
 )
 from snowflake.cli._app.auth.oidc_providers import (
     GitHubOidcProvider,
@@ -66,6 +67,30 @@ class TestGitHubOidcProvider:
         """Test issuer property when environment variable is not set."""
         provider = GitHubOidcProvider()
         assert provider.issuer == "https://token.actions.githubusercontent.com"
+
+    def test_audience_defaults_to_commercial_domain(self, monkeypatch):
+        monkeypatch.delenv("SNOWFLAKE_AUDIENCE", raising=False)
+        monkeypatch.delenv("SNOWFLAKE_CLI_AIR_GAPPED", raising=False)
+        provider = GitHubOidcProvider()
+        assert provider.audience == "snowflakecomputing.com"
+
+    def test_audience_uses_env_override(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_AUDIENCE", "custom.tld")
+        provider = GitHubOidcProvider()
+        assert provider.audience == "custom.tld"
+
+    def test_audience_required_when_air_gapped(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        monkeypatch.delenv("SNOWFLAKE_AUDIENCE", raising=False)
+        provider = GitHubOidcProvider()
+        with pytest.raises(OidcTokenRetrievalError, match="SNOWFLAKE_AUDIENCE"):
+            _ = provider.audience
+
+    def test_audience_override_when_air_gapped(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        monkeypatch.setenv("SNOWFLAKE_AUDIENCE", "custom.tld")
+        provider = GitHubOidcProvider()
+        assert provider.audience == "custom.tld"
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
     def test_is_available_success(self):

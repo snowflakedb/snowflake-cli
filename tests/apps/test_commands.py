@@ -822,6 +822,33 @@ class TestPerAccountAppHostname:
             == expected_infra
         )
 
+    @pytest.mark.parametrize(
+        "sql_host, expected_infra",
+        [
+            ("xy12345.us-east-1.aws.custom.tld", "us-east-1.aws"),
+            (
+                "gbloom.qa6.us-west-2.aws.privatelink.custom.tld",
+                "qa6.us-west-2.aws.privatelink",
+            ),
+        ],
+    )
+    def test_infra_from_sql_host_custom_dns_when_air_gapped(
+        self, sql_host, expected_infra, monkeypatch
+    ):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        assert (
+            SnowflakeAppManager._infra_from_sql_host(sql_host)  # noqa: SLF001
+            == expected_infra
+        )
+
+    def test_infra_from_sql_host_custom_dns_ignored_when_not_air_gapped(self):
+        assert (
+            SnowflakeAppManager._infra_from_sql_host(  # noqa: SLF001
+                "xy12345.us-east-1.aws.custom.tld"
+            )
+            is None
+        )
+
     def test_account_infra_falls_back_to_allowlist_for_regionless_host(self):
         # The modern account alias has no region in its host; the infra must be
         # recovered from SYSTEM$ALLOWLIST's regioned host.
@@ -869,6 +896,85 @@ class TestPerAccountAppHostname:
             assert (
                 mgr._per_account_app_hostname()  # noqa: SLF001
                 == "sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
+            )
+
+    def test_unknown_host_skips_commercial_app_domain_when_air_gapped(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        monkeypatch.delenv("SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN", raising=False)
+        mgr = self._manager()
+        conn = Mock(host=None)
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="us-east-1.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="myorg-myacct",
+        ):
+            mock_ctx.return_value.connection = conn
+            assert mgr._per_account_app_hostname() is None  # noqa: SLF001
+
+    def test_commercial_host_keeps_snowflake_app_when_air_gapped(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        monkeypatch.delenv("SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN", raising=False)
+        mgr = self._manager()
+        conn = Mock(host="xy12345.us-east-1.aws.snowflakecomputing.com")
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="us-east-1.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="myorg-myacct",
+        ):
+            mock_ctx.return_value.connection = conn
+            assert (
+                mgr._per_account_app_hostname()  # noqa: SLF001
+                == "myorg-myacct.us-east-1.aws.snowflake.app"
+            )
+
+    def test_custom_dns_host_skips_commercial_app_domain(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        monkeypatch.delenv("SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN", raising=False)
+        mgr = self._manager()
+        conn = Mock(host="xy12345.us-east-1.aws.custom.tld")
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="us-east-1.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="myorg-myacct",
+        ):
+            mock_ctx.return_value.connection = conn
+            assert mgr._per_account_app_hostname() is None  # noqa: SLF001
+
+    def test_per_account_app_domain_from_env(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN", "apps.custom.tld")
+        mgr = self._manager()
+        with patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="us-east-1.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="myorg-myacct",
+        ):
+            assert (
+                mgr._per_account_app_hostname()  # noqa: SLF001
+                == "myorg-myacct.us-east-1.aws.apps.custom.tld"
             )
 
     def test_none_when_infra_cannot_be_derived(self):
@@ -935,6 +1041,9 @@ class TestPerAccountCertStatusProbe:
         assert captured["addr"] == (self._BASE, 443)
         assert captured["timeout"] == CERT_PROBE_TIMEOUT_SECONDS
         assert ctx.wrap_socket.call_args.kwargs["server_hostname"] == self._BASE
+        import ssl as _ssl
+
+        assert ctx.minimum_version == _ssl.TLSVersion.TLSv1_3
 
     @pytest.mark.parametrize("verify_code", [62, 10])
     def test_not_provisioned_on_hostname_or_expired_verify_codes(self, verify_code):

@@ -10238,9 +10238,11 @@
   |                                  provided, whole source will be used as the  |
   |                                  template.                                   |
   | --template-source          TEXT  local path to template directory or URL to  |
-  |                                  git repository with templates.              |
-  |                                  [default:                                   |
+  |                                  git repository with templates. Default:     |
   |                                  https://github.com/snowflakedb/snowflake-c… |
+  |                                  Override with                               |
+  |                                  SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE.         |
+  |                                  [default: (dynamic)]                        |
   | --variable         -D      TEXT  String in key=value format. Provided        |
   |                                  variables will not be prompted for.         |
   | --no-interactive                 Disable prompting.                          |
@@ -15415,7 +15417,6 @@
   |                                                             !source/!load    |
   |                                                             directives that  |
   |                                                             reference        |
-  |                                                             http:// or       |
   |                                                             https:// URLs    |
   |                                                             are rejected     |
   |                                                             instead of being |

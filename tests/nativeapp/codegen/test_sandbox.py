@@ -18,6 +18,7 @@ from unittest import mock
 
 import pytest
 import snowflake.cli._plugins.nativeapp.codegen.sandbox as sandbox
+from snowflake.cli.api.exceptions import CliError
 
 from tests_common import IS_WINDOWS, skip_snowpark_on_newest_python
 
@@ -853,3 +854,88 @@ def test_sandbox_env_builder(temporary_directory):
     builder = sandbox.SandboxEnvBuilder(env_path)
     builder.ensure_created()
     builder.run_python("--help")  # should not raise an exception
+
+
+def test_pip_install_requires_index_when_air_gapped(monkeypatch, tmp_path):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.delenv("PIP_INDEX_URL", raising=False)
+    builder = sandbox.SandboxEnvBuilder.__new__(sandbox.SandboxEnvBuilder)
+    with pytest.raises(CliError, match="No package index is configured"):
+        builder.pip_install("requests")
+
+
+def test_pip_install_allows_local_path_when_air_gapped(monkeypatch, tmp_path):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.delenv("PIP_INDEX_URL", raising=False)
+    local_wheel = tmp_path / "pkg.whl"
+    local_wheel.write_bytes(b"")
+    builder = sandbox.SandboxEnvBuilder.__new__(sandbox.SandboxEnvBuilder)
+    with mock.patch.object(builder, "run_python") as run_python:
+        builder.pip_install(str(local_wheel))
+    run_python.assert_called_once_with(
+        "-m", "pip", "install", "--isolated", str(local_wheel)
+    )
+
+
+def test_pip_install_allows_index_url_when_air_gapped(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.delenv("PIP_INDEX_URL", raising=False)
+    builder = sandbox.SandboxEnvBuilder.__new__(sandbox.SandboxEnvBuilder)
+    with mock.patch.object(builder, "run_python") as run_python:
+        builder.pip_install("--index-url", "https://pypi.internal/simple", "requests")
+    run_python.assert_called_once_with(
+        "-m",
+        "pip",
+        "install",
+        "--isolated",
+        "--index-url",
+        "https://pypi.internal/simple",
+        "requests",
+    )
+
+
+def test_pip_install_drops_extra_index_when_air_gapped(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.delenv("PIP_INDEX_URL", raising=False)
+    builder = sandbox.SandboxEnvBuilder.__new__(sandbox.SandboxEnvBuilder)
+    with mock.patch.object(builder, "run_python") as run_python:
+        builder.pip_install(
+            "--index-url",
+            "https://pypi.internal/simple",
+            "--extra-index-url",
+            "https://pypi.org/simple",
+            "requests",
+        )
+    run_python.assert_called_once_with(
+        "-m",
+        "pip",
+        "install",
+        "--isolated",
+        "--index-url",
+        "https://pypi.internal/simple",
+        "requests",
+    )
+
+
+def test_pip_install_uses_pip_index_url_env_when_air_gapped(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.setenv("PIP_INDEX_URL", "https://pypi.internal/simple")
+    builder = sandbox.SandboxEnvBuilder.__new__(sandbox.SandboxEnvBuilder)
+    with mock.patch.object(builder, "run_python") as run_python:
+        builder.pip_install("requests")
+    run_python.assert_called_once_with(
+        "-m",
+        "pip",
+        "install",
+        "--isolated",
+        "-i",
+        "https://pypi.internal/simple",
+        "requests",
+    )
+
+
+def test_pip_install_rejects_http_index(monkeypatch):
+    monkeypatch.delenv("SNOWFLAKE_CLI_AIR_GAPPED", raising=False)
+    builder = sandbox.SandboxEnvBuilder.__new__(sandbox.SandboxEnvBuilder)
+    with pytest.raises(CliError, match="Plaintext http://"):
+        builder.pip_install("--index-url=http://pypi.internal/simple", "requests")

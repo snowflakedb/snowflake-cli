@@ -24,6 +24,9 @@ import pytest
 from click import ClickException
 from snowflake.cli.api.cli_global_context import fork_cli_context
 from snowflake.cli.api.config import (
+    AIR_GAPPED_KEY,
+    CLI_SECTION,
+    IGNORE_NEW_VERSION_WARNING_KEY,
     ConfigFileTooWidePermissionsError,
     ConnectionConfig,
     _initialise_config,
@@ -39,6 +42,7 @@ from snowflake.cli.api.config import (
     get_file_io_encoding,
     get_stdout_encoding,
     get_subprocess_encoding,
+    is_air_gapped,
     set_config_value,
 )
 from snowflake.cli.api.exceptions import (
@@ -50,6 +54,51 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 from tests_common import IS_WINDOWS
 from tests_common.feature_flag_utils import with_feature_flags
+
+
+def test_fresh_config_does_not_persist_air_gapped_from_env(monkeypatch):
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
+    env_name = get_env_variable_name(CLI_SECTION, key=AIR_GAPPED_KEY)
+    monkeypatch.setenv(env_name, "true")
+    monkeypatch.delenv(
+        get_env_variable_name(CLI_SECTION, key=IGNORE_NEW_VERSION_WARNING_KEY),
+        raising=False,
+    )
+    with TemporaryDirectory() as tmp_dir:
+        config_file = Path(path_resolver(tmp_dir)) / "config.toml"
+        try:
+            config_init(config_file)
+            written = config_file.read_text(encoding="utf-8")
+            assert "air_gapped = false" in written
+            assert "ignore_new_version_warning = false" in written
+            assert is_air_gapped() is True
+            monkeypatch.delenv(env_name, raising=False)
+            assert is_air_gapped() is False
+        finally:
+            clean_logging_handlers()
+
+
+def test_air_gapped_from_toml_without_env(monkeypatch):
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
+    monkeypatch.delenv(
+        get_env_variable_name(CLI_SECTION, key=AIR_GAPPED_KEY), raising=False
+    )
+    with TemporaryDirectory() as tmp_dir:
+        config_file = Path(path_resolver(tmp_dir)) / "config.toml"
+        try:
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            config_file.write_text("[cli]\nair_gapped = true\n", encoding="utf-8")
+            config_file.chmod(0o600)
+            config_init(config_file)
+            assert is_air_gapped() is True
+        finally:
+            clean_logging_handlers()
 
 
 def test_empty_config_file_is_created_if_not_present():

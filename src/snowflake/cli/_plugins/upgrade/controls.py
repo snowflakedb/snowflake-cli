@@ -22,6 +22,7 @@ from snowflake.cli.api.config import (
     AUTO_UPGRADE_KEY,
     CLI_SECTION,
     get_config_bool_value,
+    is_air_gapped,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.utils.types import try_cast_to_bool
@@ -51,6 +52,8 @@ def is_auto_upgrade_enabled() -> bool:
     ``cli.ignore_new_version_warning`` does not affect this.
     """
     if _env_is_true(AUTO_UPGRADE_DONE_ENV):
+        return False
+    if is_air_gapped():
         return False
     if not FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE.is_enabled():
         return False

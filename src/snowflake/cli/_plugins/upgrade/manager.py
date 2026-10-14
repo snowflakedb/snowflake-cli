@@ -27,6 +27,7 @@ from snowflake.cli._plugins.upgrade.layout import (
     write_reverted_from,
 )
 from snowflake.cli._plugins.upgrade.repo import HttpRepo
+from snowflake.cli.api.config import is_air_gapped
 from snowflake.cli.api.exceptions import CliError
 
 STATUS_REFUSED = "refused"
@@ -233,6 +234,11 @@ def apply_revert(*, dry_run: bool) -> UpgradeDecision:
 
 
 def plan_upgrade(*, dry_run: bool, revert: bool = False) -> UpgradeDecision:
+    if is_air_gapped():
+        raise CliError(
+            "Upgrades are disabled because cli.air_gapped is set. "
+            "Unset cli.air_gapped or SNOWFLAKE_CLI_AIR_GAPPED to upgrade from a networked host."
+        )
     if __about__.INSTALLATION_SOURCE != CLIInstallationSource.SNOWFLAKE_MANAGED:
         return refuse_result()
     if revert:

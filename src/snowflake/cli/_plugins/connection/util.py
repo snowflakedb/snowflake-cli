@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import os
@@ -22,6 +23,8 @@ from functools import lru_cache
 from typing import Any, Dict, Optional
 
 from click.exceptions import ClickException
+from snowflake.cli.api.config import is_air_gapped
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import AccountIdentifier
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
@@ -32,6 +35,8 @@ log = logging.getLogger(__name__)
 ALLOWLIST_QUERY = "SELECT SYSTEM$ALLOWLIST() AS result"
 SNOWFLAKE_DEPLOYMENT = "SNOWFLAKE_DEPLOYMENT"
 LOCAL_DEPLOYMENT_REGION: str = "us-west-2"
+COMMERCIAL_HOST_APEX = "snowflakecomputing.com"
+SNOWSIGHT_COMMERCIAL_HOST = "https://app.snowflake.com"
 
 
 class MissingConnectionAccountError(ClickException):
@@ -47,7 +52,7 @@ class MissingConnectionRegionError(ClickException):
         super().__init__(
             f"The connection host ({host}) was missing or not in "
             "the expected format "
-            "(<account>.<deployment>.snowflakecomputing.com)"
+            "(<account>.<region>[.<cloud>].<domain>)"
         )
 
 
@@ -113,28 +118,82 @@ def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
         return True
 
 
+def host_labels(host: str | None) -> list[str] | None:
+    """Split a host into DNS labels after stripping a port or IP form.
+
+    IPv4/IPv6 addresses return None so callers do not treat them as a domain.
+    """
+    if not host or not isinstance(host, str):
+        return None
+    hostname = host.strip()
+    if hostname.startswith("["):
+        end = hostname.find("]")
+        if end == -1:
+            return None
+        hostname = hostname[1:end]
+    elif hostname.count(":") == 1:
+        hostname = hostname.split(":", 1)[0]
+    if not hostname:
+        return None
+    try:
+        ipaddress.ip_address(hostname)
+        return None
+    except ValueError:
+        pass
+    labels = hostname.split(".")
+    if labels[-1] == "local":
+        return ["local"]
+    return labels
+
+
+def get_host_apex(host: str | None) -> str | None:
+    """Return the registrable domain of a host (last two labels), or None.
+
+    Outside air-gapped mode only ``snowflakecomputing.com`` and ``*.local``
+    are accepted, matching the pre-air-gapped host checks.
+    """
+    labels = host_labels(host)
+    if labels is None:
+        return None
+    if labels == ["local"]:
+        return "local"
+    if len(labels) < 2:
+        return None
+    apex = ".".join(labels[-2:])
+    if not is_air_gapped() and apex != COMMERCIAL_HOST_APEX:
+        return None
+    return apex
+
+
 def get_host_region(host: str) -> str | None:
     """
     Extract the Snowsight region segment from a Snowflake host.
 
-    Supported shapes (all ending in .snowflakecomputing.com):
-        <account>.<region>.snowflakecomputing.com                    -> <region>
+    Supported shapes:
+        <account>.<region>.<apex>                                    -> <region>
             e.g. <acct>.us-east-1.snowflakecomputing.com             -> us-east-1
-        <account>.<region>.<cloud>.snowflakecomputing.com            -> <region>.<cloud>
+        <account>.<region>.<cloud>.<apex>                            -> <region>.<cloud>
             where <cloud> ∈ {aws, azure, gcp}
-        <account>.<x>.<y>.<z>.snowflakecomputing.com                 -> <x>.<y>.<z>
+        <account>.<x>.<y>.<z>.<apex>                                 -> <x>.<y>.<z>
             (legacy VPS / PrivateLink)
         *.local                                                      -> LOCAL_DEPLOYMENT_REGION
 
-    Regionless aliases (<org>-<account>.<deployment>.snowflakecomputing.com, recognizable
+    Outside air-gapped mode the apex must be ``snowflakecomputing.com``.
+    When air-gapped, the last two labels are treated as the apex.
+
+    Regionless aliases (<org>-<account>.<deployment>.<apex>, recognizable
     by a dash in the account component of a 4- or 5-part host) return None so callers
     fall back to the allowlist lookup to find the real regioned host. 6-part VPS hosts
     with dashed accounts are not ambiguous and are still parsed as regioned.
     """
-    host_parts = host.split(".")
-    if host_parts[-1] == "local":
+    host_parts = host_labels(host)
+    if host_parts is None:
+        return None
+    if host_parts == ["local"]:
         return LOCAL_DEPLOYMENT_REGION
-    if host_parts[-2:] != ["snowflakecomputing", "com"]:
+    if len(host_parts) < 3:
+        return None
+    if not is_air_gapped() and host_parts[-2:] != ["snowflakecomputing", "com"]:
         return None
     remaining = host_parts[:-2]
     if len(remaining) < 2:
@@ -256,8 +315,12 @@ def get_snowsight_host(conn: SnowflakeConnection) -> str:
         )
         return cursor.fetchone()["RESULT"]
     except Exception as e:
-        # if we cannot determine the host, assume we're on prod
-        return "https://app.snowflake.com"
+        if is_air_gapped():
+            raise CliError(
+                "Could not determine the Snowsight host from SYSTEM$GET_SNOWSIGHT_HOST(). "
+                "Check that the function is available on this account and try again."
+            ) from e
+        return SNOWSIGHT_COMMERCIAL_HOST
 
 
 def make_snowsight_url(conn: SnowflakeConnection, path: str) -> str:

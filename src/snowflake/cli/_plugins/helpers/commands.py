@@ -52,6 +52,7 @@ from snowflake.cli.api.config import (
     get_all_connections,
     get_encoding_diagnostics,
     get_file_io_encoding,
+    is_air_gapped,
     set_config_value,
 )
 from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
@@ -1252,7 +1253,11 @@ def generate_project_schema(
                 " doesn't require a Snowflake connection. It checks locally cached "
                 "version information by default. Use ",
                 code("--refresh"),
-                " to query PyPI and Homebrew directly, bypassing the cache.",
+                " to query PyPI and Homebrew directly, bypassing the cache. " "When ",
+                code("cli.air_gapped"),
+                " / ",
+                code("SNOWFLAKE_CLI_AIR_GAPPED"),
+                " is set, the command exits with an error and does not query any repository.",
             ),
         ),
         examples=(
@@ -1283,6 +1288,8 @@ def check_version(
     # This command is the explicit, on-demand version check, so mute the passive
     # upgrade banner for this run to avoid duplicating its own output.
     suppress_new_version_banner()
+    if is_air_gapped():
+        raise CliError("Version checks are disabled because cli.air_gapped is set.")
     info = get_version_info(force_refresh=refresh)
     if info.latest_version is None:
         raise CliError(

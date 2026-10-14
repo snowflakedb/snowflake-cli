@@ -65,6 +65,14 @@ def test_latest_version_unavailable(runner):
     assert "Could not determine the latest Snowflake CLI version" in result.output
 
 
+def test_air_gapped_does_not_look_like_a_network_failure(runner, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    result = runner.invoke(COMMAND)
+    assert result.exit_code != 0
+    assert "cli.air_gapped" in result.output
+    assert "Check your network connection" not in result.output
+
+
 @mock.patch(_VERSION, "1.0.0")
 def test_refresh_flag_forces_cache_bypass(runner):
     with mock.patch(
