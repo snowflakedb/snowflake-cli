@@ -87,9 +87,9 @@ from snowflake.cli.api.commands.flags import (
     InteractiveOption,
     LocalDirectoryType,
     LocalFileType,
+    OverrideableOption,
     identifier_argument,
     like_option,
-    variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
@@ -122,9 +122,6 @@ app = SnowTyperFactory(
 )
 
 dcm_identifier = identifier_argument(sf_object="DCM Project", example="MY_PROJECT")
-variables_flag = variables_option(
-    'Variables for the execution context; for example: `-D "<key>=<value>"`.'
-)
 
 
 def _from_option_callback(value: Optional[SecurePath]) -> SecurePath:
@@ -175,7 +172,15 @@ save_output_option = typer.Option(
     help="Save command response and artifacts to local 'out/' directory.",
 )
 
-env_file_option = typer.Option(
+variables_flag = OverrideableOption(
+    None,
+    "--variable",
+    "-D",
+    help='Variables for the execution context; for example: `-D "<key>=<value>"`.',
+    show_default=False,
+)
+
+env_file_option = OverrideableOption(
     None,
     "--env-file",
     "-e",
@@ -231,6 +236,22 @@ optional_dcm_identifier = typer.Argument(
     click_type=IdentifierType(),
 )
 
+
+def _deployment_name_callback(value: Optional[str]) -> Optional[str]:
+    if value is not None and not value.strip():
+        raise typer.BadParameter(
+            "Deployment name or alias cannot be blank.", param_hint="--deployment"
+        )
+    return value
+
+
+deployment_option = OverrideableOption(
+    None,
+    "--deployment",
+    help="Name or alias of the deployment. For names containing '$', use single quotes to prevent shell expansion (e.g., 'DEPLOYMENT$1'). If both the deployment name and the alias match two different deployments, the deployment name match has higher precedence.",
+    show_default=False,
+    callback=_deployment_name_callback,
+)
 
 _DCM_RELATED = (
     RelatedLink(href="/developer-guide/snowflake-cli/index"),
@@ -614,11 +635,16 @@ def _run_server_poll(
 def deploy(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
-    variables: Optional[List[str]] = variables_flag,
+    variables: Optional[List[str]] = variables_flag(
+        mutually_exclusive=["deployment"], default=[]
+    ),
     alias: Optional[str] = alias_option,
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
-    env_file: Optional[SecurePath] = env_file_option,
+    env_file: Optional[SecurePath] = env_file_option(mutually_exclusive=["deployment"]),
+    deployment: Optional[str] = deployment_option(
+        mutually_exclusive=["variables", "env_file"]
+    ),
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
@@ -639,15 +665,20 @@ def deploy(
         env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
         server_steps = _server_steps([RENDER, COMPILE, PLAN, DEPLOY], skip_plan)
-        progress = MultiStepProgress([UPLOAD, *server_steps])
+        client_steps = [] if deployment else [UPLOAD]
+        progress = MultiStepProgress(client_steps + server_steps)
         with progress_session(progress):
             if skip_plan:
                 cli_console.warning("Skipping planning step")
 
             manager = DCMProjectManager()
-            effective_stage = _upload_step(
-                progress, manager, project_id, from_location, assets=context.assets
-            )
+            if deployment is None:
+                effective_stage = _upload_step(
+                    progress, manager, project_id, from_location, assets=context.assets
+                )
+            else:
+                effective_stage = None
+
             sfqid = manager.deploy_async(
                 project_identifier=project_id,
                 configuration=context.configuration,
@@ -656,6 +687,7 @@ def deploy(
                 alias=alias,
                 skip_plan=skip_plan,
                 env_vars=env_vars,
+                deployment_name=deployment,
             )
             result = _run_server_poll(manager, progress, server_steps, sfqid)
 
@@ -934,14 +966,19 @@ def purge(
 def plan(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
-    variables: Optional[List[str]] = variables_flag,
+    variables: Optional[List[str]] = variables_flag(
+        mutually_exclusive=["deployment"], default=[]
+    ),
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
-    env_file: Optional[SecurePath] = env_file_option,
+    env_file: Optional[SecurePath] = env_file_option(mutually_exclusive=["deployment"]),
     delta: bool = typer.Option(
         False,
         "--delta",
         help="Process only statements changed since the last `deploy`, plus statements potentially impacted by those changes.",
+    ),
+    deployment: Optional[str] = deployment_option(
+        mutually_exclusive=["variables", "env_file"]
     ),
     **options,
 ):
@@ -956,12 +993,17 @@ def plan(
         env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
         server_steps = [RENDER, COMPILE, PLAN]
-        progress = MultiStepProgress([UPLOAD, *server_steps])
+        client_steps = [] if deployment else [UPLOAD]
+        progress = MultiStepProgress(client_steps + server_steps)
         with progress_session(progress):
             manager = DCMProjectManager()
-            effective_stage = _upload_step(
-                progress, manager, project_id, from_location, assets=context.assets
-            )
+            if deployment is None:
+                effective_stage = _upload_step(
+                    progress, manager, project_id, from_location, assets=context.assets
+                )
+            else:
+                effective_stage = None
+
             with output_stage(
                 project_id, command_name="plan", save_output=save_output
             ) as output_path:
@@ -973,6 +1015,7 @@ def plan(
                     delta=delta,
                     output_path=output_path,
                     env_vars=env_vars,
+                    deployment_name=deployment,
                 )
                 result = _run_server_poll(manager, progress, server_steps, sfqid)
 
@@ -987,10 +1030,10 @@ def plan(
 def raw_analyze(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
-    variables: Optional[List[str]] = variables_flag,
+    variables: Optional[List[str]] = variables_flag(),
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
-    env_file: Optional[SecurePath] = env_file_option,
+    env_file: Optional[SecurePath] = env_file_option(),
     **options,
 ):
     """Analyzes a DCM Project."""
@@ -1417,12 +1460,7 @@ def list_deployments(
 )
 def drop_deployment(
     identifier: Optional[FQN] = optional_dcm_identifier,
-    deployment: str = typer.Option(
-        ...,
-        "--deployment",
-        help="Name or alias of the deployment to drop. For names containing '$', use single quotes to prevent shell expansion (for example, 'DEPLOYMENT$1'). If both the deployment name and the alias match two different deployments, the deployment name match has higher precedence.",
-        show_default=False,
-    ),
+    deployment: str = deployment_option(default=...),
     if_exists: bool = IfExistsOption(
         help="Do nothing if the deployment does not exist."
     ),
@@ -1551,7 +1589,7 @@ def preview(
         click_type=IdentifierType(),
     ),
     from_location: SecurePath = from_option,
-    variables: Optional[List[str]] = variables_flag,
+    variables: Optional[List[str]] = variables_flag(),
     limit: Optional[int] = typer.Option(
         None,
         "--limit",
@@ -1559,7 +1597,7 @@ def preview(
         show_default=False,
     ),
     target: Optional[str] = target_option,
-    env_file: Optional[SecurePath] = env_file_option,
+    env_file: Optional[SecurePath] = env_file_option(),
     **options,
 ):
     """
@@ -1747,12 +1785,12 @@ def _process_test_outcomes(
 def test(
     identifier: Optional[FQN] = optional_dcm_identifier,
     from_location: SecurePath = from_option,
-    variables: Optional[List[str]] = variables_flag,
+    variables: Optional[List[str]] = variables_flag(),
     expectations: bool = expectations_option,
     scripts: Optional[List[str]] = scripts_option,
     all_scripts: bool = all_scripts_option,
     target: Optional[str] = target_option,
-    env_file: Optional[SecurePath] = env_file_option,
+    env_file: Optional[SecurePath] = env_file_option(),
     save_output: bool = save_output_option,
     **options,
 ):

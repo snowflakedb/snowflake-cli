@@ -52,6 +52,19 @@ def _extract_and_validate_raw_analyze_json(output: str):
     return output_json
 
 
+def _create_and_deploy(
+    runner, project_name: str, table_fqn: str, alias: Optional[str] = None
+) -> None:
+    result = runner.invoke_with_connection(["dcm", "create", project_name])
+    assert result.exit_code == 0, result.output
+    command = ["dcm", "deploy", project_name]
+    if alias:
+        command.extend(["--alias", alias])
+    command.extend(["-D", f"table_name='{table_fqn}'"])
+    result = runner.invoke_with_connection(command)
+    assert result.exit_code == 0, result.output
+
+
 def assert_last_stdout_line_equals(expected, result: CommandResult):
     assert result.output is not None
     assert expected in result.output.strip().split("\n")[-1], result.output
@@ -382,6 +395,240 @@ def test_dcm_drop_deployment(
             f"Deployment 'non_existent' dropped from DCM Project '{project_name}'"
             in result.output
         )
+
+
+@pytest.mark.integration
+def test_dcm_plan_and_deploy_from_existing_deployment(
+    runner,
+    test_database,
+    dcm_project_directory,
+    sql_test_helper,
+    cli_without_warehouse,
+):
+    project_name = "project_descriptive_name"
+    table_fqn = f"{test_database}.PUBLIC.FromDeploymentTable"
+
+    with dcm_project_directory("dcm_project") as project_root:
+        _create_and_deploy(runner, project_name, table_fqn)
+        _assert_project_has_deployments(runner, project_name, {("DEPLOYMENT$1", None)})
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "plan",
+                project_name,
+                "--deployment",
+                "DEPLOYMENT$1",
+                "--save-output",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "UPLOAD" not in result.output
+        assert_json_response_saved("plan", project_root)
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "--deployment",
+                "DEPLOYMENT$1",
+                "--alias",
+                "from-existing",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "UPLOAD" not in result.output
+        _assert_project_has_deployments(
+            runner,
+            project_name,
+            {("DEPLOYMENT$1", None), ("DEPLOYMENT$2", "from-existing")},
+        )
+
+        rows = sql_test_helper.execute_single_sql(
+            f"SHOW TABLES LIKE 'FromDeploymentTable' IN SCHEMA {test_database}.PUBLIC"
+        )
+        assert len(rows) == 1
+
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output
+
+
+@pytest.mark.integration
+def test_dcm_plan_and_deploy_from_deployment_uses_manifest_default_target(
+    runner,
+    test_database,
+    dcm_project_directory,
+    sql_test_helper,
+    cli_without_warehouse,
+):
+    project_name = "project_from_deployment_default_target"
+    table_name = "snowcli_test_table_dev"
+
+    with dcm_project_directory("dcm_project_multiple_configurations"):
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            ["dcm", "deploy", project_name, "-D", f"db='{test_database}'"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_project_has_deployments(runner, project_name, {("DEPLOYMENT$1", None)})
+
+        result = runner.invoke_with_connection(
+            ["dcm", "plan", project_name, "--deployment", "DEPLOYMENT$1"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "UPLOAD" not in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "--deployment",
+                "DEPLOYMENT$1",
+                "--alias",
+                "from-existing",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "UPLOAD" not in result.output
+        _assert_project_has_deployments(
+            runner,
+            project_name,
+            {("DEPLOYMENT$1", None), ("DEPLOYMENT$2", "from-existing")},
+        )
+
+        rows = sql_test_helper.execute_single_sql(
+            f"SHOW TABLES LIKE '{table_name}' IN SCHEMA {test_database}.PUBLIC"
+        )
+        assert len(rows) == 1
+
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output
+
+
+@pytest.mark.integration
+def test_dcm_plan_from_deployment_by_alias_and_delta(
+    runner,
+    test_database,
+    dcm_project_directory,
+    cli_without_warehouse,
+):
+    project_name = "project_descriptive_name"
+    table_fqn = f"{test_database}.PUBLIC.FromDeploymentAliasTable"
+
+    with dcm_project_directory("dcm_project"):
+        _create_and_deploy(runner, project_name, table_fqn, alias="seed")
+        _assert_project_has_deployments(
+            runner, project_name, {("DEPLOYMENT$1", "seed")}
+        )
+
+        result = runner.invoke_with_connection(
+            ["dcm", "plan", project_name, "--deployment", "seed"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "UPLOAD" not in result.output
+
+        result = runner.invoke_with_connection(
+            ["dcm", "plan", project_name, "--deployment", "seed", "--delta"]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output
+
+
+@pytest.mark.integration
+def test_dcm_plan_from_existing_deployment_with_from(
+    runner,
+    test_database,
+    dcm_project_directory,
+    tmp_path,
+    cli_without_warehouse,
+):
+    project_name = "project_descriptive_name"
+    table_fqn = f"{test_database}.PUBLIC.FromDeploymentFromFlagTable"
+
+    with dcm_project_directory("dcm_project") as project_root:
+        _create_and_deploy(runner, project_name, table_fqn)
+        project_source_path = project_root
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "plan",
+                "--from",
+                str(project_source_path),
+                "--deployment",
+                "DEPLOYMENT$1",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "UPLOAD" not in result.output
+    finally:
+        os.chdir(original_cwd)
+
+    result = runner.invoke_with_connection(["dcm", "drop", project_name])
+    assert result.exit_code == 0, result.output
+
+
+@pytest.mark.integration
+def test_dcm_deploy_from_deployment_ignores_diverged_local_files(
+    runner,
+    test_database,
+    dcm_project_directory,
+    sql_test_helper,
+    cli_without_warehouse,
+):
+    project_name = "project_descriptive_name"
+    base_table = f"{test_database}.PUBLIC.DivergeBase"
+    extra_table = f"{test_database}.PUBLIC.DivergeExtra"
+
+    def table_count(name: str) -> int:
+        rows = sql_test_helper.execute_single_sql(
+            f"SHOW TABLES LIKE '{name}' IN SCHEMA {test_database}.PUBLIC"
+        )
+        return len(rows)
+
+    with dcm_project_directory("dcm_project") as project_root:
+        _create_and_deploy(runner, project_name, base_table)
+        _assert_project_has_deployments(runner, project_name, {("DEPLOYMENT$1", None)})
+        assert table_count("DivergeBase") == 1
+        assert table_count("DivergeExtra") == 0
+
+        extra_file = project_root / "sources" / "definitions" / "file_b.sql"
+        extra_file.write_text(
+            f"define table identifier('{extra_table}') (bazQux string);\n"
+        )
+
+        result = runner.invoke_with_connection(
+            ["dcm", "deploy", project_name, "--deployment", "DEPLOYMENT$1"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "UPLOAD" not in result.output
+        _assert_project_has_deployments(
+            runner, project_name, {("DEPLOYMENT$1", None), ("DEPLOYMENT$2", None)}
+        )
+        assert table_count("DivergeBase") == 1
+        assert (
+            table_count("DivergeExtra") == 0
+        ), "deploying from a deployment used the diverged local files"
+
+        result = runner.invoke_with_connection(
+            ["dcm", "deploy", project_name, "-D", f"table_name='{base_table}'"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            table_count("DivergeExtra") == 1
+        ), "the diverged local file never deployed, so the check above proved nothing"
+
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output
 
 
 @pytest.mark.qa_only

@@ -17,7 +17,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 from tempfile import TemporaryDirectory
-from typing import List, Set
+from typing import List, Set, cast
 
 from snowflake.cli._plugins.dcm.models import (
     MANIFEST_FILE_NAME,
@@ -34,6 +34,7 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.cli.api.project.util import to_quoted_identifier
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -153,12 +154,13 @@ class DCMProjectManager(SqlExecutionMixin):
     def deploy_async(
         self,
         project_identifier: FQN,
-        from_stage: str,
+        from_stage: str | None,
         configuration: str | None = None,
         variables: List[str] | None = None,
         alias: str | None = None,
         skip_plan: bool = False,
         env_vars: dict[str, str] | None = None,
+        deployment_name: str | None = None,
     ) -> str:
         log.info(
             "Submitting DCM deploy async (project_identifier=%s, has_configuration=%s, variables_count=%d, skip_plan=%s).",
@@ -170,13 +172,18 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} DEPLOY"
         if alias:
             query += f' AS "{alias}"'
-        query += self._get_configuration_and_variables_query(configuration, variables)
-        if env_vars:
-            query += " ENVIRONMENT (?)"
-        query += self._get_from_stage_query(from_stage)
+        if deployment_name is None:
+            query += self._get_configuration_and_variables_query(
+                configuration, variables
+            )
+            if env_vars:
+                query += " ENVIRONMENT (?)"
+        query += self._get_from_clause(from_stage, deployment_name)
         if skip_plan:
             query += f" SKIP PLAN"
-        cursor = self._execute_with_optional_env_vars_async(query, env_vars)
+        cursor = self._execute_with_optional_env_vars_async(
+            query, env_vars if deployment_name is None else None
+        )
         log.info(
             "DCM deploy async submitted (project_identifier=%s, sfqid=%s).",
             project_identifier,
@@ -212,12 +219,13 @@ class DCMProjectManager(SqlExecutionMixin):
     def plan_async(
         self,
         project_identifier: FQN,
-        from_stage: str,
+        from_stage: str | None,
         configuration: str | None = None,
         variables: List[str] | None = None,
         delta: bool = False,
         output_path: str | None = None,
         env_vars: dict[str, str] | None = None,
+        deployment_name: str | None = None,
     ) -> str:
         log.info(
             "Submitting DCM plan async (project_identifier=%s, has_configuration=%s, variables_count=%d, has_output_path=%s, delta=%s).",
@@ -230,13 +238,18 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
         if delta:
             query += " DELTA"
-        query += self._get_configuration_and_variables_query(configuration, variables)
-        if env_vars:
-            query += " ENVIRONMENT (?)"
-        query += self._get_from_stage_query(from_stage)
+        if deployment_name is None:
+            query += self._get_configuration_and_variables_query(
+                configuration, variables
+            )
+            if env_vars:
+                query += " ENVIRONMENT (?)"
+        query += self._get_from_clause(from_stage, deployment_name)
         if output_path:
             query += f" OUTPUT_PATH {output_path}"
-        cursor = self._execute_with_optional_env_vars_async(query, env_vars)
+        cursor = self._execute_with_optional_env_vars_async(
+            query, env_vars if deployment_name is None else None
+        )
         log.info(
             "DCM plan async submitted (project_identifier=%s, sfqid=%s).",
             project_identifier,
@@ -387,6 +400,14 @@ class DCMProjectManager(SqlExecutionMixin):
     ) -> SnowflakeCursor:
         params = [json.dumps(env_vars)] if env_vars else None
         return self.execute_query_with_params_async(query=query, params=params)
+
+    @classmethod
+    def _get_from_clause(
+        cls, from_stage: str | None, deployment_name: str | None
+    ) -> str:
+        if deployment_name is not None:
+            return f" FROM DEPLOYMENT {to_quoted_identifier(deployment_name)}"
+        return cls._get_from_stage_query(cast(str, from_stage))
 
     @staticmethod
     def _get_from_stage_query(from_stage: str) -> str:

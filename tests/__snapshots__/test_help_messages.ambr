@@ -7956,6 +7956,12 @@
   |                              default_target if not specified.                |
   | --save-output                Save command response and artifacts to local    |
   |                              'out/' directory.                               |
+  | --deployment           TEXT  Name or alias of the deployment. For names      |
+  |                              containing '$', use single quotes to prevent    |
+  |                              shell expansion (e.g., 'DEPLOYMENT$1'). If both |
+  |                              the deployment name and the alias match two     |
+  |                              different deployments, the deployment name      |
+  |                              match has higher precedence.                    |
   | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+
@@ -8122,13 +8128,12 @@
   |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --deployment          TEXT  Name or alias of the deployment to drop. For  |
-  |                                names containing '$', use single quotes to    |
-  |                                prevent shell expansion (for example,         |
-  |                                'DEPLOYMENT$1'). If both the deployment name  |
-  |                                and the alias match two different             |
-  |                                deployments, the deployment name match has    |
-  |                                higher precedence.                            |
+  | *  --deployment          TEXT  Name or alias of the deployment. For names    |
+  |                                containing '$', use single quotes to prevent  |
+  |                                shell expansion (e.g., 'DEPLOYMENT$1'). If    |
+  |                                both the deployment name and the alias match  |
+  |                                two different deployments, the deployment     |
+  |                                name match has higher precedence.             |
   |                                [required]                                    |
   |    --if-exists                 Do nothing if the deployment does not exist.  |
   |    --from                PATH  Local directory path containing DCM project   |
@@ -8437,6 +8442,12 @@
   | --delta                      Process only statements changed since the last  |
   |                              deploy, plus statements potentially impacted by |
   |                              those changes.                                  |
+  | --deployment           TEXT  Name or alias of the deployment. For names      |
+  |                              containing '$', use single quotes to prevent    |
+  |                              shell expansion (e.g., 'DEPLOYMENT$1'). If both |
+  |                              the deployment name and the alias match two     |
+  |                              different deployments, the deployment name      |
+  |                              match has higher precedence.                    |
   | --help         -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+
