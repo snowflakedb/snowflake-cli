@@ -119,6 +119,8 @@ _APP_SPACE_COLUMN_MAP = {
 # CNG apps serve ingress from per-account URLs (Northstar URLs) that require a
 # per-account TLS certificate to be provisioned for the account.
 SERVERLESS_COMPUTE_RESOURCE = "SERVERLESS"
+# Backend the server uses when ``compute_resource`` is unset.
+MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE = "MANAGED_COMPUTE_POOL"
 
 # ``compute_resource: SERVERLESS`` is applied only when
 # ``FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS`` is ``ENABLED``.
@@ -249,6 +251,15 @@ from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import OperationalError, ProgrammingError
 
 log = logging.getLogger(__name__)
+
+# Account parameter that must be on to deploy a Python runtime app to each
+# compute resource.
+PYTHON_RUNTIME_PARAMETERS = {
+    SERVERLESS_COMPUTE_RESOURCE: UIParameter.APP_PYTHON_RUNTIME_SERVERLESS,
+    MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE: (
+        UIParameter.APP_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL
+    ),
+}
 
 # Characters allowed in a ``file://`` URI without wrapping it in a quoted
 # string literal. Mirrors the stage manager's equivalent so workspace PUT
@@ -2330,6 +2341,21 @@ class SnowflakeAppManager(SqlExecutionMixin):
         this only kicks off provisioning.
         """
         self.execute_query(f"SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}()")
+
+    def python_runtime_enabled(self, compute_resource: str) -> bool:
+        """Return whether this account may deploy a Python runtime app to *compute_resource*.
+
+        Reads the matching :data:`PYTHON_RUNTIME_PARAMETERS` entry from the
+        ``CLIENT_PARAMS_INFO`` bootstrap payload. A missing parameter, any value
+        other than ``true``, or a failure to read it is not enabled.
+        """
+        parameter = PYTHON_RUNTIME_PARAMETERS[compute_resource]
+        try:
+            value = get_ui_parameter(self._conn, parameter, False)
+        except (ProgrammingError, OperationalError, ValueError, KeyError):
+            log.debug("Could not read parameter %s.", parameter.value, exc_info=True)
+            return False
+        return str(value).strip().lower() == "true"
 
     def serverless_account_parameters_enabled(self) -> bool:
         """Return whether this account may use ``compute_resource: SERVERLESS``.

@@ -59,6 +59,7 @@ from snowflake.cli._plugins.apps.manager import (
     perform_bundle,
 )
 from snowflake.cli._plugins.apps.upload_errors import UploadError
+from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
@@ -691,6 +692,47 @@ class TestServerlessAccountParameters:
     def test_disabled_when_a_parameter_cannot_be_read(self, mock_get):
         mgr = self._manager()
         assert mgr.serverless_account_parameters_enabled() is False
+
+
+class TestPythonRuntimeParameters:
+    """The Python runtime is allowed per compute resource by a UI parameter."""
+
+    _GET_UI_PARAMETER = "snowflake.cli._plugins.apps.manager.get_ui_parameter"
+
+    def _manager(self):
+        mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
+        mgr._connection = Mock()  # noqa: SLF001
+        return mgr
+
+    @pytest.mark.parametrize(
+        "compute_resource, parameter",
+        [
+            ("SERVERLESS", UIParameter.APP_PYTHON_RUNTIME_SERVERLESS),
+            (
+                "MANAGED_COMPUTE_POOL",
+                UIParameter.APP_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL,
+            ),
+        ],
+    )
+    def test_reads_parameter_for_compute_resource(self, compute_resource, parameter):
+        connection = Mock()
+        mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
+        mgr._connection = connection  # noqa: SLF001
+        with patch(self._GET_UI_PARAMETER, return_value=True) as mock_get:
+            assert mgr.python_runtime_enabled(compute_resource) is True
+        mock_get.assert_called_once_with(connection, parameter, False)
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [(True, True), ("true", True), (False, False), ("false", False)],
+    )
+    def test_value(self, value, expected):
+        with patch(self._GET_UI_PARAMETER, return_value=value):
+            assert self._manager().python_runtime_enabled("SERVERLESS") is expected
+
+    def test_disabled_when_parameter_cannot_be_read(self):
+        with patch(self._GET_UI_PARAMETER, side_effect=ProgrammingError("denied")):
+            assert self._manager().python_runtime_enabled("SERVERLESS") is False
 
 
 class TestEnsureCngUrlCertReady:

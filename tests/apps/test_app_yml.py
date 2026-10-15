@@ -134,6 +134,32 @@ _CNG_APP_YML = dedent(
 )
 
 
+_PYTHON_APP_YML = dedent(
+    """\
+    version: 2
+    name: PY_APP
+    database: SNOWFLAKE_APPS
+    schema: PUBLIC
+    query_warehouse: WH
+    package_name: PY_APP
+    code_stage: SNOWFLAKE_APPS.PUBLIC.PY_CODE
+    artifact_repo: SNOWFLAKE_APPS.PUBLIC.PY_REPO
+    install:
+      commands:
+        - ["uv", "sync"]
+    run:
+      command: ["python", "app.py"]
+    targets:
+      default_backend: {}
+      managed:
+        compute_resource: MANAGED_COMPUTE_POOL
+      serverless:
+        compute_resource: SERVERLESS
+        url_prefix: PY_APP
+    """
+)
+
+
 _SPCS_COMPUTE_POOL_APP_YML = dedent(
     """\
     version: 2
@@ -201,6 +227,49 @@ class TestAppYmlDefinition:
         # targets.
         assert model.default_target == "dev"
         assert set(model.targets) == {"dev", "prod"}
+
+    @pytest.mark.parametrize(
+        "phases, expected",
+        [
+            pytest.param({}, False, id="node-defaults"),
+            pytest.param(
+                {"install": {"commands": [["pip", "install", "-r", "req.txt"]]}},
+                True,
+                id="pip-install",
+            ),
+            pytest.param(
+                {"install": {"commands": [["npm", "ci"], ["uv", "sync"]]}},
+                True,
+                id="uv-in-later-command",
+            ),
+            pytest.param(
+                {"build": {"commands": [["pip3.12", "install", "."]]}},
+                True,
+                id="versioned-pip-build",
+            ),
+            pytest.param(
+                {"run": {"command": ["/usr/bin/python3", "-m", "app"]}},
+                True,
+                id="python-path-run",
+            ),
+            pytest.param(
+                {"dev": {"command": ["uvx", "fastapi", "dev"]}}, True, id="uvx-dev"
+            ),
+            pytest.param(
+                {"run": {"command": ["node", "pipeline.js"]}},
+                False,
+                id="python-tool-only-as-argument",
+            ),
+            pytest.param(
+                {"install": {"commands": [["pipenv", "install"]]}},
+                False,
+                id="similar-prefix-not-matched",
+            ),
+            pytest.param({"install": {"commands": [[]]}}, False, id="empty-command"),
+        ],
+    )
+    def test_is_python_runtime(self, phases, expected):
+        assert _definition(**phases).is_python_runtime is expected
 
     def test_legacy_targets_default_key_rejected(self):
         # The pre-release form nested ``default`` under ``targets``; it is now a
@@ -1112,6 +1181,7 @@ def _make_manager_mock(mock_mgr_cls):
     mgr.build_app_artifact_repo.return_value = "Build job submitted: DB.SC.BUILD_JOB_1"
     mgr.current_role.return_value = "TEST_ROLE"
     mgr.serverless_account_parameters_enabled.return_value = True
+    mgr.python_runtime_enabled.return_value = True
     # build_service_specification / resolve_application_service_url are pure —
     # delegate to the real implementations so the deploy path builds a real spec.
     mgr.build_service_specification.side_effect = (
@@ -1848,6 +1918,92 @@ class TestDeployFromAppYml:
 
         mock_cert.assert_not_called()
         mgr.create_or_alter_app_service.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "target, compute_resource",
+        [
+            ("default_backend", "MANAGED_COMPUTE_POOL"),
+            ("managed", "MANAGED_COMPUTE_POOL"),
+            ("serverless", "SERVERLESS"),
+        ],
+    )
+    @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_python_runtime_refused_when_parameter_disabled(
+        self, mock_ctx, mock_mgr_cls, mock_cert, target, compute_resource, tmp_path
+    ):
+        """A Python app fails before any side effect when its compute resource is not enabled."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_PYTHON_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.python_runtime_enabled.return_value = False
+
+        with pytest.raises(
+            CliError,
+            match=f"Python runtime is not enabled for compute_resource {compute_resource}",
+        ):
+            snowflake_app_deploy(
+                None, False, False, False, interactive=False, target=target
+            )
+
+        mgr.python_runtime_enabled.assert_called_once_with(compute_resource)
+        mgr.create_schema_if_not_exists.assert_not_called()
+        mgr.upload_to_stage.assert_not_called()
+        mgr.build_app_artifact_repo.assert_not_called()
+        mgr.create_or_alter_app_service.assert_not_called()
+        mock_cert.assert_not_called()
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_python_runtime_deploys_when_parameter_enabled(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_PYTHON_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "py-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        snowflake_app_deploy(
+            None, False, False, False, interactive=False, target="managed"
+        )
+
+        mgr.python_runtime_enabled.assert_called_once_with("MANAGED_COMPUTE_POOL")
+        mgr.create_or_alter_app_service.assert_called_once()
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_node_runtime_skips_python_runtime_check(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.python_runtime_enabled.return_value = False
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "my-app.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        snowflake_app_deploy(None, False, False, False, interactive=False, target=None)
+
+        mgr.python_runtime_enabled.assert_not_called()
+        mgr.create_or_alter_app_service.assert_called_once()
 
     @patch(f"{_COMMANDS}._poll_until")
     @patch(f"{_COMMANDS}.perform_bundle")

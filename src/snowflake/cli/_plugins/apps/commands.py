@@ -62,6 +62,7 @@ from snowflake.cli._plugins.apps.generate import _generate_app_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
+    MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
     SERVERLESS_COMPUTE_RESOURCE,
     PerAccountCertStatus,
@@ -1761,6 +1762,30 @@ def _effective_compute_resource(
     return None
 
 
+def _ensure_python_runtime_enabled(
+    manager: SnowflakeAppManager,
+    app_def: AppYmlDefinition,
+    compute_resource: Optional[str],
+) -> None:
+    """Raise when *app_def* uses the Python runtime on a compute resource the account does not allow.
+
+    An unset *compute_resource* is checked as ``MANAGED_COMPUTE_POOL``, the
+    backend the server uses by default.
+    """
+    if not app_def.is_python_runtime:
+        return
+    effective = compute_resource or MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE
+    if manager.python_runtime_enabled(effective):
+        return
+    raise CliError(
+        f"The Python runtime is not enabled for compute_resource {effective} in "
+        f"this account. This app uses it because an install, build, run, or dev "
+        f"command in {APP_YML_FILENAME} runs pip, python, or uv. Deploy to a "
+        f"compute_resource that allows the Python runtime, or contact Snowflake "
+        f"support to enable it."
+    )
+
+
 def _requests_event_table_health_monitoring(
     stream: EventStream,
     since: Optional[str],
@@ -2394,6 +2419,8 @@ def _deploy_from_app_yml(
         )
     else:
         cli_console.step(f"Deploying application service {service_label}.")
+
+    _ensure_python_runtime_enabled(manager, app_def, tgt.compute_resource)
 
     _ensure_app_derived_schema(
         manager,

@@ -30,7 +30,8 @@ root field except those four builder phases can be overridden per target.
 
 from __future__ import annotations
 
-from pathlib import Path
+import re
+from pathlib import Path, PurePath
 from typing import Dict, List, Optional
 
 import yaml
@@ -54,6 +55,11 @@ APP_YML_FILENAME = "app.yml"
 # (for example ``2.1`` or ``3``), the manifest is a newer schema this CLI does
 # not understand and is rejected rather than parsed against the v2 model.
 SUPPORTED_APP_YML_VERSION = 2
+
+# Executables that mark a builder phase command as a Python runtime command:
+# ``pip`` / ``pip3`` / ``pip3.12``, ``python`` / ``python3`` / ``python3.12``,
+# ``uv`` and ``uvx``.
+_PYTHON_RUNTIME_EXECUTABLE = re.compile(r"^(pip|python)(\d+(\.\d+)?)?$|^uvx?$")
 
 
 class AppYmlSecret(UpdatableModel):
@@ -363,6 +369,26 @@ class AppYmlDefinition(_AppYmlServiceConfig):
         title="Dev command",
         default_factory=lambda: AppYmlRunPhase(command=["npm", "run", "dev"]),
     )
+
+    @property
+    def is_python_runtime(self) -> bool:
+        """Whether any builder phase runs a Python tool (``pip``, ``python``, ``uv``).
+
+        The builder runs the ``install`` / ``build`` / ``run`` / ``dev`` commands
+        as given, and the defaults are Node commands, so a Python executable in
+        any of them means the app needs the Python runtime.
+        """
+        commands = [
+            *self.install.commands,
+            *self.build.commands,
+            self.run.command,
+            self.dev.command,
+        ]
+        return any(
+            _PYTHON_RUNTIME_EXECUTABLE.match(PurePath(command[0]).name.lower())
+            for command in commands
+            if command
+        )
 
     @field_validator("targets", mode="before")
     @classmethod
