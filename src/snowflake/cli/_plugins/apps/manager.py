@@ -128,6 +128,14 @@ MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE = "MANAGED_COMPUTE_POOL"
 # ``SHOW PARAMETERS``. This check is intentionally not advertised in help or
 # release notes.
 
+# Capabilities reported by ``snow app setup --capabilities``, keyed by their
+# user-facing name, with the ``CLIENT_PARAMS_INFO`` parameter that gates each.
+APP_CAPABILITY_PARAMETERS = {
+    "serverless": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+    "python": "ENABLE_APP_SERVICE_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL",
+    "python-serverless": "ENABLE_APP_SERVICE_PYTHON_RUNTIME_SERVERLESS",
+}
+
 # System function that triggers per-account URL certificate issuance for the
 # account. Issuance is asynchronous and can take up to ~3 hours, so a CNG
 # deploy starts it when the certificate is missing and then stops; the user
@@ -533,6 +541,20 @@ def _is_unknown_function_error(exc: ProgrammingError) -> bool:
         "unknown function" in message.lower()
         and APP_SERVICE_DEFAULTS_FUNCTION in message
     )
+
+
+def _is_account_parameter_enabled(value: Any) -> bool:
+    """Return whether a ``CLIENT_PARAMS_INFO`` parameter *value* is on.
+
+    Boolean parameters are on when ``true``. Feature parameters are on when
+    ``ENABLED`` or ``ENABLED_PUBLIC_PREVIEW`` (the system-level public-preview
+    value); ``DISABLED_PRIVATE_PREVIEW`` is not on. A missing value is not on.
+    """
+    return value is not None and str(value).strip().lower() in {
+        "true",
+        "enabled",
+        "enabled_public_preview",
+    }
 
 
 def _is_live_version_already_exists(exc: ProgrammingError) -> bool:
@@ -2373,16 +2395,34 @@ class SnowflakeAppManager(SqlExecutionMixin):
                 "Could not read account parameter %s.", parameter.value, exc_info=True
             )
             return False
-        # ENABLED_PUBLIC_PREVIEW is the system-level public-preview value.
-        # DISABLED_PRIVATE_PREVIEW is not on.
-        if value is not None and str(value).strip().lower() in {
-            "true",
-            "enabled",
-            "enabled_public_preview",
-        }:
+        if _is_account_parameter_enabled(value):
             return True
         log.debug("Account parameter %s is not enabled.", parameter.value)
         return False
+
+    def fetch_account_capabilities(self) -> Dict[str, bool]:
+        """Return whether each of :data:`APP_CAPABILITY_PARAMETERS` is enabled.
+
+        Reads the ``CLIENT_PARAMS_INFO`` bootstrap payload once (the payload
+        :func:`get_ui_parameter` reads) and judges each value like
+        :meth:`serverless_account_parameters_enabled`. A missing parameter, or a
+        failure to read the payload, is not enabled.
+        """
+        try:
+            cursor = self.execute_query(
+                "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
+            )
+            values = {
+                row["name"]: row["value"]
+                for row in json.loads(cursor.fetchone()[0])["clientParamsInfo"]
+            }
+        except Exception:
+            log.debug("Could not read account parameters.", exc_info=True)
+            values = {}
+        return {
+            name: _is_account_parameter_enabled(values.get(parameter))
+            for name, parameter in APP_CAPABILITY_PARAMETERS.items()
+        }
 
     def create_app_service(
         self,

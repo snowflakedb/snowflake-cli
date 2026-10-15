@@ -89,7 +89,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -1095,6 +1095,7 @@ def snowflake_app_setup(
     dry_run: bool,
     compute_pool: Optional[str],
     build_eai: Optional[str],
+    capabilities: bool = False,
 ) -> CommandResult:
     """Initialize a Snowflake App Runtime project manifest.
 
@@ -1103,7 +1104,13 @@ def snowflake_app_setup(
     An already-initialized project is left untouched: initialization is skipped
     when either manifest is present. See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
+
+    With *capabilities*, nothing is written; see
+    :func:`_report_account_capabilities`.
     """
+    if capabilities:
+        return _report_account_capabilities(app_name, dry_run, compute_pool, build_eai)
+
     ctx = get_cli_context()
     metrics = ctx.metrics
 
@@ -1316,6 +1323,36 @@ def snowflake_app_setup(
         if dry_run:
             exc.exit_code = 0
         raise
+
+
+def _report_account_capabilities(
+    app_name: Optional[str],
+    dry_run: bool,
+    compute_pool: Optional[str],
+    build_eai: Optional[str],
+) -> CommandResult:
+    """Report whether the account supports each Snowflake App Runtime capability.
+
+    Backs ``snow app setup --capabilities``. It writes no ``app.yml``, so the
+    setup options that only shape that file are rejected.
+    """
+    metrics = get_cli_context().metrics
+    with metrics.span("snowflake_app.setup"):
+        setup_options = {
+            "--app-name": app_name,
+            "--dry-run": True if dry_run else None,
+            "--compute-pool": compute_pool,
+            "--build-eai": build_eai,
+        }
+        set_options = [
+            name for name, value in setup_options.items() if value is not None
+        ]
+        if set_options:
+            raise IncompatibleParametersError(["--capabilities", *set_options])
+
+        with metrics.span("snowflake_app.setup.fetch_capabilities"):
+            capabilities = SnowflakeAppManager().fetch_account_capabilities()
+        return ObjectResult(capabilities)
 
 
 @_utf8_output
