@@ -484,6 +484,32 @@ def test_auto_upgrade_path_hides_banner_and_skips_refresh(
         mock_schedule.assert_not_called()
 
 
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_CACHED_VERSION)  # type: ignore
+def test_spawned_child_still_hides_banner(monkeypatch, test_snowcli_config):
+    """``AUTO_UPGRADE_DONE`` skips a second upgrade. It does not show the banner."""
+    config_text = test_snowcli_config.read_text(encoding="utf-8")
+    doc = tomlkit.parse(config_text)
+    if "cli" not in doc:
+        doc["cli"] = {}
+    doc["cli"][AUTO_UPGRADE_KEY] = True
+    doc["cli"][IGNORE_NEW_VERSION_WARNING_KEY] = False
+    test_snowcli_config.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    config_init(test_snowcli_config)
+
+    with _auto_upgrade_enabled(
+        monkeypatch, source=CLIInstallationSource.SNOWFLAKE_MANAGED
+    ):
+        monkeypatch.setenv(AUTO_UPGRADE_DONE_ENV, "1")
+        assert should_hide_new_version_banner_for_auto_upgrade() is True
+        assert get_new_version_msg() is None
+        with mock.patch.object(
+            _VersionCache, "schedule_background_refresh"
+        ) as mock_schedule:
+            start_background_refresh()
+        mock_schedule.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "source",
     [CLIInstallationSource.PYPI, CLIInstallationSource.BINARY],

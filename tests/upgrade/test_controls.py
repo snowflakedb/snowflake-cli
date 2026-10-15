@@ -92,12 +92,15 @@ def test_env_zero_overrides_config_on(auto_upgrade_config, monkeypatch):
             assert is_auto_upgrade_enabled() is False
 
 
-def test_already_done_env_turns_off(auto_upgrade_config, monkeypatch):
+def test_already_done_env_does_not_clear_product_opt_in(
+    auto_upgrade_config, monkeypatch
+):
+    """The spawn latch skips a second upgrade. It does not leave the path."""
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
     monkeypatch.setenv(AUTO_UPGRADE_DONE_ENV, "1")
     with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = true\n"):
         with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            assert is_auto_upgrade_enabled() is False
+            assert is_auto_upgrade_enabled() is True
 
 
 def test_air_gapped_disables_auto_upgrade(auto_upgrade_config, monkeypatch):

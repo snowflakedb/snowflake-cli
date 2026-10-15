@@ -14,9 +14,12 @@
 
 """Auto-upgrade decision engine.
 
-Decides skip / upgrade / fail-open. Does not spawn and does not hook
-process start. Download and retarget go through ``evaluate_managed_upgrade``
-/ ``apply_upgrade`` (no second downloader).
+``maybe_auto_upgrade`` decides skip / upgrade / fail-open and does not spawn.
+``maybe_auto_upgrade_and_spawn`` is the process-start entry: on upgrade it
+starts the version-dir binary and exits; otherwise the caller continues.
+Download and retarget go through ``evaluate_managed_upgrade`` /
+``apply_upgrade`` (no second downloader). The Typer hook lives in
+``_app/main_typer.py``.
 """
 
 from __future__ import annotations
@@ -147,10 +150,12 @@ def maybe_auto_upgrade(
     """Decide whether this process should auto-upgrade.
 
     ``argv`` is the user arguments (no program name). ``None`` is empty;
-    this does not read ``sys.argv``. Never raises. Does not spawn.
+    this does not read ``sys.argv``. Tokens after ``--agent-args`` are
+    ignored here: that tail belongs to the agent, so ``--help`` there is not
+    a Snow meta invocation. Never raises. Does not spawn.
     """
     started = time.monotonic()
-    tokens = list(argv) if argv is not None else []
+    tokens = _argv_before_agent_args(list(argv) if argv is not None else [])
     try:
         action = _decide(tokens)
     except Exception:
@@ -158,6 +163,34 @@ def maybe_auto_upgrade(
         action = FailedOpen(REASON_ERROR)
     _record(action, started)
     return action
+
+
+def maybe_auto_upgrade_and_spawn(argv: Optional[Iterable[str]] = None) -> None:
+    """Auto-upgrade, then spawn the new binary when the apply succeeded.
+
+    ``argv`` is the user arguments (no program name), the same list the
+    original command will see. The decision ignores the ``--agent-args`` tail;
+    ``run_new_binary`` receives this uncut list. Skip and fail-open return so
+    that command still runs. A successful apply calls ``run_new_binary``, which
+    does not return. Spawn errors (missing binary, ``subprocess`` failure) are
+    fail-open: this process continues on the old binary. Does not raise.
+    """
+    tokens = list(argv) if argv is not None else []
+    try:
+        action = maybe_auto_upgrade(tokens)
+        if not isinstance(action, Upgraded):
+            return
+        version = action.decision.payload.get("to")
+        if not isinstance(version, str) or not version:
+            log.debug("Auto-upgrade apply had no target version; continuing")
+            return
+        # Local import: spawn is only needed after a successful apply.
+        # ``tokens`` stays uncut so the child sees the agent tail.
+        from snowflake.cli._plugins.upgrade.spawn import run_new_binary
+
+        run_new_binary(version, tokens)
+    except Exception:
+        log.debug("Auto-upgrade spawn failed open", exc_info=True)
 
 
 def _decide(tokens: list[str]) -> AutoUpgradeAction:
@@ -368,6 +401,18 @@ def _env_says_on(raw: str) -> bool:
         return try_cast_to_bool(raw) is True
     except ValueError:
         return False
+
+
+def _argv_before_agent_args(tokens: list[str]) -> list[str]:
+    """Drop the agent tail. ``--help`` after ``--agent-args`` is not Snow's.
+
+    Returns a new list. Callers that spawn must keep the original argv.
+    """
+    try:
+        cut = tokens.index("--agent-args")
+    except ValueError:
+        return tokens
+    return tokens[:cut]
 
 
 def _is_meta(tokens: list[str]) -> bool:

@@ -14,10 +14,13 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
 import typer
+from snowflake.cli import __about__
+from snowflake.cli.__about__ import CLIInstallationSource
 from snowflake.cli._app.version_check import (
     maybe_show_new_version_banner,
     reset_banner_display_state,
@@ -27,6 +30,8 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS, DebugOption
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.console import cli_console
+
+log = logging.getLogger(__name__)
 
 
 def _handle_exception(exception: Exception):
@@ -74,6 +79,24 @@ def _maybe_init_config_from_args(*call_args) -> None:
         config_init(config_path)
 
 
+def _maybe_auto_upgrade(argv: list[str]) -> None:
+    """After config init, before the command. Lazy import; fail-open.
+
+    PyPI and other non-managed installs return before the upgrade engine is
+    imported. On a successful upgrade ``maybe_auto_upgrade_and_spawn`` does not
+    return (the new binary is spawned and this process exits). Skip and
+    fail-open fall through to the original command. Not the PyPI banner thread.
+    """
+    if __about__.INSTALLATION_SOURCE != CLIInstallationSource.SNOWFLAKE_MANAGED:
+        return
+    try:
+        from snowflake.cli._plugins.upgrade.auto import maybe_auto_upgrade_and_spawn
+
+        maybe_auto_upgrade_and_spawn(argv)
+    except Exception:
+        log.debug("Auto-upgrade hook failed open", exc_info=True)
+
+
 def _run_cli_invocation(self, run):
     """Shared startup/teardown for both ``__call__`` and ``main`` entry points."""
     argv = sys.argv[1:]
@@ -105,6 +128,8 @@ class SnowCliMainTyper(typer.Typer):
     def __call__(self, *args, **kwargs):
         def run():
             _maybe_init_config_from_args(*args)
+            # No explicit args means Click will read sys.argv, so the hook must too.
+            _maybe_auto_upgrade(_config_file_argv(*args))
             start_background_refresh()
             return super(SnowCliMainTyper, self).__call__(*args, **kwargs)
 
@@ -115,6 +140,9 @@ class SnowCliMainTyper(typer.Typer):
 
         def run():
             _maybe_init_config_from_args(*cli_args)
+            # ``main(args=None)`` already becomes ``[]`` for Click. Do not
+            # substitute sys.argv or the hook would see a different command.
+            _maybe_auto_upgrade(cli_args)
             start_background_refresh()
             return super(SnowCliMainTyper, self).main(
                 args=cli_args, prog_name=prog_name, **extra

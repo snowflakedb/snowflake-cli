@@ -295,6 +295,17 @@ def test_removed_docs_pages_flag_still_upgrades(monkeypatch, managed, tmp_path):
     assert source.materialize_calls == 1
 
 
+def test_agent_args_help_is_not_a_snow_meta_command(monkeypatch, managed, tmp_path):
+    """``--help`` after ``--agent-args`` belongs to the agent."""
+    source = _ReleaseSource("3.13.0", payload=_binary(tmp_path / "next"))
+    manager.set_version_source(source)
+    with _enable(monkeypatch):
+        action = maybe_auto_upgrade(["ai", "claude", "--agent-args", "--help"])
+    assert isinstance(action, Upgraded)
+    assert source.release_calls == 1
+    assert source.materialize_calls == 1
+
+
 def test_version_prefix_is_not_meta(monkeypatch, managed, tmp_path):
     source = _ReleaseSource("3.13.0", payload=_binary(tmp_path / "next"))
     manager.set_version_source(source)

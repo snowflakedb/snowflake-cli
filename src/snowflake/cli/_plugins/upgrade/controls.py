@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Iterable, Optional
 
 from snowflake.cli.api.config import (
@@ -25,34 +24,25 @@ from snowflake.cli.api.config import (
     is_air_gapped,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.utils.types import try_cast_to_bool
 
 NO_AUTO_UPGRADE_FLAG = "--no-auto-upgrade"
 AUTO_UPGRADE_DONE_ENV = "SNOWFLAKE_CLI_AUTO_UPGRADE_DONE"
 
 
-def _env_is_true(name: str) -> bool:
-    raw = os.environ.get(name)
-    if raw is None or raw == "":
-        return False
-    try:
-        return try_cast_to_bool(raw) is True
-    except ValueError:
-        return False
-
-
 def is_auto_upgrade_enabled() -> bool:
-    """Whether the product opt-in is on for this process (excludes argv).
+    """Whether the product opt-in is on (excludes argv and the spawn latch).
 
-    Returns False when ``SNOWFLAKE_CLI_AUTO_UPGRADE_DONE=1``, when
-    ``ENABLE_SNOW_AUTO_UPGRADE`` is off, or when env/config opt-in is off
+    Returns False when ``ENABLE_SNOW_AUTO_UPGRADE`` is off, when the process
+    is air-gapped, or when env/config opt-in is off
     (``SNOWFLAKE_CLI_AUTO_UPGRADE`` overrides ``cli.auto_upgrade``).
+
+    ``SNOWFLAKE_CLI_AUTO_UPGRADE_DONE`` is not consulted. That variable only
+    stops a second upgrade in the spawned child. The new-version banner uses
+    this function, so the child still hides the PyPI/Homebrew banner.
 
     One-run off via ``--no-auto-upgrade`` is handled by ``skip_due_to_cli_flag()``.
     ``cli.ignore_new_version_warning`` does not affect this.
     """
-    if _env_is_true(AUTO_UPGRADE_DONE_ENV):
-        return False
     if is_air_gapped():
         return False
     if not FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE.is_enabled():

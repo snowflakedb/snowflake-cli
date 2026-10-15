@@ -57,8 +57,10 @@ def should_ignore_new_version_warning() -> bool:
 def should_hide_new_version_banner_for_auto_upgrade() -> bool:
     """True when this install is on the auto-upgrade path.
 
-    Direct-install (``SNOWFLAKE_MANAGED``) plus ``is_auto_upgrade_enabled()``.
-    Homebrew / pip / other stamps still see the PyPI/Homebrew banner.
+    Direct-install (``SNOWFLAKE_MANAGED``) plus product opt-in
+    (``is_auto_upgrade_enabled()``). Homebrew / pip / other stamps still see
+    the PyPI/Homebrew banner. ``SNOWFLAKE_CLI_AUTO_UPGRADE_DONE`` is not read:
+    the spawned child is still on this path and still hides the banner.
     Does not set ``cli.ignore_new_version_warning``. ``--no-auto-upgrade`` is
     a one-run download skip and does not affect this (the opt-in still holds).
     ``snow helpers check-version`` still reports via ``get_version_info``.
