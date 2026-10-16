@@ -45,6 +45,7 @@
 * `snow helpers check-snowsql-env-vars` reports the SnowSQL variable that is actually set. `SNOWSQL_REGION` suggests putting the account identifier in `SNOWFLAKE_ACCOUNT`, not the region name. The deprecated proxy variables are suggested as the host, port, username, or password inside `HTTPS_PROXY` or `HTTP_PROXY`.
 * The direct install script updates the bash startup file the shell reads. It edits the first existing login profile (`~/.bash_profile`, `~/.bash_login`, or `~/.profile`) and an existing `~/.bashrc`, and does not create a bash login profile.
 * A configuration file with permissions that are too open now prints the `chmod` or `icacls` command on its own line. Copying that command no longer includes a line break or the error box border.
+* Upgraded GitPython from 3.1.62 to 3.2.0.
 
 # v3.29.0
 
