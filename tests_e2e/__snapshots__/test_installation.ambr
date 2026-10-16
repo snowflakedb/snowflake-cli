@@ -38,6 +38,7 @@
   | custom-image         Manages custom images for Snowpark Container Services.  |
   | dbt                  Manages dbt on Snowflake projects.                      |
   | dcm                  Manages DCM Projects in Snowflake.                      |
+  | feature              Manages declarative feature-store objects in Snowflake. |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
   | init                 Creates project directory from template.                |
@@ -243,6 +244,7 @@
   | custom-image   Manages custom images for Snowpark Container Services.        |
   | dbt            Manages dbt on Snowflake projects.                            |
   | dcm            Manages DCM Projects in Snowflake.                            |
+  | feature        Manages declarative feature-store objects in Snowflake.       |
   | git            Manages git repositories in Snowflake.                        |
   | helpers        Helper commands.                                              |
   | init           Creates project directory from template.                      |
@@ -430,6 +432,7 @@
   | custom-image         Manages custom images for Snowpark Container Services.  |
   | dbt                  Manages dbt on Snowflake projects.                      |
   | dcm                  Manages DCM Projects in Snowflake.                      |
+  | feature              Manages declarative feature-store objects in Snowflake. |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
   | init                 Creates project directory from template.                |
@@ -655,6 +658,7 @@
   | custom-image   Manages custom images for Snowpark Container Services.        |
   | dbt            Manages dbt on Snowflake projects.                            |
   | dcm            Manages DCM Projects in Snowflake.                            |
+  | feature        Manages declarative feature-store objects in Snowflake.       |
   | git            Manages git repositories in Snowflake.                        |
   | helpers        Helper commands.                                              |
   | init           Creates project directory from template.                      |

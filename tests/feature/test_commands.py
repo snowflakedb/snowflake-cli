@@ -34,7 +34,6 @@ The CLI surface:
   fail-fast on a pre-existing ``manifest.yml`` (no ``--force``).
 """
 
-import io
 import json
 import logging
 from contextlib import contextmanager
@@ -51,12 +50,11 @@ FEATURE_MANAGER = "snowflake.cli._plugins.feature.commands.FeatureManager"
 def _json_from_output(output: str):
     """Parse the JSON payload out of a ``--format json`` invocation.
 
-    The plugin preview ``WARNING:`` preamble (and, with the runner's
-    default ``mix_stderr=True``, any stderr) is prepended to the JSON
-    on stdout.  The structured payload is the first ``{`` / ``[`` to
-    end-of-string, so slice from whichever delimiter appears first and
-    ``json.loads`` the remainder.  This asserts, by construction, that
-    no free-form text trails the JSON in structured mode.
+    With the runner's default ``mix_stderr=True`` any stderr may be
+    prepended to the JSON on stdout.  The structured payload is the first
+    ``{`` / ``[`` to end-of-string, so slice from whichever delimiter
+    appears first and ``json.loads`` the remainder.  This asserts, by
+    construction, that no free-form text trails the JSON in structured mode.
     """
     starts = [i for i in (output.find("{"), output.find("[")) if i != -1]
     assert starts, f"no JSON payload found in output: {output!r}"
@@ -3244,74 +3242,17 @@ def test_list_json_error_exits_nonzero(mock_manager, runner):
 
 
 # ---------------------------------------------------------------------------
-# Public-preview warning banner
+# GA structured output
 # ---------------------------------------------------------------------------
 #
-# The banner is emitted by the group callback before every ``snow
-# feature`` invocation.  These tests pin the exact copy, the yellow-only
-# coloring, and the stderr-only surface so structured stdout stays clean.
-
-
-class _FakeStderr(io.StringIO):
-    """A StringIO that can pretend to be (or not be) a TTY."""
-
-    def __init__(self, isatty: bool):
-        super().__init__()
-        self._isatty = isatty
-
-    def isatty(self) -> bool:  # noqa: D401 - trivial shim
-        return self._isatty
-
-
-_PREVIEW_TEXT = "WARNING: 'snow feature' is in public preview."
-_YELLOW = "\x1b[33m"
-
-
-def test_preview_warning_exact_text_no_color_when_not_tty(monkeypatch):
-    """Non-TTY stderr gets the exact banner text with no ANSI color."""
-    from snowflake.cli._plugins.feature.commands import _emit_preview_warning
-
-    fake = _FakeStderr(isatty=False)
-    monkeypatch.setattr("sys.stderr", fake)
-    monkeypatch.delenv("NO_COLOR", raising=False)
-
-    _emit_preview_warning()
-
-    assert fake.getvalue() == _PREVIEW_TEXT + "\n"
-
-
-def test_preview_warning_is_yellow_on_a_color_tty(monkeypatch):
-    """A color-capable TTY wraps the banner in the yellow ANSI code."""
-    from snowflake.cli._plugins.feature.commands import _emit_preview_warning
-
-    fake = _FakeStderr(isatty=True)
-    monkeypatch.setattr("sys.stderr", fake)
-    monkeypatch.delenv("NO_COLOR", raising=False)
-
-    _emit_preview_warning()
-
-    out = fake.getvalue()
-    assert out.startswith(_YELLOW)
-    assert _PREVIEW_TEXT in out
-    assert out.endswith("\x1b[0m\n")
-
-
-def test_preview_warning_respects_no_color_on_tty(monkeypatch):
-    """``NO_COLOR`` suppresses the ANSI color even on a TTY."""
-    from snowflake.cli._plugins.feature.commands import _emit_preview_warning
-
-    fake = _FakeStderr(isatty=True)
-    monkeypatch.setattr("sys.stderr", fake)
-    monkeypatch.setenv("NO_COLOR", "1")
-
-    _emit_preview_warning()
-
-    assert fake.getvalue() == _PREVIEW_TEXT + "\n"
+# ``snow feature`` is GA — no public-preview banner precedes a command.
+# Structured ``--format json`` stdout must therefore be a clean JSON payload
+# with no leading preamble.
 
 
 @mock.patch(FEATURE_MANAGER)
-def test_preview_warning_kept_off_structured_stdout(mock_manager, runner):
-    """The banner rides on stderr; ``--format json`` stdout stays parseable."""
+def test_structured_stdout_has_no_preview_preamble(mock_manager, runner):
+    """``--format json`` carries no preview banner and stays parseable."""
     mock_manager.return_value.apply.return_value = {
         "status": "applied",
         "ops": [],
@@ -3319,9 +3260,14 @@ def test_preview_warning_kept_off_structured_stdout(mock_manager, runner):
     }
     result = runner.invoke(["feature", "apply", "--format", "json"])
     assert result.exit_code == 0, result.output
-    assert _PREVIEW_TEXT in result.output
-    # The JSON payload must still be recoverable despite the stderr preamble.
-    assert _json_from_output(result.output) is not None
+    # GA: the public-preview warning banner is gone.
+    assert "public preview" not in result.output
+    # The JSON payload is still the structured result.
+    assert _json_from_output(result.output) == {
+        "status": "applied",
+        "ops": [],
+        "executed": 0,
+    }
 
 
 # ---------------------------------------------------------------------------

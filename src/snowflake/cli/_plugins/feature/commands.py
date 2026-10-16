@@ -27,7 +27,6 @@ from __future__ import annotations
 import functools
 import json
 import logging
-import os
 import shutil
 import sys
 import textwrap
@@ -59,7 +58,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import CliArgumentError, CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -115,7 +113,7 @@ def _surface_init_required_as_cli_error(fn: _F) -> _F:
 
 
 def feature_store_preflight(fn: _F) -> _F:
-    """Guard the library dependency and emit the preview banner.
+    """Guard the optional feature-store library dependency.
 
     Applied per command (not the group callback) so ``snow feature <cmd>
     --help`` works without the library installed — ``--help`` is eager and
@@ -125,7 +123,6 @@ def feature_store_preflight(fn: _F) -> _F:
     @functools.wraps(fn)
     def _wrapper(*args: Any, **kwargs: Any) -> Any:
         _require_snowflake_ml()
-        _emit_preview_warning()
         return fn(*args, **kwargs)
 
     return _wrapper  # type: ignore[return-value]
@@ -134,23 +131,9 @@ def feature_store_preflight(fn: _F) -> _F:
 app = SnowTyperFactory(
     name="feature",
     help="Manages declarative feature-store objects in Snowflake.",
-    preview=True,
-    is_hidden=FeatureFlag.ENABLE_FEATURE_STORE.is_disabled,
 )
 
 log = logging.getLogger(__name__)
-
-
-def _emit_preview_warning() -> None:
-    """Emit the yellow public-preview warning on stderr (never on structured stdout)."""
-    preview_warning = "WARNING: 'snow feature' is in public preview."
-    ansi_yellow = "\x1b[33m"
-    ansi_reset = "\x1b[0m"
-    use_color = sys.stderr.isatty() and os.environ.get("NO_COLOR") is None
-    prefix = ansi_yellow if use_color else ""
-    suffix = ansi_reset if use_color else ""
-    sys.stderr.write(f"{prefix}{preview_warning}{suffix}\n")
-    sys.stderr.flush()
 
 
 # ---------------------------------------------------------------------------
@@ -1173,12 +1156,10 @@ def _confirm_drop(location: str) -> None:
 # ``online-service`` is its own entity with a lifecycle (status / create /
 # drop), so it is a nested sub-group rather than one command configured by
 # flags: the operations are alternate verbs, not configuration of a single
-# command (see ``docs/contributing/adding-commands.md``). ``preview=True``
-# matches the parent factory; it is not inherited through ``add_typer``.
+# command (see ``docs/contributing/adding-commands.md``).
 online_service_app = SnowTyperFactory(
     name="online-service",
     help="Manages the feature store online service.",
-    preview=True,
 )
 app.add_typer(online_service_app)
 

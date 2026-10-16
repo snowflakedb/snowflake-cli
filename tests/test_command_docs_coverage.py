@@ -67,6 +67,19 @@ _COMMAND_DOCS_MIGRATION_PENDING_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("bundle", "history"),
         ("bundle", "list"),
         ("bundle", "status"),
+        # feature — prod-docs pages are authored in a separate Snowflake docs
+        # change; remove these when that migration PR lands.
+        ("feature", "apply"),
+        ("feature", "describe"),
+        ("feature", "ingest"),
+        ("feature", "init"),
+        ("feature", "list"),
+        ("feature", "online-service", "create"),
+        ("feature", "online-service", "drop"),
+        ("feature", "online-service", "status"),
+        ("feature", "plan"),
+        ("feature", "query"),
+        ("feature", "sync"),
     }
 )
 

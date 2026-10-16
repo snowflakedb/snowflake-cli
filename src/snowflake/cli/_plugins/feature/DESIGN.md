@@ -28,22 +28,19 @@ query is generated and executed by the library.
 
 ### Lifecycle and dependencies
 
-`snow feature` is in **public preview**. Per the CLI lifecycle
-(`docs/contributing/lifecycle.md`) the command group is registered as a
-built-in but **hidden by default** behind the `ENABLE_FEATURE_STORE`
-feature flag (`src/snowflake/cli/api/feature_flags.py`, default `False`).
-Users opt in with `SNOWFLAKE_CLI_FEATURES_ENABLE_FEATURE_STORE=true` or
-`[cli.features] enable_feature_store = true` in `config.toml`.
+`snow feature` is **generally available**. Per the CLI lifecycle
+(`docs/contributing/lifecycle.md`) the command group is a built-in that is
+visible in `snow --help` by default — it is no longer gated behind a feature
+flag.
 
 The `snowflake-ml-python[feature_store]` library is an **optional** runtime
 dependency. When it is absent the plugin still imports and registers (so
 `snow feature --help` and each subcommand's `--help` work), and any actual
 command invocation fails fast with
 `Error: 'snow feature' requires the snowflake-ml-python[feature_store] library`.
-This guard, together with the yellow `WARNING: 'snow feature' is in public
-preview.` banner (written to stderr, kept off structured stdout), runs from the
-per-command `feature_store_preflight` decorator in `commands.py` — applied to
-every command rather than the group callback, so `--help` never triggers it.
+This guard runs from the per-command `feature_store_preflight` decorator in
+`commands.py` — applied to every command rather than the group callback, so
+`--help` never triggers it.
 
 ---
 
