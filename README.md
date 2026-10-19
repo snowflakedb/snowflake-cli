@@ -37,9 +37,27 @@ Feel free to file an issue or submit a PR here for general cases. For official s
 
 ## Install Snowflake CLI
 
+### Direct install (recommended)
+
+The direct installer downloads a signed platform binary from the Snowflake CLI repository and unpacks a versioned `snow` into your home directory.
+
+macOS / Linux / WSL:
+
+```bash
+curl -LsS https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
+```
+
+Upgrade later with `snow upgrade` (public preview, same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
+
 ### Install with uv (PyPi)
 
-We recommend installing Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.10
+Install Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.10. `snow upgrade` refuses on this channel.
 
 ```bash
 uv tool install snowflake-cli
