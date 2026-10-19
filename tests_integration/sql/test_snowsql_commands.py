@@ -1,5 +1,4 @@
 import pytest
-from typing import Optional
 
 
 @pytest.fixture

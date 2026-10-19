@@ -151,7 +151,9 @@ it literally.
 Commands print a table unless you pass `--format`. To change that default, set
 `output_format` in the `[cli]` section of `config.toml` or the
 `SNOWFLAKE_CLI_OUTPUT_FORMAT` environment variable. Allowed values are `TABLE`,
-`JSON`, `JSON_EXT`, and `CSV`. `--format` on the command line still wins.
+`JSON`, `JSON_EXT`, `CSV`, and `PLAIN`. `--format` on the command line still wins.
+In `snow sql`, `!set output_format=<format>` changes the format for later
+statements in that session.
 
 ```toml
 [cli]

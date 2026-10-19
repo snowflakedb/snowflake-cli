@@ -300,7 +300,7 @@
   Keep the session active indefinitely, even if there is no activity from the user.
   
   </dd>
-  <dt>`--format [TABLE|JSON|JSON_EXT|CSV]`</dt>
+  <dt>`--format [TABLE|JSON|JSON_EXT|CSV|PLAIN]`</dt>
   <dd>
   
   Specifies the output format. [env var: SNOWFLAKE_CLI_OUTPUT_FORMAT | config: cli.output_format]. Default: TABLE.

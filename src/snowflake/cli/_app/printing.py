@@ -183,7 +183,14 @@ def _get_format_type() -> OutputFormat:
     return OutputFormat.TABLE
 
 
-def _get_table():
+def _is_plain_format(output_format: OutputFormat | None = None) -> bool:
+    fmt = output_format or _get_format_type()
+    return fmt is OutputFormat.PLAIN
+
+
+def _get_table(output_format: OutputFormat | None = None):
+    if _is_plain_format(output_format):
+        return Table(show_header=True, box=None, show_edge=False, pad_edge=False)
     return Table(show_header=True, box=box.ASCII)
 
 
@@ -228,7 +235,9 @@ def _render_console_for_table() -> Console:
     )
 
 
-def _print_multiple_table_results(obj: CollectionResult):
+def _print_multiple_table_results(
+    obj: CollectionResult, output_format: OutputFormat | None = None
+):
     items = iter(obj.result)
     try:
         first_item = next(items)
@@ -237,22 +246,35 @@ def _print_multiple_table_results(obj: CollectionResult):
         return
     probed = probe_rows(first_item, items)
     if probed.use_rich:
-        _print_rich_table(probed.columns, probed.rows)
+        _print_rich_table(probed.columns, probed.rows, output_format)
         return
     console = _render_console_for_table()
     is_tty = _stdout_is_terminal()
     maybe_log_large_result(probed.cells, probed.chars, is_tty)
 
     def _trailer() -> None:
+        if _is_plain_format(output_format):
+            sys.stdout.flush()
+            return
         if console.is_terminal:
             sys.stdout.write("\n")
         rich_print(flush=True)
 
-    stream_probed_table(probed, console=console, is_tty=is_tty, on_success=_trailer)
+    stream_probed_table(
+        probed,
+        console=console,
+        is_tty=is_tty,
+        on_success=_trailer,
+        plain=_is_plain_format(output_format),
+    )
 
 
-def _print_rich_table(columns: list[str], rows: list[list[str]]) -> None:
-    table = _get_table()
+def _print_rich_table(
+    columns: list[str],
+    rows: list[list[str]],
+    output_format: OutputFormat | None = None,
+) -> None:
+    table = _get_table(output_format)
     for column in columns:
         table.add_column(column, overflow="fold")
     console = _render_console_for_table()
@@ -375,7 +397,9 @@ def _stream_json(result):
     print("\n]")
 
 
-def print_unstructured(obj: CommandResult | None):
+def print_unstructured(
+    obj: CommandResult | None, output_format: OutputFormat | None = None
+):
     """Handles outputs like table, plain text and other unstructured types."""
     if not obj:
         rich_print("Done", flush=True)
@@ -385,15 +409,15 @@ def print_unstructured(obj: CommandResult | None):
         rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:
         if isinstance(obj, ObjectResult):
-            _print_single_table(obj)
+            _print_single_table(obj, output_format)
         elif isinstance(obj, CollectionResult):
-            _print_multiple_table_results(obj)
+            _print_multiple_table_results(obj, output_format)
         else:
             raise TypeError(f"No print strategy for type: {type(obj)}")
 
 
-def _print_single_table(obj):
-    table = _get_table()
+def _print_single_table(obj, output_format: OutputFormat | None = None):
+    table = _get_table(output_format)
     table.add_column("key", overflow="fold")
     table.add_column("value", overflow="fold")
     for key, value in obj.result.items():
@@ -404,17 +428,17 @@ def _print_single_table(obj):
 
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
-    output_format = output_format or _get_format_type()
+    resolved_format = output_format or _get_format_type()
 
     match cmd_result:
         case EmptyResult():
             return
-        case _ if is_structured_format(output_format):
-            print_structured(cmd_result, output_format)
+        case _ if is_structured_format(resolved_format):
+            print_structured(cmd_result, resolved_format)
         case MultipleResults() | StreamResult():
             for res in cmd_result.result:
-                print_result(res)
+                print_result(res, output_format)
         case MessageResult() | ObjectResult() | CollectionResult() | None:
-            print_unstructured(cmd_result)
+            print_unstructured(cmd_result, resolved_format)
         case _:
             raise ValueError(f"Unexpected type {type(cmd_result)}")

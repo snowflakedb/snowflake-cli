@@ -12,7 +12,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
-from snowflake.cli._app.printing import print_result
+from snowflake.cli._app.printing import is_structured_format, print_result
 from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
 from snowflake.cli._plugins.sql.completion import telemetry as completion_telemetry
 from snowflake.cli._plugins.sql.completion.acceptance import (
@@ -63,7 +63,7 @@ EXIT_KEYWORDS = ("exit", "quit")
 
 def _print_sql_elapsed(elapsed_seconds: float) -> None:
     output_format = get_cli_context().output_format or OutputFormat.TABLE
-    if output_format is not OutputFormat.TABLE:
+    if is_structured_format(output_format):
         return
     cli_console.message(f"Time Elapsed: {elapsed_seconds:.3f}s")
 

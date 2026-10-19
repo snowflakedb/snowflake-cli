@@ -164,7 +164,7 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format. [env var:      |
+  |                                CSV|PLAIN]             format. [env var:      |
   |                                                       SNOWFLAKE_CLI_OUTPUT_… |
   |                                                       | config:              |
   |                                                       cli.output_format]     |
@@ -369,7 +369,7 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format. [env var:      |
+  |                                CSV|PLAIN]             format. [env var:      |
   |                                                       SNOWFLAKE_CLI_OUTPUT_… |
   |                                                       | config:              |
   |                                                       cli.output_format]     |
@@ -558,7 +558,7 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format. [env var:      |
+  |                                CSV|PLAIN]             format. [env var:      |
   |                                                       SNOWFLAKE_CLI_OUTPUT_… |
   |                                                       | config:              |
   |                                                       cli.output_format]     |
@@ -783,7 +783,7 @@
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
-  |                                CSV]                   format. [env var:      |
+  |                                CSV|PLAIN]             format. [env var:      |
   |                                                       SNOWFLAKE_CLI_OUTPUT_… |
   |                                                       | config:              |
   |                                                       cli.output_format]     |

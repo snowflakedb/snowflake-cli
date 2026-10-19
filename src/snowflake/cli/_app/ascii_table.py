@@ -155,11 +155,15 @@ def _content_width(line: str) -> int:
     return cell_len(line)
 
 
-def allocate_tty_widths(preferred: list[int], console_width: int) -> list[int]:
+def allocate_tty_widths(
+    preferred: list[int], console_width: int, *, plain: bool = False
+) -> list[int]:
     if not preferred:
         return []
     floors = [min(width, COLUMN_FLOOR) for width in preferred]
-    available = console_width - (3 * len(preferred) + 1)
+    n = len(preferred)
+    chrome = 2 * (n - 1) if plain else 3 * n + 1
+    available = console_width - chrome
     widths = list(preferred)
     if sum(widths) <= available:
         return widths
@@ -261,11 +265,13 @@ class _AsciiTableWriter:
         wrap: bool,
         bold_header: bool,
         flush_chunks: bool,
+        plain: bool = False,
     ) -> None:
         self._columns = columns
         self._widths = widths
         self._wrap = wrap
         self._bold_header = bold_header
+        self._plain = plain
         self._out = _ChunkWriter(sys.stdout, flush_chunks=flush_chunks)
 
     def write_table(
@@ -276,9 +282,11 @@ class _AsciiTableWriter:
         on_success: Callable[[], None],
     ) -> None:
         try:
-            self._out.write(self._horizontal_rule())
+            if not self._plain:
+                self._out.write(self._horizontal_rule())
             self._write_record(self._columns, bold=self._bold_header)
-            self._out.write(self._header_rule())
+            if not self._plain:
+                self._out.write(self._header_rule())
             for row in probe_rows_values:
                 self._write_record(row, bold=False)
             if pending is not None:
@@ -288,7 +296,8 @@ class _AsciiTableWriter:
                     [normalize_cell(value) for value in raw.values()],
                     bold=False,
                 )
-            self._out.write(self._horizontal_rule().rstrip("\n"))
+            if not self._plain:
+                self._out.write(self._horizontal_rule().rstrip("\n"))
             self._out.flush()
             on_success()
         finally:
@@ -296,9 +305,9 @@ class _AsciiTableWriter:
 
     def _write_record(self, values: list[str], *, bold: bool) -> None:
         if not bold and not self._wrap:
-            plain = _format_plain_row(values, self._widths)
-            if plain is not None:
-                self._out.write(plain)
+            fast_row = _format_unwrapped_row(values, self._widths, plain=self._plain)
+            if fast_row is not None:
+                self._out.write(fast_row)
                 return
         folded = [
             split_cell(value, width, wrap=self._wrap)
@@ -322,6 +331,8 @@ class _AsciiTableWriter:
             if bold:
                 text = f"\x1b[1m{text}\x1b[0m"
             rendered.append(text)
+        if self._plain:
+            return "  ".join(rendered)
         return "| " + " | ".join(rendered) + " |"
 
     def _horizontal_rule(self) -> str:
@@ -337,7 +348,9 @@ class _AsciiTableWriter:
         return "|" + body + "|\n"
 
 
-def _format_plain_row(values: list[str], widths: list[int]) -> str | None:
+def _format_unwrapped_row(
+    values: list[str], widths: list[int], *, plain: bool = False
+) -> str | None:
     cells: list[str] = []
     append = cells.append
     for piece, width in zip(values, widths):
@@ -347,6 +360,8 @@ def _format_plain_row(values: list[str], widths: list[int]) -> str | None:
             append(piece.ljust(width))
         else:
             append(piece)
+    if plain:
+        return "  ".join(cells) + "\n"
     return "| " + " | ".join(cells) + " |\n"
 
 
@@ -362,10 +377,11 @@ def stream_probed_table(
     console: TableConsole,
     is_tty: bool,
     on_success: Callable[[], None],
+    plain: bool = False,
 ) -> None:
     preferred = preferred_widths(probed.columns, probed.rows)
     if is_tty:
-        widths = allocate_tty_widths(preferred, console.width)
+        widths = allocate_tty_widths(preferred, console.width, plain=plain)
         wrap = True
     else:
         widths = allocate_pipe_widths(preferred)
@@ -377,6 +393,7 @@ def stream_probed_table(
         wrap=wrap,
         bold_header=bold_header,
         flush_chunks=is_tty,
+        plain=plain,
     )
     writer.write_table(probed.rows, probed.pending, probed.rest, on_success)
 

@@ -10,9 +10,13 @@ from urllib.parse import urlencode
 
 import click
 from snowflake.cli._app.printing import print_result
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult, QueryResult
 from snowflake.connector import SnowflakeConnection
 
@@ -84,8 +88,9 @@ class ReplCommand(abc.ABC):
                 args.append(cmd_arg)
             else:
                 key, val = cmd_arg.split("=", maxsplit=1)
+                key = key.lower()
                 if key in kwargs:
-                    raise ValueError(f"Duplicated argument '{key}'")
+                    raise ValueError(f"Duplicated argument {key!r}")
                 kwargs[key] = val
 
         return args, kwargs
@@ -439,6 +444,70 @@ class AbortCommand(ReplCommand):
         if error_msg:
             return CompileCommandResult(error_message=error_msg)
         return CompileCommandResult(command=cls(args[0]))
+
+
+_SET_USAGE = "Usage: `!set output_format=<format>`"
+_SET_OPTION_OUTPUT_FORMAT = "output_format"
+
+
+@register_command("!set")
+@dataclass
+class SetCommand(ReplCommand):
+    """Set a session option. Only output_format is supported."""
+
+    option: str
+    value: str
+
+    def execute(self, connection: SnowflakeConnection):
+        get_cli_context_manager().output_format = OutputFormat.from_string(self.value)
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        if isinstance(raw_args, str):
+            try:
+                args, kwargs = cls._parse_args(raw_args)
+            except ValueError as e:
+                return CompileCommandResult(error_message=str(e))
+        else:
+            args, kwargs = raw_args, kwargs or {}
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
+        if args:
+            return CompileCommandResult(
+                error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+            )
+        if not kwargs:
+            return CompileCommandResult(
+                error_message=f"No arguments passed to 'set' command. {_SET_USAGE}"
+            )
+
+        output_format_keys = [
+            key for key in kwargs if key.lower() == _SET_OPTION_OUTPUT_FORMAT
+        ]
+        if len(output_format_keys) > 1:
+            names = ", ".join(f"{key!r}" for key in output_format_keys)
+            return CompileCommandResult(error_message=f"Duplicated argument {names}")
+
+        unknown = [key for key in kwargs if key.lower() != _SET_OPTION_OUTPUT_FORMAT]
+        if unknown:
+            names = ", ".join(f"{key!r}" for key in unknown)
+            return CompileCommandResult(
+                error_message=(
+                    f"Unknown option passed to 'set' command: {names}. "
+                    "Only output_format is supported."
+                )
+            )
+
+        value = next(iter(kwargs.values()))
+        try:
+            OutputFormat.from_string(value)
+        except ValueError as e:
+            return CompileCommandResult(error_message=str(e))
+        return CompileCommandResult(
+            command=cls(option=_SET_OPTION_OUTPUT_FORMAT, value=value)
+        )
 
 
 @register_command("!edit")

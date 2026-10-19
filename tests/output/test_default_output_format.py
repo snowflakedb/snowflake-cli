@@ -52,6 +52,8 @@ def _invoke_faker(
         ("csv", OutputFormat.CSV),
         ("JSON_EXT", OutputFormat.JSON_EXT),
         ("table", OutputFormat.TABLE),
+        ("plain", OutputFormat.PLAIN),
+        (" PLAIN ", OutputFormat.PLAIN),
     ],
 )
 def test_output_format_from_string_accepts_known_values(value, expected):
@@ -59,7 +61,9 @@ def test_output_format_from_string_accepts_known_values(value, expected):
 
 
 def test_output_format_from_string_rejects_unknown_values():
-    with pytest.raises(ValueError, match="Must be one of: TABLE, JSON, JSON_EXT, CSV"):
+    with pytest.raises(
+        ValueError, match="Must be one of: TABLE, JSON, JSON_EXT, CSV, PLAIN"
+    ):
         OutputFormat.from_string("xml")
 
 
@@ -146,6 +150,7 @@ def test_invalid_config_output_format_is_rejected(runner, config_file, monkeypat
     assert result.exit_code != 0
     assert "Invalid output format: 'XML'" in result.output
     assert "TABLE, JSON, JSON_EXT, CSV" in result.output
+    assert "PLAIN" in result.output
 
 
 @pytest.mark.usefixtures("faker_app")

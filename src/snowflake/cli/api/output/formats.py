@@ -20,6 +20,7 @@ class OutputFormat(Enum):
     JSON = "JSON"
     JSON_EXT = "JSON_EXT"
     CSV = "CSV"
+    PLAIN = "PLAIN"
 
     @property
     def is_json(self) -> bool:

@@ -626,7 +626,9 @@ def test_source_file_receives_pre_render(tmp_path_factory: pytest.TempPathFactor
     assert any("{% if flag %}" in c for c in rendered_calls)
 
 
-@pytest.mark.parametrize("command", ["queries", "abort", "result", "AbOrT", "rehash"])
+@pytest.mark.parametrize(
+    "command", ["queries", "abort", "result", "AbOrT", "rehash", "set", "SET"]
+)
 def test_parse_command(command):
     query = f"!{command} args k1=v1 k2=v2;"
     parsed_statement = parse_statement(query, [])

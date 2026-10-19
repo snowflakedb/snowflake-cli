@@ -21,6 +21,7 @@ import pytest
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import CompiledStatement
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     CliArgumentError,
@@ -44,6 +45,116 @@ def test_sql_execute_query(mock_execute, runner, mock_cursor):
 
     assert result.exit_code == 0
     mock_execute.assert_called_once_with("query", cursor_class=VerboseCursor)
+
+
+def _plain_sql_cursor(mock_execute, mock_cursor):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+
+
+def _assert_plain_select_output(output: str) -> None:
+    assert "n\n1\n" in output
+    assert "|" not in output
+    assert "+" not in output
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_output_format_plain(mock_execute, mock_connect, runner, mock_cursor):
+    _plain_sql_cursor(mock_execute, mock_cursor)
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        result = runner.invoke(
+            ["sql", "-q", "!set output_format=plain;\nselect 1 as n;"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_plain_select_output(result.output)
+        mock_execute.assert_called_once_with(
+            "select 1 as n;", cursor_class=VerboseCursor
+        )
+    finally:
+        manager.output_format = previous
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_output_format_plain_applies_to_two_selects(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.side_effect = [
+        (mock_cursor([("1", "alice")], ["ID", "NAME"]) for _ in range(1)),
+        (mock_cursor([("2", "bob")], ["ID", "NAME"]) for _ in range(1)),
+    ]
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        result = runner.invoke(
+            ["sql", "-q", "!set output_format=plain;\nselect 1 as a;\nselect 2 as b;"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "ID  NAME \n1   alice\n" in result.output
+        assert "ID  NAME\n2   bob \n" in result.output
+        assert "|" not in result.output
+        assert "+" not in result.output
+    finally:
+        manager.output_format = previous
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_output_format_change_between_two_selects(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.side_effect = [
+        (mock_cursor([(1,)], ["a"]) for _ in range(1)),
+        (mock_cursor([(2,)], ["b"]) for _ in range(1)),
+    ]
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                (
+                    "!set output_format=plain;\nselect 1 as a;\n"
+                    "!set output_format=table;\nselect 2 as b;"
+                ),
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "a\n1\n" in result.output
+        assert "+---+\n| b |\n|---|\n| 2 |\n+---+\n" in result.output
+    finally:
+        manager.output_format = previous
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_format_plain_flag_matches_set_command(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        mock_execute.return_value = (
+            mock_cursor([("1", "alice")], ["ID", "NAME"]) for _ in range(1)
+        )
+        flag_result = runner.invoke(
+            ["sql", "-q", "select 1 as n;", "--format", "PLAIN"]
+        )
+        assert flag_result.exit_code == 0, flag_result.output
+        assert "ID  NAME \n1   alice\n" in flag_result.output
+        assert "|" not in flag_result.output
+
+        manager.output_format = previous
+        mock_execute.return_value = (
+            mock_cursor([("1", "alice")], ["ID", "NAME"]) for _ in range(1)
+        )
+        set_result = runner.invoke(
+            ["sql", "-q", "!set output_format=plain;\nselect 1 as n;"]
+        )
+        assert set_result.exit_code == 0, set_result.output
+        assert "ID  NAME \n1   alice\n" in set_result.output
+        assert flag_result.output == set_result.output
+    finally:
+        manager.output_format = previous
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")

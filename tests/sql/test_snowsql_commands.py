@@ -8,9 +8,15 @@ from snowflake.cli._plugins.sql.repl_commands import (
     RehashCommand,
     ReplCommand,
     ResultCommand,
+    SetCommand,
     UnknownCommandError,
     compile_repl_command,
 )
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
+from snowflake.cli.api.output.formats import OutputFormat
 
 _FAKE_QID = "00000000-0000-0000-0000-000000000000"
 
@@ -200,6 +206,12 @@ def test_queries_from_args():
             error_message="'end_date' filter cannot be used with 'end' filter"
         )
     )
+    assert QueriesCommand.from_args("Amount=3") == CompileCommandResult(
+        command=QueriesCommand(amount=3, from_current_session=False)
+    )
+    assert QueriesCommand.from_args("amount=1 Amount=2") == CompileCommandResult(
+        error_message="Duplicated argument 'amount'"
+    )
 
 
 @pytest.mark.parametrize(
@@ -287,6 +299,11 @@ def test_queries_execute_help(mock_print, mock_ctx):
         ("!abort", [_FAKE_QID], AbortCommand(_FAKE_QID)),
         ("!queries", ["amount=3", "user=jdoe"], QueriesCommand(amount=3, user="jdoe")),
         ("!rehash", [], RehashCommand()),
+        (
+            "!set",
+            ["output_format=plain"],
+            SetCommand(option="output_format", value="plain"),
+        ),
         ("!QuERies", ["session"], QueriesCommand(from_current_session=True)),
         (
             "!ResUlT",
@@ -326,6 +343,81 @@ def test_rehash_from_args():
     assert RehashCommand.from_args("", {}) == CompileCommandResult(
         command=RehashCommand()
     )
+
+
+def test_set_from_args():
+    assert SetCommand.from_args([], {}) == CompileCommandResult(
+        error_message="No arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+    )
+    assert SetCommand.from_args("", {}) == CompileCommandResult(
+        error_message="No arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+    )
+    assert SetCommand.from_args(["output_format", "plain"], {}) == CompileCommandResult(
+        error_message="Too many arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+    )
+    assert SetCommand.from_args([], {"header": "false"}) == CompileCommandResult(
+        error_message="Unknown option passed to 'set' command: 'header'. Only output_format is supported."
+    )
+    assert SetCommand.from_args(
+        [], {"output_format": "plain", "header": "false"}
+    ) == CompileCommandResult(
+        error_message="Unknown option passed to 'set' command: 'header'. Only output_format is supported."
+    )
+    assert SetCommand.from_args(
+        [], {"header": "false", "timing": "on"}
+    ) == CompileCommandResult(
+        error_message="Unknown option passed to 'set' command: 'header', 'timing'. Only output_format is supported."
+    )
+    csi_key = "\x1b[31mred"
+    result = SetCommand.from_args([], {csi_key: "1"})
+    assert result == CompileCommandResult(
+        error_message=(
+            f"Unknown option passed to 'set' command: {csi_key!r}. "
+            "Only output_format is supported."
+        )
+    )
+    assert "\x1b[31m" not in (result.error_message or "")
+    assert SetCommand.from_args([], {"output_format": ""}) == CompileCommandResult(
+        error_message="Invalid output format: ''. Must be one of: TABLE, JSON, JSON_EXT, CSV, PLAIN."
+    )
+    assert SetCommand.from_args([], {"output_format": "html"}) == CompileCommandResult(
+        error_message="Invalid output format: 'html'. Must be one of: TABLE, JSON, JSON_EXT, CSV, PLAIN."
+    )
+    assert SetCommand.from_args([], {"output_format": "plain"}) == CompileCommandResult(
+        command=SetCommand(option="output_format", value="plain")
+    )
+    assert SetCommand.from_args([], {"OUTPUT_FORMAT": "TABLE"}) == CompileCommandResult(
+        command=SetCommand(option="output_format", value="TABLE")
+    )
+    assert SetCommand.from_args("output_format=json") == CompileCommandResult(
+        command=SetCommand(option="output_format", value="json")
+    )
+    assert SetCommand.from_args("OUTPUT_FORMAT=plain") == CompileCommandResult(
+        command=SetCommand(option="output_format", value="plain")
+    )
+    assert SetCommand.from_args(
+        "output_format=plain OUTPUT_FORMAT=json"
+    ) == CompileCommandResult(error_message="Duplicated argument 'output_format'")
+    assert SetCommand.from_args(
+        "output_format=plain output_format=json"
+    ) == CompileCommandResult(error_message="Duplicated argument 'output_format'")
+    assert SetCommand.from_args(
+        [], {"output_format": "plain", "OUTPUT_FORMAT": "json"}
+    ) == CompileCommandResult(
+        error_message="Duplicated argument 'output_format', 'OUTPUT_FORMAT'"
+    )
+
+
+def test_set_execute_sets_output_format():
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        SetCommand(option="output_format", value="plain").execute(mock.Mock())
+        assert get_cli_context().output_format is OutputFormat.PLAIN
+        SetCommand(option="output_format", value="table").execute(mock.Mock())
+        assert get_cli_context().output_format is OutputFormat.TABLE
+    finally:
+        manager.output_format = previous
 
 
 def test_rehash_execute_calls_refresh():

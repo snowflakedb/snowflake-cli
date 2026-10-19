@@ -127,6 +127,25 @@ def test_repl_skips_elapsed_for_repl_command_only_input(compiling_repl, capsys):
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
+def test_repl_set_output_format_plain_applies_to_query_on_same_line(
+    compiling_repl, capsys
+):
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    manager.output_format = OutputFormat.TABLE
+    try:
+        run_repl(
+            compiling_repl,
+            ("!set output_format=plain;\nselect 1;", "exit", "y"),
+        )
+        output = capsys.readouterr().out
+    finally:
+        manager.output_format = previous
+
+    assert "1\n1\n" in output
+    assert "| 1 |" not in output
+
+
 def test_repl_skips_elapsed_for_async_only_input(compiling_repl, capsys):
     """An async statement only schedules work — the REPL never waits for it."""
     run_repl(compiling_repl, ("select 1;>", "exit", "y"))
@@ -1221,8 +1240,12 @@ def test_prompt_format_unknown_token_warning_skipped_for_one_shot(mock_manager, 
     assert "future-token" not in result.output
 
 
-def test_print_sql_elapsed_table_not_silent(capsys):
-    with sql_output_settings(OutputFormat.TABLE, silent=False):
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.TABLE, OutputFormat.PLAIN),
+)
+def test_print_sql_elapsed_human_formats_not_silent(output_format, capsys):
+    with sql_output_settings(output_format, silent=False):
         _print_sql_elapsed(0.123)
 
     assert "Time Elapsed: 0.123s" in capsys.readouterr().out
@@ -1232,15 +1255,19 @@ def test_print_sql_elapsed_table_not_silent(capsys):
     "output_format",
     (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
 )
-def test_print_sql_elapsed_skips_non_table_formats(output_format, capsys):
+def test_print_sql_elapsed_skips_structured_formats(output_format, capsys):
     with sql_output_settings(output_format, silent=False):
         _print_sql_elapsed(0.123)
 
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
-def test_print_sql_elapsed_table_silent(capsys):
-    with sql_output_settings(OutputFormat.TABLE, silent=True):
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.TABLE, OutputFormat.PLAIN),
+)
+def test_print_sql_elapsed_human_formats_silent(output_format, capsys):
+    with sql_output_settings(output_format, silent=True):
         _print_sql_elapsed(0.123)
 
     assert "Time Elapsed" not in capsys.readouterr().out
@@ -1258,9 +1285,20 @@ def test_repl_skips_elapsed_for_structured_output(output_format, repl, capsys):
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
-def test_repl_skips_elapsed_when_silent(repl, capsys):
+def test_repl_prints_elapsed_for_plain_output(repl, capsys):
+    with sql_output_settings(OutputFormat.PLAIN, silent=False):
+        run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
+
+    assert "Time Elapsed: 0.123s" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.TABLE, OutputFormat.PLAIN),
+)
+def test_repl_skips_elapsed_when_silent(output_format, repl, capsys):
     """Silent mode hides the footer even though the table format allows it."""
-    with sql_output_settings(OutputFormat.TABLE, silent=True):
+    with sql_output_settings(output_format, silent=True):
         run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
 
     assert "Time Elapsed" not in capsys.readouterr().out
