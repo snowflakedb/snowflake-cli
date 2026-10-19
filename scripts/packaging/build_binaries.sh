@@ -11,6 +11,12 @@ DIST_DIR="${ROOT_DIR}/dist"
 VERSION=$(hatch version)
 
 install_cargo() {
+  # Skip when cargo is already on PATH (e.g. a nix-provisioned toolchain) —
+  # same guard as build_darwin_package.sh.
+  if command -v cargo >/dev/null 2>&1; then
+    echo "cargo already on PATH ($(command -v cargo)), skipping rustup install"
+    return 0
+  fi
   python3 "${ROOT_DIR}/scripts/packaging/install_verified_rust.py"
   . $HOME/.cargo/env
 }

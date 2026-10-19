@@ -15,20 +15,23 @@ echo "--- installing dependencies ---"
 # hatch pulls uv; pin in uv.constraint (Artifactory 403 on unpinned latest).
 pip install -c scripts/packaging/uv.constraint click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
 
-# install cargo from a pinned rustup-init after SHA-256 verification
+# install cargo (skip if already on PATH, e.g. a nix-provided toolchain) from a
+# pinned rustup-init after SHA-256 verification
 _install_verified_rust="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/install_verified_rust.py"
-if [[ ${MACHINE} == "arm64" ]]; then
+if command -v cargo >/dev/null 2>&1; then
+  echo "cargo already on PATH ($(command -v cargo)), skipping rustup install"
+elif [[ ${MACHINE} == "arm64" ]]; then
   echo "installing cargo on arm64"
   python "${_install_verified_rust}"
+  [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 elif [[ ${MACHINE} == "x86_64" ]]; then
   echo "installing cargo on x86_64"
   python "${_install_verified_rust}" --no-modify-path
-  source $HOME/.cargo/env
+  [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 else
   echo "Unsupported machine: ${MACHINE}"
   exit 1
 fi
-. "$HOME/.cargo/env"
 
 
 echo "--- setup variables ---"
