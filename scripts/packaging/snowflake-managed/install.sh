@@ -500,6 +500,79 @@ gc_old_versions() {
     done
 }
 
+# Match snowflake.connector.sf_dirs: an existing SNOWFLAKE_HOME, or ~/.snowflake
+# when that directory exists, otherwise the platformdirs config directory.
+snowflake_config_dir() {
+    local candidate
+    if [ -n "${SNOWFLAKE_HOME:-}" ]; then
+        candidate=$SNOWFLAKE_HOME
+    else
+        candidate="${HOME}/.snowflake"
+    fi
+    if [ -d "$candidate" ]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    case "$(uname -s)" in
+        Darwin)
+            printf '%s\n' "${HOME}/Library/Application Support/snowflake"
+            ;;
+        Linux)
+            if [ -n "${XDG_CONFIG_HOME:-}" ]; then
+                printf '%s\n' "${XDG_CONFIG_HOME}/snowflake"
+            else
+                printf '%s\n' "${HOME}/.config/snowflake"
+            fi
+            ;;
+        *)
+            printf '%s\n' "$candidate"
+            ;;
+    esac
+}
+
+file_uid() {
+    local uid
+    uid=$(stat -c %u "$1" 2>/dev/null) || uid=$(stat -f %u "$1" 2>/dev/null) || return 1
+    printf '%s\n' "$uid"
+}
+
+file_mode() {
+    local mode
+    mode=$(stat -c %a "$1" 2>/dev/null) || mode=$(stat -f %OLp "$1" 2>/dev/null) || return 1
+    printf '%s\n' "$mode"
+}
+
+# A pip or Homebrew install often leaves connections.toml mode 0644. The direct
+# install binary refuses to start until that file is owner-only. chmod only a
+# regular file owned by the user running this script; skip symlinks so a link
+# cannot redirect the chmod onto another path.
+restrict_owned_config_file() {
+    local file=$1
+    local uid owner before after
+    if [ -L "$file" ] || [ ! -f "$file" ]; then
+        return 0
+    fi
+    uid=$(id -u)
+    owner=$(file_uid "$file") || return 0
+    if [ "$owner" != "$uid" ]; then
+        return 0
+    fi
+    before=$(file_mode "$file") || return 0
+    chmod 0600 "$file" || return 0
+    after=$(file_mode "$file") || return 0
+    if [ "$before" != "$after" ]; then
+        print_success "Restricted permissions on $file"
+    fi
+}
+
+restrict_user_snowflake_config() {
+    local config_dir file
+    config_dir=$(snowflake_config_dir) || return 0
+    for file in "$config_dir/connections.toml" "$config_dir/config.toml"; do
+        restrict_owned_config_file "$file"
+    done
+}
+
 install_binary() {
     local version=$1
     local payload
@@ -782,6 +855,11 @@ main() {
     validate_version "$version"
 
     download_and_extract "$version"
+
+    # Outside the install spinner: that helper swallows stdout, and the smoke
+    # test inside install_binary runs `snow --version`. Tighten first so a
+    # config file left readable by other accounts does not fail that check.
+    restrict_user_snowflake_config
 
     if ! run_with_spinner "Installing Snowflake CLI..." "Installed Snowflake CLI v$version successfully" "Installation failed" install_binary "$version"; then
         exit 1

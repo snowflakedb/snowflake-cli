@@ -15,6 +15,8 @@
 from __future__ import annotations
 
 import json
+import sys
+from pathlib import Path
 
 import pytest
 from snowflake.cli import __about__
@@ -29,9 +31,11 @@ from snowflake.cli._plugins.upgrade.manager import (
     STATUS_REFUSED,
     UnimplementedVersionSource,
 )
+from snowflake.cli.api.config import config_init
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 
+from tests_common import IS_WINDOWS
 from tests_common.feature_flag_utils import with_feature_flags
 
 
@@ -217,6 +221,81 @@ def test_unimplemented_source_errors_on_managed(runner, monkeypatch):
     result = runner.invoke(["upgrade"])
     assert result.exit_code == 1
     assert "Fetching the latest snowflake-managed version" in result.output
+
+
+def test_apply_upgrade_restricts_config_before_retarget(monkeypatch, tmp_path):
+    order: list[str] = []
+    restricted = tmp_path / "connections.toml"
+
+    def restrict():
+        order.append("restrict")
+        return [restricted]
+
+    class _Layout:
+        def retarget(self, version: str):
+            order.append("retarget")
+            return tmp_path / "snow"
+
+    class _Source:
+        def materialize(self, version: str, layout: object) -> None:
+            order.append("materialize")
+
+    monkeypatch.setattr(manager, "restrict_owned_default_config_files", restrict)
+    monkeypatch.setattr(manager, "ManagedLayout", lambda: _Layout())
+    monkeypatch.setattr(manager, "_best_effort_after_retarget", lambda layout: None)
+    monkeypatch.setattr(manager, "get_version_source", lambda: _Source())
+
+    decision = manager.apply_upgrade(current="3.28.0", latest="3.29.0")
+
+    assert order == ["materialize", "restrict", "retarget"]
+    assert f"Restricted permissions on {restricted}." in decision.message
+    assert decision.payload["status"] == "upgraded"
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_apply_upgrade_reports_paths_restricted_before_permission_check(
+    monkeypatch, tmp_path, snowflake_home: Path
+):
+    connections = snowflake_home / "connections.toml"
+    connections.write_text("", encoding="utf-8")
+    connections.chmod(0o644)
+    monkeypatch.setattr(sys, "argv", ["snow", "upgrade"])
+    config_init(None)
+
+    class _Layout:
+        def retarget(self, version: str):
+            return tmp_path / "snow"
+
+    class _Source:
+        def materialize(self, version: str, layout: object) -> None:
+            return None
+
+    monkeypatch.setattr(manager, "ManagedLayout", lambda: _Layout())
+    monkeypatch.setattr(manager, "_best_effort_after_retarget", lambda layout: None)
+    monkeypatch.setattr(manager, "get_version_source", lambda: _Source())
+
+    decision = manager.apply_upgrade(current="3.28.0", latest="3.29.0")
+
+    assert decision.message == (
+        f"Upgraded 3.28.0 → 3.29.0. Restricted permissions on {connections}."
+    )
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_upgrade_command_notes_restriction_when_upgrade_does_not_apply(
+    monkeypatch, snowflake_home: Path
+):
+    connections = snowflake_home / "connections.toml"
+    connections.write_text("", encoding="utf-8")
+    connections.chmod(0o644)
+    monkeypatch.setattr(sys, "argv", ["snow", "upgrade"])
+    config_init(None)
+
+    message = manager.append_upgrade_restriction_note("Already current (3.29.0).")
+
+    assert (
+        message == f"Already current (3.29.0). Restricted permissions on {connections}."
+    )
 
 
 def test_invalid_latest_version_errors(monkeypatch):

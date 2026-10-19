@@ -28,7 +28,11 @@ from snowflake.cli._plugins.upgrade.layout import (
     write_reverted_from,
 )
 from snowflake.cli._plugins.upgrade.repo import HttpRepo
-from snowflake.cli.api.config import is_air_gapped
+from snowflake.cli.api.config import (
+    is_air_gapped,
+    restrict_owned_default_config_files,
+    take_upgrade_restricted_paths,
+)
 from snowflake.cli.api.exceptions import CliError
 
 log = logging.getLogger(__name__)
@@ -180,6 +184,18 @@ def evaluate_managed_upgrade(
     return apply_upgrade(current=current, latest=latest)
 
 
+def _append_restriction_note(message: str, paths: list) -> str:
+    if not paths:
+        return message
+    rendered = ", ".join(str(path) for path in paths)
+    return f"{message} Restricted permissions on {rendered}."
+
+
+def append_upgrade_restriction_note(message: str) -> str:
+    """Add files ``config_init`` tightened so ``snow upgrade`` could start."""
+    return _append_restriction_note(message, take_upgrade_restricted_paths())
+
+
 def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
     source = get_version_source()
     materialize = getattr(source, "materialize", None)
@@ -188,10 +204,16 @@ def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
 
     layout = ManagedLayout()
     materialize(latest, layout)
+    # config_init already tightened user-owned defaults so this command could
+    # start. Restrict again for auto-upgrade, which retargets before that check.
+    restricted = restrict_owned_default_config_files()
     shim_target = layout.retarget(latest)
     # The shim already points at ``latest``. GC and stamp clear are cleanup;
     # a failure here must not report the upgrade as failed.
     _best_effort_after_retarget(layout)
+    message = f"Upgraded {current} → {latest}."
+    message = _append_restriction_note(message, restricted)
+    message = append_upgrade_restriction_note(message)
     return UpgradeDecision(
         payload={
             "channel": _channel(),
@@ -200,7 +222,7 @@ def apply_upgrade(*, current: str, latest: str) -> UpgradeDecision:
             "to": latest,
             "shim_target": str(shim_target),
         },
-        message=f"Upgraded {current} → {latest}.",
+        message=message,
     )
 
 

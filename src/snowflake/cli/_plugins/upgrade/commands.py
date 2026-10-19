@@ -18,7 +18,10 @@ import time
 
 import typer
 from snowflake.cli._app.version_check import suppress_new_version_banner
-from snowflake.cli._plugins.upgrade.manager import plan_upgrade
+from snowflake.cli._plugins.upgrade.manager import (
+    append_upgrade_restriction_note,
+    plan_upgrade,
+)
 from snowflake.cli._plugins.upgrade.telemetry import (
     TRIGGER_MANUAL,
     record_upgrade_event,
@@ -69,6 +72,7 @@ def upgrade(
         from_version=payload.get("from"),
         to_version=payload.get("to"),
     )
+    message = append_upgrade_restriction_note(decision.message)
     if get_cli_context().output_format.is_json:
         return ObjectResult(decision.payload)
-    return MessageResult(decision.message)
+    return MessageResult(message)

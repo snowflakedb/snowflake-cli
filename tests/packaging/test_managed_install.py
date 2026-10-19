@@ -142,6 +142,10 @@ def _run_install(
     env["SNOWFLAKE_CLI_MANAGED_MANIFEST_PUBKEY_FILE"] = str(pubkey_file)
     env.pop("SNOWFLAKE_CLI_MANAGED_HOME", None)
     env.pop("XDG_DATA_HOME", None)
+    # The pytest session sets SNOWFLAKE_HOME to an isolated temp dir. The
+    # installer must see the fake HOME, not that fixture.
+    env.pop("SNOWFLAKE_HOME", None)
+    env.pop("XDG_CONFIG_HOME", None)
     env.pop("SKIP_PATH_PROMPT", None)
     env.pop("DOCKER_ENV", None)
     if extra_env:
@@ -436,6 +440,104 @@ def test_install_sh_missing_signature_fail_closed(
     assert not shim.exists()
 
 
+def _mode(path: Path) -> int:
+    return path.stat().st_mode & 0o777
+
+
+@requires_posix_shell
+def test_install_sh_restricts_loose_config_files_owned_by_the_user(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    snowflake_home = home / ".snowflake"
+    snowflake_home.mkdir(parents=True)
+    connections = snowflake_home / "connections.toml"
+    config = snowflake_home / "config.toml"
+    connections.write_text('password = "secret"\n', encoding="utf-8")
+    config.write_text("", encoding="utf-8")
+    connections.chmod(0o644)
+    config.chmod(0o640)
+    untouched = home / ".config" / "snowflake" / "connections.toml"
+    untouched.parent.mkdir(parents=True)
+    untouched.write_text("other = true\n", encoding="utf-8")
+    untouched.chmod(0o644)
+
+    result = _run_install(tmp_path, httpserver, pub_file)
+
+    assert _mode(connections) == 0o600
+    assert _mode(config) == 0o600
+    assert _mode(untouched) == 0o644
+    assert f"Restricted permissions on {connections}" in result.stdout
+    assert f"Restricted permissions on {config}" in result.stdout
+
+
+@requires_posix_shell
+def test_install_sh_does_not_follow_config_symlink(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    snowflake_home = home / ".snowflake"
+    snowflake_home.mkdir(parents=True)
+    target = home / "outside.toml"
+    target.write_text('password = "secret"\n', encoding="utf-8")
+    target.chmod(0o644)
+    (snowflake_home / "connections.toml").symlink_to(target)
+
+    result = _run_install(tmp_path, httpserver, pub_file)
+
+    assert _mode(target) == 0o644
+    assert (snowflake_home / "connections.toml").is_symlink()
+    assert "Restricted permissions" not in result.stdout
+
+
+@requires_posix_shell
+def test_install_sh_leaves_already_strict_config_files(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    snowflake_home = home / ".snowflake"
+    snowflake_home.mkdir(parents=True)
+    connections = snowflake_home / "connections.toml"
+    connections.write_text("", encoding="utf-8")
+    connections.chmod(0o600)
+
+    result = _run_install(tmp_path, httpserver, pub_file)
+
+    assert _mode(connections) == 0o600
+    assert "Restricted permissions" not in result.stdout
+
+
+@requires_posix_shell
+def test_install_sh_restricts_platformdirs_config_when_snowflake_home_is_absent(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    system = platform.system()
+    if system == "Darwin":
+        config_dir = home / "Library" / "Application Support" / "snowflake"
+    elif system == "Linux":
+        config_dir = home / ".config" / "snowflake"
+    else:
+        pytest.skip(f"no platformdirs path covered for {system}")
+    config_dir.mkdir(parents=True)
+    connections = config_dir / "connections.toml"
+    connections.write_text('password = "secret"\n', encoding="utf-8")
+    connections.chmod(0o644)
+
+    result = _run_install(tmp_path, httpserver, pub_file)
+
+    assert _mode(connections) == 0o600
+    assert f"Restricted permissions on {connections}" in result.stdout
+
+
 def test_install_ps1_is_snowflake_managed_not_cortex():
     text = INSTALL_PS1.read_text(encoding="utf-8")
     assert "snowflake-cli" in text
@@ -447,6 +549,9 @@ def test_install_ps1_is_snowflake_managed_not_cortex():
     assert "Assert-ManagedVersion" in text
     assert "Assert-PackageName" in text
     assert "Test-ManifestSignature" in text
+    assert "Protect-SnowflakeConfigFiles" in text
+    assert "connections.toml" in text
+    assert "config.toml" in text
     assert "ManifestSigName" in text
     assert "native" not in text.lower()
     assert "self-managed" not in text.lower()

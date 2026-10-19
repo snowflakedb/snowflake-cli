@@ -43,7 +43,9 @@ from snowflake.cli.api.config import (
     get_stdout_encoding,
     get_subprocess_encoding,
     is_air_gapped,
+    restrict_owned_default_config_files,
     set_config_value,
+    take_upgrade_restricted_paths,
 )
 from snowflake.cli.api.exceptions import (
     InvalidConnectionConfigurationError,
@@ -797,6 +799,116 @@ def test_readable_permissions_on_default_connections_file_causes_error(
         with pytest.raises(ConfigFileTooWidePermissionsError) as error:
             config_init(None)
     assert "connections.toml has too wide permissions" in error.value.message
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_restrict_owned_default_config_files_drops_group_and_other_bits(
+    snowflake_home: Path,
+):
+    connections = snowflake_home / "connections.toml"
+    config = snowflake_home / "config.toml"
+    connections.write_text('password = "secret"\n', encoding="utf-8")
+    config.write_text("", encoding="utf-8")
+    connections.chmod(0o644)
+    config.chmod(0o640)
+
+    changed = restrict_owned_default_config_files()
+
+    assert connections in changed
+    assert config in changed
+    assert_file_permissions_are_strict(connections)
+    assert_file_permissions_are_strict(config)
+    assert stat_mode(connections) == 0o600
+    assert stat_mode(config) == 0o600
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_restrict_owned_default_config_files_leaves_strict_files(
+    snowflake_home: Path,
+):
+    connections = snowflake_home / "connections.toml"
+    connections.write_text("", encoding="utf-8")
+    connections.chmod(0o600)
+
+    assert restrict_owned_default_config_files() == []
+    assert stat_mode(connections) == 0o600
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_restrict_owned_default_config_files_does_not_follow_symlink(
+    snowflake_home: Path, tmp_path: Path
+):
+    target = tmp_path / "outside.toml"
+    target.write_text('password = "secret"\n', encoding="utf-8")
+    target.chmod(0o644)
+    (snowflake_home / "connections.toml").symlink_to(target)
+
+    assert restrict_owned_default_config_files() == []
+    assert stat_mode(target) == 0o644
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["snow", "upgrade"],
+        ["snow", "upgrade", "--dry-run"],
+        ["snow", "--debug", "upgrade"],
+        ["snow", "--config-file", "unused.toml", "upgrade"],
+    ],
+)
+def test_config_init_restricts_owned_defaults_before_check_on_upgrade(
+    snowflake_home: Path, monkeypatch, argv
+):
+    connections = snowflake_home / "connections.toml"
+    connections.write_text("", encoding="utf-8")
+    connections.chmod(0o644)
+    monkeypatch.setattr(sys, "argv", argv)
+
+    config_init(None)
+
+    assert stat_mode(connections) == 0o600
+    assert take_upgrade_restricted_paths() == [connections]
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["snow", "sql", "-q", "select 1"],
+        ["snow", "--agent-args", "upgrade"],
+    ],
+)
+def test_config_init_leaves_wide_default_permissions_for_other_commands(
+    snowflake_home: Path, monkeypatch, argv
+):
+    connections = snowflake_home / "connections.toml"
+    connections.write_text("", encoding="utf-8")
+    connections.chmod(0o644)
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(ConfigFileTooWidePermissionsError):
+        config_init(None)
+
+    assert stat_mode(connections) == 0o644
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Unix-based permission system test")
+def test_restrict_owned_default_config_files_skips_other_owners(
+    snowflake_home: Path, monkeypatch
+):
+    connections = snowflake_home / "connections.toml"
+    connections.write_text("", encoding="utf-8")
+    connections.chmod(0o644)
+    monkeypatch.setattr(os, "getuid", lambda: connections.stat().st_uid + 1)
+
+    assert restrict_owned_default_config_files() == []
+    assert stat_mode(connections) == 0o644
+
+
+def stat_mode(path: Path) -> int:
+    return path.stat().st_mode & 0o777
 
 
 @parametrize_icacls

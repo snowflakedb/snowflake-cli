@@ -362,6 +362,69 @@ function Get-PayloadDirectory {
     exit 1
 }
 
+# Match snowflake.connector.sf_dirs: an existing SNOWFLAKE_HOME, or ~/.snowflake
+# when that directory exists, otherwise the platformdirs config directory.
+function Get-SnowflakeConfigDirectory {
+    $candidate = if ($env:SNOWFLAKE_HOME) { $env:SNOWFLAKE_HOME } else { Join-Path $env:USERPROFILE ".snowflake" }
+    if (Test-Path -LiteralPath $candidate -PathType Container) {
+        return $candidate
+    }
+    return Join-Path $env:LOCALAPPDATA "snowflake"
+}
+
+function Test-OwnedByCurrentUser {
+    param([string]$Path)
+    try {
+        $owner = (Get-Acl -LiteralPath $Path).Owner
+    }
+    catch {
+        return $false
+    }
+    $me = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    return ($owner -eq $me)
+}
+
+# A previous install often leaves connections.toml readable by other accounts.
+# Reset the DACL to the current user only. Skip symlinks. Do not fail the
+# install when icacls cannot change a file this user does not own.
+function Protect-SnowflakeConfigFile {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
+    $item = Get-Item -LiteralPath $Path -Force
+    if ($item.LinkType) { return }
+    if (-not (Test-OwnedByCurrentUser $Path)) { return }
+
+    $before = (& icacls.exe $Path | Out-String)
+    $me = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    & icacls.exe $Path /inheritance:r /grant:r "${me}:(F)" | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        $ErrorActionPreference = $previous
+        return
+    }
+    foreach ($principal in @(
+            "Everyone",
+            "Users",
+            "BUILTIN\Users",
+            "Authenticated Users",
+            "NT AUTHORITY\Authenticated Users"
+        )) {
+        & icacls.exe $Path /remove:g $principal | Out-Null
+    }
+    $ErrorActionPreference = $previous
+    $after = (& icacls.exe $Path | Out-String)
+    if ($before -ne $after) {
+        Write-Success "Restricted permissions on $Path"
+    }
+}
+
+function Protect-SnowflakeConfigFiles {
+    $configDir = Get-SnowflakeConfigDirectory
+    Protect-SnowflakeConfigFile (Join-Path $configDir "connections.toml")
+    Protect-SnowflakeConfigFile (Join-Path $configDir "config.toml")
+}
+
 function Invoke-SnowflakeCliInstall {
     Write-Host ""
     Write-Host "Installing snowflake-managed Snowflake CLI for Windows..." -ForegroundColor Cyan
@@ -457,6 +520,10 @@ function Invoke-SnowflakeCliInstall {
         Write-Success "Installed Snowflake CLI v$version"
 
         Add-ToPath $binDir
+
+        # Before the smoke test, so a config file left readable by other
+        # accounts does not make that first snow --version fail.
+        Protect-SnowflakeConfigFiles
 
         $installedBinary = Join-Path $installDir $BinaryName
         $cmdShim = Join-Path $binDir "snow.cmd"

@@ -48,6 +48,7 @@
 * The direct install script updates the bash startup file the shell reads. It edits the first existing login profile (`~/.bash_profile`, `~/.bash_login`, or `~/.profile`) and an existing `~/.bashrc`, and does not create a bash login profile.
 * A configuration file with permissions that are too open now prints the `chmod` or `icacls` command on its own line. Copying that command no longer includes a line break or the error box border.
 * Upgraded GitPython from 3.1.62 to 3.2.0.
+* The direct install script restricts `connections.toml` and `config.toml` to the current user when that user owns the file. `snow upgrade` does the same before it checks permissions, and again before it points at the new version, so a file left readable by other accounts no longer stops `snow upgrade` or the new `snow` from starting. Symlinks and files owned by someone else are left unchanged.
 
 # v3.29.0
 
