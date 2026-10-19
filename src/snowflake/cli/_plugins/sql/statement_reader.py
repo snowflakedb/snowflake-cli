@@ -12,6 +12,7 @@ from snowflake.cli._plugins.sql.repl_commands import (
     ReplCommand,
     UnknownCommandError,
     compile_repl_command,
+    is_registered_command,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
@@ -325,11 +326,11 @@ def parse_statement(
                 f"Unknown source: {command_args}",
             )
 
-        case "queries" | "result" | "abort", (str(),):
-            return ParsedStatement(statement, StatementType.REPL_COMMAND, None)
-
         case "edit", (str(),):
             return ParsedStatement(statement, StatementType.REPL_COMMAND, command_args)
+
+        case cmd, (str(),) if is_registered_command(f"!{cmd}"):
+            return ParsedStatement(statement, StatementType.REPL_COMMAND, None)
 
         case _:
             error_msg = f"Unknown command: {command}"
