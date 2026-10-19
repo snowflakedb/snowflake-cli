@@ -24,7 +24,12 @@ import pytest
 
 from typing import Set, Optional, Tuple
 
+from snowflake.cli.api.errno import DCM_DEPLOYMENT_DOES_NOT_EXIST
+from tests_common.sql_error_contract import DCM_DEPLOYMENT_DOES_NOT_EXIST_SQLSTATE
 from tests_integration.conftest import CommandResult
+from tests_integration.testing_utils import (
+    assert_that_result_failed_with_sql_error,
+)
 
 
 def _assert_project_has_deployments(
@@ -284,8 +289,11 @@ def test_dcm_drop_deployment(
         result = runner.invoke_with_connection(
             ["dcm", "drop-deployment", project_name, "--deployment", "DEPLOYMENT$1"]
         )
-        assert result.exit_code == 1, result.output
-        assert "Deployment does not exist" in result.output
+        assert_that_result_failed_with_sql_error(
+            result,
+            errno=DCM_DEPLOYMENT_DOES_NOT_EXIST,
+            sqlstate=DCM_DEPLOYMENT_DOES_NOT_EXIST_SQLSTATE,
+        )
 
         # Add deployment
         result = runner.invoke_with_connection(
@@ -376,8 +384,11 @@ def test_dcm_drop_deployment(
         result = runner.invoke_with_connection(
             ["dcm", "drop-deployment", project_name, "--deployment", "non_existent"]
         )
-        assert result.exit_code == 1, result.output
-        assert "Deployment does not exist" in result.output
+        assert_that_result_failed_with_sql_error(
+            result,
+            errno=DCM_DEPLOYMENT_DOES_NOT_EXIST,
+            sqlstate=DCM_DEPLOYMENT_DOES_NOT_EXIST_SQLSTATE,
+        )
 
         # Try to drop non-existent deployment with --if-exists (should succeed)
         result = runner.invoke_with_connection(
