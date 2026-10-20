@@ -57,7 +57,7 @@ Upgrade later with `snow upgrade` (public preview, same-major only). This is the
 
 ### Install with uv (PyPi)
 
-Install Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.10. `snow upgrade` refuses on this channel.
+Install Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.11. `snow upgrade` refuses on this channel.
 
 ```bash
 uv tool install snowflake-cli
@@ -100,7 +100,7 @@ Once trusted, future upgrades work normally: `brew upgrade --cask snowflake-cli`
 
 ### Install from source
 
-Requires Python >= 3.10 and git
+Requires Python >= 3.11 and git
 
 ```bash
 git clone https://github.com/snowflakedb/snowflake-cli

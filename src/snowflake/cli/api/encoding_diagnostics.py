@@ -54,6 +54,16 @@ _ADDITIONAL_CONSOLE_NOTE = (
 _NO_ENCODING_ISSUES_MESSAGE = "No encoding issues - your system is properly configured."
 
 
+def _preferred_locale_encoding() -> str:
+    """Return the locale encoding without calling setlocale.
+
+    The default ``getpreferredencoding(True)`` re-reads ``LANG`` on Python 3.11
+    and later. A cleared environment then reports ASCII for a process that is
+    still using UTF-8, and the call changes the process locale.
+    """
+    return locale.getpreferredencoding(False)
+
+
 def _canonical_encoding(enc: str) -> str:
     """Return the canonical codec name for enc.
 
@@ -80,7 +90,7 @@ def get_encoding_diagnostics(*, all_cli_encodings_configured: bool) -> str:
     """
     fs_encoding = _canonical_encoding(sys.getfilesystemencoding())
     default_encoding = _canonical_encoding(sys.getdefaultencoding())
-    locale_encoding = _canonical_encoding(locale.getpreferredencoding())
+    locale_encoding = _canonical_encoding(_preferred_locale_encoding())
 
     encodings = {fs_encoding, default_encoding, locale_encoding}
 
@@ -136,7 +146,7 @@ def detect_encoding_environment(*, all_cli_encodings_configured: bool) -> None:
     """Detect encoding configuration and warn about mismatches"""
     fs_encoding = _canonical_encoding(sys.getfilesystemencoding())
     default_encoding = _canonical_encoding(sys.getdefaultencoding())
-    locale_encoding = _canonical_encoding(locale.getpreferredencoding())
+    locale_encoding = _canonical_encoding(_preferred_locale_encoding())
 
     # Warn on mismatches
     encodings = {fs_encoding, default_encoding, locale_encoding}

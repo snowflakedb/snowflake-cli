@@ -51,9 +51,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
-      # Key on the resolved CPython patch (3.10.21 vs 3.10.22). Prefix
-      # restore-keys of `py3.10-` reused a venv whose interpreter was gone,
-      # so hatch skipped create and `python -m pytest` hit the runner Python.
+      # Key on the resolved CPython patch. A prefix restore-key reused a venv
+      # whose interpreter was gone, so hatch skipped create and `python -m pytest`
+      # hit the runner Python.
       - if: needs.changes.outputs.code == 'true'
         name: Cache hatch envs
         uses: actions/cache@v4
@@ -90,7 +90,7 @@ jobs:
       - if: needs.changes.outputs.code == 'true'
         name: Test bundled OAuth plugin
         run: node --test tests/ai/test_opencode_oauth.mjs
-      - if: needs.changes.outputs.code == 'true' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      - if: needs.changes.outputs.code == 'true' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
         name: Verify installed wheel OAuth plugin
         run: |
           hatch build -t wheel
@@ -98,16 +98,16 @@ jobs:
           .wheel-test/bin/python -m pip install --no-deps dist/*.whl
           .wheel-test/bin/python -I scripts/check_ai_wheel.py
       # Coverage instrumentation roughly doubles unit-test wall time, so run it
-      # on a single cell (ubuntu-latest / 3.10) and run the rest of the matrix
+      # on a single cell (ubuntu-latest / 3.11) and run the rest of the matrix
       # without it. The job name — and therefore the required check
       # `tests (<os>, <py>)` — is unchanged; only the step internals differ.
-      - if: needs.changes.outputs.code == 'true' && (matrix.os != 'ubuntu-latest' || matrix.python-version != '3.10')
+      - if: needs.changes.outputs.code == 'true' && (matrix.os != 'ubuntu-latest' || matrix.python-version != '3.11')
         name: Test with hatch
         run: hatch run test
-      - if: needs.changes.outputs.code == 'true' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      - if: needs.changes.outputs.code == 'true' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
         name: Test with hatch (with coverage)
         run: hatch run test-cov
-      - if: needs.changes.outputs.code == 'true' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      - if: needs.changes.outputs.code == 'true' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
         uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
 
   # Temporarily disabled; re-enable once config v2 (NG) is ready.

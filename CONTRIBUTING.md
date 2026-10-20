@@ -90,7 +90,7 @@ hatch run pre-commit install
 To create an environment pinned to a specific Python version:
 
 ```bash
-hatch env create local.py3.10
+hatch env create local.py3.11
 ```
 
 To list all available environments:

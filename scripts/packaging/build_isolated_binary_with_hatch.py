@@ -158,15 +158,6 @@ def pack_managed_tarball(
     return tarball, fragment_path, fragment
 
 
-@contextlib.contextmanager
-def contextlib_chdir(path: Path):
-    # re-implement contextlib.chdir to be available in python 3.10 (current build version)
-    old_cwd = os.getcwd()
-    os.chdir(path)
-    yield
-    os.chdir(old_cwd)
-
-
 class ProjectSettings:
     """Class for holding dynamically determined build settings."""
 
@@ -224,7 +215,7 @@ def make_project_wheel() -> Path:
 def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
     """Make and return path to tar-bzipped Python distribution."""
     archive = python_tmp_dir / "python.bz2"
-    with contextlib_chdir(dist_path):
+    with contextlib.chdir(dist_path):
         with tarfile.open(archive, mode="w:bz2") as tar:
             tar.add(".")
     return archive

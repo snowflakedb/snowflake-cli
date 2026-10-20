@@ -3,7 +3,7 @@ name: detect changes
 # Determines whether a PR changes anything that requires running the heavy test
 # matrix. Callers gate their **steps** (not the job) on `outputs.code` so the
 # matrix expands and every per-cell required check name (e.g.
-# `tests (ubuntu-latest, 3.10)`, `e2e-trusted (...) / tests-trusted`) is posted
+# `tests (ubuntu-latest, 3.11)`, `e2e-trusted (...) / tests-trusted`) is posted
 # to the PR. A job-level `if:` would short-circuit matrix expansion and leave
 # those required checks stuck at "Expected — Waiting for status to be reported"
 # — the same branch-protection deadlock `paths-ignore` used to cause.

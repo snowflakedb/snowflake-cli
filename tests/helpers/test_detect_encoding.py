@@ -24,7 +24,7 @@ def test_detect_encoding_clean_system(runner, monkeypatch):
     """On a well-configured UTF-8 system the command reports no issues."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-8")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
@@ -48,7 +48,7 @@ def test_detect_encoding_mismatch(runner, monkeypatch):
     includes actionable remediation steps."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
@@ -68,7 +68,7 @@ def test_detect_encoding_non_utf8(runner, monkeypatch):
     report with remediation advice."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp1252")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
@@ -86,7 +86,7 @@ def test_detect_encoding_both_configured(runner, monkeypatch):
     issues even if the underlying platform encodings are inconsistent."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "utf-8")
@@ -203,7 +203,7 @@ def test_detect_encoding_console_section_shown_on_windows_with_mismatch(
     chcp.com fix and the PowerShell docs link."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp932")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp932")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
@@ -226,7 +226,7 @@ def test_detect_encoding_console_section_shown_when_cli_encoding_configured(
     """Show the console note even when all CLI encodings are explicitly configured."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp932")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp932")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "utf-8")
@@ -246,7 +246,7 @@ def test_detect_encoding_no_console_section_when_configured(runner, monkeypatch)
     """Console section is suppressed once the console is already UTF-8."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp932")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp932")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)
@@ -271,7 +271,7 @@ def test_detect_encoding_diagnostics_headline_when_platform_clean_but_console_mi
     there should be exactly one such headline, not two different ones."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-8")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_STDOUT", raising=False)

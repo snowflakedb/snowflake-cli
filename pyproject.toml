@@ -21,7 +21,7 @@ name = "snowflake-cli"
 authors = [{ name = "Snowflake Inc." }]
 license = { file = "LICENSE" }
 dynamic = ["version"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
@@ -62,7 +62,6 @@ classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -106,7 +105,7 @@ exclude = ["/.github", "/.compat"]
 packages = ["src/snowflake"]
 
 [tool.hatch.envs.default]
-python = "3.10"
+python = "3.11"
 features = ["development"]
 # Use uv as the installer for faster environment creation (notably on CI
 # cache-miss). Scoped to the default (unit-test) env; the integration/e2e
@@ -129,14 +128,14 @@ test-cov = [
 ]
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 lock-dependencies = [
-  "uv pip compile pyproject.toml -o pylock.toml -p 3.10 --no-annotate --universal --index https://pypi.org/simple",
+  "uv pip compile pyproject.toml -o pylock.toml -p 3.11 --no-annotate --universal --index https://pypi.org/simple",
 ]
 sync-dependencies = [
-  "uv pip compile pyproject.toml -o snyk/requirements.txt -p 3.10 --no-annotate --universal --index https://pypi.org/simple",
+  "uv pip compile pyproject.toml -o snyk/requirements.txt -p 3.11 --no-annotate --universal --index https://pypi.org/simple",
 ]
 
 [tool.hatch.envs.packaging]
-python = "3.11"
+python = "3.12"
 features = ["development", "packaging"]
 
 [tool.hatch.envs.packaging.scripts]
@@ -221,7 +220,7 @@ check = [
 
 
 [[tool.hatch.envs.local.matrix]]
-python = ["3.10", "3.11", "3.12", "3.13"]
+python = ["3.11", "3.12", "3.13"]
 
 [tool.coverage.run]
 source = ["snowflake.cli"]

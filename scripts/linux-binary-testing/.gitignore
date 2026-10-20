@@ -1,6 +1,0 @@
-# Ignore all test artifacts and logs
-logs/
-tmp/
-
-# Ignore personal configuration (keep config.example)
-config

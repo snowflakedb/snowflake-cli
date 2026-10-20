@@ -1595,7 +1595,7 @@ def test_unix_utf8_locale_no_warning(config_file, monkeypatch):
 
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-8")
 
     config_content = ""
     with config_file(config_content) as cfg:
@@ -1622,7 +1622,7 @@ def test_detect_encoding_mismatch_warning(config_file, monkeypatch):
     """Test warning when different encodings are detected"""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
 
     config_content = ""
     with config_file(config_content) as cfg:
@@ -1635,7 +1635,7 @@ def test_detect_encoding_no_warning_when_configured(config_file, monkeypatch):
 
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
     # Pin this so the assertion below doesn't depend on the console this
     # test happens to run in (e.g. a real Windows box with a non-UTF-8
     # console codepage).
@@ -1673,7 +1673,7 @@ def test_detect_encoding_no_warning_when_warnings_disabled(config_file, monkeypa
 
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
 
     config_content = """
 [cli.encoding]
@@ -1697,7 +1697,7 @@ def test_detect_encoding_non_utf8_warning(config_file, monkeypatch):
     """Test warning when platform encoding is not UTF-8"""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp1252")
 
     config_content = ""
     with config_file(config_content) as cfg:
@@ -1712,7 +1712,7 @@ def test_detect_encoding_console_warning_when_platform_encoding_clean(
     triggers its own warning pointing at the chcp.com fix and PS docs."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-8")
     monkeypatch.setattr(
         "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
         lambda: True,
@@ -1731,7 +1731,7 @@ def test_detect_encoding_console_warning_when_cli_encoding_configured(
     options are explicitly configured."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
     monkeypatch.setattr(
         "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
         lambda: True,
@@ -1756,7 +1756,7 @@ def test_detect_encoding_no_console_warning_when_console_configured(
     """No console warning once the console itself is UTF-8."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-8")
     monkeypatch.setattr(
         "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
         lambda: False,
@@ -1784,7 +1784,7 @@ def test_detect_encoding_mismatch_warning_suppresses_console_warning(
     points at 'snow helpers detect-encoding'."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
     monkeypatch.setattr(
         "snowflake.cli.api.encoding_diagnostics._console_needs_utf8_configuration",
         lambda: True,
@@ -2007,7 +2007,7 @@ def test_encoding_alias_no_false_mismatch_warning(config_file, monkeypatch, alia
     warning — they are equivalent to 'utf-8' after codecs.lookup normalisation."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: alias)
     monkeypatch.setattr("sys.getdefaultencoding", lambda: alias)
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: alias)
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: alias)
 
     config_content = ""
     with config_file(config_content) as cfg:
@@ -2028,7 +2028,7 @@ def test_encoding_mixed_aliases_no_false_mismatch_warning(config_file, monkeypat
     """utf-8 and utf8 are the same codec; mixing aliases must not trigger a mismatch."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "UTF_8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "UTF_8")
 
     config_content = ""
     with config_file(config_content) as cfg:
@@ -2052,7 +2052,7 @@ def test_encoding_diagnostics_clean_system(monkeypatch):
     """All three platform encodings agree on utf-8 → no issues."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "utf-8")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-8")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-8")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
     monkeypatch.setattr(
@@ -2068,7 +2068,7 @@ def test_encoding_diagnostics_mismatch(monkeypatch):
     """Different encodings across the three sources → mismatch report."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
 
@@ -2084,7 +2084,7 @@ def test_encoding_diagnostics_non_utf8(monkeypatch):
     """Single consistent non-utf-8 encoding → platform encoding report."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp1252")
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", raising=False)
     monkeypatch.delenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", raising=False)
 
@@ -2099,7 +2099,7 @@ def test_encoding_diagnostics_both_configured(monkeypatch):
     """When all CLI encodings are explicitly configured → no issues reported."""
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "utf-8")
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "utf-16")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "utf-16")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_FILE_IO", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_SUBPROCESS", "utf-8")
     monkeypatch.setenv("SNOWFLAKE_CLI_ENCODING_STDOUT", "utf-8")

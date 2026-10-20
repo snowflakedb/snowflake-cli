@@ -749,7 +749,7 @@ def test_from_file_utf8_content(tmp_path_factory, monkeypatch):
     encoding must be explicitly configured to correctly read files with non-ASCII characters.
     """
     # Simulate Windows cp1252 environment where platform default would fail for UTF-8
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp1252")
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
 
