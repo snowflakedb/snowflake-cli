@@ -17,6 +17,10 @@
 Checksums are the published rustup 1.29.1 archive files at
 https://static.rust-lang.org/rustup/archive/1.29.1/<target>/rustup-init[.exe].sha256
 The toolchain pin is rustc 1.98.1.
+
+On Windows packaging agents, Python urllib often lacks corporate CA roots
+(CERTIFICATE_VERIFY_FAILED). Downloads use curl.exe + schannel with verify on;
+integrity still hard-fails on SHA-256 mismatch. Soft-skip / --insecure are banned.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ import hashlib
 import hmac
 import os
 import platform
+import shutil
 import stat
 import subprocess
 import sys
@@ -166,12 +171,205 @@ class ArchiveRedirectHandler(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def download_https(url: str, dest: Path) -> None:
+CURL_TRUST_ENV_BLOCKLIST = (
+    "CURL_CA_BUNDLE",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+)
+CURL_CONNECT_TIMEOUT_S = 30
+CURL_MAX_TIME_S = 120
+CURL_MAX_REDIRS = 5
+CURL_SUBPROCESS_TIMEOUT_S = CURL_MAX_TIME_S + 30
+DIAG_PROBE_TIMEOUT_S = 5
+
+
+def curl_download_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """Env for curl downloads: drop Python/CA-bundle overrides so schannel wins."""
+    env = dict(os.environ if base is None else base)
+    for key in CURL_TRUST_ENV_BLOCKLIST:
+        env.pop(key, None)
+    return env
+
+
+def log_trust_diagnostics(*, run_fn: RunFn = subprocess.run) -> None:
+    """Emit Windows curl trust context before download (no-op off Windows)."""
+    if os.name != "nt":
+        return
+    print(
+        "rustup-trust:"
+        f" python={sys.version.split()[0]}"
+        f" SSL_CERT_FILE={os.environ.get('SSL_CERT_FILE', '')!r}"
+        f" CURL_CA_BUNDLE={os.environ.get('CURL_CA_BUNDLE', '')!r}"
+    )
+    try:
+        curl = resolve_windows_curl()
+        probe = run_fn(
+            [curl, "--version"],
+            check=False,
+            text=True,
+            capture_output=True,
+            timeout=DIAG_PROBE_TIMEOUT_S,
+            env=curl_download_env(),
+        )
+        version_line = (probe.stdout or probe.stderr or "").splitlines()
+        version = version_line[0] if version_line else f"rc={probe.returncode}"
+        print(
+            "rustup-trust:"
+            f" download_backend=curl curl_pin=system32 path={curl!r}"
+            f" version={version!r}"
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"rustup-trust: download_backend=curl probe-failed:{exc}")
+    rustc = shutil.which("rustc")
+    if rustc is None:
+        print("rustup-trust: rustc=not-on-path")
+        return
+    try:
+        probe = run_fn(
+            [rustc, "--version"],
+            check=False,
+            text=True,
+            capture_output=True,
+            timeout=DIAG_PROBE_TIMEOUT_S,
+        )
+        version = (
+            probe.stdout or probe.stderr or ""
+        ).strip() or f"rc={probe.returncode}"
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        version = f"probe-failed:{exc}"
+    print(f"rustup-trust: rustc={rustc!r} version={version!r}")
+
+
+def download_https_urllib(url: str, dest: Path) -> None:
     assert_archive_url(url)
     request = urllib.request.Request(url, method="GET")
     opener = urllib.request.build_opener(ArchiveRedirectHandler)
     with opener.open(request, timeout=60) as response:
         dest.write_bytes(response.read())
+
+
+def windows_system32_curl(system_root: str | None) -> str | None:
+    """Resolve System32/Sysnative curl.exe (schannel). Never PATH OpenSSL curl."""
+    if not system_root:
+        return None
+    root = Path(system_root)
+    for leaf in ("Sysnative", "System32"):
+        candidate = root / leaf / "curl.exe"
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def resolve_windows_curl() -> str:
+    """Return System32/Sysnative curl.exe; never PATH OpenSSL curl."""
+    if os.name != "nt":
+        raise OSError("curl download path is Windows-only")
+    system_root = os.environ.get("SystemRoot") or os.environ.get("SYSTEMROOT")
+    pinned = windows_system32_curl(system_root)
+    if pinned is not None:
+        return pinned
+    raise OSError(
+        "System32 curl.exe (schannel) is required for rustup-init download; "
+        f"not found under SystemRoot={system_root!r}. "
+        "PATH OpenSSL curl (e.g. Git for Windows) is not used."
+    )
+
+
+def download_https_curl(
+    url: str, dest: Path, *, run_fn: RunFn = subprocess.run
+) -> None:
+    """Download via System32 curl.exe with TLS verify on (Windows schannel).
+
+    Argv never includes -k / --insecure. CA-bundle env overrides are stripped
+    so corporate Python SSL_CERT_FILE cannot force a broken verify path.
+    """
+    assert_archive_url(url)
+    if dest.exists():
+        dest.unlink()
+    curl = resolve_windows_curl()
+    # Verify stays on: never pass -k / --insecure.
+    cmd = [
+        curl,
+        "--fail",
+        "--silent",
+        "--show-error",
+        "--location",
+        "--max-redirs",
+        str(CURL_MAX_REDIRS),
+        "--proto",
+        "=https",
+        "--proto-redir",
+        "=https",
+        "--connect-timeout",
+        str(CURL_CONNECT_TIMEOUT_S),
+        "--max-time",
+        str(CURL_MAX_TIME_S),
+        "--output",
+        str(dest),
+        "--write-out",
+        "%{http_code} %{url_effective}",
+        "--",
+        url,
+    ]
+    try:
+        result = run_fn(
+            cmd,
+            check=False,
+            text=True,
+            capture_output=True,
+            env=curl_download_env(),
+            timeout=CURL_SUBPROCESS_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired as exc:
+        if dest.exists():
+            dest.unlink()
+        raise OSError(
+            f"curl rustup-init download timed out after "
+            f"{CURL_SUBPROCESS_TIMEOUT_S}s path={curl!r}"
+        ) from exc
+    write_out = (result.stdout or "").strip()
+    if result.returncode != 0:
+        if dest.exists():
+            dest.unlink()
+        stderr = (result.stderr or "").strip()
+        raise OSError(
+            f"curl rustup-init download failed path={curl!r} "
+            f"rc={result.returncode} write_out={write_out!r}: {stderr}"
+        )
+    parts = write_out.split(None, 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        if dest.exists():
+            dest.unlink()
+        raise OSError(
+            f"curl rustup-init download missing http_code/url_effective "
+            f"path={curl!r} write_out={write_out!r}"
+        )
+    http_code, effective = parts[0], parts[1]
+    if http_code != "200":
+        if dest.exists():
+            dest.unlink()
+        raise OSError(
+            f"curl rustup-init download unexpected HTTP {http_code} "
+            f"path={curl!r} url={effective!r}"
+        )
+    try:
+        assert_archive_url(effective)
+    except ValueError:
+        if dest.exists():
+            dest.unlink()
+        raise
+    if not dest.is_file() or dest.stat().st_size == 0:
+        if dest.exists():
+            dest.unlink()
+        raise OSError(f"curl left empty rustup-init download path={curl!r}: {dest}")
+
+
+def download_https(url: str, dest: Path) -> None:
+    if os.name == "nt":
+        download_https_curl(url, dest)
+    else:
+        download_https_urllib(url, dest)
 
 
 def _make_executable(path: Path) -> None:
@@ -197,10 +395,17 @@ def install_verified_rust(
     dest_dir: Path | None = None,
     download_fn: DownloadFn = download_https,
     run_fn: RunFn = subprocess.run,
+    log_diagnostics: bool | None = None,
 ) -> None:
     target = rustup_target(system, machine)
     url = rustup_init_url(target)
     expected = expected_sha256(target)
+    # Default: diagnostics only on Windows (curl trust path); keep Linux/Mac quiet.
+    if log_diagnostics is None:
+        log_diagnostics = os.name == "nt"
+    if log_diagnostics:
+        log_trust_diagnostics(run_fn=run_fn)
+        print(f"rustup-trust: download_url={url} target={target}")
     if dest_dir is None:
         temp_dir = tempfile.TemporaryDirectory()
         work_dir = Path(temp_dir.name)
@@ -227,8 +432,11 @@ def install_verified_rust(
         env["PATH"] = str(cargo_bin_dir()) + os.pathsep + env.get("PATH", "")
         run_fn(rustup_cmd, check=True, text=True, env=env)
     finally:
-        if installer.exists():
-            installer.unlink()
+        try:
+            if installer.exists():
+                installer.unlink()
+        except OSError as exc:
+            print(f"rustup-trust: installer cleanup failed: {exc}", file=sys.stderr)
         if temp_dir is not None:
             temp_dir.cleanup()
 
@@ -260,6 +468,7 @@ def main(argv: list[str] | None = None) -> int:
         RuntimeError,
         ValueError,
         subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
     ) as exc:
         print(exc, file=sys.stderr)
         return 1
