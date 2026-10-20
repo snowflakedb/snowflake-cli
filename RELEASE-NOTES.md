@@ -15,6 +15,16 @@
  -->
 # Unreleased version
 ## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.30.0
+## Backward incompatibility
 * Re-running `snow helpers import-snowsql-connections` can save a different connection than an earlier import. Custom `--snowsql-config-file` paths are merged after the default SnowSQL files instead of replacing that list, and `/usr/lib64/snowflake/snowsql/config` is read last when it exists. Named connections are saved from `connections.<name>` alone and do not receive keys from the unnamed `[connections]` section. `login_timeout`, `client_session_keep_alive`, `ocsp_fail_open`, `insecure_mode`, and `client_store_temporary_credential` are copied from `[options]` when a connection omits them; a key set on the connection wins. Passwords and other text stay strings, including values that look like numbers. `login_timeout` and `client_prefetch_threads` are saved as integers, and `client_session_keep_alive`, `client_store_temporary_credential`, `ocsp_fail_open`, `insecure_mode`, `oauth_disable_pkce`, `oauth_enable_refresh_tokens`, `oauth_enable_single_use_refresh_tokens`, and `disable_request_pooling` are saved as booleans. `default_connection_name` is set only from the unnamed `[connections]` section, under the name it was actually saved with. When `WORKSPACE` is set, `.snowsql.cnf` and `.snowsql/config` are read from that directory instead of the home directory.
 * `snow streamlit deploy` no longer defaults `query_warehouse` to the identifier `streamlit` when the field is omitted from `snowflake.yml`. A new app uses the connection warehouse instead, and deploy fails if that is also unset. An existing app keeps its warehouse unless `snowflake.yml` sets `query_warehouse`.
 * `snow streamlit deploy --replace` now UNSETs Streamlit properties (title, comment, external access integrations, secrets, imports, compute_pool) that were cleared from `snowflake.yml`, and REVOKEs object grants that disappeared from `grants:` (OWNERSHIP is left alone). Omitting `grants:` still leaves live grants untouched. If the app's current grants cannot be listed, deploy fails rather than skip the revoke.
