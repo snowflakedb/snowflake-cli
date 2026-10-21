@@ -24,6 +24,8 @@
 * `snow upgrade` is now generally available. It upgrades a direct install of Snowflake CLI and is listed in `snow --help` without a feature flag. Other install channels refuse and print the direct-install command.
 
 ## Fixes and improvements
+* `snow streamlit deploy --replace` now applies `main_file` changes to existing versioned apps in place, preserving the app, grants and version history. Files are uploaded before the entrypoint changes; `--prune` runs only after the change succeeds. Accounts that reject the update receive an actionable error.
+* Streamlit deploy now refuses to recreate an existing app with no live stage unless a legacy `ROOT_LOCATION` is known, and rejects `--prune` with an unset `main_file` when the active entrypoint is absent from the bundle.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.22 to 3.12.15. macOS and Windows binaries now embed Python 3.12 as well.
 
 

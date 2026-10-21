@@ -477,6 +477,24 @@ _DEPLOY_DOCS = CommandDocs(
             " option, the command removes files that exist in the stage, but not files "
             "in the local filesystem.",
         ),
+        plain_text(
+            "For an existing versioned app, ",
+            code("--replace"),
+            " applies changes to ",
+            code("main_file"),
+            " in place. Files are uploaded before the "
+            "entrypoint changes, and pruning runs after a successful change. If the "
+            "account does not support the update, deploy reports an error and keeps "
+            "the existing app.",
+        ),
+        plain_text(
+            "If the app has no live version stage, restore its live version before "
+            "redeploying. When ",
+            code("main_file"),
+            " is unset, ",
+            code("--prune"),
+            " requires the app's current entrypoint to be included in the bundle.",
+        ),
     ),
     examples=(
         Example(

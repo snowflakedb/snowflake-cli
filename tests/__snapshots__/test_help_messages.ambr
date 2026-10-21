@@ -16363,6 +16363,15 @@
   |                                                                              |
   | If you specify the --prune option, the command removes files that exist in   |
   | the stage, but not files in the local filesystem.                            |
+  |                                                                              |
+  | For an existing versioned app, --replace applies changes to main_file in     |
+  | place. Files are uploaded before the entrypoint changes, and pruning runs    |
+  | after a successful change. If the account does not support the update,       |
+  | deploy reports an error and keeps the existing app.                          |
+  |                                                                              |
+  | If the app has no live version stage, restore its live version before        |
+  | redeploying. When main_file is unset, --prune requires the app's current     |
+  | entrypoint to be included in the bundle.                                     |
   +------------------------------------------------------------------------------+
   +- Examples -------------------------------------------------------------------+
   | snow streamlit deploy demo_app --replace                                     |

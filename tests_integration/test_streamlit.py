@@ -1,4 +1,9 @@
 import pytest
+import yaml
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_identifier
+from snowflake.cli.api.secure_path import SecurePath
 
 from tests_integration.testing_utils import FlowTestSetup
 from tests_integration.testing_utils.streamlit_utils import (
@@ -8,6 +13,128 @@ from tests_integration.testing_utils.streamlit_utils import (
 
 # TODO: use below constant instead of hardcoded values
 APP_1 = "app_1"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("prune", [False, True])
+def test_versioned_main_file_change_preserves_app_and_grants(
+    _streamlit_test_steps,
+    project_directory,
+    snowflake_session,
+    alter_snowflake_yml,
+    tmp_path,
+    prune,
+):
+    """Changing the entrypoint keeps object identity, live stage and manual grants."""
+    runner = _streamlit_test_steps.setup.runner
+    sql = _streamlit_test_steps.setup.sql_test_helper
+    app = FQN(
+        database=snowflake_session.database, schema=snowflake_session.schema, name=APP_1
+    )
+
+    with project_directory("streamlit_v2") as root:
+        alter_snowflake_yml(
+            root / "snowflake.yml",
+            "entities.app_1.runtime_name",
+            WAREHOUSE_RUNTIME_NAME,
+        )
+        alter_snowflake_yml(
+            root / "snowflake.yml",
+            "entities.app_1.query_warehouse",
+            snowflake_session.warehouse,
+        )
+        try:
+            result = runner.invoke_with_connection_json(["streamlit", "deploy", APP_1])
+            assert result.exit_code == 0, result.output
+            before = runner.invoke_with_connection_json(
+                ["streamlit", "describe", str(app)]
+            )
+            assert before.exit_code == 0, before.output
+            stage = before.json[0]["live_version_location_uri"]
+            created = runner.invoke_with_connection_json(
+                ["streamlit", "list", "--like", APP_1]
+            )
+            assert created.exit_code == 0, created.output
+            created_on = created.json[0]["created_on"]
+
+            # This grant is intentionally absent from the project definition.
+            sql.execute_single_sql(
+                f"GRANT USAGE ON STREAMLIT {app.sql_identifier} TO ROLE {to_identifier(snowflake_session.role)}"
+            )
+            grants_before = sql.execute_single_sql(
+                f"SHOW GRANTS ON STREAMLIT {app.sql_identifier}"
+            )
+            grant_columns = (
+                "privilege",
+                "granted_to",
+                "grantee_name",
+                "grant_option",
+                "granted_by",
+            )
+            expected_grants = {
+                tuple(row[column] for column in grant_columns) for row in grants_before
+            }
+            assert any(row["privilege"] == "USAGE" for row in grants_before)
+
+            stage_only = tmp_path / "stage_only.txt"
+            SecurePath(stage_only).write_text("keep until an explicit successful prune")
+            uploaded = runner.invoke_with_connection_json(
+                ["stage", "copy", str(stage_only), stage, "--overwrite"]
+            )
+            assert uploaded.exit_code == 0, uploaded.output
+
+            SecurePath(root / "renamed_app.py").write_text(
+                "import streamlit as st\nst.write('renamed entrypoint')\n"
+            )
+            alter_snowflake_yml(
+                root / "snowflake.yml", "entities.app_1.main_file", "renamed_app.py"
+            )
+            alter_snowflake_yml(
+                root / "snowflake.yml", "entities.app_1.artifacts", ["app_1.py"]
+            )
+            # Omit the warehouse so the entrypoint update must retain its live value.
+            definition = SecurePath(root / "snowflake.yml")
+            project = yaml.safe_load(definition.read_text(DEFAULT_SIZE_LIMIT_MB))
+            del project["entities"][APP_1]["query_warehouse"]
+            definition.write_text(yaml.safe_dump(project))
+            command = ["streamlit", "deploy", APP_1, "--replace"]
+            if prune:
+                command.append("--prune")
+            changed = runner.invoke_with_connection_json(command)
+            assert changed.exit_code == 0, changed.output
+
+            after = runner.invoke_with_connection_json(
+                ["streamlit", "describe", str(app)]
+            )
+            assert after.exit_code == 0, after.output
+            assert after.json[0]["main_file"] == "renamed_app.py"
+            for column in (
+                "live_version_location_uri",
+                "query_warehouse",
+                "runtime_name",
+            ):
+                assert after.json[0][column] == before.json[0][column]
+            listed = runner.invoke_with_connection_json(
+                ["streamlit", "list", "--like", APP_1]
+            )
+            assert listed.exit_code == 0, listed.output
+            assert listed.json[0]["created_on"] == created_on
+            grants_after = sql.execute_single_sql(
+                f"SHOW GRANTS ON STREAMLIT {app.sql_identifier}"
+            )
+            assert {
+                tuple(row[column] for column in grant_columns) for row in grants_after
+            } == expected_grants
+            files = {
+                name.removeprefix("/versions/live/")
+                for name in _streamlit_test_steps.get_actual_file_staged_in_db(stage)
+            }
+            assert {"renamed_app.py", "app_1.py"}.issubset(files)
+            assert ("stage_only.txt" in files) is not prune
+            assert ("streamlit_app.py" in files) is not prune
+            _streamlit_test_steps.execute_should_run_streamlit(APP_1, snowflake_session)
+        finally:
+            sql.execute_single_sql(f"DROP STREAMLIT IF EXISTS {app.sql_identifier}")
 
 
 @pytest.mark.integration

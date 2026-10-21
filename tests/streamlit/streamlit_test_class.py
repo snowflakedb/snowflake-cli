@@ -1,8 +1,14 @@
+from pathlib import Path
 from re import match
 from typing import List
 from unittest import mock
 
 from snowflake.cli._plugins.stage.diff import DiffResult
+from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
+from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.secure_path import SecurePath
 
 from tests.conftest import MockCursor
 
@@ -51,6 +57,34 @@ TYPER = "snowflake.cli._plugins.streamlit.commands.typer"
 
 
 class StreamlitTestClass:
+    @staticmethod
+    def _create_entity(
+        project_root: Path,
+        main_file: str,
+        artifacts,
+        include_project_definition: bool = False,
+    ):
+        workspace_ctx = WorkspaceContext(
+            console=mock.MagicMock(spec=AbstractConsole),
+            project_root=project_root,
+            get_default_role=lambda: "mock_role",
+            get_default_warehouse=lambda: "mock_warehouse",
+        )
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file=main_file,
+            artifacts=artifacts,
+            include_project_definition=include_project_definition,
+        )
+        model.set_entity_id("test_streamlit")
+        return StreamlitEntity(workspace_ctx=workspace_ctx, entity_model=model)
+
+    @staticmethod
+    def _write_file(path: Path, content: str = ""):
+        SecurePath(path.parent).mkdir(parents=True, exist_ok=True)
+        SecurePath(path).write_text(content)
+
     def setup_method(self):
         self.mock_conn = mock.patch(
             "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._conn"
@@ -98,7 +132,8 @@ class StreamlitTestClass:
         ).start()
         mock_cursor = mock.Mock()
         mock_cursor.fetchone.return_value = {
-            "live_version_location_uri": f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+            "live_version_location_uri": f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/",
+            "main_file": "streamlit_app.py",
         }
         self.mock_describe.return_value = mock_cursor
 

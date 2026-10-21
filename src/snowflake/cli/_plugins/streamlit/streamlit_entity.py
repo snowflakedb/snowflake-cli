@@ -1,5 +1,6 @@
 import json
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, NamedTuple, Optional
 
@@ -38,6 +39,7 @@ log = logging.getLogger(__name__)
 # Snowflake errno / SQLSTATE for "live version already exists" (same codes as
 # SnowflakeAppManager.ensure_workspace_live_version).
 _LIVE_VERSION_EXISTS_ERRNO = 99106
+_MAIN_FILE_UNSUPPORTED_ERRNO = 92824
 _RESTART_STREAMLIT_FUNCTION = "SYSTEM$RESTART_STREAMLIT"
 
 
@@ -441,10 +443,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if from_stage_name:
             clauses.append(f"ROOT_LOCATION = {to_string_literal(from_stage_name)}")
 
-        if legacy:
-            desired = _str(self._entity_model.main_file)
-            if not current or _str(cur.get("main_file")) != desired:
-                clauses.append(f"MAIN_FILE = {to_string_literal(desired)}")
+        if self.model.main_file == "":
+            raise CliError(
+                "main_file cannot be empty. Set it to the app's entrypoint file."
+            )
+        if self._main_file_changed(cur):
+            clauses.append(f"MAIN_FILE = {to_string_literal(self.model.main_file)}")
 
         # Only snowflake.yml changes the warehouse of an existing app. Falling
         # back to the connection here would rewrite a live warehouse, or fail
@@ -706,8 +710,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         """Check if the existing streamlit uses legacy ROOT_LOCATION deployment."""
         try:
             result = self.describe().fetchone()
-            # Versioned deployments have live_version_location_uri, legacy ones don't
-            return result.get("live_version_location_uri") is None
+            # A versioned app can also lack a live version. Only a positive
+            # ROOT_LOCATION identifies an app eligible for legacy conversion.
+            return bool(result.get("root_location")) and not result.get(
+                "live_version_location_uri"
+            )
         except (ProgrammingError, AttributeError, KeyError):
             # If we can't determine, assume it doesn't exist or is inaccessible
             return False
@@ -852,6 +859,19 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
         self._sql_executor.execute_query_with_params(restart_sql, (identifier,))
 
+    def _main_file_changed(self, current: Dict[str, Any]) -> bool:
+        """Compare entrypoints exactly, preserving whitespace in file names."""
+        desired = self.model.main_file
+        return desired is not None and desired != current.get("main_file")
+
+    @staticmethod
+    def _entrypoint_is_bundled(bundle_map: BundleMap, main_file: Optional[str]) -> bool:
+        return bool(
+            main_file
+            and bundle_map.to_project_path(Path(main_file)) is not None
+            and (bundle_map.deploy_root() / main_file).is_file()
+        )
+
     def _deploy_versioned(
         self,
         bundle_map: BundleMap,
@@ -859,6 +879,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         object_exists: bool = False,
     ):
         restart_after_upload = False
+        deferred_alter_sql = None
         if object_exists:
             current = self.describe().fetchone() or {}
             stage_root = current.get("live_version_location_uri")
@@ -867,6 +888,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 # ALTER + ADD LIVE VERSION on an object that still has
                 # ROOT_LOCATION (unverified / leaves a hybrid state).
                 old_root = current.get("root_location")
+                if not old_root:
+                    raise CliError(
+                        "The existing Streamlit app has no live version stage. "
+                        "Restore its live version or deploy with a different "
+                        "identifier, then retry. The existing app was not recreated."
+                    )
                 self._execute_query(
                     self.get_deploy_sql(
                         replace=True,
@@ -877,12 +904,30 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 stage_root = self._ensure_live_version_location_uri()
                 self._copy_legacy_stage_if_present(old_root, stage_root)
             else:
-                # Already versioned — update properties in place and upload to
-                # the existing live URI (do not re-issue ADD LIVE VERSION).
+                if prune and self.model.main_file is None:
+                    active_main = current.get("main_file")
+                    if not self._entrypoint_is_bundled(bundle_map, active_main):
+                        raise CliError(
+                            "Cannot prune with main_file unset when the app's current "
+                            "entrypoint is missing from the bundle. Include the existing "
+                            "entrypoint in artifacts or set main_file before pruning."
+                        )
+                # Upload a new entrypoint before switching to it. Keep the old
+                # file until ALTER succeeds, even when --prune was requested.
                 alter_sql = self.get_alter_sql(current=current)
-                if alter_sql:
-                    self._execute_query(alter_sql)
-                self._sync_tags()
+                if self._main_file_changed(current):
+                    if not self._entrypoint_is_bundled(
+                        bundle_map, self.model.main_file
+                    ):
+                        raise CliError(
+                            "The new main_file is not a file in the deployment bundle. "
+                            "Set main_file to the app's entrypoint file before deploying."
+                        )
+                    deferred_alter_sql = alter_sql
+                else:
+                    if alter_sql:
+                        self._execute_query(alter_sql)
+                    self._sync_tags()
                 # DESCRIBE, not snowflake.yml: a content-only project can omit
                 # runtime_name while the live object is already SPCS v2.
                 restart_after_upload = _describe_row_is_spcs_v2(current)
@@ -908,16 +953,37 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 ) from exc
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
-        diff = sync_deploy_root_with_stage(
+        sync_bundle = partial(
+            sync_deploy_root_with_stage,
             console=self._workspace_ctx.console,
             deploy_root=bundle_map.deploy_root(),
             bundle_map=bundle_map,
-            prune=prune,
             recursive=True,
             stage_path_parts=stage_path_parts,
             print_diff=True,
             force_overwrite=True,  # files copied to streamlit vstage need to be overwritten
         )
+        diff = sync_bundle(
+            prune=prune and not deferred_alter_sql,
+            warn_on_preserved_files=not (prune and deferred_alter_sql),
+        )
+
+        if deferred_alter_sql:
+            try:
+                self._execute_query(deferred_alter_sql)
+            except ProgrammingError as exc:
+                if getattr(exc, "errno", None) != _MAIN_FILE_UNSUPPORTED_ERRNO:
+                    raise
+                raise CliError(
+                    "This account does not support changing main_file on a versioned "
+                    "Streamlit app. Keep the existing main_file or deploy with a "
+                    "different identifier. The existing app was not recreated."
+                ) from exc
+            self._sync_tags()
+            if prune:
+                prune_diff = sync_bundle(prune=True)
+                if prune_diff.has_changes():
+                    diff = prune_diff
 
         StreamlitManager(connection=self._conn).grant_privileges(self.model)
         # Property-only ALTER does not clear ScriptCache. Skip when the stage
