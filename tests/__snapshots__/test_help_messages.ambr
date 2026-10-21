@@ -16295,7 +16295,8 @@
    the entity's stage field (default: streamlit); the command creates that stage  
    if needed. If the app already exists, re-run with --replace to update it. If   
    multiple Streamlits are defined and no entity_id is provided, the command      
-   raises an error.                                                               
+   raises an error. Set include_project_definition: true on the Streamlit entity  
+   to also upload the project-root snowflake.yml itself.                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of streamlit entity.                        |
@@ -16345,6 +16346,11 @@
   | warehouse. By default, the command uploads the environment.yml and pages/    |
   | folder if present. The Streamlit app is created in the database and schema   |
   | configured in the specified connection.                                      |
+  |                                                                              |
+  | Set include_project_definition: true on the Streamlit entity to also upload  |
+  | the project-root snowflake.yml. When this file is uploaded, deploy warns     |
+  | that users with USAGE on the app or read access to its backing stage can     |
+  | retrieve it.                                                                 |
   |                                                                              |
   | If you don't specify a stage name, the streamlit stage is used. If the       |
   | specified stage does not exist, the command creates it. You can modify the   |
@@ -16866,7 +16872,9 @@
   |            stage field (default: streamlit); the command creates that stage  |
   |            if needed. If the app already exists, re-run with --replace to    |
   |            update it. If multiple Streamlits are defined and no entity_id is |
-  |            provided, the command raises an error.                            |
+  |            provided, the command raises an error. Set                        |
+  |            include_project_definition: true on the Streamlit entity to also  |
+  |            upload the project-root snowflake.yml itself.                     |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | execute    Executes a streamlit in a headless mode.                          |
@@ -17936,7 +17944,9 @@
   |            stage field (default: streamlit); the command creates that stage  |
   |            if needed. If the app already exists, re-run with --replace to    |
   |            update it. If multiple Streamlits are defined and no entity_id is |
-  |            provided, the command raises an error.                            |
+  |            provided, the command raises an error. Set                        |
+  |            include_project_definition: true on the Streamlit entity to also  |
+  |            upload the project-root snowflake.yml itself.                     |
   | describe   Provides description of streamlit.                                |
   | drop       Drops streamlit with given name.                                  |
   | execute    Executes a streamlit in a headless mode.                          |

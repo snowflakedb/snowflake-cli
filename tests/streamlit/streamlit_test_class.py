@@ -120,4 +120,6 @@ class StreamlitTestClass:
                 if matched_path:
                     uploaded_files.add(matched_path.group("filename"))
 
+        # StreamlitEntity.bundle() does not auto-include snowflake.yml unless
+        # include_project_definition is enabled on the entity.
         assert set(put_files) == uploaded_files, uploaded_files

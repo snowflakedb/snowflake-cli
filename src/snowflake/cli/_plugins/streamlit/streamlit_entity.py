@@ -261,6 +261,17 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         ):
             artifacts.append(PathMapping(src=pages_dir))
 
+        # Opt-in: include project definition when requested and present at project root.
+        # Filename matches DefinitionManager.BASE_DEFINITION_FILENAME (cannot import
+        # DefinitionManager here without a circular dependency).
+        project_definition = "snowflake.yml"
+        if (
+            self._entity_model.include_project_definition
+            and (self.root / project_definition).exists()
+            and not _path_covered_by_artifacts(project_definition, artifacts, self.root)
+        ):
+            artifacts.append(PathMapping(src=project_definition))
+
         return build_bundle(
             self.root,
             output_dir or bundle_root(self.root, "streamlit") / self.entity_id,
@@ -289,6 +300,13 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             bundle_map = self.bundle()
 
         console = self._workspace_ctx.console
+        if Path("snowflake.yml") in bundle_map.all_sources():
+            console.warning(
+                "Uploading snowflake.yml to the Streamlit stage. Anyone with USAGE on "
+                "the Streamlit app or read access to its backing stage can retrieve this "
+                "file. Avoid storing credentials or other secrets in snowflake.yml."
+            )
+
         console.step(f"Checking if object exists")
         object_exists = self._object_exists()
 

@@ -447,6 +447,14 @@ _DEPLOY_DOCS = CommandDocs(
             ".",
         ),
         plain_text(
+            "Set ",
+            code("include_project_definition: true"),
+            " on the Streamlit entity to also upload the project-root ",
+            code("snowflake.yml"),
+            ". When this file is uploaded, deploy warns that users with USAGE on the "
+            "app or read access to its backing stage can retrieve it.",
+        ),
+        plain_text(
             "If you don't specify a stage name, the ",
             code("streamlit"),
             " stage is used. If the specified stage does not exist, the command "
@@ -504,6 +512,8 @@ def streamlit_deploy(
     field (default: streamlit); the command creates that stage if needed. If the
     app already exists, re-run with --replace to update it. If multiple Streamlits
     are defined and no entity_id is provided, the command raises an error.
+    Set `include_project_definition: true` on the Streamlit entity to also upload
+    the project-root snowflake.yml itself.
     """
 
     cli_context = get_cli_context()

@@ -108,6 +108,13 @@ class StreamlitEntityModel(
         default=None,
     )
     tags: Optional[List[Tag]] = Field(title="Tags for the Streamlit app", default=None)
+    include_project_definition: bool = Field(
+        title=(
+            "When true, include the project-root snowflake.yml in deploy artifacts "
+            "if it is not already covered by an existing artifact mapping"
+        ),
+        default=False,
+    )
 
     @field_validator("runtime_name", mode="before")
     @classmethod
