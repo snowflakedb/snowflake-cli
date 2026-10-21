@@ -52,6 +52,7 @@
   |                      or from a query, file, or standard input.               |
   | stage                Manages stages.                                         |
   | streamlit            Manages a Streamlit app in Snowflake.                   |
+  | upgrade              Upgrade a direct install of Snowflake CLI.              |
   | multilingual-hello   Says hello in various languages                         |
   +------------------------------------------------------------------------------+
   
@@ -258,6 +259,7 @@
   |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
+  | upgrade        Upgrade a direct install of Snowflake CLI.                    |
   +------------------------------------------------------------------------------+
   
   +- Connection configuration ---------------------------------------------------+
@@ -446,6 +448,7 @@
   |                      or from a query, file, or standard input.               |
   | stage                Manages stages.                                         |
   | streamlit            Manages a Streamlit app in Snowflake.                   |
+  | upgrade              Upgrade a direct install of Snowflake CLI.              |
   | multilingual-hello   Says hello in various languages                         |
   +------------------------------------------------------------------------------+
   
@@ -672,6 +675,7 @@
   |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
+  | upgrade        Upgrade a direct install of Snowflake CLI.                    |
   +------------------------------------------------------------------------------+
   
   +- Connection configuration ---------------------------------------------------+

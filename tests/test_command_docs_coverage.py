@@ -156,6 +156,7 @@ def _iter_terminal_commands(
         (("bundle", "create"), True),
         (("spcs", "service", "remote-build"), True),
         (("spcs", "service", "list"), False),
+        (("upgrade",), False),
     ],
 )
 def test_is_command_docs_exempt(path, exempt):

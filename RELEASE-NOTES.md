@@ -21,6 +21,7 @@
 
 ## New additions
 * Streamlit entities support `include_project_definition: true` to opt in to uploading the project-root `snowflake.yml` with `snow streamlit deploy`. When that file is uploaded, deploy emits a warning because stage readers can retrieve it.
+* `snow upgrade` is now generally available. It upgrades a direct install of Snowflake CLI and is listed in `snow --help` without a feature flag. Other install channels refuse and print the direct-install command.
 
 ## Fixes and improvements
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.22 to 3.12.15. macOS and Windows binaries now embed Python 3.12 as well.

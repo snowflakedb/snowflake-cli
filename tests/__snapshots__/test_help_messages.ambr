@@ -42,6 +42,7 @@
   |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
+  | upgrade        Upgrade a direct install of Snowflake CLI.                    |
   +------------------------------------------------------------------------------+
   
   +- Connection configuration ---------------------------------------------------+
@@ -16907,6 +16908,52 @@
   | Run `snow --help` for full descriptions, or use `--help-all` on this         |
   | command.                                                                     |
   +------------------------------------------------------------------------------+
+  +- Usage notes ----------------------------------------------------------------+
+  | snow upgrade updates a direct install of Snowflake CLI to the latest         |
+  | same-major version. It writes a new version directory, verifies the signed   |
+  | manifest and tarball checksum, and retargets the shim. The next snow in the  |
+  | same session is the new version.                                             |
+  |                                                                              |
+  | The command works only when snow --info reports installation_source as       |
+  | direct-install. Other channels refuse and print the direct-install command.  |
+  | Those installs are not modified:                                             |
+  |                                                                              |
+  | • pypi (pip, pipx, uv, and the Homebrew formula) refuses.                    |
+  | • binary (macOS pkg, Homebrew cask, Windows MSI, and Linux deb or rpm)       |
+  |   refuses.                                                                   |
+  |                                                                              |
+  | A newer major version is reported and not installed. If the install is       |
+  | already on the latest same-major version, the command reports that and does  |
+  | nothing.                                                                     |
+  |                                                                              |
+  | --dry-run shows what would change without downloading or retargeting the     |
+  | shim. --revert points the shim at the previous direct-install version.       |
+  | Revert is available only after a successful upgrade, does not download a new |
+  | version, and does not change configuration in ~/.snowflake.                  |
+  |                                                                              |
+  | Upgrades are disabled when cli.air_gapped is set in the configuration file   |
+  | or SNOWFLAKE_CLI_AIR_GAPPED is set.                                          |
+  +------------------------------------------------------------------------------+
+  +- Examples -------------------------------------------------------------------+
+  | Upgrade a direct install:                                                    |
+  | snow upgrade                                                                 |
+  | Output: Upgraded 3.12.0 → 3.13.1.                                            |
+  |                                                                              |
+  | Show the upgrade without downloading or retargeting the shim:                |
+  | snow upgrade --dry-run                                                       |
+  |                                                                              |
+  | Point the shim at the previous direct-install version:                       |
+  | snow upgrade --revert                                                        |
+  +------------------------------------------------------------------------------+
+  +- Related topics -------------------------------------------------------------+
+  | • https://docs.snowflake.com/en/developer-guide/snowflake-cli/index          |
+  | • Snowflake CLI command reference                                            |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/overview                                                 |
+  | • Installing Snowflake CLI                                                   |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/installation/  |
+  |   installation                                                               |
+  +------------------------------------------------------------------------------+
   
   
   '''
@@ -16954,6 +17001,7 @@
   |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
+  | upgrade        Upgrade a direct install of Snowflake CLI.                    |
   +------------------------------------------------------------------------------+
   
   +- Connection configuration ---------------------------------------------------+

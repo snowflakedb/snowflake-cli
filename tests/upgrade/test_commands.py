@@ -33,10 +33,8 @@ from snowflake.cli._plugins.upgrade.manager import (
 )
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 
 from tests_common import IS_WINDOWS
-from tests_common.feature_flag_utils import with_feature_flags
 
 
 class _FixedVersionSource:
@@ -58,20 +56,13 @@ def _parse_json(output: str) -> dict:
     return json.loads(output)
 
 
-def test_upgrade_hidden_from_root_help_when_flag_off(runner):
+def test_upgrade_listed_in_root_help(runner):
     result = runner.invoke(["--help"])
-    assert result.exit_code == 0, result.output
-    assert "| upgrade " not in result.output
-
-
-def test_upgrade_listed_in_root_help_when_flag_on(runner):
-    with with_feature_flags({FeatureFlag.ENABLE_SNOW_UPGRADE: True}):
-        result = runner.invoke(["--help"])
     assert result.exit_code == 0, result.output
     assert "| upgrade " in result.output
 
 
-def test_upgrade_help_is_callable_when_hidden(runner):
+def test_upgrade_help(runner):
     result = runner.invoke(["upgrade", "--help"])
     assert result.exit_code == 0, result.output
     assert "--dry-run" in result.output
