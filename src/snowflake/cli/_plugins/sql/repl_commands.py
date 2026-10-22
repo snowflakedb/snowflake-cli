@@ -510,6 +510,55 @@ class SetCommand(ReplCommand):
         )
 
 
+_SPOOL_USAGE = "Usage: `!spool <file>` | `!spool off`"
+_SPOOL_OFF = "off"
+
+
+def _strip_matching_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+@register_command("!spool")
+@dataclass
+class SpoolCommand(ReplCommand):
+    """Append subsequent print_result output to a file until !spool off."""
+
+    path: str | None = None
+
+    def execute(self, connection: SnowflakeConnection):
+        manager = get_cli_context_manager()
+        if self.path is None:
+            manager.close_spool()
+            return
+        manager.open_spool(self.path)
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        if isinstance(raw_args, str):
+            args, kwargs = cls._parse_args(raw_args)
+        else:
+            args, kwargs = raw_args, kwargs or {}
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _parse_args(cls, raw_args: str) -> tuple[List[str], Dict[str, Any]]:
+        return [raw_args] if raw_args else [], {}
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
+        remainder = " ".join(args) if args else ""
+        remainder = _strip_matching_quotes(remainder.strip())
+        if not remainder:
+            return CompileCommandResult(
+                error_message=f"No arguments passed to 'spool' command. {_SPOOL_USAGE}"
+            )
+        if remainder.lower() == _SPOOL_OFF:
+            return CompileCommandResult(command=cls(path=None))
+        return CompileCommandResult(command=cls(path=remainder))
+
+
 @register_command("!edit")
 @dataclass
 class EditCommand(ReplCommand):

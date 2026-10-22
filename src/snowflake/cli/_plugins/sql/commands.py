@@ -22,6 +22,7 @@ from typing import List, Optional
 
 import typer
 from click import UsageError
+from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
@@ -400,8 +401,12 @@ def execute_sql(
             list(cursors)
             return EmptyResult()
         if expected_results_cnt == 1:
-            results = list(cursors)
-            if not results:
+            cursors = iter(cursors)
+            try:
+                first = next(cursors)
+            except StopIteration:
                 return EmptyResult()
-            return QueryResult(results[0])
+            print_result(QueryResult(first))
+            list(cursors)
+            return EmptyResult()
         return MultipleResults((QueryResult(c) for c in cursors))

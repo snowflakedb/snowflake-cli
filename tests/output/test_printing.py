@@ -1296,3 +1296,70 @@ def test_stderr_hint_tty_only_once(capsys, monkeypatch, caplog):
     _run()
     tty = capsys.readouterr()
     assert tty.err.count(ascii_table.LARGE_RESULT_HINT) == 1
+
+
+def test_print_result_tees_while_spool_open(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    try:
+        print_result(
+            CollectionResult([{"n": "before"}]), output_format=OutputFormat.PLAIN
+        )
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "during-a"}]), output_format=OutputFormat.PLAIN
+        )
+        print_result(
+            CollectionResult([{"n": "during-b"}]), output_format=OutputFormat.PLAIN
+        )
+        manager.close_spool()
+        print_result(
+            CollectionResult([{"n": "after"}]), output_format=OutputFormat.PLAIN
+        )
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "before" in terminal
+    assert "during-a" in terminal
+    assert "during-b" in terminal
+    assert "after" in terminal
+    assert "during-a" in contents
+    assert "during-b" in contents
+    assert "before" not in contents
+    assert "after" not in contents
+
+
+def test_print_result_spool_appends_existing_file(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    spool.write_text("existing\n", encoding="utf-8")
+    try:
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "appended"}]), output_format=OutputFormat.PLAIN
+        )
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "appended" in get_output(capsys)
+    assert contents.startswith("existing\n")
+    assert "appended" in contents
+
+
+def test_print_result_spool_json(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.json.txt"
+    try:
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "json-row"}]), output_format=OutputFormat.JSON
+        )
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "json-row" in get_output(capsys)
+    assert "json-row" in contents

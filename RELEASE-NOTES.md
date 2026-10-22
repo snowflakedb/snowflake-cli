@@ -22,6 +22,7 @@
 ## New additions
 * Streamlit entities support `include_project_definition: true` to opt in to uploading the project-root `snowflake.yml` with `snow streamlit deploy`. When that file is uploaded, deploy emits a warning because stage readers can retrieve it.
 * `snow upgrade` is now generally available. It upgrades a direct install of Snowflake CLI and is listed in `snow --help` without a feature flag. Other install channels refuse and print the direct-install command.
+* `snow sql` accepts `!spool <file>` and `!spool off`. Subsequent query results are appended to the file and still printed on the terminal. Until `!spool off`, TABLE is a static pipe table on both the terminal and the file: no Live refresh and no wrapping to the window. Format follows `--format` / `!set output_format`.
 
 ## Fixes and improvements
 * `snow streamlit deploy --replace` now applies `main_file` changes to existing versioned apps in place, preserving the app, grants and version history. Files are uploaded before the entrypoint changes; `--prune` runs only after the change succeeds. Accounts that reject the update receive an actionable error.

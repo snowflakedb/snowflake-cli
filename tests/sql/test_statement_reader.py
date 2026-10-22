@@ -627,7 +627,8 @@ def test_source_file_receives_pre_render(tmp_path_factory: pytest.TempPathFactor
 
 
 @pytest.mark.parametrize(
-    "command", ["queries", "abort", "result", "AbOrT", "rehash", "set", "SET"]
+    "command",
+    ["queries", "abort", "result", "AbOrT", "rehash", "set", "SET", "spool", "SPOOL"],
 )
 def test_parse_command(command):
     query = f"!{command} args k1=v1 k2=v2;"

@@ -52,3 +52,38 @@ def test_abort(runner, existing_query_id):
             f"SYSTEM$CANCEL_QUERY('{existing_query_id.upper()}')": "Identified SQL statement is not currently executing.",
         },
     ]
+
+
+@pytest.mark.integration
+def test_spool(runner, tmp_path):
+    spool = tmp_path / "spool.txt"
+    query = f"""select 1 as n;
+!spool "{spool}"
+select 2 as n;
+!spool off
+select 3 as n;"""
+    result = runner.invoke_with_connection(["sql", "-q", query])
+    assert result.exit_code == 0, result.output
+    assert "1" in result.output
+    assert "2" in result.output
+    assert "3" in result.output
+    contents = spool.read_text(encoding="utf-8")
+    assert "| 2 |" in contents or "  2" in contents
+    assert "| 1 |" not in contents
+    assert "| 3 |" not in contents
+
+
+@pytest.mark.integration
+def test_spool_with_plain_output_format(runner, tmp_path):
+    spool = tmp_path / "spool.txt"
+    query = f"""!set output_format=plain
+!spool "{spool}"
+select 1 as "n";
+!spool off"""
+    result = runner.invoke_with_connection(["sql", "-q", query])
+    assert result.exit_code == 0, result.output
+    contents = spool.read_text(encoding="utf-8")
+    assert "n" in contents
+    assert "1" in contents
+    assert "+-" not in contents
+    assert "| n |" not in contents
