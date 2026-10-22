@@ -4,6 +4,12 @@ from typing import Optional
 
 
 class ApplicationPackageChildInterface(ABC):
+    def validate_as_child(self) -> None:
+        """
+        Raises if the entity has settings that its CREATE in the setup script cannot apply.
+        """
+        pass
+
     @abstractmethod
     def bundle(self, bundle_root=Path, *args, **kwargs) -> None:
         """
