@@ -31,6 +31,7 @@
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.22 to 3.12.15. macOS and Windows binaries now embed Python 3.12 as well.
 * Bumped lower bound of certifi to 2026.10.19.
 * The direct install script restricts `connections.toml` and `config.toml` to the current user when that user owns the file. `snow upgrade` does the same before it checks permissions, and again before it points at the new version, so a file left readable by other accounts no longer stops `snow upgrade` or the new `snow` from starting. Symlinks and files owned by someone else are left unchanged.
+* Upgraded pip from 26.2.1 to 26.2.2.
 
 
 # v3.30.0
