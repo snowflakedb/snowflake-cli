@@ -23,12 +23,14 @@
 * Streamlit entities support `include_project_definition: true` to opt in to uploading the project-root `snowflake.yml` with `snow streamlit deploy`. When that file is uploaded, deploy emits a warning because stage readers can retrieve it.
 * `snow upgrade` is now generally available. It upgrades a direct install of Snowflake CLI and is listed in `snow --help` without a feature flag. Other install channels refuse and print the direct-install command.
 * `snow sql` accepts `!spool <file>` and `!spool off`. Subsequent query results are appended to the file and still printed on the terminal. Until `!spool off`, TABLE is a static pipe table on both the terminal and the file: no Live refresh and no wrapping to the window. Format follows `--format` / `!set output_format`.
+* `snow sql` accepts `!set output_format=<format>` (`plain`, `table`, `json`, `json_ext`, `csv`). `plain` prints query results without box drawing. `--format PLAIN` selects the same layout.
 
 ## Fixes and improvements
 * `snow streamlit deploy --replace` now applies `main_file` changes to existing versioned apps in place, preserving the app, grants and version history. Files are uploaded before the entrypoint changes; `--prune` runs only after the change succeeds. Accounts that reject the update receive an actionable error.
 * Streamlit deploy now refuses to recreate an existing app with no live stage unless a legacy `ROOT_LOCATION` is known, and rejects `--prune` with an unset `main_file` when the active entrypoint is absent from the bundle.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.22 to 3.12.15. macOS and Windows binaries now embed Python 3.12 as well.
 * Bumped lower bound of certifi to 2026.10.19.
+* The direct install script restricts `connections.toml` and `config.toml` to the current user when that user owns the file. `snow upgrade` does the same before it checks permissions, and again before it points at the new version, so a file left readable by other accounts no longer stops `snow upgrade` or the new `snow` from starting. Symlinks and files owned by someone else are left unchanged.
 
 
 # v3.30.0
@@ -44,7 +46,6 @@
 * Air-gapped mode configures the CLI for isolated environments that cannot reach the public internet. Enable it with `cli.air_gapped` in `config.toml` or `SNOWFLAKE_CLI_AIR_GAPPED`. The environment variable is read at runtime and is not copied into a newly created `config.toml`. Commands that talk to external services may change or refuse to run, including PyPI and Homebrew version checks, `snow upgrade`, auto-upgrade, `snow init` against the public GitHub template default, and pip-backed flows such as `snow snowpark build`. Pip in those flows uses `--isolated` and only `--index-url` or `PIP_INDEX_URL`. When air-gapped mode is set, Snowsight no longer falls back to `app.snowflake.com`. Override remaining defaults with `cli.per_account_app_domain` in `config.toml` or `SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN`, and with `SNOWFLAKE_AUDIENCE` for GitHub OIDC.
 * Override the default `snow init` template repository with `cli.init_template_source` in `config.toml` or `SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE`. Air-gapped mode requires this override, a local `--template-source`, or an in-region git URL.
 * `snow dcm plan` and `snow dcm deploy` now accept `--deployment` to plan or deploy from an existing deployment, by name or alias, instead of uploading local files. The deployment is used as stored: the manifest target's configuration and environment variables are not applied again. `--variable` and `--env-file` cannot be combined with `--deployment`.
-* `snow sql` accepts `!set output_format=<format>` (`plain`, `table`, `json`, `json_ext`, `csv`). `plain` prints query results without box drawing. `--format PLAIN` selects the same layout.
 
 ## Fixes and improvements
 * Connection diagnostics and the per-account cert probe now require TLS 1.3. `snow init --template-source`, SQL `!source`/`!load`, and pip index URLs reject plaintext `http://`.
@@ -66,7 +67,6 @@
 * The direct install script updates the bash startup file the shell reads. It edits the first existing login profile (`~/.bash_profile`, `~/.bash_login`, or `~/.profile`) and an existing `~/.bashrc`, and does not create a bash login profile.
 * A configuration file with permissions that are too open now prints the `chmod` or `icacls` command on its own line. Copying that command no longer includes a line break or the error box border.
 * Upgraded GitPython from 3.1.62 to 3.2.0.
-* The direct install script restricts `connections.toml` and `config.toml` to the current user when that user owns the file. `snow upgrade` does the same before it checks permissions, and again before it points at the new version, so a file left readable by other accounts no longer stops `snow upgrade` or the new `snow` from starting. Symlinks and files owned by someone else are left unchanged.
 
 
 # v3.29.0
