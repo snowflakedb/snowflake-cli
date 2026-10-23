@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow dbt execute` now accepts the `check` and `clone` commands. These previously failed with a CLI "No such command" error.
 
 ## Fixes and improvements
 

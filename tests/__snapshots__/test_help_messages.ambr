@@ -5037,7 +5037,168 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | debug           Execute debug command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps_compile    Execute deps_compile command on Snowflake. Command name and  |
+  |                 all parameters following it will be passed over to dbt.      |
+  | docs            Execute docs command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | ls              Execute ls command on Snowflake. Command name and all        |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | retry           Execute retry command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
+  |                 all parameters following it will be passed over to dbt.      |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | source          Execute source command on Snowflake. Command name and all    |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  +------------------------------------------------------------------------------+
+  +- Global and connection options ----------------------------------------------+
+  | Connection options: --connection, --host, --port, --protocol, --account,     |
+  | --user, --password, --authenticator, --workload-identity-provider,           |
+  | --private-key-file, --token, --token-file-path, --database, --schema,        |
+  | --role, --warehouse, --temporary-connection, --mfa-passcode, --enable-diag,  |
+  | --diag-log-path, --diag-allowlist-path, --oauth-client-id,                   |
+  | --oauth-client-secret, --oauth-authorization-url, --oauth-token-request-url, |
+  | --oauth-redirect-uri, --oauth-scope, --oauth-disable-pkce,                   |
+  | --oauth-enable-refresh-tokens, --oauth-enable-single-use-refresh-tokens,     |
+  | --client-store-temporary-credential, --secondary-roles,                      |
+  | --server-session-keep-alive                                                  |
+  | Global options: --format, --verbose, --debug, --silent,                      |
+  | --enhanced-exit-codes, --decimal-precision                                   |
+  |                                                                              |
+  | Run `snow --help` for full descriptions, or use `--help-all` on this         |
+  | command.                                                                     |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[dbt.execute.check]
+  '''
+                                                                                  
+   Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND [global options]            
+   [connection options]                                                           
+                                                                                  
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -5190,7 +5351,168 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | debug           Execute debug command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps_compile    Execute deps_compile command on Snowflake. Command name and  |
+  |                 all parameters following it will be passed over to dbt.      |
+  | docs            Execute docs command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | ls              Execute ls command on Snowflake. Command name and all        |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | retry           Execute retry command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
+  |                 all parameters following it will be passed over to dbt.      |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | source          Execute source command on Snowflake. Command name and all    |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  +------------------------------------------------------------------------------+
+  +- Global and connection options ----------------------------------------------+
+  | Connection options: --connection, --host, --port, --protocol, --account,     |
+  | --user, --password, --authenticator, --workload-identity-provider,           |
+  | --private-key-file, --token, --token-file-path, --database, --schema,        |
+  | --role, --warehouse, --temporary-connection, --mfa-passcode, --enable-diag,  |
+  | --diag-log-path, --diag-allowlist-path, --oauth-client-id,                   |
+  | --oauth-client-secret, --oauth-authorization-url, --oauth-token-request-url, |
+  | --oauth-redirect-uri, --oauth-scope, --oauth-disable-pkce,                   |
+  | --oauth-enable-refresh-tokens, --oauth-enable-single-use-refresh-tokens,     |
+  | --client-store-temporary-credential, --secondary-roles,                      |
+  | --server-session-keep-alive                                                  |
+  | Global options: --format, --verbose, --debug, --silent,                      |
+  | --enhanced-exit-codes, --decimal-precision                                   |
+  |                                                                              |
+  | Run `snow --help` for full descriptions, or use `--help-all` on this         |
+  | command.                                                                     |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[dbt.execute.clone]
+  '''
+                                                                                  
+   Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND [global options]            
+   [connection options]                                                           
+                                                                                  
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --run-async               --no-run-async          Run dbt command            |
+  |                                                   asynchronously and check   |
+  |                                                   it's result later.         |
+  |                                                   [default: no-run-async]    |
+  | --dbt-version                               TEXT  dbt Core version to use    |
+  |                                                   for execution (ephemeral,  |
+  |                                                   does not change project    |
+  |                                                   configuration). Full list  |
+  |                                                   of supported versions can  |
+  |                                                   be found at                |
+  |                                                   https://docs.snowflake.co… |
+  | --env                                       TEXT  Selects the target         |
+  |                                                   environment from env.yml   |
+  |                                                   at execution time. Use     |
+  |                                                   'NO_ENV' to skip env.yml   |
+  |                                                   entirely.                  |
+  | --env-vars                                  TEXT  Environment variable       |
+  |                                                   overrides as a YAML/JSON   |
+  |                                                   object, e.g. '{"DBT_FOO":  |
+  |                                                   "1", "DBT_BAR": "2"}'.     |
+  |                                                   Values must be strings;    |
+  |                                                   numbers, booleans, null,   |
+  |                                                   nested objects, and arrays |
+  |                                                   are rejected (quote        |
+  |                                                   scalars, e.g. 'DBT_FOO:    |
+  |                                                   "1"'). Keys must be        |
+  |                                                   uppercase, start with      |
+  |                                                   'DBT_', and contain only   |
+  |                                                   letters, digits, and       |
+  |                                                   underscores. Variables     |
+  |                                                   with the DBT_ENV_SECRET_   |
+  |                                                   prefix are accepted but    |
+  |                                                   appear in the SQL text and |
+  |                                                   query history; to avoid    |
+  |                                                   that, use the secrets:     |
+  |                                                   block in env.yml.          |
+  | --use-shell-env-vars                              Forward exported shell     |
+  |                                                   environment variables with |
+  |                                                   uppercase names starting   |
+  |                                                   with DBT_ (excluding the   |
+  |                                                   DBT_ENV_SECRET_ prefix) as |
+  |                                                   ENV_VARS=(); non-uppercase |
+  |                                                   or otherwise invalid names |
+  |                                                   are skipped. Overridden by |
+  |                                                   --env-vars on collisions.  |
+  |                                                   WARNING: forwarded values  |
+  |                                                   are embedded as literals   |
+  |                                                   in the query and appear in |
+  |                                                   Snowflake query history.   |
+  |                                                   Never put credentials,     |
+  |                                                   tokens, passwords, or      |
+  |                                                   other confidential data in |
+  |                                                   shell environment          |
+  |                                                   variables with the DBT_    |
+  |                                                   prefix.                    |
+  | --writeback               --no-writeback          Whether to write dbt       |
+  |                                                   results back for this run. |
+  |                                                   Must be placed before the  |
+  |                                                   dbt command. Omit to use   |
+  |                                                   the project's default.     |
+  | --import                                    TEXT  Stage contents to import   |
+  |                                                   into the run, as an        |
+  |                                                   IMPORTS clause.            |
+  |                                                   Repeatable. Each value is  |
+  |                                                   a stage path (@stage/s1),  |
+  |                                                   a dbt snow URL             |
+  |                                                   (snow://dbt/db.schema.pro… |
+  |                                                   or a SYSTEM$ function      |
+  |                                                   (e.g.                      |
+  |                                                   SYSTEM$DBT_GET_LAST_RUN_T… |
+  |                                                   — optionally with "as      |
+  |                                                   folder" (an ASCII name of  |
+  |                                                   letters, digits,           |
+  |                                                   underscores, and hyphens). |
+  |                                                   Single-quote a value that  |
+  |                                                   contains spaces, e.g.      |
+  |                                                   '@"my stage"/dir'.         |
+  | --help                -h                          Show this message and      |
+  |                                                   exit.                      |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -5343,7 +5665,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -5496,7 +5822,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -5649,7 +5979,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -5802,7 +6136,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -5955,7 +6293,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -6108,7 +6450,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -6261,7 +6607,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -6414,7 +6764,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -6567,7 +6921,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -6720,7 +7078,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -6873,7 +7235,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -7026,7 +7392,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -7179,7 +7549,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -7332,7 +7706,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -7485,7 +7863,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -7638,7 +8020,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -7791,7 +8177,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |
@@ -17651,7 +18041,11 @@
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
+  | check           Execute check command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
   | clean           Execute clean command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | clone           Execute clone command on Snowflake. Command name and all     |
   |                 parameters following it will be passed over to dbt.          |
   | compile         Execute compile command on Snowflake. Command name and all   |
   |                 parameters following it will be passed over to dbt.          |

@@ -34,7 +34,9 @@ WRITEBACK_CLAUSE = "WRITEBACK"
 # support for a command.
 DBT_COMMANDS = [
     "build",
+    "check",
     "clean",
+    "clone",
     "compile",
     "debug",
     "deps",
@@ -55,6 +57,5 @@ DBT_COMMANDS = [
 
 # Commands the backend does not accept, kept here for documentation only.
 UNSUPPORTED_COMMANDS = [
-    "clone",
     "init",
 ]

@@ -1225,6 +1225,26 @@ class TestDBTExecute:
                 "EXECUTE DBT PROJECT pipeline_name args='deps_compile'",
                 id="deps_compile",
             ),
+            # check and clone, added to match the backend (SNOW-2276070).
+            pytest.param(
+                ["dbt", "execute", "pipeline_name", "check"],
+                "EXECUTE DBT PROJECT pipeline_name args='check'",
+                id="check",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--import",
+                    "SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('prod_proj') as prod_state",
+                    "pipeline_name",
+                    "clone",
+                    "--state",
+                    "prod_state",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name IMPORTS=(SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('prod_proj') AS 'prod_state') args='clone --state prod_state'",
+                id="clone-with-state-import",
+            ),
         ],
     )
     def test_dbt_execute(self, mock_connect, mock_cursor, runner, args, expected_query):
