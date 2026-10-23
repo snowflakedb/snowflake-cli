@@ -89,3 +89,4 @@ class FeatureFlag(FeatureFlagMixin):
 
     ENABLE_SNOW_AUTO_UPGRADE = BooleanFlag("ENABLE_SNOW_AUTO_UPGRADE", False)
     ENABLE_AUTH_COMMANDS = BooleanFlag("ENABLE_AUTH_COMMANDS", False)
+    ENABLE_SNOW_FEEDBACK = BooleanFlag("ENABLE_SNOW_FEEDBACK", False)

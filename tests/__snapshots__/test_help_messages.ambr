@@ -9563,6 +9563,85 @@
   
   '''
 # ---
+# name: test_help_messages[feedback]
+  '''
+                                                                                  
+   Usage: root feedback [OPTIONS] [global options] [connection options]           
+                                                                                  
+   Send a rating and optional note about Snowflake CLI to Snowflake.              
+                                                                                  
+   This command sends your feedback to Snowflake to improve Snowflake CLI. Do not 
+   include passwords, access tokens, private keys, account locators, data from    
+   Snowflake accounts, SQL that contains customer data, or other personal or      
+   confidential information.                                                      
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | *  --rating    -r      INTEGER RANGE [1<=x<=4]    Experience rating from 1   |
+  |                                                   (poor) to 4 (excellent).   |
+  |                                                   [required]                 |
+  |    --message   -m      TEXT                       Optional note. Required    |
+  |                                                   when running as an AI      |
+  |                                                   agent. Do not include      |
+  |                                                   secrets, customer data, or |
+  |                                                   data from Snowflake        |
+  |                                                   accounts.                  |
+  |    --category          [bug|docs|ux|feature|othe  Feedback category.         |
+  |                        r]                         [default: other]           |
+  |    --yes       -y                                 Acknowledge the storage    |
+  |                                                   warning. Required when     |
+  |                                                   stdin is not a TTY.        |
+  |    --help      -h                                 Show this message and      |
+  |                                                   exit.                      |
+  +------------------------------------------------------------------------------+
+  +- Global and connection options ----------------------------------------------+
+  | Connection options: --connection, --host, --port, --protocol, --account,     |
+  | --user, --password, --authenticator, --workload-identity-provider,           |
+  | --private-key-file, --token, --token-file-path, --database, --schema,        |
+  | --role, --warehouse, --temporary-connection, --mfa-passcode, --enable-diag,  |
+  | --diag-log-path, --diag-allowlist-path, --oauth-client-id,                   |
+  | --oauth-client-secret, --oauth-authorization-url, --oauth-token-request-url, |
+  | --oauth-redirect-uri, --oauth-scope, --oauth-disable-pkce,                   |
+  | --oauth-enable-refresh-tokens, --oauth-enable-single-use-refresh-tokens,     |
+  | --client-store-temporary-credential, --secondary-roles,                      |
+  | --server-session-keep-alive                                                  |
+  | Global options: --format, --verbose, --debug, --silent,                      |
+  | --enhanced-exit-codes, --decimal-precision                                   |
+  |                                                                              |
+  | Run `snow --help` for full descriptions, or use `--help-all` on this         |
+  | command.                                                                     |
+  +------------------------------------------------------------------------------+
+  +- Usage notes ----------------------------------------------------------------+
+  | Rating is required. 1 and 2 mean the experience was poor or unsatisfactory;  |
+  | 3 and 4 mean it was satisfactory or excellent. There is no middle score for  |
+  | 'I do not know'.                                                             |
+  |                                                                              |
+  | A note is optional for people and required if you are an AI agent. Describe  |
+  | the command you ran, what you expected, and what happened. Do not include    |
+  | passwords, tokens, private keys, account locators, data from Snowflake       |
+  | accounts, or SQL that contains customer data.                                |
+  |                                                                              |
+  | When stdin is not a terminal, pass --yes to acknowledge the storage warning. |
+  |                                                                              |
+  | This command is in preview and may be removed. It is hidden from snow --help |
+  | until ENABLE_SNOW_FEEDBACK is turned on.                                     |
+  +------------------------------------------------------------------------------+
+  +- Examples -------------------------------------------------------------------+
+  | Send a rating without a note.                                                |
+  | snow feedback --rating 4 --yes                                               |
+  |                                                                              |
+  | Send a rating and a note. Agents should name the command, what they          |
+  | expected, and what happened — not a copy of customer SQL.                    |
+  | snow feedback --rating 2 --message "snow sql compilation error did not point |
+  | at the typo" --yes                                                           |
+  +------------------------------------------------------------------------------+
+  +- Related topics -------------------------------------------------------------+
+  | • Snowflake CLI GitHub issues                                                |
+  |   https://github.com/snowflakedb/snowflake-cli/issues                        |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[git.copy]
   '''
                                                                                   

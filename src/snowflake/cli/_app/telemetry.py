@@ -126,6 +126,7 @@ class TelemetryEvent(Enum):
     CMD_EXECUTION_RESULT = "result_executing_command"
     UPGRADE = "upgrade"
     REPL_COMPLETION = "repl_completion"
+    CLI_USER_FEEDBACK = "cli_user_feedback"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -528,6 +529,11 @@ def _detect_agent_environment() -> str:
     return "UNKNOWN"
 
 
+def is_coding_agent() -> bool:
+    """True when environment variables indicate an AI coding agent is driving the CLI."""
+    return _detect_agent_environment() != "UNKNOWN"
+
+
 def _get_agent_session_id() -> str:
     """Return the detected agent's session ID, or empty string."""
     agent = _detect_agent_environment()
@@ -881,3 +887,27 @@ def log_command_execution_error(exception: Exception, execution: ExecutionMetada
 @ignore_exceptions()
 def flush_telemetry():
     _telemetry.flush()
+
+
+def send_cli_user_feedback(payload: Dict[str, Any]) -> None:
+    """Send an opted-in cli_user_feedback event.
+
+    Failures propagate so `snow feedback` can surface send_failed. Unlike
+    log_command_*, this is not wrapped in ignore_exceptions. The caller must
+    open a connection first; with no telemetry channel this raises.
+
+    Connector ``send_batch`` swallows transport errors and disables the
+    channel instead of raising, so we treat a post-flush disabled channel
+    as a failed send.
+    """
+    channel = _telemetry._telemetry  # noqa: SLF001
+    if channel is None:
+        raise RuntimeError("No telemetry channel available")
+    data: TelemetryDict = {
+        TelemetryField.KEY_TYPE: TelemetryEvent.CLI_USER_FEEDBACK.value,
+        **payload,  # type: ignore[dict-item]
+    }
+    _telemetry.send(data)
+    _telemetry.flush()
+    if not channel.is_enabled():
+        raise RuntimeError("Telemetry channel disabled")

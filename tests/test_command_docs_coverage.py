@@ -39,6 +39,7 @@ import publish_command_docs as pcd  # noqa: E402
 _COMMAND_DOCS_EXEMPT_PATHS: frozenset[tuple[str, ...]] = frozenset(
     {
         ("cortex", "search"),
+        ("feedback",),
         ("helpers", "clean-installer-path"),
         ("spcs", "service", "remote-build"),
         ("spcs", "service", "remote-build-history"),
@@ -150,6 +151,7 @@ def _iter_terminal_commands(
         (("dbt", "execute", "run"), True),
         (("dbt", "list"), False),
         (("cortex", "search"), True),
+        (("feedback",), True),
         (("cortex", "complete"), False),
         (("git", "setup"), False),
         (("app", "deploy"), True),
