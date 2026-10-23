@@ -254,6 +254,15 @@ def test_query_result_no_duplicates_unchanged(mock_cursor):
     assert result.column_names == ["a", "b", "c"]
 
 
+def test_message_result_prints_rich_markup_as_text(capsys):
+    print_result(
+        MessageResult("Wrote connection org[/x]acct to /tmp/config.toml"),
+        output_format=OutputFormat.TABLE,
+    )
+
+    assert "org[/x]acct" in get_output(capsys)
+
+
 def test_print_markup_tags_in_output_do_not_raise_errors(capsys, mock_cursor):
     output_data = QueryResult(
         mock_cursor(

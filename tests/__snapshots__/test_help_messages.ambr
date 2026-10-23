@@ -3360,6 +3360,57 @@
   
   '''
 # ---
+# name: test_help_messages[auth.login]
+  '''
+                                                                                  
+   Usage: root auth login [OPTIONS] [ACCOUNT] [global options]                    
+                                                                                  
+   Signs in with Snowflake OAuth for local applications and changes the default   
+   connection.                                                                    
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   account      [ACCOUNT]  Account to sign in to. A URL sets the account      |
+  |                           host.                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --host          TEXT  Account host for a private link, gov, or QA account. A |
+  |                       bare account uses the public account host.             |
+  | --help  -h            Show this message and exit.                            |
+  +------------------------------------------------------------------------------+
+  +- Global options -------------------------------------------------------------+
+  | Global options: --format, --verbose, --debug, --silent,                      |
+  | --enhanced-exit-codes, --decimal-precision                                   |
+  |                                                                              |
+  | Run `snow --help` for full descriptions, or use `--help-all` on this         |
+  | command.                                                                     |
+  +------------------------------------------------------------------------------+
+  +- Usage notes ----------------------------------------------------------------+
+  | Login changes the default connection. The next command uses the Snowflake    |
+  | OAuth connection this command writes.                                        |
+  |                                                                              |
+  | Pass an account, or an account URL for a private link, gov, or QA account    |
+  | host. A bare account uses the public account host. The --host flag sets the  |
+  | account host.                                                                |
+  +------------------------------------------------------------------------------+
+  +- Examples -------------------------------------------------------------------+
+  | Sign in and change the default connection:                                   |
+  | snow auth login myorg-myaccount                                              |
+  | Output: Wrote connection myorg-myaccount to                                  |
+  | <user-home>/.snowflake/config.toml and changed the default connection to     |
+  | myorg-myaccount.                                                             |
+  +------------------------------------------------------------------------------+
+  +- Related topics -------------------------------------------------------------+
+  | • Snowflake OAuth for local applications                                     |
+  |   https://docs.snowflake.com/en/user-guide/oauth-local-applications          |
+  | • https://docs.snowflake.com/en/developer-guide/snowflake-cli/index          |
+  | • snow connection list                                                       |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/connection-commands/list-connections                     |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[auth.oidc.read-token]
   '''
                                                                                   

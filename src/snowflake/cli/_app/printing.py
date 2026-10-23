@@ -485,6 +485,8 @@ def print_unstructured(
     elif not obj.result:
         _rich_print("No data", flush=True)
     elif isinstance(obj, MessageResult):
+        # Markup is disabled on the shared console, so an account name in this
+        # message cannot raise MarkupError. _rich_print also follows an open spool.
         _rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:
         if isinstance(obj, ObjectResult):
