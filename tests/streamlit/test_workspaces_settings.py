@@ -5,7 +5,7 @@
 deployed app runs, so each must be applied, not merely accepted.
 """
 
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from textwrap import dedent
 from unittest import mock
 
@@ -31,6 +31,33 @@ from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestCl
 ENTITY = "snowflake.cli._plugins.streamlit.streamlit_entity"
 LIVE_URI = f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
 TASK = f"DB.PUBLIC.{STREAMLIT_NAME}__STREAMLIT_LIFECYCLE"
+
+
+def _relative_parts(path: str) -> tuple[str, ...]:
+    return Path(path.lstrip("/\\")).parts
+
+
+def _absolute(path: str) -> Path:
+    """Anchor a dummy path so ``is_absolute()`` is true on POSIX and Windows.
+
+    A leading slash is absolute on POSIX and only drive-relative on Windows
+    (``\\tmp\\project``). ``BundleMap`` rejects that Windows form.
+    """
+    return Path(Path.cwd().anchor, *_relative_parts(path))
+
+
+def test_dummy_project_paths_are_absolute_on_windows():
+    parts = _relative_parts("/tmp/project")
+    windows_root = PureWindowsPath("C:\\", *parts)
+    assert windows_root.is_absolute()
+    assert windows_root == PureWindowsPath(r"C:\tmp\project")
+    assert not PureWindowsPath("/tmp/project").is_absolute()
+
+    root = _absolute("/tmp/project")
+    deploy = _absolute("/tmp/project/output")
+    assert root.is_absolute()
+    assert deploy.is_absolute()
+    BundleMap(project_root=root, deploy_root=deploy)
 
 
 def _model(**fields) -> StreamlitEntityModel:
@@ -478,7 +505,7 @@ class TestDeploy(StreamlitTestClass):
     def _deploy(
         self, workspace_context, action_context, *, exists, current=None, **fields
     ):
-        workspace_context.project_root = Path("/tmp/project")
+        workspace_context.project_root = _absolute("/tmp/project")
         self._object_exists_patcher.stop()
         with mock.patch(
             f"{ENTITY}.StreamlitEntity._object_exists", return_value=exists
@@ -501,7 +528,8 @@ class TestDeploy(StreamlitTestClass):
 
     def _setup(self, mock_bundle, mock_sync, mock_manager, order, changed=False):
         mock_bundle.return_value = BundleMap(
-            project_root=Path("/tmp/project"), deploy_root=Path("/tmp/project/output")
+            project_root=_absolute("/tmp/project"),
+            deploy_root=_absolute("/tmp/project/output"),
         )
         mock_sync.side_effect = lambda **_: order.append("upload") or mock.Mock(
             has_changes=lambda: changed
@@ -946,7 +974,7 @@ class TestDeploy(StreamlitTestClass):
         self._setup(mock_bundle, mock_sync, mock_manager, order)
         # The real existence check, so that its DESCRIBE is seen.
         self._object_exists_patcher.stop()
-        workspace_context.project_root = Path("/tmp/project")
+        workspace_context.project_root = _absolute("/tmp/project")
         entity = StreamlitEntity(
             workspace_ctx=workspace_context,
             entity_model=_model(runtime_name=runtime, **fields),
@@ -980,10 +1008,11 @@ class TestWorkspacesContainerApp(StreamlitTestClass):
         action_context,
     ):
         mock_bundle.return_value = BundleMap(
-            project_root=Path("/tmp/project"), deploy_root=Path("/tmp/project/output")
+            project_root=_absolute("/tmp/project"),
+            deploy_root=_absolute("/tmp/project/output"),
         )
         mock_sync.return_value = mock.Mock(has_changes=lambda: False)
-        workspace_context.project_root = Path("/tmp/project")
+        workspace_context.project_root = _absolute("/tmp/project")
         entity = StreamlitEntity(
             workspace_ctx=workspace_context,
             entity_model=_model(

@@ -24,6 +24,7 @@
 
 
 # v3.31.0
+## Backward incompatibility
 * Dropped support for Python 3.10. Snowflake CLI requires Python 3.11, 3.12, or 3.13.
 
 ## Deprecations
