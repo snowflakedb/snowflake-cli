@@ -18,6 +18,7 @@ Tests for the ``remote-build`` command and ``RemoteBuildManager``.
 Mirrors the style of the ``build-image`` tests in ``test_services.py``.
 """
 
+import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -186,6 +187,44 @@ class TestRemoteBuildManagerCreateRemoteBuilder:
         body = mock_send.call_args[1]["data"]
         assert body["validation_profile"] == "ML_JOB"
         assert body["build_type"] == "image"
+
+    @pytest.mark.parametrize("build_type", ["image", "app"])
+    @patch(_REST_API_SEND)
+    def test_create_remote_builder_with_external_access_integrations(
+        self, mock_send, build_type
+    ):
+        """EAIs are sent inside the config JSON for both image and app builds."""
+        mock_send.return_value = {"job_name": "server_assigned_job"}
+        manager = self._make_manager()
+
+        manager.create_remote_builder(
+            build_source="@MY_DB.PUBLIC.SRC/ctx",
+            location="my_db.my_schema.my_repo",
+            build_type=build_type,
+            external_access_integrations=["PYPI_EAI", "DOCKERHUB_EAI"],
+        )
+
+        body = mock_send.call_args[1]["data"]
+        assert json.loads(body["config"]) == {
+            "external_access_integrations": ["PYPI_EAI", "DOCKERHUB_EAI"]
+        }
+        assert "external_access_integrations" not in body
+
+    @pytest.mark.parametrize("external_access_integrations", [None, []])
+    @patch(_REST_API_SEND)
+    def test_create_remote_builder_without_external_access_integrations(
+        self, mock_send, external_access_integrations
+    ):
+        """No config is sent when no EAI is given."""
+        mock_send.return_value = {"job_name": "server_assigned_job"}
+        manager = self._make_manager()
+
+        manager.create_remote_builder(
+            build_source="@MY_DB.PUBLIC.SRC/ctx",
+            external_access_integrations=external_access_integrations,
+        )
+
+        assert "config" not in mock_send.call_args[1]["data"]
 
     @patch(_REST_API_SEND)
     def test_create_remote_builder_all_fields(self, mock_send):
@@ -762,6 +801,7 @@ class TestRemoteBuildCliSuccess:
         assert call_kwargs["image_tag"] == "v1.0"
         assert call_kwargs["build_type"] == "image"
         assert call_kwargs["validation_profile"] is None
+        assert not call_kwargs["external_access_integrations"]
         assert "@" in call_kwargs["build_source"]
         assert "build_contexts/" in call_kwargs["build_source"]
 
@@ -898,6 +938,65 @@ class TestRemoteBuildCliSuccess:
         assert result.exit_code == 0, result.output
         call_kwargs = mock_rb_manager.create_remote_builder.call_args[1]
         assert call_kwargs["validation_profile"] == "CUSTOM_PROFILE"
+
+    @patch("time.sleep")
+    @patch(_COMMANDS_OBJECT_MANAGER)
+    @patch(_COMMANDS_SERVICE_MANAGER)
+    @patch(_COMMANDS_REMOTE_BUILD_MANAGER)
+    @patch(_STAGE_PUT)
+    @patch(_STAGE_EXECUTE_QUERY)
+    def test_remote_build_forwards_eai_names(
+        self,
+        mock_stage_exec,
+        mock_stage_put,
+        mock_rb_manager_class,
+        mock_svc_manager_class,
+        mock_obj_manager_class,
+        mock_sleep,
+        runner,
+        temporary_directory,
+    ):
+        """Repeated --eai-name values are passed through to create_remote_builder in order."""
+        ctx = _make_build_context(Path(temporary_directory))
+        mock_stage_put.return_value = Mock(fetchall=lambda: [])
+
+        mock_rb_manager = Mock()
+        mock_rb_manager_class.return_value = mock_rb_manager
+        mock_rb_manager.create_remote_builder.return_value = "remote_build_eai123"
+        mock_rb_manager.get_remote_builder.return_value = (
+            RemoteBuildJobStatus.from_dict(
+                {**_SAMPLE_JOB, "job_name": "remote_build_eai123", "job_status": "DONE"}
+            )
+        )
+        mock_svc_manager_class.return_value.logs.return_value = []
+
+        result = runner.invoke(
+            [
+                "spcs",
+                "service",
+                "remote-build",
+                "--build-context-dir",
+                str(ctx),
+                "--location",
+                "my_db.my_schema.my_repo",
+                "--name",
+                "my_image",
+                "--eai-name",
+                "PYPI_EAI",
+                "--eai-name",
+                "DOCKERHUB_EAI",
+                "--stage",
+                "test_db.public.test_stage",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0, result.output
+        call_kwargs = mock_rb_manager.create_remote_builder.call_args[1]
+        assert call_kwargs["external_access_integrations"] == [
+            "PYPI_EAI",
+            "DOCKERHUB_EAI",
+        ]
 
     @patch("time.sleep")
     @patch(_COMMANDS_OBJECT_MANAGER)

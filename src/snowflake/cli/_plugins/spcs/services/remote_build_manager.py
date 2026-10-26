@@ -14,9 +14,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, NoReturn, Optional
+from typing import Any, Dict, List, NoReturn, Optional
 from urllib.parse import quote, urlencode
 
 from snowflake.cli.api.constants import SF_REST_API_URL_PREFIX
@@ -126,6 +127,7 @@ class RemoteBuildManager(SqlExecutionMixin):
         compute_pool: Optional[str] = None,
         build_type: str = "image",
         validation_profile: Optional[str] = None,
+        external_access_integrations: Optional[List[str]] = None,
     ) -> str:
         """
         Submit a remote build via POST /api/v2/remote-build/execute.
@@ -147,6 +149,10 @@ class RemoteBuildManager(SqlExecutionMixin):
                 ``"NOTEBOOK"``). Selects the pre-baked ruleset the image builder runs before
                 publish. Ignored by the server for app builds. When omitted, no image
                 validation is requested.
+            external_access_integrations: Names of external access integrations the build job
+                can use for egress (for example, to reach a package registry). Sent as
+                ``external_access_integrations`` inside the request's ``config`` JSON, which the
+                server applies to both image and app builds. When omitted, no ``config`` is sent.
 
         Returns:
             The ``job_name`` assigned to this build by the server.
@@ -168,6 +174,10 @@ class RemoteBuildManager(SqlExecutionMixin):
             body["compute_pool"] = compute_pool
         if validation_profile:
             body["validation_profile"] = validation_profile
+        if external_access_integrations:
+            body["config"] = json.dumps(
+                {"external_access_integrations": list(external_access_integrations)}
+            )
 
         rest = RestApi(self._conn)
         try:

@@ -15391,6 +15391,11 @@
   |                                             --build-type app. When omitted,  |
   |                                             no image validation is           |
   |                                             requested.                       |
+  |    --eai-name                    TEXT       Identifies external access       |
+  |                                             integrations (EAI) that the      |
+  |                                             build job can access. This       |
+  |                                             option may be specified multiple |
+  |                                             times for multiple EAIs.         |
   |    --help                -h                 Show this message and exit.      |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+

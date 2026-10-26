@@ -1858,6 +1858,12 @@ def remote_build(
         ),
         show_default=False,
     ),
+    external_access_integrations: Optional[List[str]] = typer.Option(
+        None,
+        "--eai-name",
+        help="Identifies external access integrations (EAI) that the build job can access. This option may be specified multiple times for multiple EAIs.",
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -1964,6 +1970,7 @@ def remote_build(
             compute_pool=compute_pool,
             build_type=build_type,
             validation_profile=validation_profile,
+            external_access_integrations=external_access_integrations,
         )
     except ClickException:
         # CliError / ClickException already carry a user-friendly message; clean up then
