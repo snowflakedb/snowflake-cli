@@ -10028,22 +10028,25 @@
    confidential information.                                                      
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --rating    -r      INTEGER RANGE [1<=x<=4]    Experience rating from 1   |
-  |                                                   (poor) to 4 (excellent).   |
-  |                                                   [required]                 |
-  |    --message   -m      TEXT                       Optional note. Required    |
-  |                                                   when running as an AI      |
-  |                                                   agent. Do not include      |
-  |                                                   secrets, customer data, or |
-  |                                                   data from Snowflake        |
-  |                                                   accounts.                  |
-  |    --category          [bug|docs|ux|feature|othe  Feedback category.         |
-  |                        r]                         [default: other]           |
-  |    --yes       -y                                 Acknowledge the storage    |
-  |                                                   warning. Required when     |
-  |                                                   stdin is not a TTY.        |
-  |    --help      -h                                 Show this message and      |
-  |                                                   exit.                      |
+  | *  --rating      -r      INTEGER RANGE [1<=x<=4]   Experience rating from 1  |
+  |                                                    (poor) to 4 (excellent).  |
+  |                                                    [required]                |
+  |    --message     -m      TEXT                      Optional note. Required   |
+  |                                                    when running as an AI     |
+  |                                                    agent. Do not include     |
+  |                                                    secrets, customer data,   |
+  |                                                    or data from Snowflake    |
+  |                                                    accounts.                 |
+  |    --category            [bug|docs|ux|feature|oth  Feedback category.        |
+  |                          er]                       [default: other]          |
+  |    --last-error                                    Attach the id and type of |
+  |                                                    the last CLI error. The   |
+  |                                                    error text is not sent.   |
+  |    --yes         -y                                Acknowledge the storage   |
+  |                                                    warning. Required when    |
+  |                                                    stdin is not a TTY.       |
+  |    --help        -h                                Show this message and     |
+  |                                                    exit.                     |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+
   | Connection options: --connection, --host, --port, --protocol, --account,     |
@@ -10073,6 +10076,9 @@
   | accounts, or SQL that contains customer data.                                |
   |                                                                              |
   | When stdin is not a terminal, pass --yes to acknowledge the storage warning. |
+  |                                                                              |
+  | Pass --last-error to attach the id and type of the last CLI error. The error |
+  | text is not sent.                                                            |
   |                                                                              |
   | This command is in preview and may be removed. It is hidden from snow --help |
   | until ENABLE_SNOW_FEEDBACK is turned on.                                     |

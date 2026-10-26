@@ -37,6 +37,7 @@ from snowflake.cli._app.dev.pycharm_remote_debug import (
 from snowflake.cli._app.main_typer import SnowCliMainTyper
 from snowflake.cli._app.printing import MessageResult, print_result
 from snowflake.cli._app.version_check import show_new_version_banner_callback
+from snowflake.cli._plugins.feedback.error_hint import install_feedback_error_hint
 from snowflake.cli.api.commands.docs_help import render_shared_configuration_panels
 from snowflake.cli.api.config import (
     config_init,
@@ -202,6 +203,7 @@ class CliAppFactory:
 
     def create_or_get_app(self) -> SnowCliMainTyper:
         install_plain_remediation_error_renderer()
+        install_feedback_error_hint()
         if self._app:
             return self._app
 

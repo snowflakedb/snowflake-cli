@@ -27,6 +27,7 @@
   | snowflake.cli.api.project.schemas.project_definition.build_project_definitio |
   | n() argument after ** must be a mapping, not str                             |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---

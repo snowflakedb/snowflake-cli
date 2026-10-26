@@ -111,6 +111,10 @@ def _emit(outcome: FeedbackOutcome) -> CommandResult:
                 "storage warning."
             ),
             plain_text(
+                "Pass --last-error to attach the id and type of the last CLI "
+                "error. The error text is not sent."
+            ),
+            plain_text(
                 "This command is in preview and may be removed. It is hidden "
                 "from snow --help until ENABLE_SNOW_FEEDBACK is turned on."
             ),
@@ -158,6 +162,14 @@ def feedback(
         "--category",
         help="Feedback category.",
     ),
+    last_error: bool = typer.Option(
+        False,
+        "--last-error",
+        help=(
+            "Attach the id and type of the last CLI error. "
+            "The error text is not sent."
+        ),
+    ),
     yes: bool = typer.Option(
         False,
         "--yes",
@@ -186,5 +198,10 @@ def feedback(
             raise typer.Abort()
 
     return _emit(
-        submit_feedback(rating=rating, category=category.value, message=message)
+        submit_feedback(
+            rating=rating,
+            category=category.value,
+            message=message,
+            attach_last_error=last_error,
+        )
     )

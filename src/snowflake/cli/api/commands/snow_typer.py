@@ -198,10 +198,21 @@ class SnowTyper(typer.Typer):
         Callback executed on command execution error.
         """
         from snowflake.cli._app.telemetry import log_command_execution_error
+        from snowflake.cli._plugins.feedback.last_error import record_last_cli_error
 
         log.debug("Executing command exception callback")
         log_command_execution_error(exception, execution)
+        try:
+            record_last_cli_error(exception, execution)
+        except Exception:
+            log.debug("Failed to record last CLI error", exc_info=True)
         exception = SnowTyper._cli_base_exception_migration_dispatcher(exception)
+        try:
+            from snowflake.cli._plugins.feedback.error_hint import arm_feedback_hint
+
+            arm_feedback_hint(exception)
+        except Exception:
+            log.debug("Failed to prepare feedback hint", exc_info=True)
         return exception
 
     @staticmethod

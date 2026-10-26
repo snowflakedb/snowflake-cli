@@ -30,6 +30,10 @@ from snowflake.cli._plugins.feedback.constants import (
     STATUS_SEND_FAILED,
     STATUS_SUBMITTED,
 )
+from snowflake.cli._plugins.feedback.last_error import (
+    clear_last_cli_error,
+    read_last_cli_error,
+)
 from snowflake.cli._plugins.feedback.rate_limit import check, record
 from snowflake.cli._plugins.feedback.redact import prepare_message
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -106,7 +110,10 @@ class FeedbackOutcome:
 
 
 def submit_feedback(
-    rating: int, category: str, message: Optional[str] = None
+    rating: int,
+    category: str,
+    message: Optional[str] = None,
+    attach_last_error: bool = False,
 ) -> FeedbackOutcome:
     from snowflake.cli._app.telemetry import is_coding_agent, send_cli_user_feedback
 
@@ -133,6 +140,16 @@ def submit_feedback(
                 exit_code=1,
                 reason="Message is empty.",
             )
+
+    last_error_id: Optional[str] = None
+    last_error_type: Optional[str] = None
+    attached_last_error = False
+    if attach_last_error:
+        recorded = read_last_cli_error()
+        if recorded is not None:
+            last_error_id = recorded["id"]
+            last_error_type = recorded["error_type"]
+            attached_last_error = True
 
     retry_after = check()
     if retry_after is not None:
@@ -163,6 +180,9 @@ def submit_feedback(
     }
     if redacted is not None:
         payload["message"] = redacted
+    if last_error_id is not None and last_error_type is not None:
+        payload["last_error_id"] = last_error_id
+        payload["last_error_type"] = last_error_type
     try:
         send_cli_user_feedback(payload)
     except Exception:
@@ -172,6 +192,8 @@ def submit_feedback(
             exit_code=1,
         )
 
+    if attached_last_error:
+        clear_last_cli_error()
     record()
     return FeedbackOutcome(
         status=STATUS_SUBMITTED,

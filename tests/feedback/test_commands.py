@@ -97,6 +97,8 @@ def test_feedback_help_lists_required_rating(runner):
     assert "--message" in result.output
     assert "--category" in result.output
     assert "--yes" in result.output
+    assert "--last-error" in result.output
+    assert "error text is not sent" in result.output
     assert "include passwords" in result.output
     assert "AI agent" in result.output
     assert "preview and may be removed" in result.output
@@ -513,6 +515,105 @@ def test_table_output_unconfigured_connection_includes_github_url(runner, mock_c
     assert result.exit_code == 1, result.output
     assert PRIVACY_NOTICE in result.output
     assert ISSUES_URL in result.output
+
+
+def _write_last_error(test_snowcli_config, **extra):
+    payload = {
+        "id": "err-1",
+        "error_type": "CliSqlError",
+        "command": "sql",
+        "timestamp": "2026-10-22T00:00:00Z",
+    }
+    payload.update(extra)
+    path = test_snowcli_config.parent / "last_cli_error.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    path.chmod(0o600)
+    return path
+
+
+def test_last_error_flag_without_file_still_sends_the_note(runner, mock_connect):
+    result = runner.invoke(
+        _json_feedback("--message", "sql failed when mixing flags", "--last-error")
+    )
+    assert result.exit_code == 0, result.output
+    payload = _parse_json(result.output)
+    assert payload["status"] == "submitted"
+    events = _feedback_events(mock_connect)
+    assert len(events) == 1
+    message = events[0]["message"]
+    assert "sql failed" in message["message"]
+    assert "last_error_id" not in message
+    assert "last_error_type" not in message
+
+
+def test_last_error_flag_sends_id_and_type_only(
+    runner, mock_connect, test_snowcli_config
+):
+    secret = "invalid identifier SELCT"
+    path = _write_last_error(test_snowcli_config, message=secret)
+    result = runner.invoke(_json_feedback("--message", "first", "--last-error"))
+    assert result.exit_code == 0, result.output
+    user_payload = _parse_json(result.output)
+    assert "last_error_id" not in user_payload
+    assert secret not in result.output
+    assert not path.exists()
+
+    events = _feedback_events(mock_connect)
+    assert len(events) == 1
+    message = events[0]["message"]
+    assert message["last_error_id"] == "err-1"
+    assert message["last_error_type"] == "CliSqlError"
+    assert "first" in message["message"]
+    dumped = json.dumps(events[0])
+    assert secret not in dumped
+    assert '"command": "sql"' not in dumped
+
+    again = runner.invoke(_json_feedback("--message", "second", "--last-error"))
+    assert again.exit_code == 0, again.output
+    events = _feedback_events(mock_connect)
+    assert len(events) == 2
+    assert "last_error_id" not in events[1]["message"]
+    assert "second" in events[1]["message"]["message"]
+
+
+def test_last_error_send_failed_keeps_sidecar(
+    runner, mock_connect, test_snowcli_config
+):
+    path = _write_last_error(test_snowcli_config)
+    channel = _telemetry(mock_connect)
+    channel.is_enabled.return_value = False
+    result = runner.invoke(_json_feedback("--message", "retry me", "--last-error"))
+    assert result.exit_code == 1, result.output
+    assert _parse_json(result.output)["status"] == "send_failed"
+    assert path.is_file()
+
+    channel.is_enabled.return_value = True
+    result = runner.invoke(_json_feedback("--message", "retry me", "--last-error"))
+    assert result.exit_code == 0, result.output
+    assert not path.exists()
+    events = _feedback_events(mock_connect)
+    assert events[-1]["message"]["last_error_id"] == "err-1"
+
+
+def test_without_last_error_flag_does_not_attach_sidecar(
+    runner, mock_connect, test_snowcli_config
+):
+    secret = "invalid identifier SELCT"
+    _write_last_error(test_snowcli_config, message=secret)
+    result = runner.invoke(_json_feedback())
+    assert result.exit_code == 0, result.output
+    events = _feedback_events(mock_connect)
+    assert len(events) == 1
+    message = events[0]["message"]
+    assert "last_error_id" not in message
+    assert "last_error_type" not in message
+    assert secret not in json.dumps(events[0])
+
+
+def test_rating_error_does_not_advertise_feedback(runner):
+    result = runner.invoke(["feedback", "--rating", "9"])
+    assert result.exit_code != 0
+    assert "To send feedback" not in result.output
 
 
 def test_table_output_includes_submitted_line(runner, mock_connect, monkeypatch):
