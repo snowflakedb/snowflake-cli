@@ -22,6 +22,7 @@
 * `snow dbt execute` now accepts the `check` and `clone` commands. These previously failed with a CLI "No such command" error.
 
 ## Fixes and improvements
+* Upgraded GitPython from 3.2.0 to 3.2.1.
 
 
 # v3.31.0

@@ -29,7 +29,7 @@ dependencies = [
   "certifi>=2026.10.19",
   "click==8.1.8",
   "configobj==5.0.9",
-  "GitPython==3.2.0",
+  "GitPython==3.2.1",
   "PyYAML==6.0.2",
   "id==1.5.0",
   "jinja2==3.1.6",
