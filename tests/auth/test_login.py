@@ -343,6 +343,40 @@ def test_login_finishes_through_the_connector_without_opening_a_browser(
     assert "changed the default connection to myorg-myacct" in result.output
 
 
+def test_a_rejected_warehouse_on_a_new_login_writes_nothing(
+    runner, config_file, monkeypatch
+):
+    calls: list[dict] = []
+
+    def connect(**kwargs):
+        calls.append(kwargs)
+        raise SnowflakeError(
+            "The warehouse 'IdontExist' does not exist or not authorized."
+        )
+
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.snowflake.connector.connect",
+        connect,
+    )
+    with config_file(_OTHER_CONNECTION) as path:
+        before = path.read_text()
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--warehouse", "IdontExist"],
+            )
+        after = path.read_text()
+
+    assert result.exit_code != 0, result.output
+    assert "IdontExist" in _panel_text(result.output)
+    assert after == before
+    assert len(calls) == 1
+    assert "user" not in calls[0]
+    assert calls[0]["warehouse"] == "IdontExist"
+    assert calls[0]["validate_default_parameters"] is True
+    assert calls[0]["client_store_temporary_credential"] is False
+
+
 def test_a_rejected_sign_in_writes_nothing(runner, config_file, monkeypatch):
     def connect(**_kwargs):
         raise SnowflakeError("The account refused the sign-in.")
@@ -381,6 +415,447 @@ def test_a_second_sign_in_as_someone_else_writes_nothing(
     assert "SSMITH" in result.output
     assert "JDOE" in result.output
     assert after == before
+
+
+_SAVED_LOCAL_OAUTH = dedent(
+    """\
+    [connections.work]
+    account = "myorg-myacct"
+    user = "JDOE"
+    database = "ANALYTICS"
+    schema = "PUBLIC"
+    warehouse = "COMPUTE_WH"
+    role = "SYSADMIN"
+    authenticator = "OAUTH_AUTHORIZATION_CODE"
+    client_store_temporary_credential = true
+
+    [connections.keypair]
+    account = "other-acct"
+    user = "JDOE"
+    authenticator = "SNOWFLAKE_JWT"
+    """
+)
+
+
+def test_a_second_login_updates_the_existing_local_oauth_connection(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert "changed the default connection to work" in result.output
+    assert list(written["connections"].keys()) == ["work", "keypair"]
+    connection = written["connections"]["work"]
+    assert connection["user"] == "JDOE"
+    assert connection["role"] == "SYSADMIN"
+    assert connection["warehouse"] == "COMPUTE_WH"
+    assert connection["database"] == "ANALYTICS"
+    assert connection["schema"] == "PUBLIC"
+    assert connection["authenticator"] == "OAUTH_AUTHORIZATION_CODE"
+    assert written["default_connection_name"] == "work"
+    assert calls[0]["account"] == "myorg-myacct"
+    assert "user" not in calls[0]
+    assert calls[1]["user"] == "JDOE"
+
+
+def test_a_cached_session_does_not_open_the_browser(runner, config_file, monkeypatch):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+
+    def explode(*_args, **_kwargs):
+        raise AssertionError("login opened a browser")
+
+    def cached(*, user, account_host):
+        assert user == "JDOE"
+        assert account_host == "myorg-myacct.snowflakecomputing.com"
+        return True
+
+    monkeypatch.setattr(webbrowser, "open", explode)
+    monkeypatch.setattr(webbrowser, "open_new", explode)
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        cached,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert calls == []
+    assert "changed the default connection to work" in result.output
+    connection = written["connections"]["work"]
+    assert connection["user"] == "JDOE"
+    assert connection["role"] == "SYSADMIN"
+    assert connection["warehouse"] == "COMPUTE_WH"
+    assert connection["database"] == "ANALYTICS"
+    assert list(written["connections"].keys()) == ["work", "keypair"]
+    assert written["default_connection_name"] == "work"
+
+
+def test_a_cached_session_for_the_given_host_does_not_open_the_browser(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    host = "myorg-myacct.privatelink.snowflakecomputing.com"
+
+    def cached(*, user, account_host):
+        assert user == "JDOE"
+        assert account_host == host
+        return True
+
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        cached,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct", "--host", host]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert calls == []
+    connection = written["connections"]["work"]
+    assert connection["host"] == host
+    assert connection["user"] == "JDOE"
+    assert list(written["connections"].keys()) == ["work", "keypair"]
+
+
+def test_two_saved_users_on_one_account_still_sign_in(runner, config_file, monkeypatch):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        lambda **_kwargs: True,
+    )
+    config = dedent(
+        """\
+        [connections.jdoe]
+        account = "myorg-myacct"
+        user = "JDOE"
+        role = "SYSADMIN"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+
+        [connections.ssmith]
+        account = "myorg-myacct"
+        user = "SSMITH"
+        role = "PUBLIC"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+        """
+    )
+    with config_file(config) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 2
+    assert "user" not in calls[0]
+    assert calls[1]["user"] == "JDOE"
+    assert list(written["connections"].keys()) == ["jdoe", "ssmith"]
+    assert written["connections"]["jdoe"]["user"] == "JDOE"
+    assert written["connections"]["jdoe"]["role"] == "SYSADMIN"
+    assert written["connections"]["ssmith"]["user"] == "SSMITH"
+    assert written["connections"]["ssmith"]["role"] == "PUBLIC"
+    assert written["default_connection_name"] == "jdoe"
+
+
+@pytest.mark.parametrize(
+    ("flag", "field"),
+    [
+        ("--warehouse", "warehouse"),
+        ("--database", "database"),
+        ("--schema", "schema"),
+    ],
+)
+def test_a_rejected_warehouse_database_or_schema_is_not_stored(
+    runner, config_file, monkeypatch, flag, field
+):
+    calls: list[dict] = []
+
+    def connect(**kwargs):
+        calls.append(kwargs)
+        raise SnowflakeError(
+            f"The {field} 'IdontExist' does not exist or not authorized."
+        )
+
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.snowflake.connector.connect",
+        connect,
+    )
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        lambda **_kwargs: True,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        before = path.read_text()
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", flag, "IdontExist"],
+            )
+        after = path.read_text()
+
+    assert result.exit_code != 0, result.output
+    assert "IdontExist" in _panel_text(result.output)
+    assert after == before
+    assert len(calls) == 1
+    assert calls[0]["user"] == "JDOE"
+    assert calls[0][field] == "IdontExist"
+    assert calls[0]["validate_default_parameters"] is True
+    assert calls[0]["client_store_temporary_credential"] is True
+
+
+def test_a_passed_role_or_warehouse_is_stored_without_a_new_session(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        lambda **_kwargs: True,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                [
+                    "auth",
+                    "login",
+                    "myorg-myacct",
+                    "--role",
+                    "ANALYST",
+                    "--warehouse",
+                    "NEW_WH",
+                    "--database",
+                    "NEW_DB",
+                    "--schema",
+                    "NEW_SCHEMA",
+                ],
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 1
+    assert calls[0]["user"] == "JDOE"
+    assert calls[0]["role"] == "ANALYST"
+    assert calls[0]["warehouse"] == "NEW_WH"
+    assert calls[0]["database"] == "NEW_DB"
+    assert calls[0]["schema"] == "NEW_SCHEMA"
+    assert calls[0]["validate_default_parameters"] is True
+    assert calls[0]["client_store_temporary_credential"] is True
+    assert "oauth_scope" not in calls[0]
+    connection = written["connections"]["work"]
+    assert connection["role"] == "ANALYST"
+    assert connection["warehouse"] == "NEW_WH"
+    assert connection["database"] == "NEW_DB"
+    assert connection["schema"] == "NEW_SCHEMA"
+    assert connection["user"] == "JDOE"
+    assert list(written["connections"].keys()) == ["work", "keypair"]
+
+
+@pytest.mark.parametrize(
+    ("flag", "removed", "kept_field", "kept_value"),
+    [
+        ("--clear-role", "role", "warehouse", "COMPUTE_WH"),
+        ("--clear-warehouse", "warehouse", "role", "SYSADMIN"),
+        ("--clear-database", "database", "schema", "PUBLIC"),
+        ("--clear-schema", "schema", "database", "ANALYTICS"),
+    ],
+)
+def test_clear_flags_remove_a_stored_connection_field(
+    runner, config_file, monkeypatch, flag, removed, kept_field, kept_value
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        lambda **_kwargs: True,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct", flag]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert calls == []
+    connection = written["connections"]["work"]
+    assert removed not in connection
+    assert connection[kept_field] == kept_value
+    assert connection["user"] == "JDOE"
+
+
+@pytest.mark.parametrize(
+    ("value_flag", "value", "clear_flag"),
+    [
+        ("--role", "ANALYST", "--clear-role"),
+        ("--warehouse", "NEW_WH", "--clear-warehouse"),
+        ("--database", "NEW_DB", "--clear-database"),
+        ("--schema", "NEW_SCHEMA", "--clear-schema"),
+    ],
+)
+def test_a_value_and_its_clear_flag_write_nothing(
+    runner, config_file, monkeypatch, value_flag, value, clear_flag
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        before = path.read_text()
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", value_flag, value, clear_flag],
+            )
+        after = path.read_text()
+
+    assert result.exit_code == 2, result.output
+    assert "incompatible" in result.output
+    assert value_flag in result.output
+    assert clear_flag in result.output
+    assert after == before
+    assert calls == []
+
+
+def test_a_new_login_checks_warehouse_database_and_schema(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    with config_file(_OTHER_CONNECTION) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                [
+                    "auth",
+                    "login",
+                    "myorg-myacct",
+                    "--role",
+                    "ANALYST",
+                    "--warehouse",
+                    "NEW_WH",
+                    "--database",
+                    "NEW_DB",
+                    "--schema",
+                    "NEW_SCHEMA",
+                ],
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 2
+    for call in calls:
+        assert call["role"] == "ANALYST"
+        assert "oauth_scope" not in call
+        assert call["warehouse"] == "NEW_WH"
+        assert call["database"] == "NEW_DB"
+        assert call["schema"] == "NEW_SCHEMA"
+        assert call["validate_default_parameters"] is True
+    assert "user" not in calls[0]
+    assert calls[0]["client_store_temporary_credential"] is False
+    connection = written["connections"]["myorg-myacct"]
+    assert connection["role"] == "ANALYST"
+    assert connection["warehouse"] == "NEW_WH"
+    assert connection["database"] == "NEW_DB"
+    assert connection["schema"] == "NEW_SCHEMA"
+
+
+def test_a_sign_in_with_no_cached_session_uses_the_stored_role(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        lambda **_kwargs: False,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 2
+    for call in calls:
+        assert call["role"] == "SYSADMIN"
+        assert "oauth_scope" not in call
+        assert "warehouse" not in call
+        assert "database" not in call
+        assert "schema" not in call
+    assert written["connections"]["work"]["role"] == "SYSADMIN"
+    assert written["connections"]["work"]["warehouse"] == "COMPUTE_WH"
+    assert written["connections"]["work"]["database"] == "ANALYTICS"
+    assert written["connections"]["work"]["schema"] == "PUBLIC"
+
+
+def test_a_passed_role_replaces_the_stored_role_when_signing_in(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        lambda **_kwargs: False,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "ANALYST"],
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 2
+    for call in calls:
+        assert call["role"] == "ANALYST"
+        assert "oauth_scope" not in call
+        assert "warehouse" not in call
+        assert "database" not in call
+        assert "schema" not in call
+    connection = written["connections"]["work"]
+    assert connection["role"] == "ANALYST"
+    assert connection["warehouse"] == "COMPUTE_WH"
+    assert connection["database"] == "ANALYTICS"
+    assert connection["schema"] == "PUBLIC"
+
+
+def test_clear_role_on_a_sign_in_does_not_pass_the_stored_role(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.session_is_cached",
+        lambda **_kwargs: False,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct", "--clear-role"]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 2
+    for call in calls:
+        assert "role" not in call
+        assert "warehouse" not in call
+        assert "database" not in call
+        assert "schema" not in call
+    connection = written["connections"]["work"]
+    assert "role" not in connection
+    assert connection["warehouse"] == "COMPUTE_WH"
+    assert connection["database"] == "ANALYTICS"
+    assert connection["schema"] == "PUBLIC"
 
 
 def test_login_does_not_clear_database_or_schema_on_an_existing_connection(
@@ -483,7 +958,7 @@ def test_login_stores_the_session_user_when_only_the_case_differs(
     runner, config_file, monkeypatch, connector_v5
 ):
     monkeypatch.setattr(
-        "snowflake.cli._plugins.auth.connector_oauth.IS_V5_DRIVER",
+        "snowflake.cli._plugins.auth.connector_adapter.IS_V5_DRIVER",
         connector_v5,
     )
     calls = _patch_sign_in(monkeypatch, ["JDOE", "jdoe"])
@@ -521,7 +996,7 @@ def test_a_quoted_session_user_that_differs_by_case_is_rejected_on_connector_5(
     runner, config_file, monkeypatch
 ):
     monkeypatch.setattr(
-        "snowflake.cli._plugins.auth.connector_oauth.IS_V5_DRIVER",
+        "snowflake.cli._plugins.auth.connector_adapter.IS_V5_DRIVER",
         True,
     )
     _patch_sign_in(monkeypatch, ['"JDoe"', '"jdoe"'])
@@ -545,7 +1020,7 @@ def test_connector_4_accepts_a_quoted_session_user_that_differs_only_by_case(
     runner, config_file, monkeypatch
 ):
     monkeypatch.setattr(
-        "snowflake.cli._plugins.auth.connector_oauth.IS_V5_DRIVER",
+        "snowflake.cli._plugins.auth.connector_adapter.IS_V5_DRIVER",
         False,
     )
     calls = _patch_sign_in(monkeypatch, ['"JDoe"', '"jdoe"'])

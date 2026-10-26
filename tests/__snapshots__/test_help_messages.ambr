@@ -3373,9 +3373,21 @@
   |                           host.                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --host          TEXT  Account host for a private link, gov, or QA account. A |
-  |                       bare account uses the public account host.             |
-  | --help  -h            Show this message and exit.                            |
+  | --host                     TEXT  Custom account host. A bare account uses    |
+  |                                  the public account host.                    |
+  | --role                     TEXT  Connection role. Omitted leaves the stored  |
+  |                                  role unchanged.                             |
+  | --warehouse                TEXT  Connection warehouse. Omitted leaves the    |
+  |                                  stored warehouse unchanged.                 |
+  | --clear-role                     Remove the stored connection role.          |
+  | --clear-warehouse                Remove the stored connection warehouse.     |
+  | --database                 TEXT  Connection database. Omitted leaves the     |
+  |                                  stored database unchanged.                  |
+  | --schema                   TEXT  Connection schema. Omitted leaves the       |
+  |                                  stored schema unchanged.                    |
+  | --clear-database                 Remove the stored connection database.      |
+  | --clear-schema                   Remove the stored connection schema.        |
+  | --help             -h            Show this message and exit.                 |
   +------------------------------------------------------------------------------+
   +- Global options -------------------------------------------------------------+
   | Global options: --format, --verbose, --debug, --silent,                      |
@@ -3388,9 +3400,8 @@
   | Login changes the default connection. The next command uses the Snowflake    |
   | OAuth connection this command writes.                                        |
   |                                                                              |
-  | Pass an account, or an account URL for a private link, gov, or QA account    |
-  | host. A bare account uses the public account host. The --host flag sets the  |
-  | account host.                                                                |
+  | Pass an account. An account URL or the --host flag sets a custom account     |
+  | host. A bare account uses the public account host.                           |
   +------------------------------------------------------------------------------+
   +- Examples -------------------------------------------------------------------+
   | Sign in and change the default connection:                                   |

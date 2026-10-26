@@ -25,6 +25,7 @@ from snowflake.cli.api.commands.command_docs import (
     link,
     plain_text,
 )
+from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult
 
@@ -51,11 +52,10 @@ def register_login(app: SnowTyperFactory) -> None:
                     "the Snowflake OAuth connection this command writes."
                 ),
                 plain_text(
-                    "Pass an account, or an account URL for a private link, gov, "
-                    "or QA account host. A bare account uses the public account "
-                    "host. The ",
+                    "Pass an account. An account URL or the ",
                     code("--host"),
-                    " flag sets the account host.",
+                    " flag sets a custom account host. A bare account uses the "
+                    "public account host.",
                 ),
             ),
             examples=(
@@ -82,18 +82,84 @@ def register_login(app: SnowTyperFactory) -> None:
         host: Optional[str] = typer.Option(
             None,
             "--host",
-            help=(
-                "Account host for a private link, gov, or QA account. "
-                "A bare account uses the public account host."
-            ),
+            help=("Custom account host. A bare account uses the public account host."),
             show_default=False,
         ),
+        role: Optional[str] = OverrideableOption(
+            None,
+            "--role",
+            help="Connection role. Omitted leaves the stored role unchanged.",
+            show_default=False,
+            mutually_exclusive=["clear_role"],
+        )(),
+        warehouse: Optional[str] = OverrideableOption(
+            None,
+            "--warehouse",
+            help=(
+                "Connection warehouse. Omitted leaves the stored warehouse unchanged."
+            ),
+            show_default=False,
+            mutually_exclusive=["clear_warehouse"],
+        )(),
+        clear_role: bool = OverrideableOption(
+            False,
+            "--clear-role",
+            help="Remove the stored connection role.",
+            is_flag=True,
+            mutually_exclusive=["role"],
+        )(),
+        clear_warehouse: bool = OverrideableOption(
+            False,
+            "--clear-warehouse",
+            help="Remove the stored connection warehouse.",
+            is_flag=True,
+            mutually_exclusive=["warehouse"],
+        )(),
+        database: Optional[str] = OverrideableOption(
+            None,
+            "--database",
+            help="Connection database. Omitted leaves the stored database unchanged.",
+            show_default=False,
+            mutually_exclusive=["clear_database"],
+        )(),
+        schema: Optional[str] = OverrideableOption(
+            None,
+            "--schema",
+            help="Connection schema. Omitted leaves the stored schema unchanged.",
+            show_default=False,
+            mutually_exclusive=["clear_schema"],
+        )(),
+        clear_database: bool = OverrideableOption(
+            False,
+            "--clear-database",
+            help="Remove the stored connection database.",
+            is_flag=True,
+            mutually_exclusive=["database"],
+        )(),
+        clear_schema: bool = OverrideableOption(
+            False,
+            "--clear-schema",
+            help="Remove the stored connection schema.",
+            is_flag=True,
+            mutually_exclusive=["schema"],
+        )(),
         **options,
     ) -> CommandResult:
         """Signs in with Snowflake OAuth for local applications and changes the default connection."""
         if account is None:
             account = typer.prompt("Enter account")
-        return AuthManager().login(account, host)
+        return AuthManager().login(
+            account,
+            host,
+            role=role,
+            warehouse=warehouse,
+            database=database,
+            schema=schema,
+            clear_role=clear_role,
+            clear_warehouse=clear_warehouse,
+            clear_database=clear_database,
+            clear_schema=clear_schema,
+        )
 
 
 def register_list(app: SnowTyperFactory) -> None:

@@ -14,11 +14,13 @@
 
 """Local OAuth sign-in on the public connector API.
 
-Both the 4.x connector and the Universal Driver cache a session under the
-user string passed to ``connect()``, and they do it before Snowflake reports
-the session user. Login therefore connects twice. The first connection omits
-the user and does not cache. The second passes the session user and caches.
-Callers pass the same arguments on either connector.
+Connector calls that differ between connector 4 and the Universal Driver live
+in ``connector_adapter``. Both connectors cache a session under the user
+string passed to ``connect()``, and they do it before Snowflake reports the
+session user. When this user and account host have no cached session, login
+connects twice. The first connection omits the user and does not cache. The
+second passes the session user and caches. A cached session is left in place,
+and the browser stays closed.
 
 ``host`` is included only when login will store that host, so a later command
 builds the same cache key.
@@ -29,8 +31,12 @@ from __future__ import annotations
 import logging
 
 import snowflake.connector
+from snowflake.cli._plugins.auth.connector_adapter import (
+    oauth_access_token,
+    public_account_host,
+    session_user_cache_key,
+)
 from snowflake.cli._plugins.auth.sign_in_target import SignInTarget
-from snowflake.cli.api.connector_errors import IS_V5_DRIVER
 from snowflake.cli.api.exceptions import CliConnectionError
 from snowflake.connector.errors import Error as SnowflakeError
 
@@ -47,36 +53,64 @@ class SessionUser:
         self.value = returned.strip()
 
     def shares_cache_key_with(self, other: SessionUser) -> bool:
-        """Whether ``connect(user=other)`` hits the entry stored for this user.
-
-        Connector 4 uppercases the user. Connector 5 keeps a name that contains
-        a double quote as written and lowercases every other name.
-        """
-        return _cache_key(self.value) == _cache_key(other.value)
+        """Whether ``connect(user=other)`` hits the entry stored for this user."""
+        return session_user_cache_key(self.value) == session_user_cache_key(other.value)
 
 
-def _cache_key(name: str) -> str:
-    if IS_V5_DRIVER:
-        if _v5_keeps_spelling(name):
-            return name
-        return name.lower()
-    return name.upper()
+def account_host(target: SignInTarget) -> str:
+    """Account host the connector uses as the session cache key.
+
+    A host given to login is that key. A bare account uses the public account
+    host.
+    """
+    if target.host:
+        return target.host
+    return public_account_host(target.account)
 
 
-def _v5_keeps_spelling(name: str) -> bool:
-    """Connector 5 stores a user string that contains a double quote as written."""
-    return '"' in name
+def session_is_cached(*, user: str, account_host: str) -> bool:
+    """Whether this user and account host already have a cached session.
+
+    The connector opens the browser when the access token is missing. A lookup
+    that fails is a miss, so login signs in instead of treating a broken cache
+    as a session.
+    """
+    if not user.strip() or not account_host.strip():
+        return False
+    return oauth_access_token(user=user, host=account_host) is not None
 
 
-def sign_in(*, target: SignInTarget, application: str) -> str:
+def sign_in(
+    *,
+    target: SignInTarget,
+    application: str,
+    role: str | None = None,
+    warehouse: str | None = None,
+    database: str | None = None,
+    schema: str | None = None,
+) -> str:
     """Open the connector's browser or paste path and return the session user.
 
     The returned string is the user a later ``connect()`` must pass. The first
     attempt is not cached. A machine with no browser still finishes here: the
     connector asks for the redirect, and this function does not ask for a user.
+
+    ``role`` is the connection role, passed through with no OAuth scope of our
+    own. The connector may scope the new session to that role. A named
+    warehouse, database, or schema is checked on the login request. Snowflake
+    rejects one that does not exist or that this user cannot use.
     """
     discovered = SessionUser(
-        _open_session(target, user=None, application=application, store=False)
+        _open_session(
+            target,
+            user=None,
+            application=application,
+            store=False,
+            role=role,
+            warehouse=warehouse,
+            database=database,
+            schema=schema,
+        )
     )
     confirmed = SessionUser(
         _open_session(
@@ -84,6 +118,10 @@ def sign_in(*, target: SignInTarget, application: str) -> str:
             user=discovered.value,
             application=application,
             store=True,
+            role=role,
+            warehouse=warehouse,
+            database=database,
+            schema=schema,
         )
     )
     if not discovered.shares_cache_key_with(confirmed):
@@ -95,12 +133,43 @@ def sign_in(*, target: SignInTarget, application: str) -> str:
     return discovered.value
 
 
+def check_connection_context(
+    *,
+    target: SignInTarget,
+    user: str,
+    application: str,
+    role: str | None = None,
+    warehouse: str | None = None,
+    database: str | None = None,
+    schema: str | None = None,
+) -> None:
+    """Ask Snowflake to accept a warehouse, database, or schema.
+
+    The saved user is passed so a cached session is reused and the browser
+    stays closed. A rejection raises before the caller writes the connection.
+    """
+    _open_session(
+        target,
+        user=user,
+        application=application,
+        store=True,
+        role=role,
+        warehouse=warehouse,
+        database=database,
+        schema=schema,
+    )
+
+
 def _open_session(
     target: SignInTarget,
     *,
     user: str | None,
     application: str,
     store: bool,
+    role: str | None = None,
+    warehouse: str | None = None,
+    database: str | None = None,
+    schema: str | None = None,
 ) -> str:
     kwargs: dict[str, str | bool] = {
         "account": target.account,
@@ -112,6 +181,20 @@ def _open_session(
         kwargs["user"] = user
     if target.host:
         kwargs["host"] = target.host
+    if role:
+        kwargs["role"] = role
+    named_context = False
+    if warehouse:
+        kwargs["warehouse"] = warehouse
+        named_context = True
+    if database:
+        kwargs["database"] = database
+        named_context = True
+    if schema:
+        kwargs["schema"] = schema
+        named_context = True
+    if named_context:
+        kwargs["validate_default_parameters"] = True
     log.debug(
         "Signing in to account %s as %s (store=%s)",
         target.account,

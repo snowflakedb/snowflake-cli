@@ -207,6 +207,21 @@ pre-install-commands = [
 ]
 features = ["development"]
 
+# Local connector 5 check for snow auth login.
+# Hatch syncs this env back to the project pins (connector 4, Snowpark, protobuf < 6)
+# before every command, so the swap has to live in the script. Snowpark's
+# connector < 5 pin is what blocks a normal install of connector 5.1.0.
+[tool.hatch.envs.ud-local]
+python = "3.11"
+features = ["development"]
+
+[tool.hatch.envs.ud-local.scripts]
+test-login = [
+  "python -m pip uninstall -y snowflake-snowpark-python snowflake-connector-python",
+  "python -m pip install 'snowflake-connector-python==5.1.0' 'protobuf==6.32.1'",
+  "python -m pytest tests/auth/test_login.py -q --tb=short",
+]
+
 [tool.hatch.envs.ud.scripts]
 check = [
   'pip uninstall --yes snowflake-connector-python',
