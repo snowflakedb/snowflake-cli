@@ -277,7 +277,7 @@ registered in `builtin_plugins.py` (add an import and a dict entry), as describe
 in [Registering the plugin](adding-commands.md#registering-the-plugin). Without
 that step the plugin is valid Python but is never loaded by the CLI.
 
-### CommandDocs {#commanddocs}
+### Writing command docs
 
 The command `help` on `CommandDef` is the short summary in `--help`. For
 [Snowflake CLI command reference](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/overview)
@@ -285,7 +285,7 @@ pages, set `docs=CommandDocs(...)` on **every** `CommandDef`. Each `CommandDocs`
 must include **related topics**, **usage notes**, and **examples**.
 
 Classic in-repo commands use the same `CommandDocs` type on `@app.command()`;
-see [CommandDocs in adding-commands.md](adding-commands.md#commanddocs).
+see [Writing command docs in adding-commands.md](adding-commands.md#writing-command-docs).
 
 ```python
 CommandDef(

@@ -202,7 +202,7 @@ def create(name: str):
     ...
 ```
 
-### CommandDocs {#commanddocs}
+### Writing command docs
 
 The function docstring is the short summary in `--help`. For
 [Snowflake CLI command reference](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/overview)
@@ -217,7 +217,7 @@ shared constants for related links across subcommands. See
 `src/snowflake/cli/_plugins/stage/commands.py` for patterns.
 
 For the interface-first plugin workflow (`CommandDef.docs` in `interface.py`),
-see [CommandDocs in writing-a-plugin.md](writing-a-plugin.md#commanddocs).
+see [Writing command docs in writing-a-plugin.md](writing-a-plugin.md#writing-command-docs).
 
 ```python
 from snowflake.cli.api.commands.command_docs import (
