@@ -14,6 +14,9 @@ on:
       code:
         description: "true when the PR touches files that require running tests"
         value: ${{ jobs.detect.outputs.code }}
+      files:
+        description: "newline-separated paths changed in the PR; empty outside pull_request"
+        value: ${{ jobs.detect.outputs.files }}
 
 permissions:
   contents: read
@@ -23,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      files: ${{ steps.filter.outputs.files }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,11 +45,21 @@ jobs:
           set -euo pipefail
           if [ "$EVENT_NAME" != "pull_request" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "files=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           echo "Changed files:"
           echo "$changed"
+          # Multiline job output. Callers pass this to the test step so a
+          # quarantine entry is ignored when the PR edits that test file.
+          # The test job checks out fetch-depth 1 and cannot compute this diff.
+          delim="QUARANTINE_FILES_$(uuidgen | tr -d '-')"
+          {
+            echo "files<<${delim}"
+            echo "$changed"
+            echo "${delim}"
+          } >> "$GITHUB_OUTPUT"
           # code=true if any changed file falls outside the ignored set.
           ignored=(
             '\.md$'

@@ -32,10 +32,12 @@ permissions:
 jobs:
   define-matrix:
     uses: ./.github/workflows/matrix.yaml
+  changes:
+    uses: ./.github/workflows/changes.yaml
 
   # Branch-based pull request
   spcs-integration-trusted:
-    needs: define-matrix
+    needs: [define-matrix, changes]
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +52,7 @@ jobs:
       python-version: ${{ matrix.python-version }}
       python-env: integration
       hatch-run: integration:test_container_services
+      changed-files: ${{ needs.changes.outputs.files }}
     secrets: inherit
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request

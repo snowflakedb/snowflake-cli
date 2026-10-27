@@ -181,6 +181,8 @@ hatch run integration:test_container_services  # tests_using_container_services/
 hatch run integration:test_qa                  # integration and not no_qa (includes qa_only)
 ```
 
+Tests that already fail on `main` go in `tests_common/quarantine.txt`, one node id per line, with the date and reason after `#`. On a pull request the listed test is xfailed after the deflake retry, and the job stays green. The daily cron and pushes to `main` do not read the list, so `main` stays red until the test is fixed. A pull request that edits the test's file does not get the xfail. A listed test that passes is reported as XPASS and does not fail the job; delete that line.
+
 Run one nodeid without xdist/deflake (first failure stays visible):
 
 ```bash
