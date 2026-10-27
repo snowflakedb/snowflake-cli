@@ -13,7 +13,7 @@ cloudpickle==3.0.0
 colorama==0.4.6 ; sys_platform == 'win32'
 configobj==5.0.9
 cryptography==46.0.6
-filelock==3.18.0
+filelock==4.2.4
 gitdb==4.0.12
 gitpython==3.2.1
 id==1.5.0
@@ -56,7 +56,7 @@ setuptools==84.0.0
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.2
-snowflake-connector-python==4.7.5
+snowflake-connector-python==4.8.1
 snowflake-core==1.10.0
 snowflake-snowpark-python==1.53.0
 sortedcontainers==2.4.0

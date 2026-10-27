@@ -24,6 +24,7 @@
 ## Fixes and improvements
 * Upgraded the Python interpreter embedded in Linux binaries from 3.12.15 to 3.12.16.
 * Upgraded GitPython from 3.2.0 to 3.2.1.
+* Upgraded snowflake-connector-python from 4.7.5 to 4.8.1.
 
 
 # v3.31.0
