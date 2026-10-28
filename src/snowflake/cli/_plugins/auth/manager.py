@@ -14,9 +14,10 @@
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 
-from snowflake.cli._plugins.auth import connector_oauth
+import typer
 from snowflake.cli._plugins.auth.connector_oauth import (
     AUTHENTICATOR,
     SessionUser,
@@ -29,19 +30,23 @@ from snowflake.cli.api.config import (
     get_all_connections,
     get_connections_file,
     get_default_connection_name,
+    remove_connection_from_proper_file,
     set_config_value,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.exceptions import CliArgumentError, CliError
 from snowflake.cli.api.output.types import CollectionResult, MessageResult
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.utils.tty import is_tty_interactive
 
 
 @dataclass(frozen=True)
 class _ConnectionEdits:
     """Connection fields this login sets or clears.
 
-    Role is passed when a session is minted. A named warehouse, database, or
-    schema is checked with the login and then stored on the connection.
+    A passed role is sent on both connects. A stored role is sent on the
+    caching connect, once the session user is known. A named warehouse,
+    database, or schema is checked with the login and then stored.
     """
 
     role: str | None = None
@@ -71,20 +76,30 @@ class _ConnectionEdits:
         elif self.schema is not None:
             config.schema = self.schema
 
-    def role_for_session(self, saved: list[tuple[str, ConnectionConfig]]) -> str | None:
-        """Connection role to pass when a session is minted.
+    def role_for_discovery(self) -> str | None:
+        """Role for the first connect, before the session user is known.
+
+        A passed role wins. Clearing the role mints with none. An omitted
+        role waits until the session user is known, so another person's
+        saved role is not sent.
+        """
+        if self.clear_role:
+            return None
+        return self.role
+
+    def role_for_caching(self, saved: ConnectionConfig | None) -> str | None:
+        """Role for the caching connect once the session user is known.
 
         A passed role wins. Clearing the role mints with none. Otherwise the
-        one saved connection's role is used, so a repeat sign-in keeps that role.
+        role stored for this user is used, so a repeat sign-in keeps it.
         """
         if self.clear_role:
             return None
         if self.role is not None:
             return self.role
-        if len(saved) == 1:
-            config = saved[0][1]
-            return config.role
-        return None
+        if saved is None:
+            return None
+        return saved.role
 
     def context_to_check(self) -> dict[str, str]:
         """Warehouse, database, and schema this login named.
@@ -99,6 +114,44 @@ class _ConnectionEdits:
         if self.schema:
             context["schema"] = self.schema
         return context
+
+
+@dataclass(frozen=True)
+class _NameChoice:
+    """Where this login writes, and which saved connection it copies."""
+
+    name: str
+    source_name: str | None
+    kept_name_note: str | None = None
+
+
+@dataclass(frozen=True)
+class _SessionUserAtAccount:
+    """The session user at an account. One local OAuth connection per pair.
+
+    The derived name uses the session user Snowflake returned. Connector 4
+    uppercases the cache key and connector 5 lowercases it, so a name built
+    from that key would differ between them. A host or a role can change
+    without this becoming a different connection.
+    """
+
+    account: str
+    session_user: str
+
+    def derived_name(self) -> str:
+        """Account and session user, so two people on one account get two names."""
+        return f"{self.account}-{self.session_user}"
+
+    def matches(self, config: ConnectionConfig) -> bool:
+        """True when this saved connection is local OAuth for this user and account."""
+        if not _is_local_oauth(config):
+            return False
+        if (config.account or "").casefold() != self.account.casefold():
+            return False
+        return _same_session_user(config.user, self.session_user)
+
+
+_SUFFIX_ATTEMPTS = 8
 
 
 class AuthManager:
@@ -117,19 +170,30 @@ class AuthManager:
         clear_warehouse: bool = False,
         clear_database: bool = False,
         clear_schema: bool = False,
+        connection_name: str | None = None,
     ) -> MessageResult:
         """Sign in and make that Snowflake OAuth connection the default.
 
-        The account is the only prompt. A host flag or an account URL replaces
-        the stored host. A bare account keeps a host already stored for that
-        connection, and a new connection stores none. The connector receives
-        the host this login will store, because that host is part of the OAuth
-        cache key. An omitted connection role, warehouse, database, or schema
-        leaves the stored value.
+        The account is the only prompt. Login always signs in, including when
+        a session for this account is already cached, so the person can choose
+        a different user. A session user who already has a local OAuth
+        connection updates that connection. A different session user gets a
+        new one. A host flag or an account URL replaces the stored host. A
+        bare account keeps a host already stored for this user. A new
+        connection stores a host only when one already belongs to this user,
+        or when the connection named for the account has one. The caching
+        connect receives that host, because it is part of the OAuth cache
+        key. An omitted role is sent on the caching connect when this user
+        already has one stored. A passed role is sent on both connects. An
+        omitted warehouse, database, or schema leaves the stored value. A
+        new connection is named from the account and the session user, or
+        from ``connection_name`` when one is passed.
         """
         # Imported here to avoid a cycle through the CLI app while plugins load.
         from snowflake.cli._app.telemetry import command_info
 
+        requested_name = _explicit_connection_name(connection_name)
+        _reject_name_owned_by_another_authenticator(requested_name)
         requested = SignInTarget.from_login(account, host)
         edits = _ConnectionEdits(
             role=role,
@@ -142,35 +206,34 @@ class AuthManager:
             clear_schema=clear_schema,
         )
         saved = _local_oauth_for_account(requested.account)
-        target = SignInTarget(
-            requested.account,
-            _host_this_login_stores(requested, saved),
-        )
-        if len(saved) == 1:
-            name, config = saved[0]
-            if config.user and connector_oauth.session_is_cached(
-                user=config.user,
-                account_host=connector_oauth.account_host(target),
-            ):
-                context = edits.context_to_check()
-                if context:
-                    connector_oauth.check_connection_context(
-                        target=target,
-                        user=config.user,
-                        application=command_info(),
-                        role=edits.role_for_session(saved),
-                        **context,
-                    )
-                return _save_connection(name, target, user=config.user, edits=edits)
-
         session_user = sign_in(
-            target=target,
+            target=SignInTarget(
+                requested.account,
+                _host_for_discovery(requested, saved),
+            ),
             application=command_info(),
-            role=edits.role_for_session(saved),
+            role=edits.role_for_discovery(),
+            caching_session=lambda user: _caching_session(requested, edits, user),
             **edits.context_to_check(),
         )
-        name = _connection_name(target.account, session_user)
-        return _save_connection(name, target, user=session_user, edits=edits)
+        signed_in = _SessionUserAtAccount(requested.account, session_user)
+        target = SignInTarget(
+            requested.account,
+            _host_to_store(requested, signed_in),
+        )
+        choice = _choose_connection_name(
+            signed_in,
+            existing_name=_existing_local_oauth_name(signed_in),
+            requested_name=requested_name,
+        )
+        return _save_connection(
+            choice.name,
+            target,
+            user=session_user,
+            edits=edits,
+            source_name=choice.source_name,
+            kept_name_note=choice.kept_name_note,
+        )
 
     def list_connections(self) -> CollectionResult:
         """Saved connections, including ones with no session."""
@@ -199,23 +262,63 @@ class AuthManager:
         return CollectionResult(rows)
 
 
-def _host_this_login_stores(
+def _caching_session(
+    requested: SignInTarget,
+    edits: _ConnectionEdits,
+    session_user: str,
+) -> tuple[SignInTarget, str | None]:
+    """Host and role for the connect that caches this session user."""
+    signed_in = _SessionUserAtAccount(requested.account, session_user)
+    saved = _saved_local_oauth(signed_in)
+    config = None if saved is None else saved[1]
+    return (
+        SignInTarget(requested.account, _host_to_store(requested, signed_in)),
+        edits.role_for_caching(config),
+    )
+
+
+def _host_for_discovery(
     requested: SignInTarget,
     saved: list[tuple[str, ConnectionConfig]],
 ) -> str | None:
-    """The host this login writes, which ``connect()`` must use.
+    """Host for the first connect, before the session user is known.
 
-    A host flag or an account URL replaces a stored host. A bare account
-    keeps the host on the one saved local OAuth connection, or on the
-    account-named connection when this login is not updating that one
-    connection. With no stored host, ``connect()`` omits it and the connector
-    uses the public account host.
+    A host flag or an account URL is used. A bare account uses the host on
+    the one saved local OAuth connection, so a private account still opens.
+    Otherwise it uses the host on the connection whose name is the account.
+    With no stored host, ``connect()`` omits it and the connector uses the
+    public account host.
     """
     if requested.host:
         return requested.host
     if len(saved) == 1:
         return saved[0][1].host or None
-    existing = get_all_connections().get(requested.account)
+    return _host_on_account_named_connection(requested.account)
+
+
+def _host_to_store(
+    requested: SignInTarget,
+    signed_in: _SessionUserAtAccount,
+) -> str | None:
+    """Host this login writes, which the caching ``connect()`` must use.
+
+    A host flag or an account URL replaces a stored host. A bare account
+    keeps the host already stored for this user. A new connection takes a
+    host from the connection whose name is the account, when that connection
+    has one. Another person's local OAuth host is not copied. With no stored
+    host, ``connect()`` omits it and the connector uses the public account
+    host.
+    """
+    if requested.host:
+        return requested.host
+    saved = _saved_local_oauth(signed_in)
+    if saved is not None:
+        return saved[1].host or None
+    return _host_on_account_named_connection(requested.account)
+
+
+def _host_on_account_named_connection(account: str) -> str | None:
+    existing = get_all_connections().get(account)
     if existing is None or not existing.host:
         return None
     return existing.host
@@ -227,32 +330,146 @@ def _save_connection(
     *,
     user: str,
     edits: _ConnectionEdits,
+    source_name: str | None,
+    kept_name_note: str | None = None,
 ) -> MessageResult:
     written = add_connection_to_proper_file(
         name,
-        _connection_to_write(name, target, user=user, edits=edits),
+        _connection_to_write(source_name, target, user=user, edits=edits),
     )
     set_config_value(path=["default_connection_name"], value=name)
-    return MessageResult(
+    if source_name is not None and source_name != name:
+        remove_connection_from_proper_file(source_name)
+    message = (
         f"Wrote connection {name} to {written} "
         f"and changed the default connection to {name}."
     )
+    if kept_name_note:
+        message = f"{kept_name_note} {message}"
+    return MessageResult(message)
 
 
-def _connection_name(account: str, session_user: str) -> str:
-    """The saved local OAuth connection for this user and account, if there is one.
+def _explicit_connection_name(connection_name: str | None) -> str | None:
+    if connection_name is None:
+        return None
+    name = connection_name.strip()
+    if not name:
+        raise CliArgumentError("Enter a connection name, or omit --connection-name.")
+    return name
 
-    A second login updates that connection. Anything else is named after the
-    account, which is what a first login writes.
+
+def _reject_name_owned_by_another_authenticator(name: str | None) -> None:
+    """Stop before the browser when the explicit name is not local OAuth."""
+    if name is None:
+        return
+    owner = get_all_connections().get(name)
+    if owner is None or _is_local_oauth(owner):
+        return
+    raise CliError(
+        f"Connection {name} already exists and does not use Snowflake OAuth "
+        "for local applications. Choose a different connection name."
+    )
+
+
+def _choose_connection_name(
+    signed_in: _SessionUserAtAccount,
+    *,
+    existing_name: str | None,
+    requested_name: str | None,
+) -> _NameChoice:
+    """The connection name this login writes.
+
+    An explicit name that belongs to another connection raises and writes
+    nothing. A derived name that is already taken gets a short suffix.
     """
+    if requested_name is not None:
+        return _choose_explicit_name(
+            signed_in,
+            existing_name=existing_name,
+            requested_name=requested_name,
+        )
+    if existing_name is not None:
+        return _NameChoice(name=existing_name, source_name=existing_name)
+    derived = signed_in.derived_name()
+    taken = set(get_all_connections())
+    if derived not in taken:
+        return _NameChoice(name=derived, source_name=None)
+    return _NameChoice(
+        name=_suffixed_connection_name(derived, taken),
+        source_name=None,
+    )
+
+
+def _choose_explicit_name(
+    signed_in: _SessionUserAtAccount,
+    *,
+    existing_name: str | None,
+    requested_name: str,
+) -> _NameChoice:
+    owner = get_all_connections().get(requested_name)
+    if owner is not None and requested_name != existing_name:
+        if signed_in.matches(owner):
+            return _NameChoice(name=requested_name, source_name=requested_name)
+        raise CliError(
+            f"Connection {requested_name} belongs to a different user or account. "
+            "Choose a different connection name."
+        )
+    if existing_name is None or requested_name == existing_name:
+        source = existing_name if requested_name == existing_name else None
+        return _NameChoice(name=requested_name, source_name=source)
+    return _rename_or_keep(existing_name, requested_name)
+
+
+def _rename_or_keep(existing_name: str, requested_name: str) -> _NameChoice:
+    """Ask before a rename. With no terminal, keep the original name."""
+    if not is_tty_interactive():
+        return _NameChoice(
+            name=existing_name,
+            source_name=existing_name,
+            kept_name_note=(
+                f"Kept connection name {existing_name}. "
+                f"A terminal is required to rename it to {requested_name}."
+            ),
+        )
+    if typer.confirm(
+        f"Rename connection {existing_name} to {requested_name}?",
+        default=False,
+    ):
+        return _NameChoice(name=requested_name, source_name=existing_name)
+    return _NameChoice(name=existing_name, source_name=existing_name)
+
+
+def _suffixed_connection_name(base: str, taken: set[str]) -> str:
+    for _ in range(_SUFFIX_ATTEMPTS):
+        candidate = f"{base}-{secrets.token_hex(2)}"
+        if candidate not in taken:
+            return candidate
+    raise CliError(
+        f"Connection name {base} is already taken. "
+        "Pass --connection-name to choose another."
+    )
+
+
+def _existing_local_oauth_name(signed_in: _SessionUserAtAccount) -> str | None:
+    """The one saved local OAuth connection for this user and account."""
+    saved = _saved_local_oauth(signed_in)
+    if saved is None:
+        return None
+    return saved[0]
+
+
+def _saved_local_oauth(
+    signed_in: _SessionUserAtAccount,
+) -> tuple[str, ConnectionConfig] | None:
+    """The one saved local OAuth connection for this user and account."""
     matched = [
-        name
-        for name, config in _local_oauth_for_account(account)
-        if _same_session_user(config.user, session_user)
+        (name, config)
+        for name, config in _local_oauth_for_account(signed_in.account)
+        if signed_in.matches(config)
     ]
     if len(matched) == 1:
         return matched[0]
-    return account
+    return None
 
 
 def _local_oauth_for_account(account: str) -> list[tuple[str, ConnectionConfig]]:
@@ -271,7 +488,7 @@ def _same_session_user(stored: str | None, session_user: str) -> bool:
 
 
 def _connection_to_write(
-    name: str,
+    source_name: str | None,
     target: SignInTarget,
     *,
     user: str,
@@ -281,8 +498,10 @@ def _connection_to_write(
 
     A new connection omits every connection field this sign-in did not name.
     An existing connection keeps every field this sign-in does not name.
+    ``source_name`` is that existing connection, including when the login
+    renames it.
     """
-    existing = get_all_connections().get(name)
+    existing = None if source_name is None else get_all_connections().get(source_name)
     if existing is None:
         config = ConnectionConfig(
             account=target.account,

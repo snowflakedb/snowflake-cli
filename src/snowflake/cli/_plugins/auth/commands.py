@@ -57,6 +57,17 @@ def register_login(app: SnowTyperFactory) -> None:
                     " flag sets a custom account host. A bare account uses the "
                     "public account host.",
                 ),
+                plain_text(
+                    "A new connection is named from the account and the session "
+                    "user, for example myorg-myaccount-JDOE. ",
+                    code("--connection-name"),
+                    " chooses a different name.",
+                ),
+                plain_text(
+                    "Login signs in each time, including when a session is "
+                    "already cached, so a different user can be chosen. A later "
+                    "command reuses that session."
+                ),
             ),
             examples=(
                 Example(
@@ -65,9 +76,9 @@ def register_login(app: SnowTyperFactory) -> None:
                     ),
                     command="snow auth login myorg-myaccount",
                     output=(
-                        "Wrote connection myorg-myaccount to "
+                        "Wrote connection myorg-myaccount-JDOE to "
                         "<user-home>/.snowflake/config.toml and changed the "
-                        "default connection to myorg-myaccount."
+                        "default connection to myorg-myaccount-JDOE."
                     ),
                 ),
             ),
@@ -77,6 +88,17 @@ def register_login(app: SnowTyperFactory) -> None:
         account: Optional[str] = typer.Argument(
             None,
             help="Account to sign in to. A URL sets the account host.",
+            show_default=False,
+        ),
+        connection_name: Optional[str] = typer.Option(
+            None,
+            "--connection-name",
+            "-n",
+            help=(
+                "Name for this connection. Omitted uses the account and the "
+                "session user. In a terminal, a different free name asks "
+                "before a rename."
+            ),
             show_default=False,
         ),
         host: Optional[str] = typer.Option(
@@ -101,20 +123,6 @@ def register_login(app: SnowTyperFactory) -> None:
             show_default=False,
             mutually_exclusive=["clear_warehouse"],
         )(),
-        clear_role: bool = OverrideableOption(
-            False,
-            "--clear-role",
-            help="Remove the stored connection role.",
-            is_flag=True,
-            mutually_exclusive=["role"],
-        )(),
-        clear_warehouse: bool = OverrideableOption(
-            False,
-            "--clear-warehouse",
-            help="Remove the stored connection warehouse.",
-            is_flag=True,
-            mutually_exclusive=["warehouse"],
-        )(),
         database: Optional[str] = OverrideableOption(
             None,
             "--database",
@@ -128,6 +136,20 @@ def register_login(app: SnowTyperFactory) -> None:
             help="Connection schema. Omitted leaves the stored schema unchanged.",
             show_default=False,
             mutually_exclusive=["clear_schema"],
+        )(),
+        clear_role: bool = OverrideableOption(
+            False,
+            "--clear-role",
+            help="Remove the stored connection role.",
+            is_flag=True,
+            mutually_exclusive=["role"],
+        )(),
+        clear_warehouse: bool = OverrideableOption(
+            False,
+            "--clear-warehouse",
+            help="Remove the stored connection warehouse.",
+            is_flag=True,
+            mutually_exclusive=["warehouse"],
         )(),
         clear_database: bool = OverrideableOption(
             False,
@@ -159,6 +181,7 @@ def register_login(app: SnowTyperFactory) -> None:
             clear_warehouse=clear_warehouse,
             clear_database=clear_database,
             clear_schema=clear_schema,
+            connection_name=connection_name,
         )
 
 

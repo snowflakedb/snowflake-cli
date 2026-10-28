@@ -20,24 +20,7 @@ on both. A move to connector 5 deletes the connector 4 branch in each function.
 
 from __future__ import annotations
 
-import logging
-
 from snowflake.cli.api.connector_errors import IS_V5_DRIVER
-from snowflake.connector import util_text
-
-log = logging.getLogger(__name__)
-
-
-def public_account_host(account: str) -> str:
-    """Public host for a bare account.
-
-    Connector 4 builds it with ``construct_hostname``. Connector 5 removed
-    that helper and appends ``.snowflakecomputing.com``.
-    """
-    construct = getattr(util_text, "construct_hostname", None)
-    if construct is not None:
-        return construct(None, account)
-    return f"{account}.snowflakecomputing.com"
 
 
 def session_user_cache_key(name: str) -> str:
@@ -51,35 +34,3 @@ def session_user_cache_key(name: str) -> str:
             return name
         return name.lower()
     return name.upper()
-
-
-def oauth_access_token(*, user: str, host: str) -> str | None:
-    """Cached OAuth access token, or None when this connector cannot be read.
-
-    Connector 4 stores the token in ``TokenCache``. Connector 5 has no Python
-    cache API, so a lookup here is a miss. A lookup that fails is also a miss.
-    """
-    try:
-        # Connector 5 does not ship this module.
-        from snowflake.connector.token_cache import TokenCache, TokenKey, TokenType
-
-        cache = TokenCache.make()
-        if cache is None:
-            return None
-        token = cache.retrieve(
-            TokenKey(
-                user=user,
-                host=host,
-                tokenType=TokenType.OAUTH_ACCESS_TOKEN,
-            )
-        )
-    except Exception:
-        log.debug(
-            "Could not read the session cache for account host %s",
-            host,
-            exc_info=True,
-        )
-        return None
-    if isinstance(token, str) and token.strip():
-        return token
-    return None

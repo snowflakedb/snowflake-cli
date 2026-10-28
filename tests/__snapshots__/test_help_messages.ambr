@@ -3373,18 +3373,22 @@
   |                           host.                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
+  | --connection-name  -n      TEXT  Name for this connection. Omitted uses the  |
+  |                                  account and the session user. In a          |
+  |                                  terminal, a different free name asks before |
+  |                                  a rename.                                   |
   | --host                     TEXT  Custom account host. A bare account uses    |
   |                                  the public account host.                    |
   | --role                     TEXT  Connection role. Omitted leaves the stored  |
   |                                  role unchanged.                             |
   | --warehouse                TEXT  Connection warehouse. Omitted leaves the    |
   |                                  stored warehouse unchanged.                 |
-  | --clear-role                     Remove the stored connection role.          |
-  | --clear-warehouse                Remove the stored connection warehouse.     |
   | --database                 TEXT  Connection database. Omitted leaves the     |
   |                                  stored database unchanged.                  |
   | --schema                   TEXT  Connection schema. Omitted leaves the       |
   |                                  stored schema unchanged.                    |
+  | --clear-role                     Remove the stored connection role.          |
+  | --clear-warehouse                Remove the stored connection warehouse.     |
   | --clear-database                 Remove the stored connection database.      |
   | --clear-schema                   Remove the stored connection schema.        |
   | --help             -h            Show this message and exit.                 |
@@ -3402,13 +3406,19 @@
   |                                                                              |
   | Pass an account. An account URL or the --host flag sets a custom account     |
   | host. A bare account uses the public account host.                           |
+  |                                                                              |
+  | A new connection is named from the account and the session user, for example |
+  | myorg-myaccount-JDOE. --connection-name chooses a different name.            |
+  |                                                                              |
+  | Login signs in each time, including when a session is already cached, so a   |
+  | different user can be chosen. A later command reuses that session.           |
   +------------------------------------------------------------------------------+
   +- Examples -------------------------------------------------------------------+
   | Sign in and change the default connection:                                   |
   | snow auth login myorg-myaccount                                              |
-  | Output: Wrote connection myorg-myaccount to                                  |
+  | Output: Wrote connection myorg-myaccount-JDOE to                             |
   | <user-home>/.snowflake/config.toml and changed the default connection to     |
-  | myorg-myaccount.                                                             |
+  | myorg-myaccount-JDOE.                                                        |
   +------------------------------------------------------------------------------+
   +- Related topics -------------------------------------------------------------+
   | • Snowflake OAuth for local applications                                     |

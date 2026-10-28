@@ -129,9 +129,13 @@ def snowflake_home(monkeypatch):
         snowflake_home = Path(tmp_dir) / ".snowflake"
         snowflake_home.mkdir()
         monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
+        # config_manager before constants. Connector 5 re-exports
+        # CONNECTIONS_FILE from config_manager, and that path is read from
+        # SNOWFLAKE_HOME when config_manager is imported. Reloading constants
+        # first keeps the path from before this fixture.
         for module in [
-            "snowflake.connector.constants",
             "snowflake.connector.config_manager",
+            "snowflake.connector.constants",
             "snowflake.connector.log_configuration",
             "snowflake.cli.api.config",
             "snowflake.cli.api.cli_global_context",

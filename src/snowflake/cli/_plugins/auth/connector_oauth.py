@@ -17,25 +17,25 @@
 Connector calls that differ between connector 4 and the Universal Driver live
 in ``connector_adapter``. Both connectors cache a session under the user
 string passed to ``connect()``, and they do it before Snowflake reports the
-session user. When this user and account host have no cached session, login
-connects twice. The first connection omits the user and does not cache. The
-second passes the session user and caches. A cached session is left in place,
-and the browser stays closed.
+session user. Login always connects twice, including when a session is
+already cached. The first connection omits the user, so the browser or paste
+path can choose who is signing in, and does not cache. The second passes the
+session user and caches. A later command reuses that session.
 
-``host`` is included only when login will store that host, so a later command
-builds the same cache key.
+``host`` on the caching connect is the host login will store, so a later
+command builds the same cache key. The first connect can use a different
+host. ``caching_session`` supplies the host and role for the second connect
+once the session user is known. When it is omitted, both connects use the
+same host and role.
 """
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 import snowflake.connector
-from snowflake.cli._plugins.auth.connector_adapter import (
-    oauth_access_token,
-    public_account_host,
-    session_user_cache_key,
-)
+from snowflake.cli._plugins.auth.connector_adapter import session_user_cache_key
 from snowflake.cli._plugins.auth.sign_in_target import SignInTarget
 from snowflake.cli.api.exceptions import CliConnectionError
 from snowflake.connector.errors import Error as SnowflakeError
@@ -57,29 +57,6 @@ class SessionUser:
         return session_user_cache_key(self.value) == session_user_cache_key(other.value)
 
 
-def account_host(target: SignInTarget) -> str:
-    """Account host the connector uses as the session cache key.
-
-    A host given to login is that key. A bare account uses the public account
-    host.
-    """
-    if target.host:
-        return target.host
-    return public_account_host(target.account)
-
-
-def session_is_cached(*, user: str, account_host: str) -> bool:
-    """Whether this user and account host already have a cached session.
-
-    The connector opens the browser when the access token is missing. A lookup
-    that fails is a miss, so login signs in instead of treating a broken cache
-    as a session.
-    """
-    if not user.strip() or not account_host.strip():
-        return False
-    return oauth_access_token(user=user, host=account_host) is not None
-
-
 def sign_in(
     *,
     target: SignInTarget,
@@ -88,6 +65,7 @@ def sign_in(
     warehouse: str | None = None,
     database: str | None = None,
     schema: str | None = None,
+    caching_session: Callable[[str], tuple[SignInTarget, str | None]] | None = None,
 ) -> str:
     """Open the connector's browser or paste path and return the session user.
 
@@ -95,10 +73,12 @@ def sign_in(
     attempt is not cached. A machine with no browser still finishes here: the
     connector asks for the redirect, and this function does not ask for a user.
 
-    ``role`` is the connection role, passed through with no OAuth scope of our
-    own. The connector may scope the new session to that role. A named
-    warehouse, database, or schema is checked on the login request. Snowflake
-    rejects one that does not exist or that this user cannot use.
+    ``role`` is the role for the first connect, passed through with no OAuth
+    scope of our own. ``caching_session``, when given, receives that session
+    user and returns the target and role for the connect that caches. The
+    connector may scope the cached session to that role. A named warehouse,
+    database, or schema is checked on both login requests. Snowflake rejects
+    one that does not exist or that this user cannot use.
     """
     discovered = SessionUser(
         _open_session(
@@ -112,13 +92,17 @@ def sign_in(
             schema=schema,
         )
     )
+    cache_target = target
+    cache_role = role
+    if caching_session is not None:
+        cache_target, cache_role = caching_session(discovered.value)
     confirmed = SessionUser(
         _open_session(
-            target,
+            cache_target,
             user=discovered.value,
             application=application,
             store=True,
-            role=role,
+            role=cache_role,
             warehouse=warehouse,
             database=database,
             schema=schema,
@@ -131,33 +115,6 @@ def sign_in(
             "Sign in as the same user and try again."
         )
     return discovered.value
-
-
-def check_connection_context(
-    *,
-    target: SignInTarget,
-    user: str,
-    application: str,
-    role: str | None = None,
-    warehouse: str | None = None,
-    database: str | None = None,
-    schema: str | None = None,
-) -> None:
-    """Ask Snowflake to accept a warehouse, database, or schema.
-
-    The saved user is passed so a cached session is reused and the browser
-    stays closed. A rejection raises before the caller writes the connection.
-    """
-    _open_session(
-        target,
-        user=user,
-        application=application,
-        store=True,
-        role=role,
-        warehouse=warehouse,
-        database=database,
-        schema=schema,
-    )
 
 
 def _open_session(
