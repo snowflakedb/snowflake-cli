@@ -328,6 +328,14 @@ class Grant(UpdatableModel):
             f" {entity_model.fqn.sql_identifier} FROM {self.grantee_sql}"
         )
 
+    def get_revoke_grant_option_sql(self, entity_model: EntityModelBase) -> str:
+        """Revoke only the grant option. The privilege itself stays."""
+        return (
+            f"REVOKE GRANT OPTION FOR {self.privilege} ON "
+            f"{entity_model.get_type().upper()} {entity_model.fqn.sql_identifier}"
+            f" FROM {self.grantee_sql}"
+        )
+
 
 class GrantBaseModel(UpdatableModel):
     grants: Optional[List[Grant]] = Field(title="List of grants", default=None)

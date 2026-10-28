@@ -157,3 +157,161 @@ class TestStreamlitManager(StreamlitTestClass):
 
         sqls = [str(call) for call in mock_execute_query.call_args_list]
         assert len(sqls) == 1 and "SHOW GRANTS ON STREAMLIT" in sqls[0]
+
+    def _queries(self, mock_execute_query) -> list[str]:
+        return [
+            call.args[0] if call.args else call.kwargs["query"]
+            for call in mock_execute_query.call_args_list
+        ]
+
+    def _revokes(self, sqls: list[str]) -> list[str]:
+        return [sql for sql in sqls if sql.startswith("REVOKE ")]
+
+    def _grant_model(self, grants: list[Grant]) -> StreamlitEntityModel:
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="my_app",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+            grants=grants,
+        )
+        model.set_entity_id("my_app")
+        return model
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query"
+    )
+    def test_dropping_grant_option_revokes_only_the_option(self, mock_execute_query):
+        mock_execute_query.return_value.fetchall.return_value = [
+            {
+                "privilege": "USAGE",
+                "granted_to": "ROLE",
+                "grantee_name": "ANALYST",
+                "grant_option": "TRUE",
+            }
+        ]
+        model = self._grant_model([Grant(privilege="USAGE", role="ANALYST")])
+
+        StreamlitManager(MagicMock()).grant_privileges(model)
+
+        sqls = self._queries(mock_execute_query)
+        assert self._revokes(sqls) == [
+            "REVOKE GRANT OPTION FOR USAGE ON STREAMLIT "
+            "IDENTIFIER('my_app') FROM ROLE ANALYST"
+        ]
+        assert "GRANT USAGE ON STREAMLIT IDENTIFIER('my_app') TO ROLE ANALYST" in sqls
+        assert not any(sql.startswith("REVOKE USAGE") for sql in sqls)
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query"
+    )
+    def test_dropping_grant_option_for_a_user_revokes_only_the_option(
+        self, mock_execute_query
+    ):
+        mock_execute_query.return_value.fetchall.return_value = [
+            {
+                "privilege": "USAGE",
+                "granted_to": "USER",
+                "grantee_name": "AAMADHAVAN",
+                "grant_option": True,
+            }
+        ]
+        model = self._grant_model([Grant(privilege="USAGE", user="AAMADHAVAN")])
+
+        StreamlitManager(MagicMock()).grant_privileges(model)
+
+        sqls = self._queries(mock_execute_query)
+        assert self._revokes(sqls) == [
+            "REVOKE GRANT OPTION FOR USAGE ON STREAMLIT "
+            "IDENTIFIER('my_app') FROM USER AAMADHAVAN"
+        ]
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query"
+    )
+    def test_adding_grant_option_does_not_revoke(self, mock_execute_query):
+        mock_execute_query.return_value.fetchall.return_value = [
+            {
+                "privilege": "USAGE",
+                "granted_to": "ROLE",
+                "grantee_name": "ANALYST",
+                "grant_option": False,
+            }
+        ]
+        model = self._grant_model(
+            [Grant(privilege="USAGE", role="ANALYST", with_grant_option=True)]
+        )
+
+        StreamlitManager(MagicMock()).grant_privileges(model)
+
+        sqls = self._queries(mock_execute_query)
+        assert self._revokes(sqls) == []
+        assert any(sql.endswith("WITH GRANT OPTION") for sql in sqls)
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query"
+    )
+    def test_unchanged_grant_option_is_not_revoked(self, mock_execute_query):
+        mock_execute_query.return_value.fetchall.return_value = [
+            {
+                "privilege": "USAGE",
+                "granted_to": "ROLE",
+                "grantee_name": "ANALYST",
+                "grant_option": "YES",
+            }
+        ]
+        model = self._grant_model(
+            [Grant(privilege="USAGE", role="ANALYST", with_grant_option=True)]
+        )
+
+        StreamlitManager(MagicMock()).grant_privileges(model)
+
+        assert self._revokes(self._queries(mock_execute_query)) == []
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query"
+    )
+    def test_removed_grant_with_option_revokes_the_privilege(self, mock_execute_query):
+        mock_execute_query.return_value.fetchall.return_value = [
+            {
+                "privilege": "USAGE",
+                "granted_to": "ROLE",
+                "grantee_name": "ANALYST",
+                "grant_option": True,
+            }
+        ]
+        model = self._grant_model([])
+
+        StreamlitManager(MagicMock()).grant_privileges(model)
+
+        sqls = self._queries(mock_execute_query)
+        assert self._revokes(sqls) == [
+            "REVOKE USAGE ON STREAMLIT IDENTIFIER('my_app') FROM ROLE ANALYST"
+        ]
+        assert not any("GRANT OPTION" in sql for sql in sqls)
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query"
+    )
+    def test_ownership_is_not_revoked_when_grants_are_cleared(self, mock_execute_query):
+        mock_execute_query.return_value.fetchall.return_value = [
+            {
+                "privilege": "OWNERSHIP",
+                "granted_to": "ROLE",
+                "grantee_name": "OWNER_ROLE",
+                "grant_option": True,
+            },
+            {
+                "privilege": "USAGE",
+                "granted_to": "ROLE",
+                "grantee_name": "ANALYST",
+                "grant_option": True,
+            },
+        ]
+        model = self._grant_model([])
+
+        StreamlitManager(MagicMock()).grant_privileges(model)
+
+        sqls = self._queries(mock_execute_query)
+        assert not any("OWNERSHIP" in sql and sql.startswith("REVOKE") for sql in sqls)
+        assert any(sql.startswith("REVOKE USAGE") for sql in sqls)

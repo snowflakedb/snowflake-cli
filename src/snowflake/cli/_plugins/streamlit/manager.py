@@ -103,26 +103,27 @@ class StreamlitManager(SqlExecutionMixin):
         return problems
 
     def grant_privileges(self, entity_model: StreamlitEntityModel):
+        """Make the app's grants match ``snowflake.yml``.
+
+        ``grants is None`` leaves them unmanaged. An empty list revokes every
+        non-ownership grant. Dropping only ``with_grant_option`` revokes the
+        grant option and leaves the privilege. ``SHOW GRANTS`` is read before
+        any revoke or grant, so a failure changes nothing.
+        """
         if entity_model.grants is None:
             return
-        for grant in self._grants_to_revoke(entity_model):
-            self.execute_query(grant.get_revoke_sql(entity_model))
+        # Read first. Treating a SHOW GRANTS failure as "no current grants"
+        # would make ``grants: []`` look synced while every old grant stays.
+        current = self._current_object_grants(entity_model)
+        desired_by_key = {_grant_key(grant): grant for grant in entity_model.grants}
+        for grant in current:
+            wanted = desired_by_key.get(_grant_key(grant))
+            if wanted is None:
+                self.execute_query(grant.get_revoke_sql(entity_model))
+            elif grant.with_grant_option and not wanted.with_grant_option:
+                self.execute_query(grant.get_revoke_grant_option_sql(entity_model))
         for grant in entity_model.grants:
             self.execute_query(grant.get_grant_sql(entity_model))
-
-    def _grants_to_revoke(self, entity_model: StreamlitEntityModel) -> list[Grant]:
-        """Object grants that are on Snowflake but no longer listed in YAML.
-
-        OWNERSHIP is never revoked. A SHOW GRANTS failure raises before any
-        REVOKE or GRANT runs: reading it as "no current grants" would make
-        ``grants: []`` look synced while every old grant stays in place.
-        """
-        desired = {_grant_key(grant) for grant in entity_model.grants or []}
-        return [
-            grant
-            for grant in self._current_object_grants(entity_model)
-            if _grant_key(grant) not in desired
-        ]
 
     def _current_object_grants(self, entity_model: StreamlitEntityModel) -> list[Grant]:
         try:
