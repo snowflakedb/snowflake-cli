@@ -23,7 +23,7 @@ services:
       - ../../:/snowflake-cli
     environment:
       - RELEASE_TYPE
-    command: /bin/bash -c "hatch run legacy-pypi-build"
+    command: /bin/bash -c "hatch run packaging:legacy-pypi-build"
   cli-labs-test:
     build: .
     volumes:

@@ -128,7 +128,6 @@ test-cov = [
   "pytest --cov=snowflake.cli --cov-append --cov-report= -m loaded_modules tests/",
   "coverage report",
 ]
-legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 lock-dependencies = [
   "uv pip compile pyproject.toml -o pylock.toml -p 3.11 --no-annotate --universal --index https://pypi.org/simple",
 ]
@@ -138,7 +137,11 @@ sync-dependencies = [
 
 [tool.hatch.envs.packaging]
 python = "3.12"
-features = ["development", "packaging"]
+# Runtime + packaging extra only. development (pytest, snowflake-ml-python, …)
+# stays on the default/e2e/integration envs. Linux daily packaging runs this
+# env inside Ubuntu 18.04 (scripts/packaging/Dockerfile); a native test extra
+# there fails the graph.
+features = ["packaging"]
 
 [tool.hatch.envs.packaging.scripts]
 build-isolated-binary = [
@@ -151,6 +154,9 @@ build-all = [
   "./scripts/packaging/build_packages.sh",
 ]
 win-build-version = ["python ./scripts/packaging/win/build_version.py"]
+# WHEEL cli-labs-builder. Must stay on this env so Ubuntu 18.04 does not
+# hatch-run the default env (development extras) just to build a wheel.
+legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
 [tool.hatch.envs.e2e]
 template = "e2e"
