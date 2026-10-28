@@ -108,7 +108,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
-                TITLE = 'My Fancy Streamlit';
+                TITLE = 'My Fancy Streamlit'
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -132,7 +133,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = test_warehouse;
+                QUERY_WAREHOUSE = test_warehouse
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
         assert result.exit_code == 0, result.output
@@ -152,7 +154,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = test_warehouse;
+                QUERY_WAREHOUSE = test_warehouse
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -179,7 +182,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                     ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                     MAIN_FILE = 'streamlit_app.py'
                     QUERY_WAREHOUSE = test_warehouse
-                    TITLE = 'My Fancy Streamlit';
+                    TITLE = 'My Fancy Streamlit'
+                    RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                     """
         ).strip()
 
@@ -226,7 +230,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
-                TITLE = 'My Fancy Streamlit';
+                TITLE = 'My Fancy Streamlit'
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -259,7 +264,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                     ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                     MAIN_FILE = 'streamlit_app.py'
                     QUERY_WAREHOUSE = test_warehouse
-                    TITLE = 'My Fancy Streamlit';
+                    TITLE = 'My Fancy Streamlit'
+                    RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                     """
         ).strip()
 
@@ -283,7 +289,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = test_warehouse;
+                QUERY_WAREHOUSE = test_warehouse
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -336,7 +343,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                         ROOT_LOCATION = '@streamlit_stage/{STREAMLIT_NAME}'
                         MAIN_FILE = 'streamlit_app.py'
                         QUERY_WAREHOUSE = test_warehouse
-                        TITLE = 'My Fancy Streamlit';
+                        TITLE = 'My Fancy Streamlit'
+                        RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                         """
         ).strip()
 
@@ -363,7 +371,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                 ROOT_LOCATION = '@streamlit_stage/{STREAMLIT_NAME}'
                 MAIN_FILE = 'main.py'
-                QUERY_WAREHOUSE = streamlit_warehouse;
+                QUERY_WAREHOUSE = streamlit_warehouse
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -604,7 +613,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') SET
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 QUERY_WAREHOUSE = test_warehouse
-                TITLE = 'My Fancy Streamlit';
+                TITLE = 'My Fancy Streamlit'
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
         assert result.exit_code == 0, result.output
@@ -873,7 +883,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{entity_id}')
                 ROOT_LOCATION = '@streamlit/{entity_id}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = streamlit;"""
+                QUERY_WAREHOUSE = streamlit
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';"""
         ).strip()
 
         assert result.exit_code == 0, result.output
@@ -904,7 +915,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = xsmall
                 TITLE = 'My Streamlit App with Comment'
-                COMMENT = 'This is a test comment';
+                COMMENT = 'This is a test comment'
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
         assert result.exit_code == 0, result.output

@@ -26,6 +26,7 @@
 * Upgraded GitPython from 3.2.0 to 3.2.1.
 * Upgraded snowflake-connector-python from 4.7.5 to 4.8.1.
 * `snow streamlit deploy` revokes `WITH GRANT OPTION` when `with_grant_option` is removed from a Streamlit grant in `snowflake.yml`. The privilege itself stays in place.
+* `snow streamlit deploy --legacy` now always runs on the warehouse runtime and rejects any other `runtime_name`. A versioned deploy that omits `runtime_name` leaves the runtime unset, and applies container-only settings for a `compute_pool` only when creating a new app.
 
 
 # v3.31.0

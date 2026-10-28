@@ -256,6 +256,25 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     def _is_container_runtime(self) -> bool:
         return is_spcs_container_runtime(self.model.runtime_name)
 
+    def _treat_as_container_runtime(
+        self, *, new_versioned_create: bool = False
+    ) -> bool:
+        """Named container runtime, or a new versioned CREATE that only sets a pool.
+
+        Global Services injects the container runtime when a versioned CREATE
+        omits RUNTIME_NAME, the container-default flag is on, and the statement
+        is not CREATE OR REPLACE of an existing app. ALTER never injects it.
+        Other settings follow that app only on the new-create path. The
+        statement still does not name the runtime.
+        """
+        if self._is_container_runtime():
+            return True
+        return (
+            new_versioned_create
+            and bool(self.model.compute_pool)
+            and not self.model.runtime_name
+        )
+
     def _set_runtime_settings(self) -> list[str]:
         return [
             field
@@ -278,7 +297,26 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 f"application package. Remove them from entity {self.entity_id}."
             )
 
-    def _validate_runtime_settings(self, legacy: bool) -> None:
+    def _reject_non_warehouse_legacy_runtime(self) -> None:
+        """--legacy runs on the warehouse runtime. Any other name is an error.
+
+        An omitted runtime_name is the warehouse runtime. The versioned CREATE
+        default is the container runtime, so a legacy statement pins
+        SYSTEM$WAREHOUSE_RUNTIME instead of omitting RUNTIME_NAME.
+        """
+        runtime = self.model.runtime_name
+        if not runtime or runtime == WAREHOUSE_RUNTIME_NAME:
+            return
+        raise CliError(
+            f"runtime_name {runtime} is not compatible with the --legacy flag. "
+            f"A legacy deployment runs on {WAREHOUSE_RUNTIME_NAME}. "
+            "Remove --legacy to use versioned deployment, or remove runtime_name "
+            "and compute_pool from your snowflake.yml to use legacy deployment."
+        )
+
+    def _validate_runtime_settings(
+        self, legacy: bool, *, new_versioned_create: bool = False
+    ) -> None:
         """Stop before the first SQL if this deploy cannot apply a setting.
 
         Each setting changes how the app runs. If the CLI ignores a setting, it
@@ -291,8 +329,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 "Remove --legacy to use versioned deployment, or remove them from "
                 "snowflake.yml."
             )
-        container = self._is_container_runtime()
-        runtime = self.model.runtime_name or "not set"
+        container = self._treat_as_container_runtime(
+            new_versioned_create=new_versioned_create
+        )
+        if self.model.runtime_name:
+            runtime = self.model.runtime_name
+        elif new_versioned_create and self.model.compute_pool:
+            runtime = "not set, and compute_pool uses the container default"
+        else:
+            runtime = "not set"
         if container and self.model.execute_as == "RESTRICTED CALLER":
             raise CliError(
                 f"execute_as RESTRICTED CALLER only applies to {WAREHOUSE_RUNTIME_NAME}, "
@@ -403,43 +448,32 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 "file. Avoid storing credentials or other secrets in snowflake.yml."
             )
 
-        if legacy and self.model.runtime_name == SPCS_RUNTIME_V2_NAME:
-            # A legacy ROOT_LOCATION deployment cannot carry RUNTIME_NAME at all, so
-            # this would silently produce a warehouse-backed app. That is a materially
-            # different app from the one requested, hence an error rather than a warning.
-            raise CliError(
-                f"runtime_name {SPCS_RUNTIME_V2_NAME} is not compatible with the "
-                "--legacy flag, which cannot set RUNTIME_NAME. Remove --legacy to use "
-                "versioned deployment, or remove runtime_name and compute_pool from "
-                "your snowflake.yml to use legacy deployment."
-            )
-        elif legacy and self.model.runtime_name:
-            # Dropping the warehouse runtime is closer to a no-op, since a legacy app
-            # is warehouse-backed anyway, so this warns instead of failing. Staying
-            # silent is the failure this deploy path is otherwise fixing.
-            console.warning(
-                f"runtime_name {self.model.runtime_name} is ignored for --legacy "
-                "deployments, which cannot set RUNTIME_NAME. Remove --legacy to deploy "
-                "on the requested runtime."
-            )
+        if legacy:
+            # Before any SQL, including the existence check. A non-warehouse runtime
+            # would deploy a different app than snowflake.yml describes.
+            self._reject_non_warehouse_legacy_runtime()
 
-        if self.model.compute_pool and not self._compute_pool_applies():
+        # The warehouse runtime ignores a pool. --legacy with no runtime_name is
+        # that runtime. A versioned statement still sends the pool and leaves
+        # the runtime for Global Services to decide.
+        pool_ignored = self.model.compute_pool and (
+            not self._compute_pool_applies() or (legacy and not self.model.runtime_name)
+        )
+        if pool_ignored:
+            runtime_label = self.model.runtime_name or WAREHOUSE_RUNTIME_NAME
             console.warning(
                 f"compute_pool {sanitize_for_terminal(self.model.compute_pool)} is "
-                f"ignored because runtime_name is {self.model.runtime_name}, which does "
+                f"ignored because runtime_name is {runtime_label}, which does "
                 "not run on a compute pool. Remove compute_pool, or set runtime_name "
                 f"to {SPCS_RUNTIME_V2_NAME}."
             )
 
-        if self.model.app_warehouse and self._is_container_runtime():
-            console.warning(
-                f"app_warehouse {sanitize_for_terminal(self.model.app_warehouse)} is "
-                f"ignored because runtime_name is {self.model.runtime_name}. Remove "
-                f"app_warehouse, or set runtime_name to {WAREHOUSE_RUNTIME_NAME}."
-            )
-
-        # The checks above only read snowflake.yml, so they run before any SQL.
-        self._validate_runtime_settings(legacy)
+        # A pool with no runtime_name is the container default only on a new
+        # versioned CREATE. --replace cannot know that until DESCRIBE. Every
+        # other illegal setting is visible from snowflake.yml and fails first.
+        unnamed_pool = bool(self.model.compute_pool) and not self.model.runtime_name
+        if not (replace and unnamed_pool):
+            self._validate_runtime_settings(legacy, new_versioned_create=not legacy)
 
         console.step(f"Checking if object exists")
         object_exists = self._object_exists()
@@ -448,6 +482,25 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             raise CliError(
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. "
                 "Re-run with --replace to update the existing app."
+            )
+
+        new_versioned_create = not legacy and not object_exists
+        if replace and unnamed_pool:
+            self._validate_runtime_settings(
+                legacy, new_versioned_create=new_versioned_create
+            )
+        if (
+            self.model.app_warehouse
+            and not legacy
+            and self._treat_as_container_runtime(
+                new_versioned_create=new_versioned_create
+            )
+        ):
+            runtime_label = self.model.runtime_name or "the container default"
+            console.warning(
+                f"app_warehouse {sanitize_for_terminal(self.model.app_warehouse)} is "
+                f"ignored because runtime_name is {runtime_label}. Remove "
+                f"app_warehouse, or set runtime_name to {WAREHOUSE_RUNTIME_NAME}."
             )
 
         # Warn if replacing with a different deployment style
@@ -609,7 +662,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 # ALTER STREAMLIT UNSET does not list IMPORTS; clear via SET.
                 clauses.append("IMPORTS = ()")
 
-        if not from_stage_name and not legacy:
+        if legacy:
+            # Pin the warehouse runtime on redeploy too. An omitted live name used
+            # to mean warehouse; the versioned default is now the container runtime.
+            self._reject_non_warehouse_legacy_runtime()
+            live_runtime_id = _id(cur.get("runtime_name")) if current else ""
+            if live_runtime_id != _id(WAREHOUSE_RUNTIME_NAME):
+                clauses.append(
+                    f"RUNTIME_NAME = {to_string_literal(WAREHOUSE_RUNTIME_NAME)}"
+                )
+        elif not from_stage_name:
             runtime_changing = bool(self.model.runtime_name) and (
                 not current
                 or _id(cur.get("runtime_name")) != _id(self.model.runtime_name)
@@ -779,10 +841,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if self.model.secrets:
             query += "\n" + self.model.get_secrets_sql()
 
-        # Runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
-        # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
-        # Each field is gated on itself so neither can be dropped because of the other.
-        if not from_stage_name and not legacy:
+        # ROOT_LOCATION (--legacy) pins the warehouse runtime. Omitting RUNTIME_NAME
+        # follows the versioned default, which is the container runtime. A versioned
+        # CREATE emits RUNTIME_NAME only when snowflake.yml names one, so a
+        # compute_pool alone does not invent SYSTEM$ST_CONTAINER_RUNTIME_PY3_11.
+        # Each versioned field is gated on itself so neither can be dropped because
+        # of the other.
+        if legacy or from_stage_name:
+            self._reject_non_warehouse_legacy_runtime()
+            query += f"\nRUNTIME_NAME = {to_string_literal(WAREHOUSE_RUNTIME_NAME)}"
+        else:
             if self.model.runtime_name:
                 query += (
                     f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
@@ -792,7 +860,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                     f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
                 )
             query += "".join(
-                f"\n{clause}" for clause in self._runtime_setting_clauses()
+                f"\n{clause}"
+                for clause in self._runtime_setting_clauses(
+                    new_versioned_create=not replace
+                )
             )
 
         if self.model.tags:
@@ -804,19 +875,27 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if (
             not from_stage_name
             and not legacy
+            and not self._treat_as_container_runtime(new_versioned_create=not replace)
             and self.model.execute_as == "RESTRICTED CALLER"
         ):
             query += "\nEXECUTE AS RESTRICTED CALLER"
 
         return query + ";"
 
-    def _runtime_setting_clauses(self, current: Optional[Dict[str, Any]] = None):
+    def _runtime_setting_clauses(
+        self,
+        current: Optional[Dict[str, Any]] = None,
+        *,
+        new_versioned_create: bool = False,
+    ):
         """If snowflake.yml does not set a value, the live value does not change."""
         cur = current or {}
         clauses = []
         if (
             self.model.app_warehouse
-            and not self._is_container_runtime()
+            and not self._treat_as_container_runtime(
+                new_versioned_create=new_versioned_create
+            )
             and _ident_key(cur.get("code_warehouse"))
             != _ident_key(self.model.app_warehouse)
         ):
