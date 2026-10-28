@@ -21,6 +21,8 @@ import typer
 from snowflake.cli._plugins.auth.connector_oauth import (
     AUTHENTICATOR,
     SessionUser,
+    connector_reads_refresh_token_flag,
+    local_oauth_scope,
     sign_in,
 )
 from snowflake.cli._plugins.auth.sign_in_target import SignInTarget
@@ -44,9 +46,10 @@ from snowflake.cli.api.utils.tty import is_tty_interactive
 class _ConnectionEdits:
     """Connection fields this login sets or clears.
 
-    A passed role is sent on both connects. A stored role is sent on the
-    caching connect, once the session user is known. A named warehouse,
-    database, or schema is checked with the login and then stored.
+    A passed role is sent on both connects and checked there. A stored role
+    is sent on the caching connect, once the session user is known, and
+    checked there. A named warehouse, database, or schema is checked with
+    the login and then stored.
     """
 
     role: str | None = None
@@ -206,6 +209,13 @@ class AuthManager:
             clear_schema=clear_schema,
         )
         saved = _local_oauth_for_account(requested.account)
+        session_role: str | None = None
+
+        def caching_session(user: str) -> tuple[SignInTarget, str | None]:
+            nonlocal session_role
+            cache_target, session_role = _caching_session(requested, edits, user)
+            return cache_target, session_role
+
         session_user = sign_in(
             target=SignInTarget(
                 requested.account,
@@ -213,7 +223,7 @@ class AuthManager:
             ),
             application=command_info(),
             role=edits.role_for_discovery(),
-            caching_session=lambda user: _caching_session(requested, edits, user),
+            caching_session=caching_session,
             **edits.context_to_check(),
         )
         signed_in = _SessionUserAtAccount(requested.account, session_user)
@@ -233,6 +243,7 @@ class AuthManager:
             edits=edits,
             source_name=choice.source_name,
             kept_name_note=choice.kept_name_note,
+            session_role=session_role,
         )
 
     def list_connections(self) -> CollectionResult:
@@ -331,11 +342,18 @@ def _save_connection(
     user: str,
     edits: _ConnectionEdits,
     source_name: str | None,
+    session_role: str | None,
     kept_name_note: str | None = None,
 ) -> MessageResult:
     written = add_connection_to_proper_file(
         name,
-        _connection_to_write(source_name, target, user=user, edits=edits),
+        _connection_to_write(
+            source_name,
+            target,
+            user=user,
+            edits=edits,
+            session_role=session_role,
+        ),
     )
     set_config_value(path=["default_connection_name"], value=name)
     if source_name is not None and source_name != name:
@@ -493,13 +511,15 @@ def _connection_to_write(
     *,
     user: str,
     edits: _ConnectionEdits,
+    session_role: str | None,
 ) -> ConnectionConfig:
     """OAuth fields for this sign-in.
 
     A new connection omits every connection field this sign-in did not name.
     An existing connection keeps every field this sign-in does not name.
     ``source_name`` is that existing connection, including when the login
-    renames it.
+    renames it. Login always rewrites the local OAuth scope, the refresh-token
+    flag, and credential caching. It does not keep a previous value.
     """
     existing = None if source_name is None else get_all_connections().get(source_name)
     if existing is None:
@@ -508,17 +528,21 @@ def _connection_to_write(
             user=user,
             host=target.host,
             authenticator=AUTHENTICATOR,
-            client_store_temporary_credential=True,
         )
     else:
         config = ConnectionConfig.from_dict(existing.to_dict_of_all_non_empty_values())
         config.account = target.account
         config.user = user
         config.authenticator = AUTHENTICATOR
-        config.client_store_temporary_credential = True
         if target.host:
             config.host = target.host
     edits.apply(config)
+    config.oauth_scope = local_oauth_scope(session_role)
+    config.client_store_temporary_credential = True
+    if connector_reads_refresh_token_flag():
+        config.oauth_enable_refresh_tokens = True
+    else:
+        config.oauth_enable_refresh_tokens = None
     return config
 
 

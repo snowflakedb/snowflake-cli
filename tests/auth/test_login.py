@@ -20,6 +20,7 @@ from textwrap import dedent
 import pytest
 import tomlkit
 from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.connector.errors import DatabaseError
 from snowflake.connector.errors import Error as SnowflakeError
 
 from tests_common.feature_flag_utils import with_feature_flags
@@ -78,6 +79,10 @@ class _Connection:
         return None
 
 
+def _connector_version(monkeypatch, version: str) -> None:
+    monkeypatch.setattr("snowflake.connector.__version__", version)
+
+
 def _patch_sign_in(monkeypatch, users: list[str]):
     """Supply the session user each connect() would read. No browser, no keychain."""
     calls: list[dict] = []
@@ -111,6 +116,7 @@ _OTHER_CONNECTION = dedent(
 def test_login_writes_a_local_oauth_connection_and_sets_the_default(
     runner, snowflake_home, config_file, monkeypatch
 ):
+    _connector_version(monkeypatch, "4.7.5")
     calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
     with config_file(_OTHER_CONNECTION) as path:
         with _enable_auth():
@@ -129,6 +135,8 @@ def test_login_writes_a_local_oauth_connection_and_sets_the_default(
             "authenticator": "OAUTH_AUTHORIZATION_CODE",
             "application": "SNOWCLI.AUTH.LOGIN",
             "client_store_temporary_credential": False,
+            "oauth_scope": "refresh_token",
+            "oauth_enable_refresh_tokens": True,
         },
         {
             "account": "myorg-myacct",
@@ -136,6 +144,8 @@ def test_login_writes_a_local_oauth_connection_and_sets_the_default(
             "authenticator": "OAUTH_AUTHORIZATION_CODE",
             "application": "SNOWCLI.AUTH.LOGIN",
             "client_store_temporary_credential": True,
+            "oauth_scope": "refresh_token",
+            "oauth_enable_refresh_tokens": True,
         },
     ]
     connection = written["connections"]["myorg-myacct-JDOE"]
@@ -144,6 +154,8 @@ def test_login_writes_a_local_oauth_connection_and_sets_the_default(
         "user": "JDOE",
         "authenticator": "OAUTH_AUTHORIZATION_CODE",
         "client_store_temporary_credential": True,
+        "oauth_scope": "refresh_token",
+        "oauth_enable_refresh_tokens": True,
     }
     assert written["default_connection_name"] == "myorg-myacct-JDOE"
     assert written["connections"]["keypair"]["database"] == "ANALYTICS"
@@ -654,6 +666,49 @@ def test_a_rejected_warehouse_database_or_schema_is_not_stored(
     assert calls[0]["client_store_temporary_credential"] is False
 
 
+@pytest.mark.parametrize(
+    ("extra", "exit_code"),
+    [([], 1), (["--enhanced-exit-codes"], 3)],
+)
+def test_a_rejected_role_is_not_stored(
+    runner, config_file, monkeypatch, extra, exit_code
+):
+    calls: list[dict] = []
+
+    def connect(**kwargs):
+        calls.append(kwargs)
+        raise SnowflakeError(
+            "Role 'ANALYST' specified in the connect string does not exist "
+            "or not authorized."
+        )
+
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.auth.connector_oauth.snowflake.connector.connect",
+        connect,
+    )
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        before = path.read_text()
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "ANALYST", *extra],
+            )
+        after = path.read_text()
+
+    assert result.exit_code == exit_code, result.output
+    panel = _panel_text(result.output)
+    assert "Sign-in failed:" in panel
+    assert "ANALYST" in panel
+    assert "Check the account and try again." in panel
+    assert after == before
+    assert len(calls) == 1
+    assert "user" not in calls[0]
+    assert calls[0]["role"] == "ANALYST"
+    assert calls[0]["oauth_scope"] == "refresh_token session:role:ANALYST"
+    assert calls[0]["validate_default_parameters"] is True
+    assert calls[0]["client_store_temporary_credential"] is False
+
+
 def test_a_passed_role_or_warehouse_is_stored_after_sign_in(
     runner, config_file, monkeypatch
 ):
@@ -686,12 +741,13 @@ def test_a_passed_role_or_warehouse_is_stored_after_sign_in(
     assert calls[1]["client_store_temporary_credential"] is True
     for call in calls:
         assert call["role"] == "ANALYST"
+        assert call["oauth_scope"] == "refresh_token session:role:ANALYST"
         assert call["warehouse"] == "NEW_WH"
         assert call["database"] == "NEW_DB"
         assert call["schema"] == "NEW_SCHEMA"
         assert call["validate_default_parameters"] is True
-        assert "oauth_scope" not in call
     connection = written["connections"]["work"]
+    assert connection["oauth_scope"] == "refresh_token session:role:ANALYST"
     assert connection["role"] == "ANALYST"
     assert connection["warehouse"] == "NEW_WH"
     assert connection["database"] == "NEW_DB"
@@ -794,7 +850,7 @@ def test_a_new_login_checks_warehouse_database_and_schema(
     assert len(calls) == 2
     for call in calls:
         assert call["role"] == "ANALYST"
-        assert "oauth_scope" not in call
+        assert call["oauth_scope"] == "refresh_token session:role:ANALYST"
         assert call["warehouse"] == "NEW_WH"
         assert call["database"] == "NEW_DB"
         assert call["schema"] == "NEW_SCHEMA"
@@ -803,6 +859,7 @@ def test_a_new_login_checks_warehouse_database_and_schema(
     assert calls[0]["client_store_temporary_credential"] is False
     connection = written["connections"]["myorg-myacct-JDOE"]
     assert connection["role"] == "ANALYST"
+    assert connection["oauth_scope"] == "refresh_token session:role:ANALYST"
     assert connection["warehouse"] == "NEW_WH"
     assert connection["database"] == "NEW_DB"
     assert connection["schema"] == "NEW_SCHEMA"
@@ -822,13 +879,20 @@ def test_a_sign_in_with_no_cached_session_uses_the_stored_role(
     assert result.exit_code == 0, result.output
     assert len(calls) == 2
     assert "role" not in calls[0]
+    assert calls[0]["oauth_scope"] == "refresh_token"
+    assert "session:role" not in calls[0]["oauth_scope"]
     assert calls[1]["role"] == "SYSADMIN"
+    assert calls[1]["oauth_scope"] == "refresh_token session:role:SYSADMIN"
+    assert calls[1]["validate_default_parameters"] is True
     for call in calls:
-        assert "oauth_scope" not in call
         assert "warehouse" not in call
         assert "database" not in call
         assert "schema" not in call
     assert written["connections"]["work"]["role"] == "SYSADMIN"
+    assert (
+        written["connections"]["work"]["oauth_scope"]
+        == "refresh_token session:role:SYSADMIN"
+    )
     assert written["connections"]["work"]["warehouse"] == "COMPUTE_WH"
     assert written["connections"]["work"]["database"] == "ANALYTICS"
     assert written["connections"]["work"]["schema"] == "PUBLIC"
@@ -850,12 +914,14 @@ def test_a_passed_role_replaces_the_stored_role_when_signing_in(
     assert len(calls) == 2
     for call in calls:
         assert call["role"] == "ANALYST"
-        assert "oauth_scope" not in call
+        assert call["oauth_scope"] == "refresh_token session:role:ANALYST"
+        assert call["validate_default_parameters"] is True
         assert "warehouse" not in call
         assert "database" not in call
         assert "schema" not in call
     connection = written["connections"]["work"]
     assert connection["role"] == "ANALYST"
+    assert connection["oauth_scope"] == "refresh_token session:role:ANALYST"
     assert connection["warehouse"] == "COMPUTE_WH"
     assert connection["database"] == "ANALYTICS"
     assert connection["schema"] == "PUBLIC"
@@ -876,14 +942,106 @@ def test_clear_role_on_a_sign_in_does_not_pass_the_stored_role(
     assert len(calls) == 2
     for call in calls:
         assert "role" not in call
+        assert call["oauth_scope"] == "refresh_token"
+        assert "session:role" not in call["oauth_scope"]
         assert "warehouse" not in call
         assert "database" not in call
         assert "schema" not in call
     connection = written["connections"]["work"]
     assert "role" not in connection
+    assert connection["oauth_scope"] == "refresh_token"
     assert connection["warehouse"] == "COMPUTE_WH"
     assert connection["database"] == "ANALYTICS"
     assert connection["schema"] == "PUBLIC"
+
+
+@pytest.mark.parametrize(
+    ("version", "writes_refresh_flag"),
+    [("4.7.5", True), ("5.1.0", False)],
+)
+def test_login_stores_refresh_settings_and_a_later_command_keeps_them(
+    runner, config_file, monkeypatch, version, writes_refresh_flag
+):
+    """Login writes the refresh defaults. A later command sends those stored values."""
+    _connector_version(monkeypatch, version)
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    saved = dedent(
+        """\
+        [connections.work]
+        account = "myorg-myacct"
+        user = "JDOE"
+        role = "SYSADMIN"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = false
+        oauth_enable_refresh_tokens = false
+        oauth_scope = "session:role:PUBLIC"
+
+        [connections.other]
+        account = "other-acct"
+        user = "SSMITH"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        oauth_scope = "leave-this"
+        oauth_enable_refresh_tokens = false
+        client_store_temporary_credential = false
+        """
+    )
+    with config_file(saved) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+        written = tomlkit.parse(path.read_text())
+        before_later = path.read_text()
+        later_calls: list[dict] = []
+
+        def later_connect(**kwargs):
+            later_calls.append(kwargs)
+            raise DatabaseError(msg="stop after the later connect", errno=250001)
+
+        _connector_version(monkeypatch, "4.7.5" if not writes_refresh_flag else "5.1.0")
+        monkeypatch.setattr(
+            "snowflake.cli._app.snow_connector.snowflake.connector.connect",
+            later_connect,
+        )
+        later = runner.invoke_with_config_file(
+            str(path),
+            ["sql", "-q", "select 1", "--connection", "work"],
+        )
+        after_later = path.read_text()
+
+    assert result.exit_code == 0, result.output
+    assert calls[0]["client_store_temporary_credential"] is False
+    assert calls[0]["oauth_scope"] == "refresh_token"
+    assert "role" not in calls[0]
+    assert calls[1]["client_store_temporary_credential"] is True
+    assert calls[1]["role"] == "SYSADMIN"
+    assert calls[1]["oauth_scope"] == "refresh_token session:role:SYSADMIN"
+    for call in calls:
+        _assert_refresh_flag(call, writes_refresh_flag)
+    connection = written["connections"]["work"]
+    assert connection["oauth_scope"] == "refresh_token session:role:SYSADMIN"
+    assert connection["client_store_temporary_credential"] is True
+    _assert_refresh_flag(connection, writes_refresh_flag)
+    untouched = written["connections"]["other"]
+    assert untouched["oauth_scope"] == "leave-this"
+    assert untouched["oauth_enable_refresh_tokens"] is False
+    assert untouched["client_store_temporary_credential"] is False
+    assert later.exit_code != 0, later.output
+    assert "stop after the later connect" in _panel_text(later.output)
+    assert len(later_calls) == 1
+    sent = later_calls[0]
+    assert sent["oauth_scope"] == "refresh_token session:role:SYSADMIN"
+    assert sent["role"] == "SYSADMIN"
+    assert sent["client_store_temporary_credential"] is True
+    _assert_refresh_flag(sent, writes_refresh_flag)
+    assert after_later == before_later
+
+
+def _assert_refresh_flag(mapping, enabled: bool) -> None:
+    if enabled:
+        assert mapping["oauth_enable_refresh_tokens"] is True
+    else:
+        assert "oauth_enable_refresh_tokens" not in mapping
 
 
 def test_login_does_not_clear_database_or_schema_on_an_existing_connection(

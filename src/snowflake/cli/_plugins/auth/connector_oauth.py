@@ -35,6 +35,7 @@ import logging
 from collections.abc import Callable
 
 import snowflake.connector
+from packaging.version import Version
 from snowflake.cli._plugins.auth.connector_adapter import session_user_cache_key
 from snowflake.cli._plugins.auth.sign_in_target import SignInTarget
 from snowflake.cli.api.exceptions import CliConnectionError
@@ -44,6 +45,28 @@ log = logging.getLogger(__name__)
 
 # Snowflake OAuth for local applications uses the built-in client.
 AUTHENTICATOR = "OAUTH_AUTHORIZATION_CODE"
+_REFRESH_TOKEN_SCOPE = "refresh_token"
+
+
+def connector_reads_refresh_token_flag() -> bool:
+    """Whether this connector still reads ``oauth_enable_refresh_tokens``.
+
+    Connector 5 warns and ignores the key, so login leaves it unset. The
+    choice is made when login writes the connection. A later command sends
+    the stored value and does not ask again.
+    """
+    return Version(snowflake.connector.__version__).major < 5
+
+
+def local_oauth_scope(role: str | None) -> str:
+    """Scope one login connect sends for the role that connect receives.
+
+    The role spelling is the one passed to ``connect()``. No role keeps the
+    scope to ``refresh_token``, with no ``session:role``.
+    """
+    if role:
+        return f"{_REFRESH_TOKEN_SCOPE} session:role:{role}"
+    return _REFRESH_TOKEN_SCOPE
 
 
 class SessionUser:
@@ -73,12 +96,12 @@ def sign_in(
     attempt is not cached. A machine with no browser still finishes here: the
     connector asks for the redirect, and this function does not ask for a user.
 
-    ``role`` is the role for the first connect, passed through with no OAuth
-    scope of our own. ``caching_session``, when given, receives that session
-    user and returns the target and role for the connect that caches. The
-    connector may scope the cached session to that role. A named warehouse,
-    database, or schema is checked on both login requests. Snowflake rejects
-    one that does not exist or that this user cannot use.
+    ``role`` is the role for the first connect. Each connect sends
+    ``local_oauth_scope`` for the role that connect receives.
+    ``caching_session``, when given, receives the session user and returns
+    the target and role for the connect that caches. A role, warehouse,
+    database, or schema is checked on the login request that names it.
+    Snowflake rejects one that does not exist or that this user cannot use.
     """
     discovered = SessionUser(
         _open_session(
@@ -133,13 +156,17 @@ def _open_session(
         "authenticator": AUTHENTICATOR,
         "application": application,
         "client_store_temporary_credential": store,
+        "oauth_scope": local_oauth_scope(role),
     }
+    if connector_reads_refresh_token_flag():
+        kwargs["oauth_enable_refresh_tokens"] = True
     if user is not None:
         kwargs["user"] = user
     if target.host:
         kwargs["host"] = target.host
     if role:
         kwargs["role"] = role
+        kwargs["validate_default_parameters"] = True
     named_context = False
     if warehouse:
         kwargs["warehouse"] = warehouse
