@@ -23,7 +23,7 @@ that.
 Docs repo path: ``--docs-repo`` or the ``SNOWFLAKE_PROD_DOCS`` environment
 variable (flag wins).
 
-Mapping: ``scripts/command_docs_paths.yaml``. Only listed pages are copied.
+Mapping: ``scripts/docs/command_docs_paths.yaml``. Only listed pages are copied.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from pathlib import Path
 import yaml
 
 DOCS_REPO_ENV = "SNOWFLAKE_PROD_DOCS"
-CLI_ROOT = Path(__file__).resolve().parents[1]
+CLI_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MAPPING = Path(__file__).resolve().parent / "command_docs_paths.yaml"
 PAGES_DIR = Path("gen_docs") / "pages"
 

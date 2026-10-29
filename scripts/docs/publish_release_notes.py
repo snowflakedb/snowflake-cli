@@ -22,7 +22,7 @@ that.
 
 Example::
 
-    hatch run python scripts/publish_release_notes.py \\
+    hatch run python scripts/docs/publish_release_notes.py \\
         --docs-repo /path/to/snowflake-prod-docs \\
         --release-date 2026-09-28
 """
@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import sys
 from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
@@ -44,7 +45,14 @@ from prod_docs_common import (
     resolve_release_version,
 )
 from publish_command_docs import CLI_ROOT, DOCS_REPO_ENV, resolve_docs_repo
-from release_notes_extract import ParsedReleaseNotes, load_parsed_release_notes
+
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+from release_notes_extract import (  # noqa: E402
+    ParsedReleaseNotes,
+    load_parsed_release_notes,
+)
 
 YEAR_NOTES_REL = Path(
     "content/en/release-notes/clients-drivers/snowflake-cli-{year}.mdx"

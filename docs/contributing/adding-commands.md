@@ -275,12 +275,11 @@ def list_(...):
 
 To preview output, run `snow --docs` and check the generated
 `.mdx` files under `gen_docs/pages/`. The left-hand path in
-`scripts/command_docs_paths.yaml` must match that layout (one `.mdx` per
+`scripts/docs/command_docs_paths.yaml` must match that layout (one `.mdx` per
 terminal command, path segments = `snow` subcommand names).
 
-**Publishing:** add a mapping in `scripts/command_docs_paths.yaml` for each new
-command page before running `scripts/publish_command_docs.py` (see
-`scripts/publish_command_docs.md`).
+**Publishing:** add a mapping in `scripts/docs/command_docs_paths.yaml` for each
+new command page before publishing (see `scripts/docs/README.md`).
 
 ### Return types
 

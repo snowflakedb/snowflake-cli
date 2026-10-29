@@ -30,7 +30,7 @@ from snowflake.cli.api.commands.command_docs import (
     plain_text,
 )
 
-_SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+_SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts" / "docs"
 sys.path.insert(0, str(_SCRIPTS_DIR))
 
 import publish_command_docs as pcd  # noqa: E402
