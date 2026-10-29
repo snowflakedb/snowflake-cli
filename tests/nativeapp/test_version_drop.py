@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import os
+from contextlib import contextmanager
 from unittest import mock
 
 import pytest
 import typer
 from click import ClickException
+from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
@@ -40,6 +42,7 @@ from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_FACADE_DROP_VERSION,
+    SQL_FACADE_GET_UI_PARAMETER,
     TYPER_CONFIRM,
     mock_snowflake_yml_file_v2,
 )
@@ -80,7 +83,6 @@ def _drop_version(
 def test_process_has_no_existing_app_pkg(
     mock_get_existing, force, interactive, temporary_directory
 ):
-
     current_working_directory = os.getcwd()
     create_named_file(
         file_name="snowflake.yml",
@@ -117,7 +119,6 @@ def test_process_no_version_from_user_no_version_in_manifest(
     interactive,
     temporary_directory,
 ):
-
     mock_distribution.return_value = "internal"
     current_working_directory = os.getcwd()
     create_named_file(
@@ -168,7 +169,6 @@ def test_process_drop_cannot_complete(
     expected_code,
     temporary_directory,
 ):
-
     mock_distribution.return_value = "internal"
     current_working_directory = os.getcwd()
     create_named_file(
@@ -202,8 +202,10 @@ def test_process_drop_cannot_complete(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @mock.patch(SQL_FACADE_DROP_VERSION)
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=False)
 @pytest.mark.parametrize("force", [True, False])
 def test_process_drop_from_manifest(
+    mock_ui_parameter,
     mock_drop_version,
     mock_typer_confirm,
     mock_version_info_in_manifest,
@@ -213,7 +215,6 @@ def test_process_drop_from_manifest(
     force,
     temporary_directory,
 ):
-
     mock_distribution.return_value = "internal"
 
     current_working_directory = os.getcwd()
@@ -243,12 +244,14 @@ def test_process_drop_from_manifest(
     f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
 )
 @mock.patch(SQL_FACADE_DROP_VERSION)
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=False)
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize(
     ["version", "version_identifier"],
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_process_drop_specific_version(
+    mock_ui_parameter,
     mock_drop_version,
     mock_typer_confirm,
     mock_build_bundle,
@@ -259,7 +262,6 @@ def test_process_drop_specific_version(
     version,
     version_identifier,
 ):
-
     mock_distribution.return_value = "internal"
 
     current_working_directory = os.getcwd()
@@ -274,3 +276,91 @@ def test_process_drop_specific_version(
     mock_drop_version.assert_called_once_with(
         package_name="app_pkg", version=version_identifier, role="package_role"
     )
+
+
+SYNC_DROP_NOTICE = "Dropping the version now, it might take a few minutes..."
+ASYNC_DROP_MESSAGE = (
+    "Version drop in progress. This may take a few minutes to complete."
+)
+SYNC_DROP_RESULT = "Version V1 in application package app_pkg dropped successfully."
+
+
+@mock.patch(
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
+    return_value={"owner": "package_role"},
+)
+@mock_get_app_pkg_distribution_in_sf()
+@mock.patch(
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
+@mock.patch(SQL_FACADE_DROP_VERSION)
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER)
+@pytest.mark.parametrize(
+    "sync_drop, force, interactive, expect_spinner",
+    [
+        (True, False, True, True),
+        (True, True, True, False),
+        (True, True, False, False),
+        (False, False, True, False),
+        (False, True, False, False),
+        ("true", False, True, True),
+    ],
+)
+def test_drop_message_follows_sync_version_drop_parameter(
+    mock_ui_parameter,
+    mock_drop_version,
+    mock_typer_confirm,
+    mock_distribution,
+    mock_get_existing,
+    sync_drop,
+    force,
+    interactive,
+    expect_spinner,
+    temporary_directory,
+):
+    mock_distribution.return_value = "internal"
+    mock_ui_parameter.return_value = sync_drop
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=os.getcwd(),
+        contents=[mock_snowflake_yml_file_v2],
+    )
+
+    events: list[str] = []
+
+    def record_message(text: str) -> None:
+        if text == SYNC_DROP_NOTICE:
+            events.append("message")
+
+    @contextmanager
+    def record_spinner():
+        events.append("spinner")
+        yield mock.Mock()
+
+    def record_drop(**kwargs) -> None:
+        events.append("drop")
+
+    mock_drop_version.side_effect = record_drop
+
+    with (
+        mock.patch.object(cc, "message", side_effect=record_message),
+        mock.patch.object(cc, "spinner", side_effect=record_spinner),
+    ):
+        result = _drop_version(version="V1", force=force, interactive=interactive)
+
+    mock_ui_parameter.assert_called_once_with(
+        UIParameter.ENABLE_SYNC_GLOBAL_VERSION_DROP,
+        False,
+    )
+    mock_drop_version.assert_called_once_with(
+        package_name="app_pkg", version="V1", role="package_role"
+    )
+    if str(sync_drop).strip().lower() == "true":
+        assert result == SYNC_DROP_RESULT
+        if expect_spinner:
+            assert events == ["message", "spinner", "drop"]
+        else:
+            assert events == ["message", "drop"]
+    else:
+        assert result == ASYNC_DROP_MESSAGE
+        assert events == ["drop"]

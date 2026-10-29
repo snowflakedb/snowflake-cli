@@ -542,6 +542,17 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
         return VersionInfo(resolved_version, patch, resolved_label)
 
+    def _sync_global_version_drop_enabled(self) -> bool:
+        """Whether DROP VERSION waits until the version is gone.
+
+        Missing parameter means the account still uses the non-blocking drop.
+        """
+        value = get_snowflake_facade().get_ui_parameter(
+            UIParameter.ENABLE_SYNC_GLOBAL_VERSION_DROP,
+            False,
+        )
+        return str(value).strip().lower() == "true"
+
     def action_version_drop(
         self,
         action_ctx: ActionContext,
@@ -618,14 +629,31 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
                 raise typer.Exit(1)
 
-        # Drop the version
-        get_snowflake_facade().drop_version_from_package(
-            package_name=self.name, version=version, role=self.role
-        )
+        # ENABLE_SYNC_GLOBAL_VERSION_DROP is false by default: the statement
+        # returns as soon as the drop is requested. When it is true, the
+        # statement waits until the version is gone.
+        sync_drop = self._sync_global_version_drop_enabled()
 
-        console.message(
-            f"Version {version} in application package {self.name} dropped successfully."
-        )
+        def drop_version() -> None:
+            get_snowflake_facade().drop_version_from_package(
+                package_name=self.name, version=version, role=self.role
+            )
+
+        if sync_drop:
+            console.message("Dropping the version now, it might take a few minutes...")
+            if interactive:
+                with console.spinner() as progress:
+                    progress.add_task(description="Dropping version", total=None)
+                    drop_version()
+            else:
+                drop_version()
+            return (
+                f"Version {version} in application package {self.name} "
+                "dropped successfully."
+            )
+
+        drop_version()
+        return "Version drop in progress. This may take a few minutes to complete."
 
     def _validate_target_accounts(self, accounts: list[str]) -> None:
         """
