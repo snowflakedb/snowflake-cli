@@ -29,6 +29,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 COMPOSE = REPO_ROOT / "scripts" / "packaging" / "docker-compose.yaml"
+LABS_BUILD = REPO_ROOT / ".compat" / "build_snowflake-cli-labs.sh"
 
 
 def _pyproject() -> dict:
@@ -62,3 +63,12 @@ def test_wheel_compose_uses_packaging_env_not_default():
     assert "hatch run packaging:legacy-pypi-build" in compose
     assert "hatch run legacy-pypi-build" not in compose
     assert "hatch run default:legacy-pypi-build" not in compose
+
+
+def test_nested_labs_hatch_build_unsets_packaging_env():
+    # compose-string tests missed nested hatch build inheriting
+    # HATCH_ENV_ACTIVE=packaging from packaging:legacy-pypi-build.
+    script = LABS_BUILD.read_text()
+    assert "cd .compat/snowflake-cli-labs" in script
+    assert "env -u HATCH_ENV -u HATCH_ENV_ACTIVE hatch build --clean" in script
+    assert "\nhatch build --clean" not in script
