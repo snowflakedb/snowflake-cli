@@ -104,6 +104,42 @@ class AppYmlEnvVar(UpdatableModel):
         return value
 
 
+_POSTGRES_AUTH_MODES = ("password", "token")
+
+
+class AppYmlPostgresInstance(UpdatableModel):
+    """One Snowflake Postgres binding in an application-service specification.
+
+    Mirrors the ``postgres_instances`` entries of the inline ``SPECIFICATION``.
+    ``instance`` is the instance name. ``name``, when set, is the environment
+    variable prefix (``<NAME>_HOST``, ``<NAME>_PORT``, ``<NAME>_SSLROOTCERT``).
+    ``authentication_mode`` is ``token`` or ``password``; omitted means the
+    server default, ``token``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    instance: str = Field(title="Snowflake Postgres instance name")
+    name: Optional[str] = Field(title="Environment variable prefix", default=None)
+    authentication_mode: Optional[str] = Field(
+        title="Authentication mode", default=None
+    )
+
+    @field_validator("authentication_mode", mode="before")
+    @classmethod
+    def _normalize_authentication_mode(cls, value):
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("authentication_mode must be a string")
+        normalized = value.strip().lower()
+        if normalized not in _POSTGRES_AUTH_MODES:
+            raise ValueError(
+                "authentication_mode must be one of: " + ", ".join(_POSTGRES_AUTH_MODES)
+            )
+        return normalized
+
+
 class AppYmlBuildPhase(UpdatableModel):
     """A builder phase expressed as one or more exec-form commands.
 
@@ -279,6 +315,14 @@ class _AppYmlServiceConfig(UpdatableModel):
     )
     environment_variables: Optional[List[AppYmlEnvVar]] = Field(
         title="Plain environment variables for the service", default=None
+    )
+    # Serverless-only, and not advertised. The account parameter
+    # ENABLE_APP_SERVICE_CNG_POSTGRES decides whether the server accepts the
+    # field; the CLI forwards the declaration and rejects it locally when
+    # ``compute_resource`` is not ``SERVERLESS``.
+    postgres_instances: SkipJsonSchema[Optional[List[AppYmlPostgresInstance]]] = Field(
+        title="Snowflake Postgres instances bound into the service",
+        default=None,
     )
 
     @field_validator("compute_resource", mode="before")

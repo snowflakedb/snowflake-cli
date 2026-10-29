@@ -2530,15 +2530,22 @@ def _deploy_from_app_yml(
         return result
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
-    # ``url_prefix`` and ``health_check`` are serverless-only fields, so they
-    # are only emitted when ``compute_resource`` is ``SERVERLESS``.
+    # ``url_prefix``, ``health_check``, and ``postgres_instances`` are
+    # serverless-only fields, so they are only emitted when ``compute_resource``
+    # is ``SERVERLESS``. Whether the server accepts ``postgres_instances`` is
+    # decided by the account parameter ENABLE_APP_SERVICE_CNG_POSTGRES.
     is_cng = _is_cng_compute_resource(compute_resource)
+    if tgt.postgres_instances and not is_cng:
+        raise CliError(
+            "postgres_instances is only valid when compute_resource is SERVERLESS."
+        )
     specification = manager.build_service_specification(
         tgt,
         database=database,
         schema=schema,
         include_url_prefix=is_cng,
         include_health_check=is_cng,
+        include_postgres_instances=is_cng,
     )
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step(f"Applying application service {service_fqn.identifier}...")

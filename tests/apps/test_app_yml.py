@@ -133,6 +133,15 @@ _CNG_APP_YML = dedent(
     """
 )
 
+# Serverless target that also declares a Postgres binding.
+_CNG_POSTGRES_APP_YML = _CNG_APP_YML.replace(
+    "    health_check: /healthz\n",
+    "    health_check: /healthz\n"
+    "    postgres_instances:\n"
+    "      - instance: NATEST_PG\n"
+    "        name: ORDERS\n",
+)
+
 
 _PYTHON_APP_YML = dedent(
     """\
@@ -1048,6 +1057,81 @@ class TestBuildServiceSpecification:
         )
         assert "health_check" not in default
 
+    def test_postgres_instances_emitted_only_when_included(self):
+        target = AppYmlTarget(
+            query_warehouse="WH",
+            postgres_instances=[
+                {"instance": "NATEST_PG", "name": "ORDERS"},
+                {
+                    "instance": "BILLING_PG",
+                    "name": "BILLING",
+                    "authentication_mode": "PASSWORD",
+                },
+            ],
+        )
+        included = yaml.safe_load(
+            SnowflakeAppManager.build_service_specification(
+                target, include_postgres_instances=True
+            )
+        )
+        assert included["postgres_instances"] == [
+            {"instance": "NATEST_PG", "name": "ORDERS"},
+            {
+                "instance": "BILLING_PG",
+                "name": "BILLING",
+                "authentication_mode": "password",
+            },
+        ]
+
+        default = yaml.safe_load(
+            SnowflakeAppManager.build_service_specification(target)
+        )
+        assert "postgres_instances" not in default
+
+    def test_postgres_instances_round_trip_from_yaml(self, tmp_path):
+        (tmp_path / "app.yml").write_text(
+            dedent(
+                """\
+                version: 2
+                name: NATEST_PG_APP
+                database: NATEST_DB
+                schema: NATEST_SCH
+                query_warehouse: NATEST_WH
+                compute_resource: SERVERLESS
+                postgres_instances:
+                  - instance: NATEST_PG
+                    name: ORDERS
+                """
+            )
+        )
+        _, target = resolve_target(load_app_yml(tmp_path), None)
+        spec = yaml.safe_load(
+            SnowflakeAppManager.build_service_specification(
+                target, include_postgres_instances=True
+            )
+        )
+        assert spec["postgres_instances"] == [
+            {"instance": "NATEST_PG", "name": "ORDERS"}
+        ]
+
+    def test_postgres_instance_rejects_unknown_key(self, tmp_path):
+        (tmp_path / APP_YML_FILENAME).write_text(
+            dedent(
+                """\
+                version: 2
+                name: NATEST_PG_APP
+                database: NATEST_DB
+                schema: NATEST_SCH
+                query_warehouse: NATEST_WH
+                postgres_instances:
+                  - instance: NATEST_PG
+                    authentication_modee: password
+                """
+            )
+        )
+        with pytest.raises(CliError, match="Extra inputs are not permitted"):
+            load_app_yml(tmp_path)
+
     def test_empty_target_produces_empty_spec(self):
         spec = yaml.safe_load(
             SnowflakeAppManager.build_service_specification(AppYmlTarget())
@@ -1918,6 +2002,68 @@ class TestDeployFromAppYml:
 
         mock_cert.assert_not_called()
         mgr.create_or_alter_app_service.assert_not_called()
+
+    @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_postgres_instances_forwarded_for_serverless(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, mock_cert, tmp_path
+    ):
+        """A serverless target forwards the binding. The server accepts it only
+        when ENABLE_APP_SERVICE_CNG_POSTGRES is on."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_POSTGRES_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "cng.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        snowflake_app_deploy(
+            None, False, False, False, interactive=False, target="prod"
+        )
+        spec = yaml.safe_load(
+            mgr.create_or_alter_app_service.call_args.kwargs["specification"]
+        )
+        assert spec["postgres_instances"] == [
+            {"instance": "NATEST_PG", "name": "ORDERS"}
+        ]
+
+    @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_postgres_instances_require_serverless(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_cert, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(
+            dedent(
+                """\
+                version: 2
+                name: NEXT_SIMPLE
+                database: TEMP
+                schema: next_simple
+                query_warehouse: DEFAULT
+                postgres_instances:
+                  - instance: NATEST_PG
+                    name: ORDERS
+                """
+            )
+        )
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        _make_manager_mock(mock_mgr_cls)
+
+        with pytest.raises(CliError, match="only valid when compute_resource"):
+            snowflake_app_deploy(
+                None, False, False, True, interactive=False, target=None
+            )
 
     @pytest.mark.parametrize(
         "target, compute_resource",

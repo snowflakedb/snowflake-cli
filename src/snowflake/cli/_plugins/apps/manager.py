@@ -2480,6 +2480,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         schema: Optional[str] = None,
         include_url_prefix: bool = False,
         include_health_check: bool = False,
+        include_postgres_instances: bool = False,
     ) -> str:
         """Render an inline application-service ``SPECIFICATION`` from a target.
 
@@ -2499,10 +2500,11 @@ class SnowflakeAppManager(SqlExecutionMixin):
         written. When ``database`` / ``schema`` are omitted the value passes
         through unchanged.
 
-        ``url_prefix`` and ``health_check`` are serverless-only fields, so
-        they are emitted only when *include_url_prefix* / *include_health_check*
-        are set — the caller gates them on ``compute_resource: SERVERLESS`` —
-        and dropped otherwise.
+        ``url_prefix``, ``health_check``, and ``postgres_instances`` are
+        serverless-only fields, so they are emitted only when
+        *include_url_prefix* / *include_health_check* /
+        *include_postgres_instances* are set — the caller gates them on
+        ``compute_resource: SERVERLESS`` — and dropped otherwise.
 
         Deployment-location fields (``name`` / ``database`` / ``schema`` /
         ``account``) locate and name the service and are not part of the
@@ -2548,6 +2550,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
         if target.environment_variables:
             spec["environment_variables"] = [
                 {"name": e.name, "value": e.value} for e in target.environment_variables
+            ]
+        if include_postgres_instances and target.postgres_instances is not None:
+            spec["postgres_instances"] = [
+                {
+                    key: value
+                    for key, value in (
+                        ("instance", binding.instance),
+                        ("name", binding.name),
+                        ("authentication_mode", binding.authentication_mode),
+                    )
+                    if value is not None
+                }
+                for binding in target.postgres_instances
             ]
         return yaml.safe_dump(spec, sort_keys=False, default_flow_style=False)
 
