@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from click.exceptions import ClickException, UsageError
 from snowflake.cli.api.constants import IS_WINDOWS, ObjectType
@@ -187,19 +187,72 @@ class DirectoryIsNotEmptyError(CliError):
 
 
 class ConfigFileTooWidePermissionsError(CliError):
+    """Config file permissions are too open.
+
+    The remediation command is not part of the message. Typer prints Click
+    errors in a Rich panel that hard-wraps and draws a border on every row,
+    so a wrapped chmod or icacls line cannot be copied.
+    """
+
+    plain_remediation_commands: tuple[str, ...]
+
     def __init__(self, path: Path):
-        change_permissons_command = (
-            f'icacls "{path}" /deny <USER_ID>:F'
-            if IS_WINDOWS
-            else f'chmod 0600 "{path}"'
-        )
-        msg = f"Configuration file {path} has too wide permissions, run `{change_permissons_command}`."
+        quoted_path = f'"{path}"'
         if IS_WINDOWS:
-            msg += (
-                f'\nTo check which users have access to the file run `icacls "{path}"`.'
-                "Run the above command for all users except you and administrators."
+            self.plain_remediation_commands = (
+                f"icacls {quoted_path} /deny <USER_ID>:F",
+                f"icacls {quoted_path}",
             )
-        super().__init__(msg)
+            instruction = (
+                "Run the first command below for every user except you "
+                "and administrators. "
+                "The second command lists who currently has access."
+            )
+        else:
+            self.plain_remediation_commands = (f"chmod 0600 {quoted_path}",)
+            instruction = "Run the command below exactly as printed."
+        super().__init__(
+            f"Configuration file {path} has too wide permissions. {instruction}"
+        )
+
+    def __str__(self) -> str:
+        # Some paths print str(exception) and never reach the Rich panel.
+        # Keep the command out of format_message(), but on the next line here.
+        return "\n".join((self.message, *self.plain_remediation_commands))
+
+    def show(self, file: Optional[Any] = None) -> None:
+        super().show(file)
+        _write_remediation_commands(self, file)
+
+
+def _write_remediation_commands(
+    exc: ConfigFileTooWidePermissionsError, file: Optional[Any] = None
+) -> None:
+    # Local import: console -> config -> exceptions.
+    from snowflake.cli.api.console.console import write_raw_line
+
+    for command in exc.plain_remediation_commands:
+        write_raw_line(command, file=file)
+
+
+def install_plain_remediation_error_renderer() -> None:
+    """Append remediation commands after Typer's error panel.
+
+    Typer calls rich_format_error instead of ClickException.show.
+    """
+    import typer.rich_utils as rich_utils
+
+    current = rich_utils.rich_format_error
+    if getattr(current, "_plain_remediation_renderer", False):
+        return
+
+    def _format_error(error: ClickException) -> None:
+        current(error)
+        if isinstance(error, ConfigFileTooWidePermissionsError):
+            _write_remediation_commands(error)
+
+    setattr(_format_error, "_plain_remediation_renderer", True)
+    rich_utils.rich_format_error = _format_error
 
 
 class DatabaseNotProvidedError(CliError):

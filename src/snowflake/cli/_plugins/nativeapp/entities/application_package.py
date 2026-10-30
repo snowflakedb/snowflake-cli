@@ -1250,6 +1250,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             child_entity: ApplicationPackageChildInterface = action_ctx.get_entity(
                 child.target
             )
+            child_entity.validate_as_child()
             child_entity.bundle(child_artifacts_dir)
             app_role = (
                 to_identifier(

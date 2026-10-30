@@ -2,9 +2,11 @@ from types import SimpleNamespace
 from unittest import mock
 
 import pytest
+from prompt_toolkit.formatted_text import FormattedText
 from snowflake.cli._plugins.sql.prompt_format import (
     DEFAULT_REPL_PROMPT,
     format_repl_prompt,
+    format_repl_prompt_for_terminal,
     require_string_prompt_format,
     session_prompt_values,
     unknown_token_warning,
@@ -90,12 +92,81 @@ def test_uppercase_backslash_n_stays_literal():
 
 
 @pytest.mark.parametrize("colour_token", ["[#ff00ff]", "[bg:#00ff00]"])
-def test_snowsql_hex_colour_tokens_are_dropped_and_reported(colour_token):
-    """Hex colour directives are unknown in this version. Dropped, never
-    passed through as text, so a later colour release can honour them
-    without changing the visible text of a format that works today."""
+def test_snowsql_hex_colour_tokens_do_not_change_visible_text(colour_token):
     assert format_repl_prompt(f"{colour_token}[user]>", {"user": "alice"}) == "alice>"
-    assert unknown_tokens_in_prompt_format(f"{colour_token}[user]>") == (colour_token,)
+    assert unknown_tokens_in_prompt_format(f"{colour_token}[user]>") == ()
+
+
+def test_formats_foreground_and_background_colours_for_terminal():
+    result = format_repl_prompt_for_terminal(
+        "[#BCA81F][user]@[bg:#001122][database][#FFff00]>",
+        {"user": "alice", "database": "DB"},
+    )
+
+    assert result == FormattedText(
+        [
+            ("fg:#bca81f", "alice@"),
+            ("fg:#bca81f bg:#001122", "DB"),
+            ("fg:#ffff00 bg:#001122", ">"),
+        ]
+    )
+
+
+def test_formats_jira_multiline_prompt_and_ignores_trailing_colour():
+    template = (
+        "┌──[#bca81f][user]@[account].[role].[warehouse].[database].[schema]\n"
+        "└─$[#ffff00]"
+    )
+    values = {
+        "user": "alice",
+        "account": "acct",
+        "role": "SYSADMIN",
+        "warehouse": "WH",
+        "database": "DB",
+        "schema": "PUBLIC",
+    }
+
+    assert format_repl_prompt_for_terminal(template, values) == FormattedText(
+        [
+            ("", "┌──"),
+            ("fg:#bca81f", "alice@acct.SYSADMIN.WH.DB.PUBLIC\n└─$"),
+        ]
+    )
+
+
+def test_escaped_colour_is_literal_unstyled_text():
+    result = format_repl_prompt_for_terminal(
+        "\\[#ff00ff][#00ff00][user]>",
+        {"user": "alice"},
+    )
+
+    assert result == FormattedText(
+        [
+            ("", "[#ff00ff]"),
+            ("fg:#00ff00", "alice>"),
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "token",
+    ["[#fff]", "[#gggggg]", "[bg:#12345g]", "[red]"],
+)
+def test_malformed_and_named_colours_remain_unknown(token):
+    assert unknown_tokens_in_prompt_format(f"{token}[user]>") == (token,)
+
+
+def test_colour_only_template_falls_back_to_default():
+    assert format_repl_prompt_for_terminal("[#ff00ff]", {}) == DEFAULT_REPL_PROMPT
+
+
+def test_sanitizes_values_without_interpreting_them_as_styles():
+    result = format_repl_prompt_for_terminal(
+        "[#ff00ff][user]>",
+        {"user": "\033[31m[bg:#000000]alice"},
+    )
+
+    assert result == FormattedText([("fg:#ff00ff", "[bg:#000000]alice>")])
 
 
 def test_unknown_placeholder_is_dropped_and_reported():
@@ -115,7 +186,7 @@ def test_named_style_tokens_are_unknown_not_snowsql_colour():
 
 def test_unknown_tokens_are_listed_once_in_order():
     tokens = unknown_tokens_in_prompt_format("[#ff00ff][user][future-token][#ff00ff]>")
-    assert tokens == ("[#ff00ff]", "[future-token]")
+    assert tokens == ("[future-token]",)
 
 
 def test_known_tokens_and_escapes_are_not_reported():
@@ -123,12 +194,10 @@ def test_known_tokens_and_escapes_are_not_reported():
 
 
 def test_unknown_token_warning_names_tokens_and_support():
-    message = unknown_token_warning(("[#ff00ff]", "[future-token]"))
-    assert "'[#ff00ff]'" in message
+    message = unknown_token_warning(("[future-token]",))
     assert "'[future-token]'" in message
     assert "[user]" in message
-    assert "[#rrggbb]" in message
-    assert "[bg:#rrggbb]" in message
+    assert "not supported" not in message
 
 
 def test_unknown_token_warning_sanitizes_tokens():

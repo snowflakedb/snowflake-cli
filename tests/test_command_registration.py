@@ -30,7 +30,12 @@ def test_builtin_plugins_registration(runner):
     assert result.exit_code == 0
     assert result.output.count("Manages connections to Snowflake") == 1
     assert result.output.count("Manages a Streamlit app in Snowflake") == 1
-    assert result.output.count("Executes Snowflake query") == 1
+    assert (
+        result.output.count(
+            "Executes SQL statements against Snowflake interactively or"
+        )
+        == 1
+    )
 
 
 def test_multiple_use_of_test_runner(runner):
@@ -39,7 +44,12 @@ def test_multiple_use_of_test_runner(runner):
         assert result.output.count("Manages connections to Snowflake") == 1
         assert result.output.count("Manages a Streamlit app in Snowflake") == 1
         assert result.output.count("Manages Snowflake objects") == 1
-        assert result.output.count("Executes Snowflake query") == 1
+        assert (
+            result.output.count(
+                "Executes SQL statements against Snowflake interactively or"
+            )
+            == 1
+        )
 
     assert_result_is_correct(runner.invoke(["-h"]))
     assert_result_is_correct(runner.invoke(["-h"]))

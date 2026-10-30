@@ -1,39 +1,518 @@
-#!/bin/bash -e
+#!/bin/bash
 #
-# $2 is the install location
+# Copyright (c) 2024 Snowflake Inc.
 #
-SNOWFLAKE_CLI_COMMENT="# added by Snowflake SnowflakeCLI installer v1.0"
-RC_FILES=(~/.zprofile ~/.zshrc ~/.profile ~/.bash_profile ~/.bashrc)
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# $2 is the install location. Do not use set -e: failing to write PATH
+# must not fail the package.
 
-function add_dest_path_to_profile() {
-  local dest=$1
-  local profile=$2
-  echo "Updating $profile to have $dest in PATH"
-  touch $profile
-  cp -p $profile "$profile-snowflake.bak" || true
-  echo "
-$SNOWFLAKE_CLI_COMMENT
-export PATH=$dest:\$PATH" >>$profile
+PATHS_D="${SNOWFLAKE_CLI_PATHS_D:-/etc/paths.d/snowflake-cli}"
+DSCL="${SNOWFLAKE_CLI_DSCL:-dscl}"
+CHOWN="${SNOWFLAKE_CLI_CHOWN:-chown}"
+USERS_ROOT="${SNOWFLAKE_CLI_USERS_ROOT:-/Users}"
+
+BEGIN_MARK="# snowflake-cli PATH begin"
+END_MARK="# snowflake-cli PATH end"
+
+log_info() {
+  echo "[INFO] $*"
 }
 
-echo "[DEBUG] Parameters: $1 $2"
-SNOWFLAKE_CLI_DEST=$2/SnowflakeCLI.app/Contents/MacOS/
+log_error() {
+  echo "[ERROR] $*"
+}
 
-# List of potential login shell RC files
+log_debug() {
+  echo "[DEBUG] $*"
+}
 
-# Check if the path is already in the PATH variable
-if [[ ":$PATH:" == *":$SNOWFLAKE_CLI_DEST:"* ]]; then
-  echo "[INFO] Path $SNOWFLAKE_CLI_DEST is already in PATH. No changes needed."
-else
-  for rc_file in "${RC_FILES[@]}"; do
-    # Expand tilde (~) to the user's home directory
-    rc_file_expanded=$(eval echo "$rc_file")
+install_loc="${2:-}"
+log_debug "Parameters: $1 $2"
 
-    if [[ -e "$rc_file_expanded" ]]; then
-      # Add the PATH update to the file
-      add_dest_path_to_profile "$SNOWFLAKE_CLI_DEST" "$rc_file_expanded"
+macos_dir="${install_loc%/}/SnowflakeCLI.app/Contents/MacOS"
+
+# Quote for later sourcing so metacharacters in the install path cannot run.
+shell_quote() {
+  local value=$1
+  printf "'%s'" "$(printf '%s' "$value" | sed "s/'/'\\\\''/g")"
+}
+
+# Root must not follow a user-planted symlink.
+refuse_symlink() {
+  local path=$1
+  if [ -L "$path" ]; then
+    log_error "${path} is a symlink; refusing to modify it"
+    return 0
+  fi
+  return 1
+}
+
+# BSD stat is macOS; GNU -c is for Linux test runners.
+file_mode() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%OLp' "$1" 2>/dev/null
+}
+
+file_owner() {
+  stat -c '%U' "$1" 2>/dev/null || stat -f '%Su' "$1" 2>/dev/null
+}
+
+file_dev() {
+  stat -c '%d' "$1" 2>/dev/null || stat -f '%d' "$1" 2>/dev/null
+}
+
+# Same-filesystem rename of $1 onto $2. Refuse a symlink dest instead of
+# replacing it. Refuse a directory dest: mv would move *into* it. Refuse
+# EXDEV: mv would copy and could truncate $dest.
+atomic_replace() {
+  local tmp=$1 dest=$2
+  if [ -L "$dest" ]; then
+    rm -f "$tmp"
+    return 2
+  fi
+  if [ -d "$dest" ]; then
+    rm -f "$tmp"
+    return 1
+  fi
+  local tmp_dev dest_dev
+  tmp_dev=$(file_dev "$tmp")
+  dest_dev=$(file_dev "$(dirname "$dest")")
+  if [ -n "$tmp_dev" ] && [ -n "$dest_dev" ] && [ "$tmp_dev" != "$dest_dev" ]; then
+    rm -f "$tmp"
+    return 3
+  fi
+  if ! mv -f "$tmp" "$dest"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  # A directory created after the check above makes mv succeed by moving
+  # $tmp inside $dest. Treat that as failure, not a completed replace.
+  if [ -d "$dest" ]; then
+    rm -f "${dest}/$(basename -- "$tmp")"
+    return 1
+  fi
+  return 0
+}
+
+user_from_dest() {
+  local prefix="${USERS_ROOT}/"
+  case "$install_loc" in
+    "$USERS_ROOT" | "$USERS_ROOT"/)
+      return 1
+      ;;
+    "$prefix"*)
+      local rest="${install_loc#"$prefix"}"
+      local name="${rest%%/*}"
+      if [ -z "$name" ]; then
+        return 1
+      fi
+      printf '%s\n' "$name"
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+write_paths_d() {
+  local dir stage_dir tmp
+  dir=$(dirname "$PATHS_D")
+  # mkdir -p follows an existing symlink; check both sides.
+  if [ -L "$dir" ]; then
+    log_error "${dir} is a symlink; refusing to write $PATHS_D"
+    return 0
+  fi
+  if ! mkdir -p "$dir" 2>/dev/null; then
+    log_error "Failed to create $dir"
+    return 0
+  fi
+  if [ -L "$dir" ]; then
+    log_error "${dir} is a symlink; refusing to write $PATHS_D"
+    return 0
+  fi
+  if refuse_symlink "$PATHS_D"; then
+    return 0
+  fi
+
+  # Stage beside $dir, not in it. path_helper would add stray files in paths.d.
+  stage_dir=$(mktemp -d "${dir}.XXXXXX") || {
+    log_error "Failed to create temp file for $PATHS_D"
+    return 0
+  }
+  tmp="${stage_dir}/snowflake-cli"
+  if ! printf '%s\n' "$macos_dir" >"$tmp"; then
+    log_error "Failed to write $PATHS_D"
+    rm -rf "$stage_dir"
+    return 0
+  fi
+  chmod 0644 "$tmp" 2>/dev/null
+
+  atomic_replace "$tmp" "$PATHS_D"
+  local status=$?
+  rm -rf "$stage_dir"
+  if [ "$status" -ne 0 ]; then
+    if [ "$status" -eq 2 ]; then
+      log_error "${PATHS_D} is a symlink; refusing to modify it"
+    elif [ "$status" -eq 3 ]; then
+      log_error "${PATHS_D} is on a different filesystem than the installer's temp directory; skipping"
     else
-      echo "[INFO] $rc_file_expanded does not exist, skipping..."
+      log_error "Failed to write $PATHS_D"
     fi
-  done
+    return 0
+  fi
+  log_info "Registered $macos_dir in $PATHS_D"
+}
+
+read_user_shell() {
+  local user=$1
+  local out
+  if ! out=$("$DSCL" . -read "/Users/${user}" UserShell 2>/dev/null); then
+    return 1
+  fi
+  local shell
+  shell=$(printf '%s\n' "$out" | awk '{ print $2 }')
+  if [ -z "$shell" ]; then
+    return 1
+  fi
+  local base
+  base=$(basename -- "$shell")
+  base="${base#-}"
+  printf '%s\n' "$base"
+}
+
+# Ignore CR and blank lines between markers so synced dotfiles still match.
+block_state() {
+  local file=$1
+  awk -v begin="$BEGIN_MARK" -v end="$END_MARK" '
+    {
+      line = $0
+      sub(/\r$/, "", line)
+    }
+    line == begin { nbegin++; begin_nr = NR; next }
+    line == end { nend++; end_nr = NR; next }
+    begin_nr && !end_nr {
+      if (line ~ /^export PATH=/) { npath++ }
+      else if (line != "") { extra++ }
+    }
+    END {
+      if (nbegin == 0 && nend == 0) { print "none"; exit }
+      if (nbegin != 1 || nend != 1 || end_nr <= begin_nr) { print "malformed"; exit }
+      if (npath != 1 || extra > 0) { print "malformed"; exit }
+      print "wellformed"
+    }
+  ' "$file"
+}
+
+# Append the marked PATH block. $file may be empty.
+build_appended_block() {
+  local file=$1 quoted_dir=$2
+  if [ -s "$file" ] 2>/dev/null; then
+    cat "$file" || return 1
+    local last
+    last=$(tail -c 1 "$file" 2>/dev/null || true)
+    if [ "$last" != "" ]; then
+      printf '\n'
+    fi
+  fi
+  printf '%s\n' "$BEGIN_MARK" "export PATH=${quoted_dir}:\$PATH" "$END_MARK"
+}
+
+# Replace a wellformed block in place. $awk_safe_dir is shell-quoted with
+# backslashes doubled because awk -v interprets escapes.
+build_replaced_block() {
+  local file=$1 awk_safe_dir=$2
+  awk -v begin="$BEGIN_MARK" -v end="$END_MARK" -v dest="$awk_safe_dir" '
+    {
+      line = $0
+      sub(/\r$/, "", line)
+    }
+    line == begin {
+      print begin
+      print "export PATH=" dest ":$PATH"
+      skip = 1
+      next
+    }
+    skip {
+      if (line == end) {
+        print end
+        skip = 0
+      }
+      next
+    }
+    { print }
+  ' "$file"
+}
+
+# Put $src back at $dest. Leave stage_dir if restore fails so the original survives.
+abort_rc() {
+  local src=$1 dest=$2 stage_dir=$3
+  if [ -z "$src" ]; then
+    rm -rf "$stage_dir"
+    return 0
+  fi
+  if [ -d "$dest" ] || [ -L "$dest" ]; then
+    log_error "Could not restore original ${dest}; original left at ${src}"
+    return 1
+  fi
+  if ! mv -- "$src" "$dest" 2>/dev/null; then
+    log_error "Could not restore original ${dest}; original left at ${src}"
+    return 1
+  fi
+  rm -rf "$stage_dir"
+  return 0
+}
+
+# The rc file is detached from the user's home before it is read. Keep enough
+# state to restore it if the installer exits or is interrupted mid-update.
+RC_RESTORE_SRC=""
+RC_RESTORE_DEST=""
+RC_RESTORE_STAGE_DIR=""
+
+clear_rc_restore_trap() {
+  trap - EXIT INT TERM
+  RC_RESTORE_SRC=""
+  RC_RESTORE_DEST=""
+  RC_RESTORE_STAGE_DIR=""
+}
+
+restore_armed_rc() {
+  local src=$RC_RESTORE_SRC
+  local dest=$RC_RESTORE_DEST
+  local stage_dir=$RC_RESTORE_STAGE_DIR
+  clear_rc_restore_trap
+  if [ -e "$src" ] || [ -L "$src" ]; then
+    abort_rc "$src" "$dest" "$stage_dir"
+  else
+    rm -rf "$stage_dir"
+  fi
+}
+
+restore_rc_on_exit() {
+  local status=$?
+  restore_armed_rc
+  exit "$status"
+}
+
+restore_rc_on_signal() {
+  local status=$1
+  restore_armed_rc
+  exit "$status"
+}
+
+arm_rc_restore_trap() {
+  RC_RESTORE_SRC=$1
+  RC_RESTORE_DEST=$2
+  RC_RESTORE_STAGE_DIR=$3
+  trap 'restore_rc_on_exit' EXIT
+  trap 'restore_rc_on_signal 130' INT
+  trap 'restore_rc_on_signal 143' TERM
+}
+
+configure_user_domain() {
+  local user=$1
+  local home="${USERS_ROOT}/${user}"
+  local shell
+  if ! shell=$(read_user_shell "$user"); then
+    log_info "Could not read UserShell for ${user}; skipping rc"
+    return 0
+  fi
+
+  local rc create_if_missing=0
+  case "$shell" in
+    zsh)
+      rc="${home}/.zprofile"
+      create_if_missing=1
+      ;;
+    bash)
+      local candidate path aliased target
+      for candidate in .bash_profile .bash_login .profile; do
+        path="${home}/${candidate}"
+        if [ -L "$path" ]; then
+          # A dangling symlink is not readable, so bash tries the next profile.
+          [ -e "$path" ] || continue
+          # Follow bash's first-file-wins behavior without writing through the
+          # symlink: select its regular target only when that target is itself
+          # one of the later login-profile candidates.
+          case "$candidate" in
+            .bash_profile)
+              for aliased in .bash_login .profile; do
+                target="${home}/${aliased}"
+                if [ ! -L "$target" ] && [ -f "$target" ] &&
+                  [ "$path" -ef "$target" ]; then
+                  rc="$target"
+                  break
+                fi
+              done
+              ;;
+            .bash_login)
+              target="${home}/.profile"
+              if [ ! -L "$target" ] && [ -f "$target" ] &&
+                [ "$path" -ef "$target" ]; then
+                rc="$target"
+              fi
+              ;;
+          esac
+          [ -n "$rc" ] && break
+          log_info "${path} is a symlink outside the bash login profile chain; skipping rc"
+          return 0
+        fi
+        [ -f "$path" ] || continue
+        rc="$path"
+        break
+      done
+      if [ -z "$rc" ]; then
+        log_info "No bash login profile found for ${user}; skipping rc"
+        return 0
+      fi
+      ;;
+    *)
+      log_info "Skipping rc for shell ${shell}"
+      return 0
+      ;;
+  esac
+
+  if [ -L "$home" ]; then
+    log_error "${home} is a symlink; refusing to modify ${rc}"
+    return 0
+  fi
+  if [ ! -d "$home" ]; then
+    log_error "Home ${home} is missing; skipping rc"
+    return 0
+  fi
+  if refuse_symlink "$rc"; then
+    return 0
+  fi
+
+  if [ -e "$rc" ] && [ ! -w "$rc" ]; then
+    log_error "Failed to write ${rc}: not writable"
+    return 0
+  fi
+
+  local quoted_dir awk_safe_dir
+  quoted_dir=$(shell_quote "$macos_dir")
+  awk_safe_dir=$(printf '%s' "$quoted_dir" | sed 's/\\/\\\\/g')
+
+  # Stage outside $home. The user can replace a temp file there with a symlink.
+  local stage_dir tmp
+  stage_dir=$(mktemp -d) || {
+    log_error "Failed to create temp file for ${rc}"
+    return 0
+  }
+  tmp="${stage_dir}/rc"
+
+  # Detach $rc with mv before reading it so a symlink raced into $home is
+  # never followed. Let mv's success decide whether $rc existed.
+  local exists=0
+  local src="" mode="0644" owner="$user" action state=""
+  arm_rc_restore_trap "${stage_dir}/orig" "$rc" "$stage_dir"
+  if mv -- "$rc" "${stage_dir}/orig" 2>/dev/null; then
+    exists=1
+    src="${stage_dir}/orig"
+    if [ -L "$src" ]; then
+      log_error "${rc} is a symlink; refusing to modify it"
+      restore_armed_rc
+      return 0
+    fi
+    # FIFOs detach like files, then hang awk in open(2). -f follows; check -L first.
+    if [ ! -f "$src" ]; then
+      log_error "${rc} is not a regular file; refusing to modify it"
+      restore_armed_rc
+      return 0
+    fi
+
+    state=$(block_state "$src")
+    if [ "$state" = "malformed" ]; then
+      log_error "Malformed snowflake-cli PATH markers in ${rc}; leaving file unchanged"
+      restore_armed_rc
+      return 0
+    fi
+    mode=$(file_mode "$src")
+    [ -z "$mode" ] && mode="0644"
+    owner=$(file_owner "$src")
+    [ -z "$owner" ] && owner="$user"
+  elif [ -e "$rc" ] || [ -L "$rc" ]; then
+    # Detach failed for a reason other than ENOENT. Do not clobber $rc.
+    log_error "Failed to write ${rc}"
+    clear_rc_restore_trap
+    rm -rf "$stage_dir"
+    return 0
+  elif [ "$create_if_missing" -eq 0 ]; then
+    log_info "${rc} disappeared before it could be updated; skipping rc"
+    clear_rc_restore_trap
+    rm -rf "$stage_dir"
+    return 0
+  else
+    clear_rc_restore_trap
+  fi
+
+  if [ "$exists" -eq 1 ] && [ "$state" = "wellformed" ]; then
+    action="Updated"
+    if ! build_replaced_block "$src" "$awk_safe_dir" >"$tmp"; then
+      log_error "Failed to update PATH block in ${rc}"
+      restore_armed_rc
+      return 0
+    fi
+  else
+    action="Added"
+    if ! build_appended_block "$src" "$quoted_dir" >"$tmp"; then
+      log_error "Failed to write PATH block to ${rc}"
+      restore_armed_rc
+      return 0
+    fi
+  fi
+
+  chmod "$mode" "$tmp" 2>/dev/null
+  if [ -n "$owner" ] && ! "$CHOWN" -- "$owner" "$tmp" 2>/dev/null; then
+    log_error "Could not chown ${rc} to ${owner}; leaving file unchanged"
+    if [ "$exists" -eq 1 ]; then
+      restore_armed_rc
+    else
+      rm -rf "$stage_dir"
+    fi
+    return 0
+  fi
+
+  atomic_replace "$tmp" "$rc"
+  local status=$?
+  if [ "$status" -eq 0 ] && [ "$exists" -eq 1 ]; then
+    clear_rc_restore_trap
+  fi
+  if [ "$status" -ne 0 ]; then
+    if [ "$status" -eq 2 ]; then
+      log_error "${rc} is a symlink; refusing to modify it"
+    elif [ "$status" -eq 3 ]; then
+      log_error "${rc} is on a different filesystem than the installer's temp directory; skipping"
+    else
+      log_error "Failed to write ${rc}"
+    fi
+    # $tmp is already gone. Restore the original if we had one.
+    if [ "$exists" -eq 1 ]; then
+      restore_armed_rc
+    else
+      rm -rf "$stage_dir"
+    fi
+    return 0
+  fi
+  rm -rf "$stage_dir"
+  log_info "${action} PATH block to ${rc}"
+}
+
+user=$(user_from_dest) || user=""
+if [ -n "$user" ]; then
+  configure_user_domain "$user"
+else
+  write_paths_d
 fi
+
+exit 0

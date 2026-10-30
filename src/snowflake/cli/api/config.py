@@ -100,6 +100,11 @@ LOGS_SECTION = "logs"
 PLUGINS_SECTION = "plugins"
 ENCODING_SECTION = "encoding"
 IGNORE_NEW_VERSION_WARNING_KEY = "ignore_new_version_warning"
+AIR_GAPPED_KEY = "air_gapped"
+PER_ACCOUNT_APP_DOMAIN_KEY = "per_account_app_domain"
+INIT_TEMPLATE_SOURCE_KEY = "init_template_source"
+AUTO_UPGRADE_KEY = "auto_upgrade"
+AUTO_UPGRADE_ALLOW_MAJOR_KEY = "auto_upgrade_allow_major"
 
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
@@ -206,6 +211,10 @@ def config_init(config_file: Optional[Path]):
         get_cli_context_manager().config_file_override = config_file
         _check_custom_config_permissions(config_file)
     else:
+        # ``apply_upgrade`` tightens these files too late: this check exits
+        # first, so ``snow upgrade`` never reaches it on a 0644 config.
+        if _invocation_is_upgrade():
+            _upgrade_restricted_paths[:] = restrict_owned_default_config_files()
         _check_default_config_files_permissions()
 
     config_manager = get_config_manager()
@@ -387,9 +396,19 @@ def _initialise_logs_section():
         conf_file_cache[CLI_SECTION][LOGS_SECTION] = _get_default_logs_config()
 
 
+def is_air_gapped() -> bool:
+    """True when the CLI is configured to run without off-deployment network access."""
+    return bool(get_config_bool_value(CLI_SECTION, key=AIR_GAPPED_KEY, default=False))
+
+
 def _initialise_cli_section():
     with _config_file() as conf_file_cache:
-        conf_file_cache[CLI_SECTION] = {IGNORE_NEW_VERSION_WARNING_KEY: False}
+        conf_file_cache[CLI_SECTION] = {
+            IGNORE_NEW_VERSION_WARNING_KEY: False,
+            AIR_GAPPED_KEY: False,
+            AUTO_UPGRADE_KEY: False,
+            AUTO_UPGRADE_ALLOW_MAJOR_KEY: False,
+        }
 
 
 def set_config_value(path: List[str], value: Any) -> None:
@@ -590,17 +609,9 @@ def get_config_bool_value(*path, key: str, default: Optional[bool]) -> Optional[
 
 
 def _initialise_config(config_file: Path) -> None:
-    config_dir = config_file.parent
-    parent_existed = config_dir.exists()
-
     secure_config_file = SecurePath(config_file)
     secure_config_file.parent.mkdir(parents=True, exist_ok=True)
-    if IS_WINDOWS and not parent_existed:
-        restrict_file_permissions(config_dir)
-
     secure_config_file.touch()
-    if IS_WINDOWS:
-        restrict_file_permissions(config_file)
 
     _initialise_cli_section()
     _initialise_logs_section()
@@ -694,6 +705,100 @@ def _check_file_permissions(file: Path) -> None:
         return
 
     _apply_permission_policy(file)
+
+
+def _current_user_owns(path: Path) -> bool:
+    # Windows ownership is an ACL owner string. restrict_file_permissions
+    # fails closed when icacls cannot change the file.
+    if IS_WINDOWS or not hasattr(os, "getuid"):
+        return True
+    try:
+        return path.stat().st_uid == os.getuid()
+    except OSError:
+        return False
+
+
+# Paths tightened so ``snow upgrade`` can pass the permission check in
+# ``config_init``. The upgrade command reads and clears this when it prints
+# its result. ``apply_upgrade`` does the same on the success path.
+_upgrade_restricted_paths: list[Path] = []
+
+
+def take_upgrade_restricted_paths() -> list[Path]:
+    """Return paths ``config_init`` tightened for ``snow upgrade``, then clear them."""
+    found = list(_upgrade_restricted_paths)
+    _upgrade_restricted_paths.clear()
+    return found
+
+
+_ROOT_OPTIONS_WITH_VALUES = frozenset(
+    {
+        "--config-file",
+        "--pycharm-debug-library-path",
+        "--pycharm-debug-server-host",
+        "--pycharm-debug-server-port",
+    }
+)
+
+
+def _invocation_is_upgrade(argv: Optional[list[str]] = None) -> bool:
+    """True when this process is ``snow upgrade``.
+
+    Skips root flags. ``--config-file PATH`` and the other root options that
+    take a value do not count as the command. Tokens after ``--agent-args``
+    belong to the agent.
+    """
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    if "--agent-args" in tokens:
+        tokens = tokens[: tokens.index("--agent-args")]
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if token == "--":
+            index += 1
+            continue
+        if token.startswith("-"):
+            name, sep, _value = token.partition("=")
+            index += 2 if not sep and name in _ROOT_OPTIONS_WITH_VALUES else 1
+            continue
+        return token == "upgrade"
+    return False
+
+
+def restrict_owned_default_config_files() -> list[Path]:
+    """Tighten default config files owned by the current user.
+
+    A pip or Homebrew install often leaves ``connections.toml`` mode ``0644``.
+    ``config_init`` calls this before the permission check when the command is
+    ``snow upgrade``, so that command can run. ``apply_upgrade`` calls it again
+    before the shim retargets. The direct installer uses the shell equivalent.
+    Symlinks and files owned by someone else are left unchanged. Returns the
+    paths whose permissions were actually changed.
+    """
+    changed: list[Path] = []
+    for file in (get_connections_file(), CONFIG_FILE):
+        path = file if isinstance(file, Path) else Path(file)
+        if _restrict_owned_config_file(path):
+            changed.append(path)
+    return changed
+
+
+def _restrict_owned_config_file(path: Path) -> bool:
+    if path.is_symlink() or not path.is_file():
+        return False
+    if not _current_user_owns(path):
+        return False
+    if file_permissions_are_strict(path):
+        return False
+    try:
+        restrict_file_permissions(path)
+    except Exception:
+        log.debug("Could not restrict permissions on %s", path, exc_info=True)
+        return False
+    if not file_permissions_are_strict(path):
+        return False
+    log.warning("Restricted permissions on %s", path)
+    return True
 
 
 def _check_default_config_files_permissions() -> None:

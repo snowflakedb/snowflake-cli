@@ -106,25 +106,6 @@ def save_command_response(
     )
 
 
-    output_dir = SecurePath(OUTPUT_FOLDER)
-    json_file = output_dir / result_file_name(command_name)
-    log.debug("Saving response to %s", json_file.path.resolve())
-    try:
-        if isinstance(raw_data, str):
-            json_file.write_text(raw_data)
-        else:
-            json_file.write_text(json.dumps(raw_data))
-    except Exception as e:
-        raise CliError(
-            f"Failed to save command response to {json_file.path.resolve()}: {e}"
-        )
-    log.info(
-        "Saved raw JSON response for command '%s' in %s.",
-        command_name,
-        json_file.path.resolve(),
-    )
-
-
 def announce_rendered_definitions() -> None:
     """Print a label and a gray, clickable line to the rendered definitions folder.
 

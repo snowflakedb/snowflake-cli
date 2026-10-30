@@ -12,14 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import json
+import logging
+import re
+import sys
 from datetime import datetime, time
 from decimal import Decimal
 from textwrap import dedent
 from typing import NamedTuple
 
 import pytest
+from rich.cells import cell_len
+from rich.console import Console
+from snowflake.cli._app import ascii_table
 from snowflake.cli._app.printing import print_result
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -128,6 +136,62 @@ array,object,date
     )
 
 
+_PLAIN_ID_NAME_ROWS = [{"ID": "1", "NAME": "alice"}, {"ID": "2", "NAME": "bob"}]
+_PLAIN_ID_NAME_SNAPSHOT = "ID  NAME \n" "1   alice\n" "2   bob  \n"
+
+
+def test_plain_collection_result_has_no_box(capsys):
+    output_data = {
+        "array": ["array"],
+        "object": {"k": "object"},
+        "date": datetime(2022, 3, 21),
+    }
+    print_result(
+        CollectionResult([output_data, output_data]),
+        output_format=OutputFormat.PLAIN,
+    )
+    assert get_output(capsys) == (
+        "array      object           date               \n"
+        "['array']  {'k': 'object'}  2022-03-21 00:00:00\n"
+        "['array']  {'k': 'object'}  2022-03-21 00:00:00\n"
+    )
+
+
+def test_plain_object_result_has_no_box(capsys):
+    print_result(
+        ObjectResult(
+            {
+                "array": ["array"],
+                "object": {"k": "object"},
+                "date": datetime(2022, 3, 21),
+            }
+        ),
+        output_format=OutputFormat.PLAIN,
+    )
+    assert get_output(capsys) == (
+        "key     value              \n"
+        "array   ['array']          \n"
+        "object  {'k': 'object'}    \n"
+        "date    2022-03-21 00:00:00\n"
+    )
+
+
+def test_plain_table_snapshot_has_gutter_and_left_aligned_numbers(capsys):
+    print_result(
+        CollectionResult(_PLAIN_ID_NAME_ROWS), output_format=OutputFormat.PLAIN
+    )
+    assert get_output(capsys) == _PLAIN_ID_NAME_SNAPSHOT
+
+
+def test_plain_streamed_table_has_no_box(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    print_result(
+        CollectionResult(_PLAIN_ID_NAME_ROWS),
+        output_format=OutputFormat.PLAIN,
+    )
+    assert get_output(capsys) == _PLAIN_ID_NAME_SNAPSHOT
+
+
 def test_query_result_duplicate_column_names_are_uniquified(mock_cursor):
     # Simulates: SELECT * FROM A LEFT JOIN B ON a.b_id = b.id
     # where both A and B have columns named "id" and "addr1"
@@ -231,6 +295,48 @@ def test_print_multi_results_table(capsys, _multiple_results):
     +---------------------------------------------------------------------+
     """
     )
+
+
+def _nested_results_that_switch_to_plain(wrapper, manager):
+    def results():
+        yield CollectionResult([{"n": 1}])
+        manager.output_format = OutputFormat.PLAIN
+        yield CollectionResult([{"n": 2}])
+
+    return wrapper(results())
+
+
+@pytest.mark.parametrize("wrapper", (MultipleResults, StreamResult))
+def test_print_nested_results_rereads_format_when_output_format_is_none(
+    wrapper, capsys
+):
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    manager.output_format = OutputFormat.TABLE
+    try:
+        print_result(_nested_results_that_switch_to_plain(wrapper, manager))
+        output = get_output(capsys)
+    finally:
+        manager.output_format = previous
+
+    assert output == ("+---+\n" "| n |\n" "|---|\n" "| 1 |\n" "+---+\n" "n\n" "2\n")
+
+
+@pytest.mark.parametrize("wrapper", (MultipleResults, StreamResult))
+def test_print_nested_results_explicit_format_wins_over_context_change(wrapper, capsys):
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    manager.output_format = OutputFormat.TABLE
+    try:
+        print_result(
+            _nested_results_that_switch_to_plain(wrapper, manager),
+            output_format=OutputFormat.PLAIN,
+        )
+        output = get_output(capsys)
+    finally:
+        manager.output_format = previous
+
+    assert output == "n\n1\nn\n2\n"
 
 
 def test_print_many_columns_table_is_legible(capsys, monkeypatch):
@@ -624,3 +730,636 @@ def _bytearray_result(mock_cursor):
             rows=[(bytearray("THIS SHOULD WORK", "utf-8"),)],
         )
     )
+
+
+_CSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def _strip_csi(text: str) -> str:
+    return _CSI.sub("", text)
+
+
+@pytest.fixture(autouse=True)
+def _reset_large_table_hint():
+    ascii_table.reset_large_result_hint()
+    yield
+    ascii_table.reset_large_result_hint()
+
+
+def _spy_live(monkeypatch):
+    from snowflake.cli._app import printing
+
+    entered = {"n": 0}
+    real = printing.Live
+
+    class _Spy(real):  # type: ignore[misc, valid-type]
+        def __enter__(self):
+            entered["n"] += 1
+            return super().__enter__()
+
+    monkeypatch.setattr(printing, "Live", _Spy)
+    return entered
+
+
+def _force_tty(monkeypatch, width: int, *, color: bool):
+    from snowflake.cli._app import printing
+
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.setattr(printing, "_stdout_is_terminal", lambda: True)
+
+    def _console():
+        return Console(
+            width=width,
+            height=25,
+            soft_wrap=True,
+            markup=False,
+            force_terminal=False,
+            legacy_windows=False,
+            color_system="standard" if color else None,
+            no_color=not color,
+        )
+
+    monkeypatch.setattr(printing, "_render_console_for_table", _console)
+
+
+def _print_rows(rows):
+    print_result(CollectionResult(rows), output_format=OutputFormat.TABLE)
+
+
+def _print_plain_rows(rows):
+    print_result(CollectionResult(rows), output_format=OutputFormat.PLAIN)
+
+
+def test_small_table_matches_existing_snapshot(capsys):
+    _print_rows([{"ID": "1", "NAME": "alice"}])
+    assert get_output(capsys) == (
+        "+------------+\n"
+        "| ID | NAME  |\n"
+        "|----+-------|\n"
+        "| 1  | alice |\n"
+        "+------------+\n"
+    )
+
+
+def test_normalize_ansi_bel_cr_tab_newline():
+    assert ascii_table.normalize_cell("\x1b[31mred\x1b[0m") == "red"
+    assert ascii_table.normalize_cell("a\ab") == "ab"
+    assert ascii_table.normalize_cell("a\rb") == "ab"
+    assert ascii_table.normalize_cell("a\bb") == "ab"
+    assert ascii_table.normalize_cell("a\x0bb") == "ab"
+    assert ascii_table.normalize_cell("a\x0cb") == "ab"
+    assert ascii_table.normalize_cell("\tok") == "        ok"
+    assert ascii_table.normalize_cell("a\nb") == "a\nb"
+
+
+def test_normalize_bytearray_none_int_datetime():
+    assert ascii_table.normalize_cell(bytearray(b"AB")) == "4142"
+    assert ascii_table.normalize_cell(None) == "None"
+    assert ascii_table.normalize_cell(1) == "1"
+    assert ascii_table.normalize_cell(datetime(2026, 10, 6)) == "2026-10-06 00:00:00"
+
+
+def test_rich_path_strips_controls(capsys):
+    _print_rows([{"c": "\x1b[31mred\x1b[0m\a\r\tok"}])
+    out = get_output(capsys)
+    assert "\x1b" not in out
+    assert "\a" not in out
+    assert "red     ok" in out
+
+
+def test_equivalence_no_color_both_paths(capsys, monkeypatch):
+    rows = [{"ID": "1", "NAME": "alice"}, {"ID": "2", "NAME": "bob"}]
+    _print_rows(rows)
+    rich = get_output(capsys)
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _print_rows(rows)
+    streamed = get_output(capsys)
+    assert rich == streamed
+    assert "\x1b" not in streamed
+
+
+def test_equivalence_no_color_both_paths_plain(capsys, monkeypatch):
+    _print_plain_rows(_PLAIN_ID_NAME_ROWS)
+    rich = get_output(capsys)
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _print_plain_rows(_PLAIN_ID_NAME_ROWS)
+    streamed = get_output(capsys)
+    assert rich == streamed
+    assert streamed == _PLAIN_ID_NAME_SNAPSHOT
+    assert "\x1b" not in streamed
+    assert "+" not in rich
+    assert "|" not in rich
+
+
+def test_equivalence_color_both_paths_strip_sgr(capsys, monkeypatch):
+    from rich import box
+    from rich.table import Table
+
+    rows = [{"ID": "1", "NAME": "alice"}, {"ID": "2", "NAME": "bob"}]
+    _force_tty(monkeypatch, 120, color=True)
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _print_rows(rows)
+    streamed = capsys.readouterr().out
+    assert "\x1b[1m" in streamed
+
+    buffer = io.StringIO()
+    console = Console(
+        file=buffer,
+        width=120,
+        height=25,
+        soft_wrap=True,
+        markup=False,
+        force_terminal=False,
+        color_system="standard",
+        no_color=False,
+    )
+    table = Table(show_header=True, box=box.ASCII)
+    table.add_column("ID", overflow="fold")
+    table.add_column("NAME", overflow="fold")
+    for row in rows:
+        table.add_row(
+            ascii_table.normalize_cell(row["ID"]),
+            ascii_table.normalize_cell(row["NAME"]),
+        )
+    console.print(table)
+    assert _strip_csi(streamed) == _strip_csi(buffer.getvalue())
+
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _force_tty(monkeypatch, 120, color=False)
+    _print_rows(rows)
+    plain = capsys.readouterr().out
+    assert "\x1b" not in plain
+
+
+def test_probe_cells_below_exact_above(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 4)
+    entered = _spy_live(monkeypatch)
+
+    _print_rows([{"a": "a", "b": "r1"}])
+    assert entered["n"] == 1
+    assert "r1" in get_output(capsys)
+
+    entered["n"] = 0
+    _print_rows([{"a": "a", "b": "r1"}, {"a": "a", "b": "r2"}])
+    assert entered["n"] == 1
+    assert "r2" in get_output(capsys)
+
+    entered["n"] = 0
+    _print_rows(
+        [
+            {"a": "a", "b": "r1"},
+            {"a": "a", "b": "r2"},
+            {"a": "a", "b": "r3"},
+        ]
+    )
+    out = get_output(capsys)
+    assert entered["n"] == 0
+    assert "r1" in out and "r2" in out and "r3" in out
+
+
+def test_plain_probe_cells_below_exact_above(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 4)
+    entered = _spy_live(monkeypatch)
+
+    _print_plain_rows([{"a": "a", "b": "r1"}])
+    out = get_output(capsys)
+    assert entered["n"] == 1
+    assert out == "a  b \na  r1\n"
+
+    entered["n"] = 0
+    _print_plain_rows([{"a": "a", "b": "r1"}, {"a": "a", "b": "r2"}])
+    out = get_output(capsys)
+    assert entered["n"] == 1
+    assert out == "a  b \na  r1\na  r2\n"
+
+    entered["n"] = 0
+    _print_plain_rows(
+        [
+            {"a": "a", "b": "r1"},
+            {"a": "a", "b": "r2"},
+            {"a": "a", "b": "r3"},
+        ]
+    )
+    out = get_output(capsys)
+    assert entered["n"] == 0
+    assert out == "a  b \na  r1\na  r2\na  r3\n"
+
+
+def test_probe_chars_below_exact_above(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CHARS", 4)
+    entered = _spy_live(monkeypatch)
+
+    _print_rows([{"c": "abc"}])
+    assert entered["n"] == 1
+    get_output(capsys)
+
+    entered["n"] = 0
+    _print_rows([{"c": "abcd"}])
+    assert entered["n"] == 1
+    get_output(capsys)
+
+    entered["n"] = 0
+    _print_rows([{"c": "abcd"}, {"c": "e"}])
+    out = get_output(capsys)
+    assert entered["n"] == 0
+    assert "abcd" in out and "| e" in out
+
+    entered["n"] = 0
+    _print_rows([{"c": "abcde"}])
+    out = get_output(capsys)
+    assert entered["n"] == 0
+    assert any(line.count("abcde") == 1 for line in out.splitlines())
+
+
+def test_probe_constants():
+    assert ascii_table.PROBE_MAX_CELLS == 20_000
+    assert ascii_table.PROBE_MAX_CHARS == 2 * 1024 * 1024
+    assert ascii_table.PIPE_MAX_COLUMN_WIDTH == 256
+
+
+def test_generator_consumed_once_not_materialized(monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 2)
+    monkeypatch.setattr(ascii_table, "WRITE_CHUNK_CHARS", 1)
+    events: list[str] = []
+
+    class _Rec(io.StringIO):
+        def write(self, s):
+            if s:
+                events.append("write")
+            return super().write(s)
+
+        def isatty(self):
+            return False
+
+    def source():
+        for index in range(6):
+            events.append(f"yield{index}")
+            yield {"a": "x"}
+
+    generated = source()
+    monkeypatch.setattr(sys, "stdout", _Rec())
+    from snowflake.cli._app.printing import _print_multiple_table_results
+
+    _print_multiple_table_results(CollectionResult(generated))
+    assert list(generated) == []
+    assert [event for event in events if event.startswith("yield")] == [
+        f"yield{index}" for index in range(6)
+    ]
+    first_write = events.index("write")
+    last_yield = max(
+        index for index, event in enumerate(events) if event.startswith("yield")
+    )
+    assert first_write < last_yield
+
+
+def test_plain_generator_consumed_once_not_materialized(monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 2)
+    monkeypatch.setattr(ascii_table, "WRITE_CHUNK_CHARS", 1)
+    events: list[str] = []
+
+    class _Rec(io.StringIO):
+        def write(self, s):
+            if s:
+                events.append("write")
+            return super().write(s)
+
+        def isatty(self):
+            return False
+
+    def source():
+        for index in range(6):
+            events.append(f"yield{index}")
+            yield {"a": "x"}
+
+    generated = source()
+    monkeypatch.setattr(sys, "stdout", _Rec())
+    from snowflake.cli._app.printing import _print_multiple_table_results
+
+    _print_multiple_table_results(
+        CollectionResult(generated), output_format=OutputFormat.PLAIN
+    )
+    assert list(generated) == []
+    assert [event for event in events if event.startswith("yield")] == [
+        f"yield{index}" for index in range(6)
+    ]
+    first_write = events.index("write")
+    last_yield = max(
+        index for index, event in enumerate(events) if event.startswith("yield")
+    )
+    assert first_write < last_yield
+
+
+def test_streamed_plain_flushes_stdout_on_pipe_without_extra_newline(monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+
+    class _FlushCountingStdout(io.StringIO):
+        def __init__(self):
+            super().__init__()
+            self.flush_calls = 0
+
+        def flush(self):
+            self.flush_calls += 1
+            return super().flush()
+
+        def isatty(self):
+            return False
+
+    stream = _FlushCountingStdout()
+    monkeypatch.setattr(sys, "stdout", stream)
+    from snowflake.cli._app.printing import _print_multiple_table_results
+
+    _print_multiple_table_results(
+        CollectionResult(_PLAIN_ID_NAME_ROWS), output_format=OutputFormat.PLAIN
+    )
+    assert stream.flush_calls == 1
+    assert stream.getvalue() == _PLAIN_ID_NAME_SNAPSHOT
+
+
+def test_unicode_cjk_emoji_combining_border(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    mark = "e\u0301"
+    _print_rows([{"cjk": "你", "emoji": "👍", "mark": mark}])
+    lines = [line for line in get_output(capsys).splitlines() if line]
+    assert len({cell_len(line) for line in lines}) == 1
+    content = [line for line in lines if line.startswith("|")]
+    assert content
+    assert all(line.endswith("|") for line in content)
+    assert cell_len("你") == 2
+    assert cell_len("👍") == 2
+    assert cell_len(mark) == 1
+    body = "\n".join(lines)
+    assert "你" in body
+    assert "👍" in body
+    assert mark in body
+
+
+def test_tty_widths_fit(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _force_tty(monkeypatch, 80, color=False)
+    _print_rows([{"h": "abcdefghij"}])
+    out = get_output(capsys)
+    assert "| abcdefghij |" in out
+    assert out.count("abcdefghij") == 1
+
+
+def test_tty_widths_waterfill(capsys, monkeypatch):
+    assert ascii_table.allocate_tty_widths([20, 10, 10], 40) == [10, 10, 10]
+    assert ascii_table.allocate_tty_widths([20, 5, 5], 20) == [8, 5, 5]
+    assert ascii_table.allocate_tty_widths([10, 10], 24) == [8, 9]
+    assert ascii_table.allocate_tty_widths([20, 20], 10) == [8, 8]
+    assert ascii_table.allocate_tty_widths([], 80) == []
+    assert ascii_table.allocate_tty_widths([], 80, plain=True) == []
+    assert ascii_table.allocate_tty_widths([80], 80) == [76]
+    assert ascii_table.allocate_tty_widths([80], 80, plain=False) == [76]
+    assert ascii_table.allocate_tty_widths([80], 80, plain=True) == [80]
+    assert sum(ascii_table.allocate_tty_widths([80, 80], 80)) == 73
+    assert sum(ascii_table.allocate_tty_widths([80, 80], 80, plain=True)) == 78
+    assert sum(ascii_table.allocate_tty_widths([80] * 8, 80, plain=True)) == 66
+
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _force_tty(monkeypatch, 40, color=False)
+    wide = "A" * 20
+    _print_rows([{"a": wide, "b": "B" * 10, "c": "C" * 10}])
+    out = get_output(capsys)
+    assert "|------------+------------+------------|" in out
+    assert out.count("A") == 20
+    assert "A" * 10 in out
+
+
+def test_plain_tty_streaming_keeps_78_char_cell_on_one_line(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _force_tty(monkeypatch, 80, color=False)
+    cell = "x" * 78
+    _print_plain_rows([{"c": cell}, {"c": cell}])
+    data_lines = [line for line in get_output(capsys).splitlines() if "x" in line]
+    assert data_lines == [cell, cell]
+
+
+def test_plain_tty_streaming_wraps_past_full_terminal_width(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _force_tty(monkeypatch, 80, color=False)
+    cell = "x" * 81
+    _print_plain_rows([{"c": cell}, {"c": cell}])
+    data_lines = [line for line in get_output(capsys).splitlines() if "x" in line]
+    assert len(data_lines) > 2
+    assert cell not in data_lines
+
+
+def test_tty_widths_floor_overflow(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _force_tty(monkeypatch, 200, color=False)
+    row = {f"{index:03d}": f"{index:03d}" for index in range(100)}
+    _print_rows([row])
+    out = get_output(capsys)
+    rule = next(
+        line
+        for line in out.splitlines()
+        if line.startswith("|") and set(line) <= set("|+-")
+    )
+    parts = rule[1:-1].split("+")
+    assert len(parts) == 100
+    assert all(len(part) == 5 for part in parts)
+    for index in range(100):
+        assert f"{index:03d}" in out
+
+
+def test_late_wide_value_tty_folds(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _force_tty(monkeypatch, 80, color=False)
+    _print_rows([{"c": "abcd"}, {"c": "abcdefghij"}])
+    out = get_output(capsys)
+    assert "| abcd |" in out
+    assert "| efgh |" in out
+    assert "| ij   |" in out
+    assert "abcdefghij" not in out
+
+
+def test_late_wide_value_pipe_overflow_no_wrap(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _print_rows([{"c": "abcd"}, {"c": "abcdefghij"}, {"c": "z"}])
+    out = get_output(capsys)
+    assert "| abcdefghij |" in out
+    assert "| z    |" in out
+    assert "| efgh |" not in out
+
+
+def test_one_mib_probe_value_pipe_and_tty(capsys, monkeypatch):
+    million = "a" * (1024 * 1024)
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    _print_rows([{"v": million}, {"v": "z"}])
+    pipe = get_output(capsys)
+    long_lines = [line for line in pipe.splitlines() if "aaa" in line]
+    assert len(long_lines) == 1
+    assert long_lines[0].count("a") == 1024 * 1024
+    assert "| " + "z".ljust(256) + " |" in pipe
+
+    _force_tty(monkeypatch, 10, color=False)
+    _print_rows([{"v": million}, {"v": "z"}])
+    tty = get_output(capsys)
+    data = [line for line in tty.splitlines() if "a" in line]
+    assert tty.count("a") == 1024 * 1024
+    assert data
+    assert all("a" * 9 not in line for line in data)
+
+
+def test_mid_stream_exception_has_no_closing_rule(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+
+    def rows():
+        yield {"a": "1"}
+        yield {"a": "2"}
+        raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="boom"):
+        _print_rows(rows())
+    out = capsys.readouterr().out
+    lines = [line for line in out.splitlines() if line]
+    assert lines[0].startswith("+")
+    assert set(lines[0]) <= set("+-")
+    assert lines[-1] != lines[0]
+    assert "| 1 |" in out
+    assert "| 2 |" in out
+
+
+def test_keyboard_interrupt_has_no_closing_rule(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+
+    def rows():
+        yield {"a": "1"}
+        yield {"a": "2"}
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        _print_rows(rows())
+    out = capsys.readouterr().out
+    lines = [line for line in out.splitlines() if line]
+    assert lines
+    assert lines[-1] != lines[0]
+    assert "| 1 |" in out
+    assert "| 2 |" in out
+
+
+def test_broken_pipe_propagates(monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+
+    class _Boom(io.StringIO):
+        def write(self, s):
+            raise BrokenPipeError
+
+        def flush(self):
+            return None
+
+        def isatty(self):
+            return False
+
+    monkeypatch.setattr(sys, "stdout", _Boom())
+    from snowflake.cli._app.printing import _print_multiple_table_results
+
+    with pytest.raises(BrokenPipeError):
+        _print_multiple_table_results(CollectionResult([{"a": "1"}, {"a": "2"}]))
+
+
+def test_multiple_results_probe_independently(capsys, monkeypatch):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    entered = _spy_live(monkeypatch)
+    print_result(
+        MultipleResults(
+            [
+                CollectionResult([{"a": "only"}]),
+                CollectionResult([{"b": "1"}, {"b": "2"}]),
+            ]
+        ),
+        output_format=OutputFormat.TABLE,
+    )
+    out = get_output(capsys)
+    assert entered["n"] == 1
+    assert "only" in out
+    assert "| 1 |" in out and "| 2 |" in out
+    assert out.count("+--") >= 2
+
+
+def test_stderr_hint_tty_only_once(capsys, monkeypatch, caplog):
+    monkeypatch.setattr(ascii_table, "PROBE_MAX_CELLS", 1)
+    caplog.set_level(logging.DEBUG, logger="snowflake.cli._app.ascii_table")
+
+    def _run():
+        _print_rows([{"a": "1"}, {"a": "2"}])
+
+    _run()
+    piped = capsys.readouterr()
+    assert ascii_table.LARGE_RESULT_HINT not in piped.err
+    assert "cells=" in caplog.text
+
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    _run()
+    _run()
+    tty = capsys.readouterr()
+    assert tty.err.count(ascii_table.LARGE_RESULT_HINT) == 1
+
+
+def test_print_result_tees_while_spool_open(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    try:
+        print_result(
+            CollectionResult([{"n": "before"}]), output_format=OutputFormat.PLAIN
+        )
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "during-a"}]), output_format=OutputFormat.PLAIN
+        )
+        print_result(
+            CollectionResult([{"n": "during-b"}]), output_format=OutputFormat.PLAIN
+        )
+        manager.close_spool()
+        print_result(
+            CollectionResult([{"n": "after"}]), output_format=OutputFormat.PLAIN
+        )
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "before" in terminal
+    assert "during-a" in terminal
+    assert "during-b" in terminal
+    assert "after" in terminal
+    assert "during-a" in contents
+    assert "during-b" in contents
+    assert "before" not in contents
+    assert "after" not in contents
+
+
+def test_print_result_spool_appends_existing_file(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    spool.write_text("existing\n", encoding="utf-8")
+    try:
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "appended"}]), output_format=OutputFormat.PLAIN
+        )
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "appended" in get_output(capsys)
+    assert contents.startswith("existing\n")
+    assert "appended" in contents
+
+
+def test_print_result_spool_json(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.json.txt"
+    try:
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "json-row"}]), output_format=OutputFormat.JSON
+        )
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "json-row" in get_output(capsys)
+    assert "json-row" in contents

@@ -29,3 +29,6 @@ plans/
 .mcp.json
 .ai/review/**/*.json
 /tests/logs/snowflake-cli.log
+
+# mission-ops artifacts
+.claude/missions/

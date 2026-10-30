@@ -16,6 +16,7 @@ import json
 import re
 from typing import Dict, List, Optional, Union
 
+from tests_common.sql_error_contract import output_contains_snowflake_sql_error
 from tests_integration.conftest import CommandResult
 from tests_integration.test_utils import contains_row_with
 
@@ -124,3 +125,24 @@ def assert_that_result_failed_with_message_containing(
 ) -> None:
     assert result.exit_code != 0, result.output
     assert msg in extract_error_box_message(result.output)
+
+
+def assert_that_result_failed_with_sql_error(
+    result: CommandResult,
+    *,
+    errno: int,
+    sqlstate: str,
+) -> None:
+    """Assert failure by Snowflake errno / SQLSTATE, not English message copy.
+
+    Matches the connector form ``001569 (22023): …`` in raw or Error-box output.
+    Accepts any non-zero exit code (default ``1``, or ``5`` with enhanced exit codes).
+    """
+    assert result.exit_code != 0, result.output
+    output = result.output or ""
+    haystack = " ".join(
+        part for part in (output, extract_error_box_message(output)) if part
+    )
+    assert output_contains_snowflake_sql_error(
+        haystack, errno=errno, sqlstate=sqlstate
+    ), f"Expected SQL error errno={errno} sqlstate={sqlstate!r} in failure output:\n{result.output}"

@@ -76,24 +76,31 @@ def unique_stage(snowflake_session):
 
 
 @pytest.fixture()
-def stage_writable_but_not_owned(snowflake_session, unique_stage, test_role):
+def stage_writable_but_not_owned(snowflake_session, test_role, test_database):
     """Create a stage the connection's role owns and *test_role* can write to.
 
-    This is the situation the deploy has to handle: the deploying role can put
-    files on the stage but cannot replace the stage itself, because it neither
-    owns the stage nor may create one in the schema. Only the grants needed to
-    reach and write to the stage are given, so the deploy has to cope without
-    CREATE STAGE.
+    Uses ``test_database`` so GRANT USAGE does not need GRANT OPTION on the
+    shared account database. The deploying role can put files on the stage
+    but cannot replace it.
     """
-    stage = f"{DATABASE}.{SCHEMA}.{unique_stage}"
+    stage_name = f"SNOW_APP_STAGE_TEST_{uuid.uuid4().hex[:8]}"
+    stage = f"{test_database}.{SCHEMA}.{stage_name}"
+    # Own the warehouse so GRANT USAGE does not need GRANT OPTION on xsmall.
+    warehouse_name = f"WH_APP_TEST_{uuid.uuid4().hex[:8]}"
     snowflake_session.execute_string(
+        f"CREATE WAREHOUSE {warehouse_name} WAREHOUSE_SIZE=XSMALL AUTO_SUSPEND=60 INITIALLY_SUSPENDED=TRUE;"
         f"CREATE STAGE {stage} ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE');"
-        f"GRANT USAGE ON DATABASE {DATABASE} TO ROLE {test_role};"
-        f"GRANT USAGE ON SCHEMA {DATABASE}.{SCHEMA} TO ROLE {test_role};"
+        f"GRANT USAGE ON DATABASE {test_database} TO ROLE {test_role};"
+        f"GRANT USAGE ON SCHEMA {test_database}.{SCHEMA} TO ROLE {test_role};"
         f"GRANT READ, WRITE ON STAGE {stage} TO ROLE {test_role};"
-        f"GRANT USAGE ON WAREHOUSE {WAREHOUSE} TO ROLE {test_role};"
+        f"GRANT USAGE ON WAREHOUSE {warehouse_name} TO ROLE {test_role};"
     )
-    return unique_stage
+    try:
+        yield stage_name, warehouse_name
+    finally:
+        snowflake_session.execute_string(
+            f"DROP STAGE IF EXISTS {stage}; DROP WAREHOUSE IF EXISTS {warehouse_name}"
+        )
 
 
 @pytest.mark.integration
@@ -102,6 +109,7 @@ def test_deploy_upload_only_uploads_to_a_stage_the_role_does_not_own(
     temporary_working_directory,
     snowflake_session,
     test_role,
+    test_database,
     stage_writable_but_not_owned,
 ):
     """A role with WRITE but not OWNERSHIP can upload to an existing stage.
@@ -111,7 +119,7 @@ def test_deploy_upload_only_uploads_to_a_stage_the_role_does_not_own(
     existed. The stage contents are cleared instead, and the stage itself has
     to survive: recreating it is exactly what this role cannot do.
     """
-    stage_name = stage_writable_but_not_owned
+    stage_name, warehouse_name = stage_writable_but_not_owned
     app_name = f"STAGE_REDEPLOY_APP_{uuid.uuid4().hex[:8]}"
 
     project_dir = Path(temporary_working_directory)
@@ -127,12 +135,12 @@ def test_deploy_upload_only_uploads_to_a_stage_the_role_does_not_own(
                 type: snowflake-app
                 identifier:
                   name: {app_name}
-                  database: {DATABASE}
+                  database: {test_database}
                   schema: {SCHEMA}
                 artifacts:
                   - src: app/*
                     dest: ./
-                query_warehouse: {WAREHOUSE}
+                query_warehouse: {warehouse_name}
                 code_stage:
                   name: {stage_name}
             """
@@ -156,7 +164,7 @@ def test_deploy_upload_only_uploads_to_a_stage_the_role_does_not_own(
     assert "main.py" in result.output
 
     (stages,) = snowflake_session.execute_string(
-        f"SHOW STAGES LIKE '{stage_name}' IN SCHEMA {DATABASE}.{SCHEMA}"
+        f"SHOW STAGES LIKE '{stage_name}' IN SCHEMA {test_database}.{SCHEMA}"
     )
     assert stages.fetchall(), f"The deploy left no stage named {stage_name}"
 

@@ -363,7 +363,10 @@ class DependenciesReporter(Reporter[Dict[str, Any]]):
 
         output = self._output_path
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(markdown)
+        # The diagram uses box-drawing characters and may include non-ASCII
+        # object names. Always write UTF-8 so Windows consoles on cp1252 can
+        # still produce a file an IDE Markdown preview can open.
+        output.write_text(markdown, encoding="utf-8")
         self._written_path = str(output.path.resolve())
         log.info(
             "Wrote DCM dependency diagram (%d nodes, %d edges) to %s.",

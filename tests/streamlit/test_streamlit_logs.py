@@ -564,6 +564,16 @@ class TestValidateSpcsV2Runtime:
         assert call_kwargs["fqn"] == self.FQN
         mock_cursor.close.assert_called_once()
 
+    def test_passes_for_newer_container_runtime(self):
+        mock_cursor = self._mock_describe_cursor("SYSTEM$ST_CONTAINER_RUNTIME_PY3_12")
+        with mock.patch(
+            "snowflake.cli._plugins.streamlit.log_streaming.ObjectManager"
+        ) as mock_cls:
+            mock_cls.return_value.describe.return_value = mock_cursor
+            validate_spcs_v2_runtime(mock.Mock(), self.FQN)
+
+        mock_cursor.close.assert_called_once()
+
     def test_raises_for_non_spcs_v2_runtime(self):
         mock_cursor = self._mock_describe_cursor(None)
         with mock.patch(

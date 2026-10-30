@@ -1,0 +1,5117 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Tests for FeatureManager — manifest-driven shape.
+
+Every Snowflake-bound command takes
+``from_dir=<dir>`` (default cwd) and ``target_name=<name>`` (default =
+manifest's ``default_target``). The manager resolves the on-disk project
+via :func:`FSProjectPaths.discover` / :meth:`FSManifest.load`
+/ :meth:`FSManifest.get_effective_target` (the same sequence as DCM), asserts the active connection's
+account matches the target's ``account_identifier``, and then
+delegates state SQL / plan generation / execution to ``decl_api``.
+
+Tests cover:
+
+* :class:`TestResolveProject` — the private resolver (account match,
+  manifest discovery, default-target resolution).
+* :class:`TestFeatureManagerInit` — manifest scaffolding + ``init-exist``
+  fail-fast.
+* :class:`TestFeatureManagerPlan` — read-only validate + plan against
+  the manifest target (no SQL strings in the manager).
+* :class:`TestWritePlan` — plan persistence under
+  ``<project_root>/out/plan/``.
+* :class:`TestApplyCommand` — the plan-file lifecycle, covering both
+  account and ``target_name`` mismatch.
+* :class:`TestFeatureManagerListSpecs` / :class:`TestFeatureManagerDescribe`
+  / :class:`TestFeatureManagerExportSpecs` — every Snowflake-bound
+  command runs through the manifest resolver.
+* :class:`TestFeatureManagerIngest` / :class:`TestFeatureManagerQuery`
+  — the library delegation contract.
+* :class:`TestSurfaceDeletions` — the deleted helpers
+  (``_expand_with_datasources``, ``_is_full_sync``) MUST stay gone.
+"""
+
+from __future__ import annotations
+
+import json
+import textwrap
+from pathlib import Path
+from typing import Optional
+from unittest import mock
+
+import pytest
+
+# ---------------------------------------------------------------------------
+# Manifest helpers — every Snowflake-bound test layouts a minimal project
+# under ``tmp_path`` and points the manager at it via ``from_dir=tmp_path``.
+# ---------------------------------------------------------------------------
+
+
+_DEFAULT_MANIFEST_YAML = textwrap.dedent(
+    """\
+    manifest_version: 1
+    type: feature_store
+    default_target: DEFAULT
+    targets:
+      DEFAULT:
+        account_identifier: TEST_ORG-TEST_ACCT
+        database: TEST_DB
+        schema: TEST_SCHEMA
+        role: TEST_ROLE
+    """
+)
+
+
+def _write_manifest(
+    project_root: Path,
+    *,
+    yaml_text: str = _DEFAULT_MANIFEST_YAML,
+) -> Path:
+    """Write *yaml_text* to ``<project_root>/manifest.yml`` and return the path."""
+    project_root.mkdir(parents=True, exist_ok=True)
+    manifest = project_root / "manifest.yml"
+    manifest.write_text(yaml_text)
+    return manifest
+
+
+# ---------------------------------------------------------------------------
+# Shared fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mock_execute_query():
+    """Patch ``FeatureManager.execute_query`` so tests don't need a real connection."""
+    with mock.patch(
+        "snowflake.cli._plugins.feature.manager.FeatureManager.execute_query"
+    ) as m:
+        m.return_value = iter([])
+        yield m
+
+
+@pytest.fixture
+def mock_decl():
+    """Patch the ``decl_api`` module the manager imports.
+
+    Most facades resolve to MagicMocks with sensible defaults; tests
+    that need a non-default behaviour overwrite the relevant attribute.
+    """
+    with mock.patch("snowflake.cli._plugins.feature.manager.decl_api") as m:
+        m.fetch_applied_state.return_value = mock.MagicMock(name="state")
+        m.validate_specs.return_value = []
+        m.generate_plan.return_value = mock.MagicMock(
+            name="plan", ops=[], warnings=[], errors=[]
+        )
+        m.serialize_plan.return_value = json.dumps(
+            {
+                "version": "1",
+                "created_at": "2026-05-11T00:00:00+00:00",
+                "target_database": "TEST_DB",
+                "target_schema": "TEST_SCHEMA",
+                "target_name": "DEFAULT",
+                "source_files": [],
+                "plan": {"ops": [], "warnings": []},
+                "summary": {},
+            }
+        )
+        m.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        m.list_state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_entities": (
+                "SHOW TAGS LIKE 'SNOWML_FEATURE_STORE_ENTITY_%' "
+                "IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        m.fetch_entity_rows.return_value = []
+        m.parse_specification_rows.return_value = None
+        m.enrich_list_results.return_value = []
+        m.list_query.return_value = (
+            "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+        )
+        m.describe_query.return_value = (
+            "SHOW ONLINE FEATURE TABLES LIKE 'test' IN SCHEMA TEST_DB.TEST_SCHEMA"
+        )
+        # Default: resolve to "not found" so describe returns the error
+        # envelope unless a test overrides it with a concrete OFT name.
+        m.resolve_oft_name.return_value = (
+            None,
+            "not found in deployed feature views",
+        )
+        m.drop_queries.return_value = [
+            'DROP ONLINE FEATURE TABLE IF EXISTS "TEST_DB"."TEST_SCHEMA"."test"'
+        ]
+        exec_result = mock.MagicMock()
+        exec_result.status = "applied"
+        exec_result.ops = []
+        exec_result.warnings = []
+        exec_result.errors = []
+        m.execute_plan.return_value = exec_result
+
+        # decl_api.export_specs / export_specs_as_python are regular functions in the
+        # real module; hand back sensible result dicts by default.
+        _export_result = {"status": "exported", "directory": "", "files": []}
+        m.export_specs.return_value = _export_result
+        m.export_specs_as_python.return_value = _export_result
+
+        # ``assert_feature_store_initialized`` is the init-first guard.
+        # ``MagicMock``
+        # special-cases any attribute that starts with ``assert_``
+        # (treats it as one of mock's built-in assertion helpers,
+        # which raises ``AttributeError`` when called), so we must
+        # assign a regular ``MagicMock`` to that name explicitly to
+        # override the auto-attribute magic.  Default behaviour:
+        # no-op (return a fake FeatureStore), i.e. "the schema is
+        # already initialised, proceed with the test".  Tests that
+        # need to drive the negative path overwrite this directly:
+        # ``mock_decl.assert_feature_store_initialized.side_effect =
+        #   decl_api.FeatureStoreNotInitializedError(...)``.
+        m.assert_feature_store_initialized = mock.MagicMock(
+            name="assert_feature_store_initialized",
+            return_value=mock.MagicMock(name="FeatureStore"),
+        )
+        yield m
+
+
+@pytest.fixture(autouse=True)
+def mock_cli_context():
+    """Patch ``get_cli_context`` for every manager test."""
+    with mock.patch("snowflake.cli._plugins.feature.manager.get_cli_context") as m:
+        ctx = mock.MagicMock()
+        ctx.connection.database = "TEST_DB"
+        ctx.connection.schema = "TEST_SCHEMA"
+        ctx.connection.warehouse = "TEST_WH"
+        ctx.connection.role = "TEST_ROLE"
+        ctx.connection.account = "TEST_ORG-TEST_ACCT"
+        # Default to a TABLE (non-structured) context so the state-fetch
+        # progress bar path is the one exercised by default; the
+        # structured-output tests flip this to True.
+        ctx.silent = False
+        m.return_value = ctx
+        yield m
+
+
+@pytest.fixture(autouse=True)
+def mock_account_identifier():
+    """Stub ``get_account_identifier`` to match the default manifest's account.
+
+    The autouse default makes the L6 account check pass for every test
+    that doesn't override it; the account-mismatch tests overwrite the
+    return value to drive the resolver into the failure branch.
+    """
+    from snowflake.cli.api.identifiers import AccountIdentifier
+
+    with mock.patch(
+        "snowflake.cli._plugins.feature.manager.get_account_identifier",
+        return_value=AccountIdentifier("TEST_ORG", "TEST_ACCT"),
+    ) as m:
+        yield m
+
+
+@pytest.fixture(autouse=True)
+def mock_build_session():
+    """Patch ``_build_session`` so tests don't construct a real Snowpark Session."""
+    with mock.patch(
+        "snowflake.cli._plugins.feature.manager.FeatureManager._build_session",
+        return_value=mock.MagicMock(name="session"),
+    ):
+        yield
+
+
+def _executed_sqls(mock_execute_query):
+    sqls = []
+    for call in mock_execute_query.call_args_list:
+        if call.args:
+            sqls.append(str(call.args[0]))
+    return sqls
+
+
+def _make_plan_json(
+    *,
+    target_database: str = "TEST_DB",
+    target_schema: str = "TEST_SCHEMA",
+    target_name: str = "DEFAULT",
+) -> str:
+    """Return a minimal valid PlanFile JSON envelope."""
+    return json.dumps(
+        {
+            "version": "1",
+            "created_at": "2026-05-11T00:00:00+00:00",
+            "target_database": target_database,
+            "target_schema": target_schema,
+            "target_name": target_name,
+            "source_files": ["fv.yaml"],
+            "plan": {"ops": [], "warnings": []},
+            "summary": {},
+        }
+    )
+
+
+def _make_plans_dir(project_root: Path) -> Path:
+    """Create ``<project_root>/out/plan/`` and return the Path."""
+    plans_dir = project_root / "out" / "plan"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    return plans_dir
+
+
+# ===========================================================================
+# _resolve_project — the new private helper
+# ===========================================================================
+
+
+class TestResolveProject:
+    """``FeatureManager._resolve_project(from_dir, target_name)`` walks
+    up from ``from_dir`` to find ``manifest.yml``, loads it, resolves
+    the named target (or ``default_target``), and asserts the active
+    connection's account_identifier matches the target's."""
+
+    def test_resolve_project_returns_paths_manifest_target_triple(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Happy path: returns ``(FSProjectPaths, FSManifest, FSTarget)``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli._plugins.feature.models import (
+            FSManifest,
+            FSProjectPaths,
+            FSTarget,
+        )
+
+        _write_manifest(tmp_path)
+
+        paths, manifest, target = FeatureManager()._resolve_project(  # noqa: SLF001
+            from_dir=tmp_path, target_name=None
+        )
+
+        assert isinstance(paths, FSProjectPaths)
+        assert isinstance(manifest, FSManifest)
+        assert isinstance(target, FSTarget)
+        assert paths.project_root == tmp_path.resolve()
+
+    def test_resolve_project_uses_default_target_when_target_name_none(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``target_name=None`` resolves to the manifest's ``default_target``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        _, _, target = FeatureManager()._resolve_project(  # noqa: SLF001
+            from_dir=tmp_path, target_name=None
+        )
+        assert target.name == "DEFAULT"
+
+    def test_resolve_project_target_lookup_is_case_insensitive(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Target names normalise via ``upper()`` (mirrors DCM behavior)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(
+            tmp_path,
+            yaml_text=textwrap.dedent(
+                """\
+                manifest_version: 1
+                type: feature_store
+                default_target: PROD
+                targets:
+                  DEV:
+                    account_identifier: TEST_ORG-TEST_ACCT
+                    database: TEST_DB
+                    schema: TEST_SCHEMA
+                  PROD:
+                    account_identifier: TEST_ORG-TEST_ACCT
+                    database: TEST_DB
+                    schema: TEST_SCHEMA
+                """
+            ),
+        )
+        _, _, target = FeatureManager()._resolve_project(  # noqa: SLF001
+            from_dir=tmp_path, target_name="dev"
+        )
+        assert target.name == "DEV"
+
+    def test_resolve_project_missing_manifest_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Absent ``manifest.yml`` → ``CliError`` naming the start path."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError) as excinfo:
+            FeatureManager()._resolve_project(  # noqa: SLF001
+                from_dir=tmp_path, target_name=None
+            )
+        msg = str(excinfo.value)
+        assert "manifest.yml" in msg or "manifest" in msg.lower()
+
+    def test_resolve_project_account_mismatch_raises_cli_error(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        """Account mismatch → ``CliError`` naming both sides."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+        from snowflake.cli.api.identifiers import AccountIdentifier
+
+        _write_manifest(tmp_path)
+        # Connection reports a different account than the manifest target.
+        mock_account_identifier.return_value = AccountIdentifier(
+            "OTHER_ORG", "OTHER_ACCT"
+        )
+
+        with pytest.raises(CliError) as excinfo:
+            FeatureManager()._resolve_project(  # noqa: SLF001
+                from_dir=tmp_path, target_name=None
+            )
+        msg = str(excinfo.value)
+        # The error must name both account identifiers so operators can
+        # see exactly which side is wrong.
+        assert "OTHER_ORG" in msg or "OTHER_ACCT" in msg
+        assert "TEST_ORG" in msg or "TEST_ACCT" in msg
+
+    def test_resolve_project_account_mismatch_raises_account_mismatch_error(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        """The account guard raises the dedicated ``AccountMismatchError``
+        (a ``CliError`` subclass) so callers like ``apply`` can catch *only*
+        the account case and let real manifest errors propagate."""
+        from snowflake.cli._plugins.feature.exceptions import AccountMismatchError
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+        from snowflake.cli.api.identifiers import AccountIdentifier
+
+        _write_manifest(tmp_path)
+        mock_account_identifier.return_value = AccountIdentifier(
+            "OTHER_ORG", "OTHER_ACCT"
+        )
+
+        with pytest.raises(AccountMismatchError) as excinfo:
+            FeatureManager()._resolve_project(  # noqa: SLF001
+                from_dir=tmp_path, target_name=None
+            )
+        assert isinstance(excinfo.value, CliError)
+
+    def test_resolve_project_malformed_account_identifier_raises_cli_error(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        """If ``AccountIdentifier.from_string`` raises while parsing the
+        target's ``account_identifier`` (e.g. a non-string leaked through),
+        ``_resolve_project`` maps it to ``CliError`` rather than surfacing a
+        raw ``TypeError`` traceback. It is *not* an ``AccountMismatchError``
+        (the account never parsed, so there is nothing to compare)."""
+        from snowflake.cli._plugins.feature.exceptions import AccountMismatchError
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+
+        with mock.patch(
+            "snowflake.cli._plugins.feature.manager.AccountIdentifier.from_string",
+            side_effect=TypeError("argument of type 'int' is not iterable"),
+        ):
+            with pytest.raises(CliError) as excinfo:
+                FeatureManager()._resolve_project(  # noqa: SLF001
+                    from_dir=tmp_path, target_name=None
+                )
+        assert not isinstance(excinfo.value, AccountMismatchError)
+
+    def test_resolve_project_unknown_target_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Asking for a target the manifest does not declare → ``CliError``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        with pytest.raises(CliError):
+            FeatureManager()._resolve_project(  # noqa: SLF001
+                from_dir=tmp_path, target_name="MISSING"
+            )
+
+    def test_resolve_project_does_not_walk_up_to_find_manifest(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``_resolve_project`` does NOT walk ancestors (DCM parity): a
+        nested ``from_dir`` must not bind to a parent ``manifest.yml``; it
+        raises ``CliError`` instead of silently discovering the parent."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        nested = tmp_path / "sub" / "deep"
+        nested.mkdir(parents=True)
+        with pytest.raises(CliError):
+            FeatureManager()._resolve_project(  # noqa: SLF001
+                from_dir=nested, target_name=None
+            )
+
+    def test_resolve_project_resolves_manifest_in_from_dir(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The happy path: ``from_dir`` itself contains ``manifest.yml``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        paths, _, _ = FeatureManager()._resolve_project(  # noqa: SLF001
+            from_dir=tmp_path, target_name=None
+        )
+        assert paths.project_root == tmp_path.resolve()
+
+
+# ===========================================================================
+# init — manifest scaffolding + init-exist fail-fast
+# ===========================================================================
+
+
+class TestFeatureManagerInit:
+    """``FeatureManager.init`` is the single bootstrap entry point.
+
+    The init-subsumes-export contract is:
+
+    1. Always operate in CWD (no ``from_dir``).  Callers pass a project
+       root via ``project_root``; the new Typer command always resolves
+       it to ``Path.cwd()``.
+    2. ``--no-scaffold`` is gone.  Init is idempotent end-to-end: the
+       manifest is written only when absent, but the FS bootstrap and
+       the export-into-``sources/`` always re-run.
+    3. ``--target NAME`` names the manifest target on a fresh init
+       (default ``DEFAULT``); on a re-init it picks which existing
+       manifest target to export from.
+    4. ``--database`` / ``--schema`` override the active connection's
+       defaults when a fresh manifest is being scaffolded.  They are
+       ignored on a re-init (the manifest is the source of truth).
+    5. After scaffolding, the export pipeline lands its YAMLs under
+       ``<project_root>/sources/{entities,datasources,feature_views}/``
+       via ``decl_api.export_specs(..., layout="sources")``.
+    """
+
+    def _patch_feature_store(self):
+        """Convenience: patch the imperative ``FeatureStore`` + ``CreationMode``."""
+        return (
+            mock.patch("snowflake.ml.feature_store.feature_store.FeatureStore"),
+            mock.patch("snowflake.ml.feature_store.feature_store.CreationMode"),
+        )
+
+    # ------------------------------------------------------------------
+    # Fresh init — manifest creation
+    # ------------------------------------------------------------------
+
+    def test_init_writes_manifest_yml(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Happy path: a fresh ``init`` writes a parseable ``manifest.yml``."""
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        manifest_path = tmp_path / "manifest.yml"
+        assert manifest_path.is_file()
+        parsed = yaml.safe_load(manifest_path.read_text())
+        assert parsed["manifest_version"] == 1
+        assert parsed["type"] == "feature_store"
+        assert parsed["default_target"] == "DEFAULT"
+        assert "DEFAULT" in parsed["targets"]
+
+    def test_init_populates_manifest_from_active_connection(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_cli_context,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        """db / schema / role come from the connection;
+        ``account_identifier`` comes from
+        :func:`get_account_identifier` (canonical ``<ORG>-<ACCOUNT>``).
+        """
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.identifiers import AccountIdentifier
+
+        mock_cli_context.return_value.connection.account = "my_acct"
+        mock_cli_context.return_value.connection.database = "MY_DB"
+        mock_cli_context.return_value.connection.schema = "MY_SCHEMA"
+        mock_cli_context.return_value.connection.role = "MY_ROLE"
+        mock_account_identifier.return_value = AccountIdentifier("MY_ORG", "MY_ACCT")
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
+        target = parsed["targets"]["DEFAULT"]
+        assert target["account_identifier"] == "MY_ORG-MY_ACCT"
+        assert target["database"] == "MY_DB"
+        assert target["schema"] == "MY_SCHEMA"
+        assert target["role"] == "MY_ROLE"
+
+    def test_init_account_identifier_falls_back_when_query_fails(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_cli_context,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        """If :func:`get_account_identifier` raises, init still writes a
+        manifest using the connection's ``account`` so the operator can
+        edit it.
+        """
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_cli_context.return_value.connection.account = "fallback_acct"
+        mock_account_identifier.side_effect = RuntimeError("simulated session failure")
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
+        assert parsed["targets"]["DEFAULT"]["account_identifier"] == "fallback_acct"
+
+    def test_init_does_not_write_warehouse_field(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``warehouse`` MUST NOT appear in the generated manifest."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        text = (tmp_path / "manifest.yml").read_text()
+        assert "warehouse" not in text.lower()
+
+    # ------------------------------------------------------------------
+    # Fresh init — --target / --database / --schema overrides
+    # ------------------------------------------------------------------
+
+    def test_init_target_name_overrides_default_in_fresh_manifest(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``--target STAGING`` names the only target ``STAGING`` (not
+        ``DEFAULT``) and sets it as ``default_target`` on a brand-new
+        manifest."""
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, target_name="STAGING")
+
+        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
+        assert parsed["default_target"] == "STAGING"
+        assert "STAGING" in parsed["targets"]
+        assert "DEFAULT" not in parsed["targets"]
+
+    def test_init_database_and_schema_overrides_supersede_connection(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``--database`` / ``--schema`` win over the active connection's
+        defaults when scaffolding a brand-new manifest."""
+        import yaml
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_cli_context.return_value.connection.database = "CONN_DB"
+        mock_cli_context.return_value.connection.schema = "CONN_SCHEMA"
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(
+                project_root=tmp_path,
+                database="OVERRIDE_DB",
+                schema="OVERRIDE_SCHEMA",
+            )
+
+        parsed = yaml.safe_load((tmp_path / "manifest.yml").read_text())
+        target = parsed["targets"][parsed["default_target"]]
+        assert target["database"] == "OVERRIDE_DB"
+        assert target["schema"] == "OVERRIDE_SCHEMA"
+
+    def test_init_overrides_drive_feature_store_and_export(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Overrides flow into both the FS bootstrap AND the export call."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_cli_context.return_value.connection.database = "CONN_DB"
+        mock_cli_context.return_value.connection.schema = "CONN_SCHEMA"
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(
+                project_root=tmp_path,
+                database="OVERRIDE_DB",
+                schema="OVERRIDE_SCHEMA",
+                python=False,
+            )
+
+        # FeatureStore is built against the override db/schema.
+        positional = mock_fs_cls.call_args.args
+        assert "OVERRIDE_DB" in positional
+        assert "OVERRIDE_SCHEMA" in positional
+
+        # Export is called against the override db/schema, in sources layout.
+        export_call = mock_decl.export_specs.call_args
+        assert export_call is not None, "init must run the export pipeline"
+        # signature: (show_rows, describe, output_dir, db, schema, **kwargs)
+        assert export_call.args[3] == "OVERRIDE_DB"
+        assert export_call.args[4] == "OVERRIDE_SCHEMA"
+        assert export_call.kwargs.get("layout") == "sources"
+
+    # ------------------------------------------------------------------
+    # Fresh init — empty-identifier guard + write-after-bootstrap ordering
+    # ------------------------------------------------------------------
+
+    def test_init_refuses_when_connection_database_missing(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """A connection with no default database (and no ``--database``) must
+        fail closed: ``CliError``, no ``manifest.yml`` written, and no
+        ``FeatureStore`` bootstrap.
+
+        Regression guard: writing ``database: ""`` into the manifest made the
+        project unrecoverable (``manifest_existed`` short-circuits the
+        fresh-init branch, so a later ``--database X`` never re-runs it).
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        mock_cli_context.return_value.connection.database = None
+        mock_cli_context.return_value.connection.schema = "CONN_SCHEMA"
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            with pytest.raises(CliError, match="database"):
+                FeatureManager().init(project_root=tmp_path)
+
+        assert not (tmp_path / "manifest.yml").exists()
+        mock_fs_cls.assert_not_called()
+
+    def test_init_refuses_when_connection_schema_missing(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """A connection with no default schema (and no ``--schema``) fails
+        closed the same way as a missing database."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        mock_cli_context.return_value.connection.database = "CONN_DB"
+        mock_cli_context.return_value.connection.schema = ""
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            with pytest.raises(CliError, match="schema"):
+                FeatureManager().init(project_root=tmp_path)
+
+        assert not (tmp_path / "manifest.yml").exists()
+        mock_fs_cls.assert_not_called()
+
+    def test_init_refuses_when_account_identifier_empty(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_cli_context,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        """An unresolvable account (canonical query fails and connection
+        ``account`` is empty) fails closed rather than persisting
+        ``account_identifier: ""``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        mock_cli_context.return_value.connection.account = ""
+        mock_account_identifier.side_effect = RuntimeError("no session")
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            with pytest.raises(CliError, match="account"):
+                FeatureManager().init(project_root=tmp_path)
+
+        assert not (tmp_path / "manifest.yml").exists()
+        mock_fs_cls.assert_not_called()
+
+    def test_init_refuses_whitespace_only_database_override(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """A whitespace-only ``--database`` is treated as missing (stripped),
+        so it is rejected instead of persisting a blank target."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            with pytest.raises(CliError, match="database"):
+                FeatureManager().init(project_root=tmp_path, database="   ")
+
+        assert not (tmp_path / "manifest.yml").exists()
+        mock_fs_cls.assert_not_called()
+
+    def test_init_does_not_write_manifest_when_bootstrap_fails(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The manifest is persisted only after the ``FeatureStore`` bootstrap
+        succeeds, so a failed init leaves no partial project state."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            mock_fs_cls.side_effect = RuntimeError("bootstrap boom")
+            with pytest.raises(RuntimeError, match="bootstrap boom"):
+                FeatureManager().init(project_root=tmp_path)
+
+        assert not (tmp_path / "manifest.yml").exists()
+
+    # ------------------------------------------------------------------
+    # Scaffold side effects (always-on; no --no-scaffold escape).
+    # ------------------------------------------------------------------
+
+    def test_init_scaffolds_sources_subdirs(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``sources/{entities,datasources,feature_views}/`` exist after init."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        for sub in ("entities", "datasources", "feature_views"):
+            assert (
+                tmp_path / "sources" / sub
+            ).is_dir(), f"Expected sources/{sub}/ to exist after init scaffold"
+
+    def test_init_writes_out_plan_gitkeep(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``out/plan/.gitkeep`` is written so plan-discovery is tracked."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        gitkeep = tmp_path / "out" / "plan" / ".gitkeep"
+        assert gitkeep.is_file()
+
+    def test_init_calls_feature_store_with_create_if_not_exist(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Snowflake-side init runs ``FeatureStore(..., CREATE_IF_NOT_EXIST)``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_fs_cls.assert_called_once()
+        kwargs = mock_fs_cls.call_args[1]
+        assert kwargs["creation_mode"] == mock_cm.CREATE_IF_NOT_EXIST
+
+    def test_init_runs_export_into_sources_layout(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Init pulls deployed artifacts into ``<project_root>/sources/``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        # Python is the default export form, so a bare init() routes to
+        # export_specs_as_python.
+        mock_decl.export_specs_as_python.assert_called_once()
+        call = mock_decl.export_specs_as_python.call_args
+        # The output dir handed to decl_api.export_specs is the project
+        # root (NOT a per-DB subdir): the exporter then writes into
+        # <project_root>/sources/{...}/ when layout="sources".
+        output_dir = call.args[2]
+        assert Path(output_dir) == tmp_path.resolve()
+        assert call.kwargs.get("layout") == "sources"
+
+    def test_init_returns_status_initialized(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """init() returns ``{status, project_root, manifest_path, target, export}``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = FeatureManager().init(project_root=tmp_path)
+
+        assert result["status"] == "initialized"
+        assert Path(result["project_root"]) == tmp_path.resolve()
+        assert Path(result["manifest_path"]) == (tmp_path / "manifest.yml").resolve()
+        assert result["target"] == "DEFAULT"
+        # Export envelope is surfaced so the operator sees what landed.
+        assert "export" in result
+        assert result["export"]["status"] == "exported"
+
+    # ------------------------------------------------------------------
+    # Idempotent re-init — manifest preserved, FS + export re-run.
+    # ------------------------------------------------------------------
+
+    def test_init_with_existing_manifest_does_not_overwrite_it(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """A re-init must NEVER overwrite an existing ``manifest.yml``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        original = _DEFAULT_MANIFEST_YAML
+        _write_manifest(tmp_path, yaml_text=original)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        # Bytes-identical preservation.
+        assert (tmp_path / "manifest.yml").read_text() == original
+
+    def test_init_with_existing_manifest_returns_skipped_manifest_status(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The result envelope flags that the manifest write was skipped."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = FeatureManager().init(project_root=tmp_path)
+
+        # Status reports the idempotent re-init shape.
+        assert result["status"] == "initialized"
+        assert result["manifest_written"] is False
+
+    def test_init_with_existing_manifest_still_runs_feature_store_bootstrap(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """FS bootstrap must re-run on a re-init (idempotent CREATE_IF_NOT_EXIST)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_fs_cls.assert_called_once()
+        kwargs = mock_fs_cls.call_args[1]
+        assert kwargs["creation_mode"] == mock_cm.CREATE_IF_NOT_EXIST
+
+    def test_init_with_existing_manifest_still_runs_export(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Export must re-run on a re-init so artifacts stay fresh."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=False)
+
+        mock_decl.export_specs.assert_called_once()
+        assert mock_decl.export_specs.call_args.kwargs.get("layout") == "sources"
+
+    def test_init_with_existing_manifest_rejects_mismatched_database_override(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Re-init with ``--database`` that differs from the resolved
+        manifest target raises ``CliError`` instead of silently
+        ignoring the override.
+
+        Locks in the reject-on-conflict policy: the manifest is the
+        source of truth on re-init, so a non-matching override is a
+        user error the CLI must surface (with an actionable directive
+        to edit ``manifest.yml`` or pick a different ``--target``).
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)  # manifest target = TEST_DB / TEST_SCHEMA
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            with pytest.raises(CliError, match="manifest"):
+                FeatureManager().init(
+                    project_root=tmp_path,
+                    database="OTHER_DB",
+                )
+
+        # No side-effects on rejection: FS bootstrap and export must
+        # not run.
+        mock_fs_cls.assert_not_called()
+        mock_decl.export_specs.assert_not_called()
+
+    def test_init_with_existing_manifest_rejects_mismatched_schema_override(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Re-init with ``--schema`` that differs from the resolved
+        manifest target raises ``CliError`` (mirror of the
+        ``--database`` mismatch test).
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)  # manifest target = TEST_DB / TEST_SCHEMA
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            with pytest.raises(CliError, match="manifest"):
+                FeatureManager().init(
+                    project_root=tmp_path,
+                    schema="OTHER_SCHEMA",
+                )
+
+        mock_fs_cls.assert_not_called()
+        mock_decl.export_specs.assert_not_called()
+
+    def test_init_with_existing_manifest_matching_overrides_is_noop(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Re-init with ``--database`` / ``--schema`` values that match
+        the resolved manifest target is accepted (no ``CliError``).
+
+        Matching overrides are operationally a no-op — the FS bootstrap
+        and export still run against the manifest target's values, the
+        manifest file is left untouched.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)  # manifest target = TEST_DB / TEST_SCHEMA
+        manifest_before = (tmp_path / "manifest.yml").read_bytes()
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch as mock_fs_cls, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(
+                project_root=tmp_path,
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+                python=False,
+            )
+
+        # FS bootstrap + export run against the manifest target.
+        export_call = mock_decl.export_specs.call_args
+        assert export_call.args[3] == "TEST_DB"
+        assert export_call.args[4] == "TEST_SCHEMA"
+        positional = mock_fs_cls.call_args.args
+        assert "TEST_DB" in positional
+        assert "TEST_SCHEMA" in positional
+
+        # Manifest is preserved bytes-identical.
+        assert (tmp_path / "manifest.yml").read_bytes() == manifest_before
+
+    def test_init_with_existing_manifest_resolves_named_target(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``--target NAME`` on a re-init picks the matching manifest target."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        multi_target_yaml = textwrap.dedent(
+            """\
+            manifest_version: 1
+            type: feature_store
+            default_target: DEFAULT
+            targets:
+              DEFAULT:
+                account_identifier: TEST_ORG-TEST_ACCT
+                database: TEST_DB
+                schema: TEST_SCHEMA
+              STAGING:
+                account_identifier: TEST_ORG-TEST_ACCT
+                database: STAGING_DB
+                schema: STAGING_SCHEMA
+            """
+        )
+        _write_manifest(tmp_path, yaml_text=multi_target_yaml)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(
+                project_root=tmp_path, target_name="STAGING", python=False
+            )
+
+        export_call = mock_decl.export_specs.call_args
+        assert export_call.args[3] == "STAGING_DB"
+        assert export_call.args[4] == "STAGING_SCHEMA"
+
+    def test_init_is_idempotent_on_repeated_calls(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Two consecutive ``init`` calls produce the same on-disk shape."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+            first_text = (tmp_path / "manifest.yml").read_text()
+            FeatureManager().init(project_root=tmp_path)
+            second_text = (tmp_path / "manifest.yml").read_text()
+
+        assert first_text == second_text
+        for sub in ("entities", "datasources", "feature_views"):
+            assert (tmp_path / "sources" / sub).is_dir()
+
+    # ------------------------------------------------------------------
+    # Surface deletions — old kwargs are gone.
+    # ------------------------------------------------------------------
+
+    def test_init_no_longer_accepts_no_scaffold_kwarg(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The ``--no-scaffold`` escape hatch is removed."""
+        import inspect
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        sig = inspect.signature(FeatureManager.init)
+        assert "no_scaffold" not in sig.parameters
+
+    def test_init_no_longer_accepts_from_dir_kwarg(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The ``--from`` / ``from_dir`` arg is removed; init runs in CWD."""
+        import inspect
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        sig = inspect.signature(FeatureManager.init)
+        assert "from_dir" not in sig.parameters
+
+
+# ===========================================================================
+# init --python flag
+# ===========================================================================
+
+
+class TestInitPythonFlag:
+    """``FeatureManager.init(python=True)`` routes to export_specs_as_python."""
+
+    def _patch_feature_store(self):
+        return (
+            mock.patch("snowflake.ml.feature_store.feature_store.FeatureStore"),
+            mock.patch("snowflake.ml.feature_store.feature_store.CreationMode"),
+        )
+
+    def test_python_true_calls_export_specs_as_python(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """When python=True, export_specs_as_python must be called."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=True)
+
+        mock_decl.export_specs_as_python.assert_called_once()
+
+    def test_python_true_does_not_call_export_specs(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """When python=True, the YAML export_specs must NOT be called."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=True)
+
+        mock_decl.export_specs.assert_not_called()
+
+    def test_python_false_calls_export_specs_not_python_variant(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Explicit python=False must call export_specs, not export_specs_as_python."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=False)
+
+        mock_decl.export_specs.assert_called_once()
+        mock_decl.export_specs_as_python.assert_not_called()
+
+    def test_default_calls_export_specs_as_python(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Default (no python= kwarg) must call export_specs_as_python."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.export_specs_as_python.assert_called_once()
+        mock_decl.export_specs.assert_not_called()
+
+    def test_python_true_uses_sources_layout(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Python export must use layout='sources' like the YAML path."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=True)
+
+        call = mock_decl.export_specs_as_python.call_args
+        assert call.kwargs.get("layout") == "sources"
+
+    def test_python_true_result_includes_export_envelope(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """Result dict must include the export envelope even in python mode."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            result = FeatureManager().init(project_root=tmp_path, python=True)
+
+        assert result["status"] == "initialized"
+        assert "export" in result
+        assert result["export"]["status"] == "exported"
+
+
+# ===========================================================================
+# plan — read-only validate + plan against the manifest target
+# ===========================================================================
+
+
+class TestFeatureManagerPlan:
+    """``FeatureManager.plan`` runs ``decl_api.load_project`` (manifest-driven
+    spec load) → ``validate_specs`` → ``generate_plan``.  No SQL strings.
+    """
+
+    def test_plan_returns_status_ready_when_no_validation_errors(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.enums import OpKind
+
+        _write_manifest(tmp_path)
+        op = mock.MagicMock()
+        op.kind = OpKind.NO_CHANGE
+        op.name = "USER"
+        op.reason = ""
+        op.destructive = False
+        plan_obj = mock.MagicMock(name="plan", ops=[op], warnings=[])
+        mock_decl.generate_plan.return_value = plan_obj
+
+        result, _plan = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        assert result["status"] == "ready"
+        assert result["errors"] == []
+        assert len(result["ops"]) == 1
+
+    def test_plan_defaults_to_no_delete_full_directory_mode_off(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The manager defaults ``no_delete=True`` so a plain ``plan`` maps to
+        ``PlanOptions(full_directory_mode=False)`` — orphaned objects are left
+        untouched unless the caller opts in."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        options = mock_decl.generate_plan.call_args.args[2]
+        assert options.full_directory_mode is False
+
+    def test_plan_no_delete_false_enables_full_directory_mode(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A user can flip deletions on: ``no_delete=False`` maps to
+        ``PlanOptions(full_directory_mode=True)`` so orphan ``DROP_*`` ops are
+        emitted."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+            no_delete=False,
+        )
+
+        options = mock_decl.generate_plan.call_args.args[2]
+        assert options.full_directory_mode is True
+
+    def test_plan_ops_lead_with_object_type_before_name(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The plan UI ops carry the object ``type`` (BatchFeatureView /
+        Entity / ...) as the first key before ``name`` so the rendered
+        table matches ``snow feature list``.  Uses the real
+        ``format_op_display_row`` facade to pin the wiring."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.api import format_op_display_row
+        from snowflake.ml.feature_store.decl.enums import OpKind
+        from snowflake.ml.feature_store.decl.types import PlanOp
+
+        _write_manifest(tmp_path)
+        ops = [
+            PlanOp(
+                kind=OpKind.CREATE_FV,
+                name="MY_BFV",
+                payload={"kind": "BatchFeatureView", "name": "MY_BFV"},
+            ),
+            PlanOp(
+                kind=OpKind.CREATE_ENTITY,
+                name="USER_ID",
+                payload={"kind": "Entity", "name": "USER_ID"},
+            ),
+        ]
+        mock_decl.generate_plan.return_value = mock.MagicMock(
+            name="plan", ops=ops, warnings=[]
+        )
+        mock_decl.format_op_display_row.side_effect = format_op_display_row
+
+        result, _plan = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        assert [op["type"] for op in result["ops"]] == ["BatchFeatureView", "Entity"]
+        assert all(list(op.keys())[:2] == ["type", "name"] for op in result["ops"])
+
+    def test_plan_returns_validation_failed_when_validate_specs_returns_errors(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        err = mock.MagicMock()
+        err.severity = "ERROR"
+        err.code = "VERSION_CONFLICT"
+        err.message = "Version conflict on FV X"
+        mock_decl.validate_specs.return_value = [err]
+
+        result, _plan = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+        assert result["status"] == "validation_failed"
+        # Findings pass through as objects (no ``str()`` in the envelope).
+        assert result["errors"][0] is err
+        assert result["errors"][0].code == "VERSION_CONFLICT"
+        mock_decl.generate_plan.assert_not_called()
+
+    def test_plan_returns_validation_failed_when_plan_has_errors(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Planner-side ``plan.errors`` (e.g. ``FG_MEMBER_STILL_REFERENCED``)
+        surface as ``validation_failed`` with an empty op stream, mirroring
+        ``validate_specs`` ERRORs."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        err = mock.MagicMock()
+        err.severity = "ERROR"
+        err.code = "FG_MEMBER_STILL_REFERENCED"
+        err.message = "FG still references member"
+        mock_decl.validate_specs.return_value = []
+        mock_decl.generate_plan.return_value = mock.MagicMock(
+            name="plan", ops=[], warnings=[], errors=[err]
+        )
+
+        result, _plan = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+        assert result["status"] == "validation_failed"
+        assert result["errors"]
+        assert result["ops"] == []
+
+    def test_plan_returns_plan_object_alongside_envelope(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan`` returns ``(envelope, plan)`` so the command can serialize
+        the *same* generated plan the operator saw.  The envelope stays the UI
+        dict; the second item is the ``generate_plan`` result."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plan_obj = mock.MagicMock(name="plan", ops=[], warnings=[], errors=[])
+        mock_decl.generate_plan.return_value = plan_obj
+
+        envelope, plan = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+        assert envelope["status"] == "ready"
+        assert plan is plan_obj
+
+    def test_plan_returns_none_plan_on_validation_failed(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """When validation fails, the second tuple element is ``None`` so a
+        caller can never serialize an error plan."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        err = mock.MagicMock()
+        err.severity = "ERROR"
+        err.code = "VERSION_CONFLICT"
+        err.message = "boom"
+        mock_decl.validate_specs.return_value = [err]
+
+        envelope, plan = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+        assert envelope["status"] == "validation_failed"
+        assert plan is None
+
+    def test_plan_loads_project_via_decl_api(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan`` MUST go through ``decl_api.load_project`` (manifest-aware)
+        rather than the legacy ``load_specs(input_files, ...)`` path."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        mock_decl.load_project.assert_called_once()
+
+    def test_plan_runtime_variables_flow_through_to_load_project(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``--variable key=value`` → parsed dict → ``load_project(runtime_vars=...)``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=["env_suffix=_DEV", "tenant=acme"],
+            destructive=False,
+        )
+
+        call_kwargs = mock_decl.load_project.call_args.kwargs
+        runtime_vars = call_kwargs.get("runtime_vars") or {}
+        assert runtime_vars.get("env_suffix") == "_DEV"
+        assert runtime_vars.get("tenant") == "acme"
+
+    def test_plan_default_target_used_when_target_name_omitted(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Omitting ``target_name`` selects the manifest's ``default_target``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        result, _plan = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        # The result envelope carries the resolved target name so the
+        # CLI header can render it.
+        assert result.get("target_name") == "DEFAULT"
+
+    def test_plan_target_info_uses_manifest_db_schema_and_connection_warehouse(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """db/schema from manifest target; warehouse from connection."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(
+            tmp_path,
+            yaml_text=textwrap.dedent(
+                """\
+                manifest_version: 1
+                type: feature_store
+                default_target: DEFAULT
+                targets:
+                  DEFAULT:
+                    account_identifier: TEST_ORG-TEST_ACCT
+                    database: MANIFEST_DB
+                    schema: MANIFEST_SCHEMA
+                """
+            ),
+        )
+
+        result, _plan = FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        assert result["target_database"] == "MANIFEST_DB"
+        assert result["target_schema"] == "MANIFEST_SCHEMA"
+        assert result["target_warehouse"] == "TEST_WH"
+
+    def test_plan_missing_manifest_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                destructive=False,
+            )
+
+    def test_plan_account_mismatch_raises_cli_error(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+        from snowflake.cli.api.identifiers import AccountIdentifier
+
+        _write_manifest(tmp_path)
+        mock_account_identifier.return_value = AccountIdentifier(
+            "OTHER_ORG", "OTHER_ACCT"
+        )
+
+        with pytest.raises(CliError):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                destructive=False,
+            )
+
+    # ------------------------------------------------------------------
+    # The manager fetches SHOW DYNAMIC TABLES and threads the resulting
+    # ``dt_text_map`` into ``fetch_applied_state`` so that the planner can
+    # recover the offline source-table binding for BatchFVs that lose it
+    # in the ``DESCRIBE … TYPE = SPECIFICATION`` round-trip.
+    # ------------------------------------------------------------------
+
+    def test_plan_executes_show_dynamic_tables_query(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan`` MUST run the ``show_dynamic_tables`` SQL exposed by
+        :func:`decl_api.state_queries` so the offline DT DDL can later be
+        threaded into ``fetch_applied_state``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        executed = _executed_sqls(mock_execute_query)
+        assert any(
+            "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA" in s for s in executed
+        ), (
+            "plan() must execute the show_dynamic_tables SQL from "
+            "decl_api.state_queries so the offline DT DDL is fetched"
+        )
+
+    def test_plan_threads_dt_text_map_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The DT DDL rows MUST be normalised into a ``{name: text}`` dict
+        and passed to ``fetch_applied_state(..., dt_text_map=...)`` so the
+        BatchFV source-table binding can be recovered."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+
+        dt_row = {
+            "name": "MY_BATCH_FV$V1",
+            "text": (
+                "CREATE DYNAMIC TABLE MY_BATCH_FV$V1 TARGET_LAG = '1 minute' "
+                "AS SELECT * FROM TEST_DB.TEST_SCHEMA.RAW_EVENTS"
+            ),
+        }
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "SHOW DYNAMIC TABLES" in str(sql):
+                return iter([dt_row])
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        dt_text_map = call.kwargs.get("dt_text_map")
+        assert isinstance(dt_text_map, dict) and dt_text_map, (
+            "fetch_applied_state must receive a non-empty dt_text_map "
+            "keyed by DT name; got %r" % dt_text_map
+        )
+        assert "MY_BATCH_FV$V1" in dt_text_map
+        assert "RAW_EVENTS" in dt_text_map["MY_BATCH_FV$V1"]
+
+    def test_plan_threads_datasources_by_table_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan`` MUST build a ``datasources_by_table`` lookup from the
+        locally-loaded ``BatchSource`` specs and pass it to
+        :func:`decl_api.fetch_applied_state` — without this the decl-side
+        BatchFV source-name recovery falls back to using the recovered
+        physical table name as ``sources[0].name``, breaking
+        ``MISSING_SOURCE`` validation on every re-plan after a
+        ``snow feature init`` round-trip.
+
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        sentinel_lookup = {"RAW_EVENTS_FG_DECL": "EVENTS_FG_DECL"}
+        mock_decl.build_datasources_by_table.return_value = sentinel_lookup
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        # The helper must be invoked on the LOCAL batch (the loader
+        # output) so the lookup is built from the on-disk YAMLs the
+        # operator authored, then threaded into the runtime-state
+        # reconstruction.
+        mock_decl.build_datasources_by_table.assert_called_once()
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        forwarded = call.kwargs.get("datasources_by_table")
+        assert forwarded is sentinel_lookup, (
+            "plan() must thread the datasources_by_table lookup built "
+            "from the local BatchSource specs into fetch_applied_state "
+            f"so BFV source-name recovery prefers logical names; got {forwarded!r}"
+        )
+
+    def test_write_plan_threads_dt_text_map_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``write_plan`` MUST also feed the DT DDL into
+        ``fetch_applied_state`` — both code paths share the BatchFV
+        source-recovery requirement."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        dt_row = {
+            "name": "MY_BATCH_FV$V1",
+            "text": (
+                "CREATE DYNAMIC TABLE MY_BATCH_FV$V1 TARGET_LAG = '1 minute' "
+                "AS SELECT * FROM TEST_DB.TEST_SCHEMA.RAW_EVENTS"
+            ),
+        }
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "SHOW DYNAMIC TABLES" in str(sql):
+                return iter([dt_row])
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+
+        FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        dt_text_map = call.kwargs.get("dt_text_map")
+        assert isinstance(dt_text_map, dict) and dt_text_map
+        assert "MY_BATCH_FV$V1" in dt_text_map
+
+    def test_write_plan_threads_datasources_by_table_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Mirror of
+        ``test_plan_threads_datasources_by_table_into_fetch_applied_state``
+        for ``write_plan`` — both code paths share the BatchFV
+        source-name recovery requirement."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        sentinel_lookup = {"RAW_EVENTS_FG_DECL": "EVENTS_FG_DECL"}
+        mock_decl.build_datasources_by_table.return_value = sentinel_lookup
+
+        FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        mock_decl.build_datasources_by_table.assert_called_once()
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        forwarded = call.kwargs.get("datasources_by_table")
+        assert forwarded is sentinel_lookup, (
+            "write_plan() must thread the datasources_by_table lookup "
+            "built from the local BatchSource specs into "
+            f"fetch_applied_state; got {forwarded!r}"
+        )
+
+    def test_plan_skips_non_spec_oft_on_describe_failure(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``_fetch_oft_state`` MUST skip OFTs whose DESCRIBE SPECIFICATION
+        raises (e.g. HYBRID_TABLE OFTs) and continue building the map for
+        remaining OFTs.  Pre-fix, the exception propagated and crashed the
+        entire ``plan`` command with a SQL compilation error."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+
+        spec_row = {"spec": '{"kind": "BatchFeatureView"}'}
+        sentinel_spec = {"kind": "BatchFeatureView"}
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "SHOW" in str(sql):
+                # Return two OFT rows: one non-spec (HYBRID_TABLE), one spec-backed.
+                if "ONLINE FEATURE TABLES" in str(sql):
+                    return iter([{"name": "HYBRID_OFT"}, {"name": "SPEC_OFT"}])
+                return iter([])
+            if "HYBRID_OFT" in str(sql):
+                raise Exception(
+                    "Invalid operation DESCRIBE SPECIFICATION is only supported "
+                    "for Online Feature Tables created with FROM SPECIFICATION."
+                )
+            # SPEC_OFT succeeds
+            return iter([spec_row])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.parse_specification_rows.return_value = sentinel_spec
+
+        # Pre-fix: plan raises; post-fix: plan completes.
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        spec_map = call.kwargs.get("specification_map")
+        assert (
+            spec_map is not None
+        ), "fetch_applied_state must receive a specification_map"
+        assert (
+            "HYBRID_OFT" not in spec_map
+        ), "HYBRID_TABLE OFT must be excluded from specification_map after DESCRIBE failure"
+        assert spec_map.get("SPEC_OFT") is sentinel_spec, (
+            "Spec-backed OFT must still be included in specification_map; "
+            f"got {spec_map!r}"
+        )
+
+
+# ===========================================================================
+# init export — applied-state unification.
+#
+# ``snow feature init`` must not feed the raw ``DESCRIBE … TYPE =
+# SPECIFICATION`` JSON straight through ``decl_api.export_specs``.
+# That JSON always returns ``spec.sources: []`` for BatchFeatureView
+# (the FROM SPECIFICATION serializer encodes the source
+# binding into the offline Dynamic Table's ``SELECT … FROM …`` body,
+# not the spec payload).  The exported YAML would then drift from
+# the deployed runtime and a follow-up ``snow feature plan`` would
+# spuriously emit ``RECREATE_FV`` — apply then crashing with "no
+# resolvable source".  Routing the init export through the same
+# ``fetch_applied_state`` path the plan / write_plan codepaths use
+# keeps BatchFV ``sources``, advanced BFV fields, offline-only BFVs,
+# and FG source mappings round-tripping cleanly.
+# ===========================================================================
+
+
+class TestFeatureManagerInitDtTextRecovery:
+    """``init`` MUST mirror ``plan`` / ``write_plan`` on the
+    applied-state surface: fetch ``SHOW DYNAMIC TABLES``, build the
+    ``dt_text_map`` + ``feature_view_rows`` bundle, hand them to
+    :func:`decl_api.fetch_applied_state`, and forward the recovered
+    state to :func:`decl_api.export_specs` via the new
+    ``applied_state=`` kwarg.
+
+    Each test below pins one rung of that contract — together they
+    are the RED gate for the wide-scope BatchFV export fix.
+    """
+
+    def _patch_feature_store(self):
+        return (
+            mock.patch("snowflake.ml.feature_store.feature_store.FeatureStore"),
+            mock.patch("snowflake.ml.feature_store.feature_store.CreationMode"),
+        )
+
+    def _set_state_queries(self, mock_decl):
+        """Wire the ``state_queries`` shape ``plan`` / ``init`` both
+        consume (must include ``show_dynamic_tables`` so the DT-text
+        recovery rung is exercisable end-to-end)."""
+        mock_decl.state_queries.return_value = {
+            "show_ofts": "SHOW ONLINE FEATURE TABLES IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_tables": "SHOW TABLES LIKE '%' IN SCHEMA TEST_DB.TEST_SCHEMA",
+            "show_dynamic_tables": (
+                "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA"
+            ),
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+
+    def test_init_executes_show_dynamic_tables_query(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``init`` MUST run the ``show_dynamic_tables`` SQL exposed by
+        :func:`decl_api.state_queries` — same as ``plan`` — so the
+        offline DT DDL is available for BatchFV source recovery during
+        the export pass.
+
+        Pre-fix init called :func:`decl_api.export_queries` (which has
+        no DT-text query) and never issued this SQL.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        executed = _executed_sqls(mock_execute_query)
+        assert any(
+            "SHOW DYNAMIC TABLES IN SCHEMA TEST_DB.TEST_SCHEMA" in s for s in executed
+        ), (
+            "init() must execute the show_dynamic_tables SQL from "
+            "decl_api.state_queries so the offline DT DDL is fetched "
+            "for BatchFV source recovery during the export pass; "
+            f"executed SQLs: {executed!r}"
+        )
+
+    def test_init_threads_dt_text_map_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``init`` MUST call :func:`decl_api.fetch_applied_state`
+        with the ``dt_text_map`` recovered from ``SHOW DYNAMIC TABLES``
+        — same shape as the plan-path contract pinned in
+        ``test_plan_threads_dt_text_map_into_fetch_applied_state``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+
+        dt_row = {
+            "name": "USER_CLICKS_FG_DECL$V1",
+            "text": (
+                "CREATE DYNAMIC TABLE USER_CLICKS_FG_DECL$V1 TARGET_LAG = '300 seconds' "
+                "AS SELECT * FROM TEST_DB.TEST_SCHEMA.RAW_EVENTS"
+            ),
+        }
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "SHOW DYNAMIC TABLES" in str(sql):
+                return iter([dt_row])
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        dt_text_map = call.kwargs.get("dt_text_map")
+        assert isinstance(dt_text_map, dict) and dt_text_map, (
+            "init() must thread a non-empty dt_text_map into "
+            "fetch_applied_state so the BatchFV source binding is "
+            f"recovered before the exporter runs; got {dt_text_map!r}"
+        )
+        assert "USER_CLICKS_FG_DECL$V1" in dt_text_map
+        assert "RAW_EVENTS" in dt_text_map["USER_CLICKS_FG_DECL$V1"]
+
+    def test_init_threads_datasources_by_table_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``init``'s export pass MUST also thread the locally-loaded
+        ``datasources_by_table`` lookup into
+        :func:`decl_api.fetch_applied_state` so the exported FV YAMLs
+        carry the operator-authored logical source names rather than
+        the recovered physical table names.
+
+        On a fresh ``init`` (no local datasources yet) the helper
+        returns an empty map; the lookup is still threaded so the
+        contract stays uniform across plan / write_plan / init.
+
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+        sentinel_lookup = {"RAW_EVENTS_FG_DECL": "EVENTS_FG_DECL"}
+        mock_decl.build_datasources_by_table.return_value = sentinel_lookup
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        # The init export pass must invoke the helper at least once
+        # so the lookup is built from whatever datasources happen to
+        # exist on disk at init time (zero on a brand-new project,
+        # populated on a re-init that already has YAMLs).  Pinning
+        # the helper call here ensures the manager wires the helper
+        # in identically across plan / write_plan / init.
+        assert mock_decl.build_datasources_by_table.called, (
+            "init() must call decl_api.build_datasources_by_table so "
+            "the lookup is built from the (possibly empty) local "
+            "BatchSource specs before applied-state recovery runs"
+        )
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        forwarded = call.kwargs.get("datasources_by_table")
+        assert forwarded is sentinel_lookup, (
+            "init() must thread the datasources_by_table lookup built "
+            "by build_datasources_by_table into fetch_applied_state; "
+            f"got {forwarded!r}"
+        )
+
+    def test_init_passes_applied_state_to_export_specs(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """The recovered :class:`AppliedState` MUST be forwarded to
+        :func:`decl_api.export_specs` via the ``applied_state=`` kwarg
+        so the exporter prefers the recovered BatchFV ``sources`` over
+        the lossy raw ``specification_map``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+        sentinel_state = mock.MagicMock(name="recovered_applied_state")
+        mock_decl.fetch_applied_state.return_value = sentinel_state
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path, python=False)
+
+        mock_decl.export_specs.assert_called_once()
+        kwargs = mock_decl.export_specs.call_args.kwargs
+        assert kwargs.get("applied_state") is sentinel_state, (
+            "init() must forward the applied_state returned by "
+            "fetch_applied_state into export_specs via the "
+            f"applied_state= kwarg; got kwargs={list(kwargs.keys())!r}"
+        )
+
+    def test_init_fetches_feature_view_rows_for_offline_only_recovery(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """``init`` MUST surface offline-only BatchFVs (visible only via
+        ``list_feature_views``, not ``SHOW ONLINE FEATURE TABLES``) by
+        forwarding ``feature_view_rows`` into
+        :func:`decl_api.fetch_applied_state`.
+
+        Without this, ``init`` re-exports only the OFT-visible subset
+        and offline-only BFVs silently disappear from the local tree —
+        a regression of the offline-BFV idempotency contract.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        self._set_state_queries(mock_decl)
+        fv_rows = [
+            {
+                "name": "OFFLINE_BFV",
+                "version": "V1",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "kind": "BATCH",
+                "entities": ["USER_ID"],
+                "physical_dt_name": "OFFLINE_BFV$V1",
+                "refresh_freq": "60 seconds",
+            }
+        ]
+        mock_decl.fetch_feature_view_rows.return_value = fv_rows
+
+        fs_patch, cm_patch = self._patch_feature_store()
+        with fs_patch, cm_patch as mock_cm:
+            mock_cm.CREATE_IF_NOT_EXIST = "CREATE_IF_NOT_EXIST"
+            FeatureManager().init(project_root=tmp_path)
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        forwarded = call.kwargs.get("feature_view_rows")
+        assert forwarded == fv_rows, (
+            "init() must forward the imperative-side feature_view_rows "
+            "into fetch_applied_state so offline-only BFVs surface in "
+            f"the exported tree; got {forwarded!r}"
+        )
+
+
+# ===========================================================================
+# write_plan — relocated to <project_root>/out/plan/
+# ===========================================================================
+
+
+class TestPlanSingleGenerate:
+    """Reviewer r3918618799: ``snow feature plan`` must load + fetch applied
+    state + generate the plan exactly ONCE.  The ops the operator sees and the
+    JSON written to ``out/plan/`` come from the same ``Plan`` object, so there
+    is no double per-object ``DESCRIBE`` and no TOCTOU gap between the displayed
+    table and the file ``apply`` will execute."""
+
+    def test_plan_then_write_plan_object_generates_and_fetches_once(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The command's ``plan`` + ``write_plan_object`` sequence pays the
+        load/fetch/generate/serialize pipeline exactly once each."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mgr = FeatureManager()
+        _envelope, plan = mgr.plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+        mgr.write_plan_object(
+            plan,
+            from_dir=tmp_path,
+            target_name=None,
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        assert mock_decl.load_project.call_count == 1
+        assert mock_decl.fetch_applied_state.call_count == 1
+        assert mock_decl.generate_plan.call_count == 1
+        assert mock_decl.serialize_plan.call_count == 1
+
+    def test_write_plan_object_does_not_load_or_fetch_or_generate(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``write_plan_object`` is serialize-only: no ``load_project``, no
+        ``_fetch_applied_state_bundle``, no ``generate_plan``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mgr = FeatureManager()
+        _envelope, plan = mgr.plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+        # Only serialization should follow the reset.
+        mock_decl.load_project.reset_mock()
+        mock_decl.fetch_applied_state.reset_mock()
+        mock_decl.generate_plan.reset_mock()
+        mock_decl.serialize_plan.reset_mock()
+        mock_execute_query.reset_mock()
+
+        mgr.write_plan_object(
+            plan,
+            from_dir=tmp_path,
+            target_name=None,
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        mock_decl.load_project.assert_not_called()
+        mock_decl.fetch_applied_state.assert_not_called()
+        mock_decl.generate_plan.assert_not_called()
+        mock_decl.serialize_plan.assert_called_once()
+        # No state SQL is issued by the serialize-only path.
+        assert not _executed_sqls(mock_execute_query)
+
+    def test_write_plan_object_serializes_the_passed_plan_not_a_refetch(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """TOCTOU guard: state drift after ``plan`` (a different
+        ``generate_plan`` result) must NOT reach the written file — the object
+        passed in is exactly what gets serialized."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mgr = FeatureManager()
+        _envelope, plan = mgr.plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+        # Simulate concurrent drift: a *new* generate would differ.
+        mock_decl.generate_plan.return_value = mock.MagicMock(
+            name="drifted_plan", ops=[], warnings=[], errors=[]
+        )
+
+        mgr.write_plan_object(
+            plan,
+            from_dir=tmp_path,
+            target_name=None,
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        assert mock_decl.serialize_plan.call_args.args[0] is plan
+
+    def test_write_plan_object_refuses_plan_with_errors(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A plan carrying blocking ``plan.errors`` must not be persisted."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        err = mock.MagicMock()
+        err.__str__ = lambda self: "FG_MEMBER_STILL_REFERENCED: still referenced"
+        plan = mock.MagicMock(name="plan", ops=[], warnings=[], errors=[err])
+
+        with pytest.raises(CliError):
+            FeatureManager().write_plan_object(
+                plan,
+                from_dir=tmp_path,
+                target_name=None,
+                out_path=str(tmp_path / "plan.json"),
+            )
+        mock_decl.serialize_plan.assert_not_called()
+
+
+class TestWritePlan:
+    """``write_plan`` persists a plan JSON under
+    ``<project_root>/out/plan/feature_plan_<UTC ts>.json``
+    with ``target_name`` round-tripped."""
+
+    def test_write_plan_default_path_under_out_plan(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """When ``out_path`` is omitted, the plan lands under
+        ``<project_root>/out/plan/feature_plan_<ts>.json``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        result_path = FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            out_path=None,
+        )
+
+        result = Path(result_path)
+        # Plan must land under <project_root>/out/plan/, not under
+        # <cwd>/.snowflake/plans/.
+        assert result.parent == (tmp_path / "out" / "plan").resolve()
+        assert result.name.startswith("feature_plan_")
+        assert result.name.endswith(".json")
+        assert result.exists()
+
+    def test_write_plan_default_filename_uses_timezone_aware_utc_clock(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The default plan filename stamp must come from a timezone-aware
+        ``datetime.now(timezone.utc)`` call (``datetime.utcnow()`` is
+        deprecated in 3.12+), rendered as
+        ``feature_plan_<%Y%m%dT%H%M%S>.json``."""
+        import datetime as _dt_mod
+
+        from snowflake.cli._plugins.feature import manager as manager_mod
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        fixed = _dt_mod.datetime(2026, 9, 10, 21, 38, 0, tzinfo=_dt_mod.timezone.utc)
+        with mock.patch.object(manager_mod, "datetime") as mock_datetime:
+            mock_datetime.now.return_value = fixed
+            result_path = FeatureManager().write_plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                out_path=None,
+            )
+
+        # Aware UTC clock, not naive ``utcnow()``.
+        mock_datetime.now.assert_called_once_with(_dt_mod.timezone.utc)
+        # Stamp format is unchanged.
+        assert Path(result_path).name == "feature_plan_20260910T213800.json"
+
+    def test_write_plan_does_not_write_when_plan_has_errors(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A plan carrying blocking ``plan.errors`` must not be persisted;
+        ``write_plan`` raises instead of writing an error plan to disk."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        err = mock.MagicMock()
+        err.severity = "ERROR"
+        err.code = "FG_MEMBER_STILL_REFERENCED"
+        err.__str__ = (
+            lambda self: "FG_MEMBER_STILL_REFERENCED: FG still references member"
+        )
+        mock_decl.generate_plan.return_value = mock.MagicMock(
+            name="plan", ops=[], warnings=[], errors=[err]
+        )
+
+        with pytest.raises(CliError):
+            FeatureManager().write_plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                out_path=None,
+            )
+
+        mock_decl.serialize_plan.assert_not_called()
+        assert not (tmp_path / "out" / "plan").exists() or not list(
+            (tmp_path / "out" / "plan").glob("feature_plan_*.json")
+        )
+
+    def test_write_plan_explicit_out_path_honoured(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        out = tmp_path / "custom" / "plan.json"
+        result_path = FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            out_path=str(out),
+        )
+        assert result_path == str(out)
+        assert out.exists()
+
+    def test_write_plan_writes_target_name_into_envelope(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """serialise_plan must receive ``target_name`` so apply
+        can later reject mismatched plans."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name="DEFAULT",
+            variables=[],
+            out_path=None,
+        )
+
+        mock_decl.serialize_plan.assert_called_once()
+        kwargs = mock_decl.serialize_plan.call_args.kwargs
+        # Either as kwarg or positional after the canonical (plan, db,
+        # schema, source_files) positional args.
+        if "target_name" in kwargs:
+            assert kwargs["target_name"] == "DEFAULT"
+        else:
+            args = mock_decl.serialize_plan.call_args.args
+            # serialize_plan(plan, db, schema, source_files, target_name)
+            assert len(args) >= 5
+            assert args[4] == "DEFAULT"
+
+
+# ===========================================================================
+# apply — L1–L7 plan-file lifecycle, relocated to out/plan/
+# ===========================================================================
+
+
+class TestApplyCommand:
+    """The L1–L7 invariants are PRESERVED, only the directory moves
+    from ``<cwd>/.snowflake/plans/`` → ``<project_root>/out/plan/``."""
+
+    def _wire_plan_file(self, mock_decl, *, target_name="DEFAULT"):
+        """Make ``deserialize_plan`` return a usable PlanFile mock."""
+        plan_file_obj = mock_decl.deserialize_plan.return_value
+        plan_file_obj.plan = mock_decl.generate_plan.return_value
+        plan_file_obj.target_database = "TEST_DB"
+        plan_file_obj.target_schema = "TEST_SCHEMA"
+        plan_file_obj.target_name = target_name
+        return plan_file_obj
+
+    # --- L1: Required-Plan ---
+
+    def test_apply_returns_no_plan_when_out_plan_empty(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """L1: no unapplied plan under ``<project_root>/out/plan/`` →
+        ``status='no_plan'`` whose error names ``out/plan/``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        result = FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            destructive=False,
+        )
+
+        assert result["status"] == "no_plan"
+        joined = " ".join(result.get("errors", []))
+        # Error must point operators at out/plan/, not at .snowflake/plans/.
+        assert "out/plan" in joined or "out/plan/" in joined
+        mock_decl.execute_plan.assert_not_called()
+
+    # --- L2: Latest-Wins ---
+
+    def test_apply_picks_newest_unapplied_plan_under_out_plan(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """L2: lex sort by filename (UTC ts is monotonic at 1s)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        older = plans / "feature_plan_20260101T000000.json"
+        newer = plans / "feature_plan_20260102T000000.json"
+        older.write_text(_make_plan_json(target_database="OLDER_DB"))
+        newer.write_text(_make_plan_json(target_database="TEST_DB"))
+
+        self._wire_plan_file(mock_decl)
+        FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            destructive=False,
+        )
+
+        passed_json = mock_decl.deserialize_plan.call_args.args[0]
+        assert "TEST_DB" in passed_json
+        assert "OLDER_DB" not in passed_json
+
+    # --- L3: Discard-Older ---
+
+    def test_apply_renames_older_plans_to_discarded(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """L3: older plans renamed ``.discarded`` before execution."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        older = plans / "feature_plan_20260101T000000.json"
+        newer = plans / "feature_plan_20260102T000000.json"
+        older.write_text(_make_plan_json())
+        newer.write_text(_make_plan_json())
+
+        self._wire_plan_file(mock_decl)
+        FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            destructive=False,
+        )
+
+        assert not older.exists()
+        assert (plans / (older.name + ".discarded")).exists()
+
+    # --- L4: Mark-Applied ---
+
+    def test_apply_renames_plan_to_applied_after_success(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """L4: success → ``<name>.applied``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        plan_path = plans / "feature_plan_20260507T120000.json"
+        plan_path.write_text(_make_plan_json())
+
+        self._wire_plan_file(mock_decl)
+        FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            destructive=False,
+        )
+
+        applied = plans / (plan_path.name + ".applied")
+        assert applied.exists()
+        assert not plan_path.exists()
+
+    # --- L5: Mark-Failed-Stays-Unapplied ---
+
+    def test_apply_leaves_plan_unrenamed_on_execution_failure(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """L5: ``execute_plan`` raises → plan file stays at original name."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        plan_path = plans / "feature_plan_20260507T120000.json"
+        plan_path.write_text(_make_plan_json())
+
+        self._wire_plan_file(mock_decl)
+        mock_decl.execute_plan.side_effect = RuntimeError("boom")
+
+        try:
+            FeatureManager().apply(
+                from_dir=tmp_path,
+                target_name=None,
+                plan_file=None,
+                destructive=False,
+            )
+        except RuntimeError:
+            pass
+        finally:
+            mock_decl.execute_plan.side_effect = None
+
+        assert plan_path.exists()
+        assert not (plans / (plan_path.name + ".applied")).exists()
+
+    def test_apply_destructive_plan_without_destructive_flag_returns_refused(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``execute_plan`` returns ``refused`` → manager threads it
+        through; plan file stays unrenamed."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        plan_path = plans / "feature_plan_20260507T120000.json"
+        plan_path.write_text(_make_plan_json())
+
+        self._wire_plan_file(mock_decl)
+        refused = mock.MagicMock()
+        refused.status = "refused"
+        refused.ops = [{"operation": "RECREATE_FV", "name": "X", "status": "refused"}]
+        refused.warnings = []
+        refused.errors = ["Apply refused: --allow-recreate required."]
+        mock_decl.execute_plan.return_value = refused
+
+        result = FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            destructive=False,
+        )
+
+        assert result["status"] == "refused"
+        assert plan_path.exists()
+        assert not (plans / (plan_path.name + ".applied")).exists()
+        assert "--allow-recreate" in " ".join(result["errors"])
+
+    # --- L6: Target-Match (account + target_name) ---
+
+    def test_apply_account_mismatch_returns_target_mismatch_status(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        """L6: connection account ≠ manifest target.account_identifier →
+        ``status='target_mismatch'`` (NOT a CliError — apply surfaces a
+        structured status so scripts can branch on it)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.identifiers import AccountIdentifier
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        (plans / "feature_plan_20260507T120000.json").write_text(_make_plan_json())
+        self._wire_plan_file(mock_decl)
+
+        mock_account_identifier.return_value = AccountIdentifier(
+            "OTHER_ORG", "OTHER_ACCT"
+        )
+
+        result = FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            destructive=False,
+        )
+
+        assert result["status"] == "target_mismatch"
+        joined = " ".join(result.get("errors", []))
+        assert "OTHER_ORG" in joined or "OTHER_ACCT" in joined
+        mock_decl.execute_plan.assert_not_called()
+
+    def test_apply_unknown_target_raises_cli_error_not_target_mismatch(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A ``--target`` the manifest does not declare is a real manifest
+        error, not an account mismatch. ``apply`` must let the original
+        ``CliError`` propagate (naming the bad target) rather than mislabel
+        it ``target_mismatch`` and point the operator at the account."""
+        from snowflake.cli._plugins.feature.exceptions import AccountMismatchError
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        (plans / "feature_plan_20260507T120000.json").write_text(_make_plan_json())
+        self._wire_plan_file(mock_decl)
+
+        with pytest.raises(CliError) as excinfo:
+            FeatureManager().apply(
+                from_dir=tmp_path,
+                target_name="MISSING",
+                plan_file=None,
+                destructive=False,
+            )
+        # Not the account-mismatch subclass, and the message does not
+        # blame the (correct) account.
+        assert not isinstance(excinfo.value, AccountMismatchError)
+        assert "Account mismatch" not in str(excinfo.value)
+        mock_decl.execute_plan.assert_not_called()
+
+    def test_apply_missing_manifest_raises_cli_error_not_target_mismatch(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """No ``manifest.yml`` is a real resolve error; ``apply`` must raise
+        a ``CliError`` naming the manifest, not return ``target_mismatch``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        # No manifest written under tmp_path.
+        with pytest.raises(CliError) as excinfo:
+            FeatureManager().apply(
+                from_dir=tmp_path,
+                target_name=None,
+                plan_file=None,
+                destructive=False,
+            )
+        assert "manifest" in str(excinfo.value).lower()
+        mock_decl.execute_plan.assert_not_called()
+
+    def test_apply_target_name_mismatch_returns_target_mismatch_status(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """L6: ``--target X`` against a plan with
+        ``target_name=Y`` → ``status='target_mismatch'``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        # Manifest with two targets so we can request DEV but apply a
+        # plan generated for PROD.
+        _write_manifest(
+            tmp_path,
+            yaml_text=textwrap.dedent(
+                """\
+                manifest_version: 1
+                type: feature_store
+                default_target: DEV
+                targets:
+                  DEV:
+                    account_identifier: TEST_ORG-TEST_ACCT
+                    database: TEST_DB
+                    schema: TEST_SCHEMA
+                  PROD:
+                    account_identifier: TEST_ORG-TEST_ACCT
+                    database: TEST_DB
+                    schema: TEST_SCHEMA
+                """
+            ),
+        )
+        plan_path = tmp_path / "prod_plan.json"
+        plan_path.write_text(_make_plan_json(target_name="PROD"))
+        self._wire_plan_file(mock_decl, target_name="PROD")
+
+        result = FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name="DEV",
+            plan_file=str(plan_path),
+            destructive=False,
+        )
+
+        assert result["status"] == "target_mismatch"
+        joined = " ".join(result.get("errors", []))
+        assert "PROD" in joined
+        assert "DEV" in joined
+        mock_decl.execute_plan.assert_not_called()
+
+    def test_apply_target_name_match_is_case_insensitive(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan.target_name.upper() == requested_target.upper()`` passes."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plan_path = tmp_path / "plan.json"
+        plan_path.write_text(_make_plan_json(target_name="default"))
+        self._wire_plan_file(mock_decl, target_name="default")
+
+        result = FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name="DEFAULT",
+            plan_file=str(plan_path),
+            destructive=False,
+        )
+        assert result["status"] == "applied"
+
+    # --- L7: --plan escape hatch ---
+
+    def test_apply_plan_file_with_no_target_kwarg_works_for_legacy_plans(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """L7: a plan with empty ``target_name`` (legacy)
+        applies cleanly without ``--target``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plan_path = tmp_path / "legacy.json"
+        plan_path.write_text(_make_plan_json(target_name=""))
+        self._wire_plan_file(mock_decl, target_name="")
+
+        result = FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=str(plan_path),
+            destructive=False,
+        )
+        assert result["status"] == "applied"
+
+    def test_apply_forwards_warehouse_from_connection_to_execute_plan(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``warehouse`` always comes from the active connection."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        (plans / "feature_plan_20260507T120000.json").write_text(_make_plan_json())
+        self._wire_plan_file(mock_decl)
+
+        FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            destructive=False,
+        )
+
+        call_kwargs = mock_decl.execute_plan.call_args.kwargs
+        assert call_kwargs.get("warehouse") == "TEST_WH"
+
+    def test_apply_with_destructive_sets_overwrite_in_options(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Bug G: when ``--destructive`` is passed, ``PlanOptions.overwrite``
+        must also be ``True`` so that ``CREATE_FV`` ops forward
+        ``overwrite=True`` to ``register_feature_view`` and do not fail
+        with a version-conflict error when the FV already exists."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        plans = _make_plans_dir(tmp_path)
+        (plans / "feature_plan_20260507T120000.json").write_text(_make_plan_json())
+        self._wire_plan_file(mock_decl)
+
+        FeatureManager().apply(
+            from_dir=tmp_path,
+            target_name=None,
+            plan_file=None,
+            destructive=True,
+        )
+
+        options = mock_decl.execute_plan.call_args.kwargs.get("options")
+        assert options is not None, "execute_plan must receive an options= kwarg"
+        assert options.allow_recreate is True
+        assert options.overwrite is True, (
+            "PlanOptions.overwrite must be True when allow_recreate=True so "
+            "CREATE_FV ops can succeed against existing FV versions (Bug G)"
+        )
+
+
+# ===========================================================================
+# list_specs / describe / export_specs — every Snowflake-bound command
+# resolves the manifest first.
+# ===========================================================================
+
+
+class TestFeatureManagerListSpecs:
+    def test_list_specs_returns_dict(self, mock_execute_query, mock_decl, tmp_path):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        result = FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+        assert isinstance(result, dict)
+
+    def test_list_specs_calls_list_state_queries(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+        mock_decl.list_state_queries.assert_called_once_with("TEST_DB", "TEST_SCHEMA")
+
+    def test_no_alter_session_priming_is_issued(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Pins the read-path architecture:
+        ``ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION`` is enabled
+        by default at the account level, so the declarative client
+        MUST NOT issue an ``ALTER SESSION`` on any read path (no
+        client-side session priming is issued).
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+        FeatureManager().describe(from_dir=tmp_path, target_name=None, name="X")
+
+        for sql in _executed_sqls(mock_execute_query):
+            assert "ALTER SESSION" not in sql.upper(), (
+                "decl client must not issue ALTER SESSION; "
+                "ENABLE_FEATURE_STORE_DESCRIBE_OFT_SPECIFICATION is "
+                f"account-default. got: {sql}"
+            )
+
+    def test_list_specs_missing_manifest_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError):
+            FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+
+    def test_list_specs_target_info_uses_manifest_db_schema(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(
+            tmp_path,
+            yaml_text=textwrap.dedent(
+                """\
+                manifest_version: 1
+                type: feature_store
+                default_target: DEFAULT
+                targets:
+                  DEFAULT:
+                    account_identifier: TEST_ORG-TEST_ACCT
+                    database: MFST_DB
+                    schema: MFST_SCH
+                """
+            ),
+        )
+        result = FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+        assert result.get("target_database") == "MFST_DB"
+        assert result.get("target_schema") == "MFST_SCH"
+
+    def test_list_specs_forwards_feature_view_rows_to_enrich(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """bug_offline_bfv_invisible_in_list.md — ``list_specs`` must fetch
+        the ``list_feature_views()`` discovery set and forward it to
+        ``enrich_list_results`` so OFT-less (``online: false``) BFVs appear
+        in ``snow feature list``.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        fv_rows = [
+            {
+                "name": "MY_ADV_BFV_DECL",
+                "version": "V1",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "kind": "BATCH",
+                "entities": ["USER_ID"],
+                "online_enabled": False,
+                "physical_dt_name": "MY_ADV_BFV_DECL$V1",
+                "source_refs": [],
+            }
+        ]
+        mock_decl.fetch_feature_view_rows.return_value = fv_rows
+
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+
+        mock_decl.enrich_list_results.assert_called()
+        kwargs = mock_decl.enrich_list_results.call_args.kwargs
+        assert kwargs.get("feature_view_rows") == fv_rows
+
+
+class TestFeatureManagerDescribe:
+    def test_describe_returns_dict_when_oft_not_found(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        result = FeatureManager().describe(
+            from_dir=tmp_path, target_name=None, name="MY_ENTITY"
+        )
+        assert isinstance(result, dict)
+
+    def test_describe_missing_manifest_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError):
+            FeatureManager().describe(from_dir=tmp_path, target_name=None, name="X")
+
+    def test_describe_threads_version_to_resolver(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``describe(name, version=...)`` delegates OFT resolution to
+        ``decl_api.resolve_oft_name`` with the SHOW rows and the version,
+        then describes the resolved OFT name."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        show_rows = [
+            {"name": "USER_CLICKS$V1$ONLINE"},
+            {"name": "USER_CLICKS$V2$ONLINE"},
+        ]
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "ONLINE FEATURE TABLES" in str(sql) and "LIKE" not in str(sql):
+                return iter(show_rows)
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.resolve_oft_name.return_value = ("USER_CLICKS$V2$ONLINE", None)
+
+        FeatureManager().describe(
+            from_dir=tmp_path, target_name=None, name="USER_CLICKS", version="V2"
+        )
+
+        # Resolver received the SHOW rows, the bare name and the version.
+        args, _ = mock_decl.resolve_oft_name.call_args
+        assert args[0] == show_rows
+        assert args[1] == "USER_CLICKS"
+        assert args[2] == "V2"
+        # The resolved OFT name drives the DESCRIBE query.
+        mock_decl.describe_query.assert_called_once()
+        dq_args, _ = mock_decl.describe_query.call_args
+        assert dq_args[0] == "USER_CLICKS$V2$ONLINE"
+
+    def test_describe_ambiguous_returns_error_envelope(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """When the resolver reports ambiguity (no version given, multiple
+        versions), ``describe`` surfaces that message in the error envelope
+        and never issues a DESCRIBE query."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        def fake_execute_query(sql, *args, **kwargs):
+            if "ONLINE FEATURE TABLES" in str(sql) and "LIKE" not in str(sql):
+                return iter(
+                    [
+                        {"name": "USER_CLICKS$V1$ONLINE"},
+                        {"name": "USER_CLICKS$V2$ONLINE"},
+                    ]
+                )
+            return iter([])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.resolve_oft_name.return_value = (
+            None,
+            "multiple versions of USER_CLICKS are deployed (V1, V2); "
+            "specify --version to select one",
+        )
+
+        result = FeatureManager().describe(
+            from_dir=tmp_path, target_name=None, name="USER_CLICKS"
+        )
+
+        assert result["status"] == "error"
+        assert "specify --version" in result["error"]
+        mock_decl.describe_query.assert_not_called()
+
+    @staticmethod
+    def _write_fv_spec(
+        directory: Path,
+        *,
+        name: str,
+        source_name: str,
+        version: str = "V1",
+        stem: Optional[str] = None,
+    ) -> Path:
+        """Write a minimal BFV YAML under *directory* and return the path."""
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / f"{stem or name}.yaml"
+        path.write_text(
+            textwrap.dedent(
+                f"""\
+                kind: BatchFeatureView
+                name: {name}
+                version: {version}
+                online: false
+                entities:
+                  - USER_ID
+                timestamp_col: EVENT_TS
+                sources:
+                  - name: {source_name}
+                    source_type: Batch
+                """
+            )
+        )
+        return path
+
+    @staticmethod
+    def _show_oft_side_effect(oft_name: str):
+        def fake_execute_query(sql, *args, **kwargs):
+            s = str(sql)
+            if "ONLINE FEATURE TABLES" in s and "LIKE" not in s:
+                return iter([{"name": oft_name}])
+            return iter([])
+
+        return fake_execute_query
+
+    def test_describe_reads_spec_from_project_sources_not_cwd_example_store(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """The authored YAML fed into the describe examples must come from
+        the resolved project's ``sources/feature_views`` (via
+        ``FSProjectPaths``), never a cwd-relative ``example_store/`` leftover.
+
+        Regression for the PR-review finding: a coincidental
+        ``example_store/`` in the operator's cwd used to shadow the real
+        project spec and produce examples against the wrong definition.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        project = tmp_path / "project"
+        _write_manifest(project)
+        self._write_fv_spec(
+            project / "sources" / "feature_views",
+            name="USER_CLICKS",
+            source_name="PROJECT_SRC",
+        )
+
+        # A different cwd that carries a decoy example_store/ spec for the
+        # same FV name but a conflicting source.
+        decoy_cwd = tmp_path / "decoy"
+        self._write_fv_spec(
+            decoy_cwd / "example_store" / "feature_views",
+            name="USER_CLICKS",
+            source_name="DECOY_SRC",
+        )
+        monkeypatch.chdir(decoy_cwd)
+
+        mock_execute_query.side_effect = self._show_oft_side_effect(
+            "USER_CLICKS$V1$ONLINE"
+        )
+        mock_decl.resolve_oft_name.return_value = ("USER_CLICKS$V1$ONLINE", None)
+
+        FeatureManager().describe(
+            from_dir=project, target_name=None, name="USER_CLICKS", version="V1"
+        )
+
+        mock_decl.build_describe_examples.assert_called_once()
+        spec = mock_decl.build_describe_examples.call_args.kwargs["spec"]
+        assert spec is not None
+        assert spec["sources"][0]["name"] == "PROJECT_SRC"
+
+    def test_describe_does_not_fall_back_to_cwd_example_store(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """When the resolved project has no matching spec, describe must not
+        silently resolve one from a cwd ``example_store/`` leftover; the spec
+        stays ``None`` (examples degrade gracefully)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        project = tmp_path / "project"
+        _write_manifest(project)  # no sources/feature_views spec at all
+
+        decoy_cwd = tmp_path / "decoy"
+        self._write_fv_spec(
+            decoy_cwd / "example_store" / "feature_views",
+            name="USER_CLICKS",
+            source_name="DECOY_SRC",
+        )
+        monkeypatch.chdir(decoy_cwd)
+
+        mock_execute_query.side_effect = self._show_oft_side_effect(
+            "USER_CLICKS$V1$ONLINE"
+        )
+        mock_decl.resolve_oft_name.return_value = ("USER_CLICKS$V1$ONLINE", None)
+
+        FeatureManager().describe(
+            from_dir=project, target_name=None, name="USER_CLICKS", version="V1"
+        )
+
+        mock_decl.build_describe_examples.assert_called_once()
+        assert mock_decl.build_describe_examples.call_args.kwargs["spec"] is None
+
+    def test_describe_selects_project_spec_matching_resolved_version(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """With two versions of one FV name in ``sources/feature_views``, the
+        spec loaded for describe examples is the one whose ``version`` matches
+        the OFT-resolved version."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        project = tmp_path / "project"
+        _write_manifest(project)
+        fv_dir = project / "sources" / "feature_views"
+        self._write_fv_spec(
+            fv_dir,
+            name="USER_CLICKS",
+            version="V1",
+            source_name="SRC_V1",
+            stem="USER_CLICKS_V1",
+        )
+        self._write_fv_spec(
+            fv_dir,
+            name="USER_CLICKS",
+            version="V2",
+            source_name="SRC_V2",
+            stem="USER_CLICKS_V2",
+        )
+
+        # Run from an unrelated empty cwd to prove resolution is project-driven.
+        empty_cwd = tmp_path / "elsewhere"
+        empty_cwd.mkdir()
+        monkeypatch.chdir(empty_cwd)
+
+        mock_execute_query.side_effect = self._show_oft_side_effect(
+            "USER_CLICKS$V2$ONLINE"
+        )
+        mock_decl.resolve_oft_name.return_value = ("USER_CLICKS$V2$ONLINE", None)
+
+        FeatureManager().describe(
+            from_dir=project, target_name=None, name="USER_CLICKS", version="V2"
+        )
+
+        mock_decl.build_describe_examples.assert_called_once()
+        spec = mock_decl.build_describe_examples.call_args.kwargs["spec"]
+        assert spec is not None
+        assert spec["sources"][0]["name"] == "SRC_V2"
+
+    def test_describe_status_uses_from_dir_not_cwd(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """The ingest/query example endpoints come from ``get_status`` against
+        the resolved ``--from`` project target, not the process cwd.
+
+        Regression for the PR-review finding: ``describe`` resolved
+        ``from_dir`` / ``target_name`` for the OFT DESCRIBE but then called
+        ``self.get_status()`` with no args, so a different cwd ``manifest.yml``
+        (or the connection fallback) could drive the example URLs against the
+        wrong database/schema.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        project = tmp_path / "project"
+        _write_manifest(
+            project,
+            yaml_text=textwrap.dedent(
+                """\
+                manifest_version: 1
+                type: feature_store
+                default_target: DEFAULT
+                targets:
+                  DEFAULT:
+                    account_identifier: TEST_ORG-TEST_ACCT
+                    database: STAGING_DB
+                    schema: STAGING_SCHEMA
+                    role: STAGING_ROLE
+                """
+            ),
+        )
+
+        # A different cwd carrying the default TEST_DB manifest. The buggy
+        # code resolves get_status against this one instead of --from.
+        decoy_cwd = tmp_path / "decoy"
+        _write_manifest(decoy_cwd)
+        monkeypatch.chdir(decoy_cwd)
+
+        mock_execute_query.side_effect = self._show_oft_side_effect(
+            "USER_CLICKS$V1$ONLINE"
+        )
+        mock_decl.resolve_oft_name.return_value = ("USER_CLICKS$V1$ONLINE", None)
+
+        FeatureManager().describe(
+            from_dir=project, target_name=None, name="USER_CLICKS", version="V1"
+        )
+
+        # get_status -> decl_api.service_sql(database, schema) must use the
+        # --from project's STAGING target, not the cwd/connection TEST_DB.
+        assert mock_decl.service_sql.called
+        args = mock_decl.service_sql.call_args.args
+        assert args[0] == "STAGING_DB"
+        assert args[1] == "STAGING_SCHEMA"
+
+    def test_describe_logs_and_skips_unreadable_spec(
+        self, mock_execute_query, mock_decl, tmp_path, caplog
+    ):
+        """A genuinely broken spec YAML in the project's ``feature_views`` dir
+        is skipped (describe still renders examples from the valid spec) but
+        logged at WARNING so a parse error is not silently invisible."""
+        import logging
+
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        project = tmp_path / "project"
+        _write_manifest(project)
+        fv_dir = project / "sources" / "feature_views"
+        self._write_fv_spec(fv_dir, name="USER_CLICKS", source_name="PROJECT_SRC")
+        # Unclosed flow sequence -> yaml.safe_load raises. Name it so it is
+        # scanned before ``USER_CLICKS.yaml`` (the lazy search returns on the
+        # first name match), proving a broken sibling is reported, not silent.
+        (fv_dir / "AAA_broken.yaml").write_text("foo: [bar, baz\n")
+
+        mock_execute_query.side_effect = self._show_oft_side_effect(
+            "USER_CLICKS$V1$ONLINE"
+        )
+        mock_decl.resolve_oft_name.return_value = ("USER_CLICKS$V1$ONLINE", None)
+
+        with caplog.at_level(
+            logging.WARNING, logger="snowflake.cli._plugins.feature.manager"
+        ):
+            FeatureManager().describe(
+                from_dir=project, target_name=None, name="USER_CLICKS", version="V1"
+            )
+
+        # The valid spec still reaches the example builder.
+        mock_decl.build_describe_examples.assert_called_once()
+        spec = mock_decl.build_describe_examples.call_args.kwargs["spec"]
+        assert spec is not None
+        assert spec["sources"][0]["name"] == "PROJECT_SRC"
+
+        # The broken file is named in a WARNING log (not silently swallowed).
+        assert any(
+            "AAA_broken.yaml" in rec.getMessage() and rec.levelno == logging.WARNING
+            for rec in caplog.records
+        )
+
+    def test_describe_does_not_mutate_find_spec_result(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        """describe fills missing source columns onto a *copy* of the spec.
+
+        Regression for the PR-review finding: describe used to write
+        ``spec["sources"][0]["columns"]`` straight into the dict returned by
+        ``_find_spec``. The aliasing is invisible today (``_find_spec``
+        re-parses YAML on every call) but becomes a real bug the moment
+        ``_find_spec`` is memoized -- a later describe would then see the
+        injected ``columns`` as if the operator had authored them. Pin that
+        neither the returned FeatureView dict nor the datasource ``columns``
+        list is mutated in place, while the example builder still receives the
+        enriched columns.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+
+        # A shared dict a memoized ``_find_spec`` would hand back on every call.
+        shared_spec: dict[str, Any] = {
+            "kind": "BatchFeatureView",
+            "name": "USER_CLICKS",
+            "version": "V1",
+            "sources": [{"name": "PROJECT_SRC", "source_type": "Batch"}],
+        }
+        ds_columns = [{"name": "COL_A"}, {"name": "COL_B"}]
+        ds_spec = {"name": "PROJECT_SRC", "columns": ds_columns}
+
+        monkeypatch.setattr(
+            FeatureManager,
+            "_find_spec",
+            classmethod(lambda cls, *a, **k: shared_spec),
+        )
+        monkeypatch.setattr(
+            FeatureManager,
+            "_find_datasource",
+            classmethod(lambda cls, *a, **k: ds_spec),
+        )
+
+        mock_execute_query.side_effect = self._show_oft_side_effect(
+            "USER_CLICKS$V1$ONLINE"
+        )
+        mock_decl.resolve_oft_name.return_value = ("USER_CLICKS$V1$ONLINE", None)
+
+        FeatureManager().describe(
+            from_dir=tmp_path, target_name=None, name="USER_CLICKS", version="V1"
+        )
+
+        # The dict returned by ``_find_spec`` is never mutated.
+        assert "columns" not in shared_spec["sources"][0]
+        # The datasource ``columns`` list is not aliased into the spec.
+        assert ds_spec["columns"] is ds_columns
+
+        # The example builder received a *different* spec object that carries
+        # the resolved source columns (a deep copy, not the datasource list).
+        mock_decl.build_describe_examples.assert_called_once()
+        passed_spec = mock_decl.build_describe_examples.call_args.kwargs["spec"]
+        assert passed_spec is not shared_spec
+        assert passed_spec["sources"][0]["columns"] == ds_columns
+        assert passed_spec["sources"][0]["columns"] is not ds_columns
+
+
+class TestFeatureManagerExportSpecsRemoved:
+    """The public ``FeatureManager.export_specs`` is gone (init subsumes it).
+
+    The export pipeline is still reachable, but only as a private
+    helper invoked from :meth:`FeatureManager.init` — operators no
+    longer call ``export`` directly.
+    """
+
+    def test_export_specs_method_no_longer_present(self):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        assert not hasattr(FeatureManager, "export_specs"), (
+            "FeatureManager.export_specs must be removed; the export "
+            "pipeline now runs only as part of FeatureManager.init"
+        )
+
+
+# ===========================================================================
+# Surface deletions
+# ===========================================================================
+
+
+class TestSurfaceDeletions:
+    """The legacy CLI surface (positional ``INPUT_FILES``,
+    ``--config``, ``--overwrite``, ``./...``, ``_is_full_sync``,
+    ``_expand_with_datasources``) is gone."""
+
+    def test_expand_with_datasources_no_longer_present(self):
+        from snowflake.cli._plugins.feature import manager
+
+        assert not hasattr(manager.FeatureManager, "_expand_with_datasources")
+
+    def test_is_full_sync_no_longer_present_in_commands(self):
+        from snowflake.cli._plugins.feature import commands
+
+        assert not hasattr(commands, "_is_full_sync")
+
+    def test_input_files_arg_no_longer_present_on_apply(self):
+        """``snow feature apply`` no longer accepts a positional
+        ``INPUT_FILES`` argument."""
+        import inspect
+
+        from snowflake.cli._plugins.feature import commands
+
+        sig = inspect.signature(commands.apply)
+        assert "input_files" not in sig.parameters
+
+    def test_config_flag_no_longer_present_on_plan(self):
+        """``snow feature plan`` no longer accepts ``--config``."""
+        import inspect
+
+        from snowflake.cli._plugins.feature import commands
+
+        sig = inspect.signature(commands.plan)
+        assert "config" not in sig.parameters
+
+    def test_overwrite_flag_no_longer_present_on_apply(self):
+        """``snow feature apply`` no longer accepts ``--overwrite``."""
+        import inspect
+
+        from snowflake.cli._plugins.feature import commands
+
+        sig = inspect.signature(commands.apply)
+        assert "overwrite" not in sig.parameters
+
+
+# ===========================================================================
+# Manager surface invariants — boundary rule + warehouse-from-connection.
+# ===========================================================================
+
+
+class TestManagerBoundary:
+    """Architecture boundary: ``manager.py`` MUST NOT contain SQL strings
+    (Acceptance #6).  ``warehouse`` MUST come from the connection
+    (Acceptance #5)."""
+
+    def test_manager_source_has_no_sql_keywords_in_code(self):
+        """Acceptance #6: only docstring text may contain SQL keywords."""
+        import inspect
+        import re
+
+        from snowflake.cli._plugins.feature import manager
+
+        source = inspect.getsource(manager)
+        # Strip docstrings / comments by walking the file as text and
+        # collapsing every triple-quoted block.
+        no_docstrings = re.sub(r'"""[\s\S]*?"""', "", source, flags=re.MULTILINE)
+        no_docstrings = re.sub(r"'''[\s\S]*?'''", "", no_docstrings, flags=re.MULTILINE)
+        # Drop ``# ...`` comments line-by-line so they don't trip the grep.
+        no_comments = "\n".join(
+            line.split("#", 1)[0] for line in no_docstrings.splitlines()
+        )
+        for kw in ("ALTER ", "SHOW ", "CREATE ", "DROP ", "DESCRIBE ", "SELECT "):
+            assert kw not in no_comments, (
+                f"manager.py code contains SQL keyword {kw!r} outside "
+                f"docstrings/comments — boundary rule violated"
+            )
+
+
+# ===========================================================================
+# Ingest / Query — the library delegation contract.  The command surface
+# takes from_dir / target_name kwargs; the underlying library delegation
+# is unchanged.
+# ===========================================================================
+
+
+class TestFeatureManagerIngest:
+    """``ingest`` delegates to ``FeatureStore.stream_ingest`` after the
+    client-side schema preflight."""
+
+    @staticmethod
+    def _stream_source_with_schema(field_names):
+        fields = []
+        for fname in field_names:
+            f = mock.MagicMock(name=f"field_{fname}")
+            f.name = fname
+            fields.append(f)
+        schema = mock.MagicMock(name="schema")
+        schema.fields = fields
+        src = mock.MagicMock(name="stream_source")
+        src.schema = schema
+        return src
+
+    def _patch_fs(self, accepted=1):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        mock_fs = mock.MagicMock(name="feature_store")
+        mock_fs.stream_ingest.return_value = accepted
+        mock_fs.get_stream_source.return_value = self._stream_source_with_schema(
+            ["col_a"]
+        )
+        return (
+            mock.patch.object(
+                FeatureManager,
+                "_get_feature_store",
+                create=True,
+                return_value=mock_fs,
+            ),
+            mock_fs,
+        )
+
+    def test_ingest_calls_fs_stream_ingest(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, mock_fs = self._patch_fs(accepted=3)
+
+        with patcher:
+            FeatureManager().ingest(
+                from_dir=tmp_path,
+                target_name=None,
+                source_name="MY_STREAM",
+                records=[{"col_a": 1}],
+            )
+
+        mock_fs.stream_ingest.assert_called_once_with("MY_STREAM", [{"col_a": 1}])
+
+    def test_ingest_returns_accepted_count_envelope(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, _ = self._patch_fs(accepted=100)
+
+        with patcher:
+            result = FeatureManager().ingest(
+                from_dir=tmp_path,
+                target_name=None,
+                source_name="MY_STREAM",
+                records=[{"col_a": 1}],
+            )
+
+        assert result["accepted_count"] == 100
+        assert result["target_database"] == "TEST_DB"
+        assert result["target_schema"] == "TEST_SCHEMA"
+        assert result["target_warehouse"] == "TEST_WH"
+
+    def test_ingest_preflight_rejects_records_missing_required_fields(
+        self, mock_execute_query, mock_decl, tmp_path, monkeypatch
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        monkeypatch.setenv("SNOWFLAKE_PAT", "test_pat")
+        patcher, mock_fs = self._patch_fs()
+        mock_fs.get_stream_source.return_value = self._stream_source_with_schema(
+            ["USER_ID", "PAGE_URL"]
+        )
+
+        with patcher:
+            with pytest.raises(ValueError) as exc:
+                FeatureManager().ingest(
+                    from_dir=tmp_path,
+                    target_name=None,
+                    source_name="X",
+                    records=[{"USER_ID": "u1"}],
+                )
+        assert "PAGE_URL" in str(exc.value)
+        mock_fs.stream_ingest.assert_not_called()
+
+
+class TestFeatureManagerQuery:
+    def _make_mock_fv(self, entities_join_keys):
+        fv = mock.MagicMock(name="fv")
+        fv.entities = []
+        for jk in entities_join_keys:
+            ent = mock.MagicMock(name="entity")
+            ent.join_keys = jk
+            fv.entities.append(ent)
+        return fv
+
+    def _patch_fs(self, join_keys_per_entity, rows_records=None):
+        import pandas as pd
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        if rows_records is None:
+            rows_records = [{"USER_ID": "u1"}]
+        mock_fv = self._make_mock_fv(join_keys_per_entity)
+        mock_fs = mock.MagicMock(name="fs")
+        mock_fs.get_feature_view.return_value = mock_fv
+        mock_fs.read_feature_view.return_value = pd.DataFrame(rows_records)
+        return (
+            mock.patch.object(
+                FeatureManager,
+                "_get_feature_store",
+                create=True,
+                return_value=mock_fs,
+            ),
+            mock_fs,
+        )
+
+    def test_query_passes_version_to_get_feature_view(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        patcher, mock_fs = self._patch_fs([["USER_ID"]])
+        with patcher:
+            FeatureManager().query(
+                from_dir=tmp_path,
+                target_name=None,
+                feature_view_name="FV",
+                version="V1",
+                keys=[{"USER_ID": "u1"}],
+            )
+        mock_fs.get_feature_view.assert_called_once_with("FV", "V1")
+
+    def test_query_returns_rows_envelope(self, mock_execute_query, mock_decl, tmp_path):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        rows = [{"USER_ID": "u1", "X": 1}]
+        patcher, _ = self._patch_fs([["USER_ID"]], rows_records=rows)
+        with patcher:
+            result = FeatureManager().query(
+                from_dir=tmp_path,
+                target_name=None,
+                feature_view_name="FV",
+                version="V1",
+                keys=[{"USER_ID": "u1"}],
+            )
+        assert result["rows"] == rows
+        assert result["target_database"] == "TEST_DB"
+        assert result["target_warehouse"] == "TEST_WH"
+
+    def test_query_raises_clear_error_for_missing_join_key(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        patcher, mock_fs = self._patch_fs([["USER_ID"], ["SESSION_ID"]])
+        with patcher:
+            with pytest.raises(ValueError, match="SESSION_ID"):
+                FeatureManager().query(
+                    from_dir=tmp_path,
+                    target_name=None,
+                    feature_view_name="FV",
+                    version="V1",
+                    keys=[{"USER_ID": "u1"}],
+                )
+        mock_fs.read_feature_view.assert_not_called()
+
+
+# ===========================================================================
+# online-service — get_status / initialize_service / destroy_service
+# ===========================================================================
+
+
+_STAGING_MANIFEST_YAML = textwrap.dedent(
+    """\
+    manifest_version: 1
+    type: feature_store
+    default_target: STAGING
+    targets:
+      STAGING:
+        account_identifier: TEST_ORG-TEST_ACCT
+        database: STAGING_DB
+        schema: STAGING_SCHEMA
+        role: STAGING_ROLE
+    """
+)
+
+
+class TestOnlineServiceManagerResolvesTarget:
+    """``get_status`` / ``initialize_service`` / ``destroy_service`` now
+    accept ``from_dir`` + ``target_name`` and route through
+    :meth:`FeatureManager._resolve_project` so the manifest target's
+    ``database`` / ``schema`` / ``role`` drives the
+    ``SYSTEM$*_FEATURE_STORE_ONLINE_SERVICE(...)`` calls.
+
+    The connection fallback is opt-in and fail-closed: only when a caller
+    passes ``allow_connection_fallback=True`` (the ``--create`` flow),
+    ``target_name`` is ``None``, and no manifest is reachable does the
+    manager resolve to the connection's ``database`` / ``schema``.  A bare
+    status read and the destructive ``destroy_service`` path are strict, so
+    a manifest-less directory raises ``CliError`` rather than resolving to
+    whatever the connection happens to point at.  An explicit ``--target``
+    against a manifest-less directory is always a hard error.
+    """
+
+    def test_get_status_uses_resolved_target_database_and_schema(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+
+        FeatureManager().get_status(from_dir=tmp_path, target_name="STAGING")
+
+        assert mock_decl.service_sql.called
+        args = mock_decl.service_sql.call_args.args
+        assert args[0] == "STAGING_DB"
+        assert args[1] == "STAGING_SCHEMA"
+
+    def test_get_status_no_manifest_returns_error_envelope(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A bare status read is strict: with no manifest reachable and no
+        opt-in fallback, ``get_status`` catches the :class:`CliError` and
+        surfaces it through the result envelope (``Status: error``) instead
+        of resolving to the connection's database / schema."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        result = FeatureManager().get_status(from_dir=tmp_path, target_name=None)
+
+        assert result.get("status") == "error"
+        assert "manifest.yml" in result.get("error", "")
+        mock_decl.service_sql.assert_not_called()
+
+    def test_get_status_no_manifest_with_fallback_uses_connection(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """With ``allow_connection_fallback=True`` (the ``--create`` flow)
+        a manifest-less directory resolves to the connection's location so
+        a runtime can be polled before a project exists."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        FeatureManager().get_status(
+            from_dir=tmp_path,
+            target_name=None,
+            allow_connection_fallback=True,
+        )
+
+        args = mock_decl.service_sql.call_args.args
+        assert args[0] == "TEST_DB"
+        assert args[1] == "TEST_SCHEMA"
+
+    def test_get_status_no_manifest_with_explicit_target_returns_error_envelope(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """No manifest + explicit ``--target`` is a hard mismatch; the
+        wrapper catches the :class:`CliError` and surfaces it through
+        the result envelope so the CLI still renders ``Status: error``
+        (the spinner / poll loop relies on this convention)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        result = FeatureManager().get_status(from_dir=tmp_path, target_name="PROD")
+        assert result.get("status") == "error"
+        assert "manifest.yml" in result.get("error", "")
+
+    def test_initialize_service_uses_resolved_target_role_as_producer(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+
+        FeatureManager().initialize_service(
+            from_dir=tmp_path,
+            target_name="STAGING",
+            producer_role=None,
+            consumer_role=None,
+        )
+
+        # service_sql is invoked twice (once inside get_status, once for
+        # the CREATE call).  Only the CREATE call carries roles.
+        create_calls = [
+            c for c in mock_decl.service_sql.call_args_list if len(c.args) >= 4
+        ]
+        assert create_calls, "service_sql with roles was never invoked"
+        args = create_calls[-1].args
+        assert args[0] == "STAGING_DB"
+        assert args[1] == "STAGING_SCHEMA"
+        assert args[2] == "STAGING_ROLE"
+        assert args[3] == "PUBLIC"
+
+    def test_initialize_service_explicit_producer_role_overrides_target_role(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+
+        FeatureManager().initialize_service(
+            from_dir=tmp_path,
+            target_name="STAGING",
+            producer_role="EXPLICIT_ROLE",
+            consumer_role="CUSTOM_CONSUMER",
+        )
+
+        create_calls = [
+            c for c in mock_decl.service_sql.call_args_list if len(c.args) >= 4
+        ]
+        args = create_calls[-1].args
+        assert args[2] == "EXPLICIT_ROLE"
+        assert args[3] == "CUSTOM_CONSUMER"
+
+    def test_initialize_service_no_manifest_falls_back_to_connection(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        FeatureManager().initialize_service(
+            from_dir=tmp_path,
+            target_name=None,
+            producer_role=None,
+            consumer_role=None,
+        )
+
+        create_calls = [
+            c for c in mock_decl.service_sql.call_args_list if len(c.args) >= 4
+        ]
+        args = create_calls[-1].args
+        assert args[0] == "TEST_DB"
+        assert args[1] == "TEST_SCHEMA"
+        assert args[2] == "TEST_ROLE"
+        assert args[3] == "PUBLIC"
+
+    def test_destroy_service_uses_resolved_target_database_and_schema(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+
+        FeatureManager().destroy_service(from_dir=tmp_path, target_name="STAGING")
+
+        args = mock_decl.service_sql.call_args.args
+        assert args[0] == "STAGING_DB"
+        assert args[1] == "STAGING_SCHEMA"
+
+    def test_destroy_service_no_manifest_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The destructive ``--drop`` path is strict: with no manifest
+        reachable it raises rather than resolving to whatever the connection
+        happens to point at (a connection defaulting to PROD plus a stray cwd
+        must never tear down a runtime)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError, match="manifest.yml"):
+            FeatureManager().destroy_service(from_dir=tmp_path, target_name=None)
+
+        mock_decl.service_sql.assert_not_called()
+
+    def test_destroy_service_no_manifest_with_explicit_target_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError, match="manifest.yml"):
+            FeatureManager().destroy_service(from_dir=tmp_path, target_name="PROD")
+
+    def test_resolve_service_target_reraises_account_mismatch(
+        self,
+        mock_execute_query,
+        mock_decl,
+        mock_account_identifier,
+        tmp_path,
+    ):
+        """A reachable manifest whose target account does not match the
+        connection must NOT silently fall back to the connection's
+        database/schema even when ``target_name`` is ``None``. The
+        ``AccountMismatchError`` propagates so the operator sees the real
+        problem instead of a runtime managed against the wrong account."""
+        from snowflake.cli._plugins.feature.exceptions import AccountMismatchError
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.identifiers import AccountIdentifier
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+        mock_account_identifier.return_value = AccountIdentifier(
+            "OTHER_ORG", "OTHER_ACCT"
+        )
+
+        with pytest.raises(AccountMismatchError):
+            FeatureManager()._resolve_service_target(tmp_path, None)  # noqa: SLF001
+
+    def test_resolve_service_target_no_manifest_strict_by_default_raises(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """The default is fail-closed: no manifest, no opt-in fallback, so
+        ``_resolve_service_target`` raises the manifest error."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError, match="manifest.yml"):
+            FeatureManager()._resolve_service_target(tmp_path, None)  # noqa: SLF001
+
+    def test_resolve_service_target_no_manifest_with_fallback_uses_connection(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """With ``allow_connection_fallback=True`` and no explicit target,
+        a manifest-less directory resolves to the connection pair."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        database, schema, _ = FeatureManager()._resolve_service_target(  # noqa: SLF001
+            tmp_path, None, allow_connection_fallback=True
+        )
+
+        assert database == "TEST_DB"
+        assert schema == "TEST_SCHEMA"
+
+    def test_resolve_service_target_explicit_target_ignores_fallback(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """An explicit ``--target`` against a manifest-less directory is a
+        hard error even when the fallback is allowed."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        with pytest.raises(CliError, match="manifest.yml"):
+            FeatureManager()._resolve_service_target(  # noqa: SLF001
+                tmp_path, "PROD", allow_connection_fallback=True
+            )
+
+
+class TestOnlineServiceStatusDisplay:
+    """``get_status`` owns the online-service TABLE banner.
+
+    The manager (not ``commands.py``) calls
+    ``decl_api.format_status_display`` and stashes the rendered banner on
+    ``result["_display"]`` — the same adapter shape ``describe`` uses. The
+    ``user`` / ``database`` / ``schema`` / ``verbose`` formatter inputs are
+    resolved here (from the CLI context + the resolved target) and are NOT
+    leaked as ``_user`` / ``_database`` / ``_schema`` keys on the returned
+    dict. An error envelope never carries a ``_display``.
+    """
+
+    def test_get_status_builds_display_and_drops_header_keys(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+        mock_execute_query.return_value = iter([["RAW_STATUS_JSON"]])
+        mock_decl.parse_service_status.return_value = {
+            "status": "RUNNING",
+            "endpoints": [],
+        }
+        mock_decl.format_status_display.return_value = "BANNER_TEXT"
+        mock_cli_context.return_value.connection.user = "TEST_USER"
+        mock_cli_context.return_value.verbose = False
+
+        result = FeatureManager().get_status(from_dir=tmp_path, target_name="STAGING")
+
+        assert result["_display"] == "BANNER_TEXT"
+        # Header inputs resolved in the manager, not leaked as payload keys.
+        assert "_user" not in result
+        assert "_database" not in result
+        assert "_schema" not in result
+
+        call = mock_decl.format_status_display.call_args
+        assert call.args[0]["status"] == "RUNNING"
+        assert call.kwargs["user"] == "TEST_USER"
+        assert call.kwargs["database"] == "STAGING_DB"
+        assert call.kwargs["schema"] == "STAGING_SCHEMA"
+        assert call.kwargs["verbose"] is False
+
+    def test_get_status_forwards_verbose_from_context(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+        mock_execute_query.return_value = iter([["RAW_STATUS_JSON"]])
+        mock_decl.parse_service_status.return_value = {"status": "RUNNING"}
+        mock_decl.format_status_display.return_value = "BANNER_TEXT"
+        mock_cli_context.return_value.connection.user = "TEST_USER"
+        mock_cli_context.return_value.verbose = True
+
+        FeatureManager().get_status(from_dir=tmp_path, target_name="STAGING")
+
+        assert mock_decl.format_status_display.call_args.kwargs["verbose"] is True
+
+    def test_get_status_error_envelope_has_no_display(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        """A backend failure (here: empty response) returns an ``error``
+        envelope and never renders — no formatter call, no ``_display``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+        # Default ``mock_execute_query`` yields no rows -> "No response".
+        result = FeatureManager().get_status(from_dir=tmp_path, target_name="STAGING")
+
+        assert result["status"] == "error"
+        assert "_display" not in result
+        mock_decl.format_status_display.assert_not_called()
+
+
+class TestDestroyServiceStatus:
+    """``destroy_service`` must reflect the outcome of the drops in ``status``.
+
+    The manager drops every Online Feature Table, then the runtime, and
+    collects ``dropped_ofts`` / ``errors``. ``status`` is:
+
+    - ``destroyed`` when nothing errored;
+    - ``partial_failure`` when at least one OFT was dropped but something
+      errored (a failed OFT drop, a failed runtime drop, or a failed SHOW);
+    - ``failed`` when errors occurred and nothing was dropped.
+
+    A blanket ``destroyed`` (the pre-fix behaviour) hides a total failure and
+    lets ``online-service --drop`` exit 0 even when every drop failed.
+    """
+
+    @staticmethod
+    def _install_execute_query(mock_execute_query, *, show_rows, fail_ofts, runtime_ok):
+        """Drive ``execute_query`` per call: SHOW, per-OFT drop, runtime drop.
+
+        ``drop_queries`` is stubbed to emit ``DROP OFT <name>`` so the
+        side-effect can recognise an OFT-drop by its trailing name and the
+        runtime drop by its literal SQL.
+        """
+
+        def _side_effect(sql, *args, **kwargs):
+            if "cursor_class" in kwargs:  # the SHOW ONLINE FEATURE TABLES call
+                return iter(show_rows)
+            if sql == "DROP RUNTIME":
+                if not runtime_ok:
+                    raise RuntimeError("runtime drop boom")
+                return iter([])
+            name = sql.split()[-1]  # "DROP OFT <name>"
+            if name in fail_ofts:
+                raise RuntimeError(f"drop {name} boom")
+            return iter([])
+
+        mock_execute_query.side_effect = _side_effect
+
+    @staticmethod
+    def _wire_decl(mock_decl):
+        mock_decl.service_sql.return_value = {
+            "show_ofts": "SHOW OFTS",
+            "drop": "DROP RUNTIME",
+        }
+        mock_decl.drop_queries.side_effect = lambda names, db, schema: [
+            f"DROP OFT {names[0]}"
+        ]
+
+    def test_all_drops_succeed_reports_destroyed(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+        self._wire_decl(mock_decl)
+        self._install_execute_query(
+            mock_execute_query,
+            show_rows=[{"name": "A"}, {"name": "B"}],
+            fail_ofts=set(),
+            runtime_ok=True,
+        )
+
+        result = FeatureManager().destroy_service(from_dir=tmp_path, target_name=None)
+
+        assert result["status"] == "destroyed"
+        assert result["dropped_ofts"] == ["A", "B"]
+        assert result["errors"] == []
+
+    def test_some_drops_fail_reports_partial_failure(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+        self._wire_decl(mock_decl)
+        self._install_execute_query(
+            mock_execute_query,
+            show_rows=[{"name": "A"}, {"name": "B"}],
+            fail_ofts={"A"},
+            runtime_ok=True,
+        )
+
+        result = FeatureManager().destroy_service(from_dir=tmp_path, target_name=None)
+
+        assert result["status"] == "partial_failure"
+        assert result["dropped_ofts"] == ["B"]
+        assert result["errors"]
+
+    def test_nothing_dropped_with_errors_reports_failed(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path, yaml_text=_STAGING_MANIFEST_YAML)
+        self._wire_decl(mock_decl)
+        self._install_execute_query(
+            mock_execute_query,
+            show_rows=[{"name": "A"}],
+            fail_ofts={"A"},
+            runtime_ok=False,
+        )
+
+        result = FeatureManager().destroy_service(from_dir=tmp_path, target_name=None)
+
+        assert result["status"] == "failed"
+        assert result["dropped_ofts"] == []
+        assert result["errors"]
+
+
+# ===========================================================================
+# Stream-source applied-state read path
+#
+# ``FeatureManager._fetch_stream_source_rows`` is the CLI's seam onto
+# ``decl_api.fetch_stream_source_rows``.  It shares the fail-loud
+# inventory-read contract of ``_fetch_entity_rows`` /
+# ``_fetch_feature_view_rows`` / ``_fetch_feature_group_rows``: a
+# ``FeatureStoreNotInitializedError`` propagates (so the CLI rewraps it
+# with the actionable ``snow feature init`` message), and every other
+# exception surfaces as a ``CliError`` naming the read.  None of the four
+# swallow to ``[]``: these facades are the authoritative applied-state
+# inventory, so an empty result must mean "nothing deployed", never "the
+# read failed" — otherwise the planner emits ``CREATE_*`` for objects that
+# already exist and ``apply`` (which never re-plans) executes them.
+#
+# The rows MUST then be threaded into ``decl_api.fetch_applied_state(...,
+# stream_source_rows=...)`` from both the ``plan()`` and ``write_plan()``
+# call sites so the planner sees runtime-authoritative ``Datasource``
+# AppliedObjects and emits the correct ``CREATE_SOURCE`` /
+# ``UPDATE_SOURCE`` / ``RECREATE_SOURCE`` / ``DROP_SOURCE`` /
+# ``NO_CHANGE`` decision.
+# ===========================================================================
+
+
+def _make_target():
+    """Return a vanilla ``FSTarget`` for the default test manifest."""
+    from snowflake.cli._plugins.feature.models import FSTarget
+
+    return FSTarget(
+        name="DEFAULT",
+        account_identifier="TEST_ORG-TEST_ACCT",
+        database="TEST_DB",
+        schema="TEST_SCHEMA",
+        role="TEST_ROLE",
+    )
+
+
+class TestFetchEntityRowsResilience:
+    """The entity read path must NOT swallow a transient backend failure
+    into an empty list.
+
+    ``_fetch_entity_rows`` is load-bearing for planner correctness: an
+    empty applied-state entity set makes ``validate_specs`` emit
+    ``MISSING_ENTITY`` for every FV that references an entity only
+    present in applied state.  An ``except Exception: return []``
+    would turn the ``list_entities()`` / warehouse-auto-suspend race
+    into a spurious ``validation_failed`` on an otherwise-valid project.
+    A post-retry backend failure MUST surface as a clear error instead
+    (``FeatureStoreNotInitializedError`` still stays first-class).
+    """
+
+    _SUSPEND_ERR = (
+        "090109 (22000): Warehouse 'TEST_WH' was suspended while SQL was "
+        "waiting to be scheduled. SQL execution canceled."
+    )
+
+    def test_fetch_entity_rows_reraises_transient_error_as_clierror(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A generic backend failure (e.g. the warehouse-suspend race
+        surviving the imperative-layer retry) MUST raise a ``CliError``
+        naming the entity read — never degrade to ``[]``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        target = _make_target()
+        mock_decl.fetch_entity_rows.side_effect = RuntimeError(self._SUSPEND_ERR)
+
+        with pytest.raises(CliError, match="registered entities"):
+            FeatureManager()._fetch_entity_rows(target)  # noqa: SLF001
+
+    def test_fetch_entity_rows_reraises_not_initialized(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``FeatureStoreNotInitializedError`` remains first-class — the
+        command-layer wrapper rewraps it into the actionable ``snow
+        feature init`` message, so this helper MUST propagate it
+        unchanged (not as a generic transient ``CliError``)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        target = _make_target()
+        mock_decl.fetch_entity_rows.side_effect = FeatureStoreNotInitializedError(
+            "TEST_DB",
+            "TEST_SCHEMA",
+            RuntimeError("missing SNOWML_FEATURE_STORE_OBJECT tag"),
+        )
+
+        with pytest.raises(FeatureStoreNotInitializedError):
+            FeatureManager()._fetch_entity_rows(target)  # noqa: SLF001
+
+    def test_plan_surfaces_transient_entity_error_not_missing_entity(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan()`` MUST propagate the transient entity-read error
+        rather than continuing with an empty applied state (which would
+        surface as a spurious ``MISSING_ENTITY`` ``validation_failed``)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        mock_decl.fetch_entity_rows.side_effect = RuntimeError(self._SUSPEND_ERR)
+
+        with pytest.raises(CliError, match="registered entities"):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                destructive=False,
+            )
+
+
+class TestFetchFeatureViewRowsResilience:
+    """The feature-view read path must NOT swallow a backend failure into
+    an empty list.
+
+    ``list_feature_views()`` is the authoritative FV discovery surface
+    (it is the only one that surfaces offline-only ``BatchFeatureView``s
+    that ``SHOW ONLINE FEATURE TABLES`` cannot enumerate).  An
+    ``except Exception: return []`` turns a missing privilege or the
+    warehouse-auto-suspend race into a plan that re-emits ``CREATE_FV``
+    for every already-deployed FV.  ``plan`` persists that op set once and
+    ``apply`` never re-plans, so the swallow is a confidently-wrong plan.
+    A post-retry backend failure MUST surface as a ``CliError`` instead
+    (``FeatureStoreNotInitializedError`` still stays first-class).
+    """
+
+    _PRIV_ERR = "SQL access control error: Insufficient privileges"
+
+    def test_fetch_feature_view_rows_reraises_generic_exception_as_clierror(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A generic backend failure MUST raise a ``CliError`` naming the
+        feature-view read — never degrade to ``[]``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        target = _make_target()
+        mock_decl.fetch_feature_view_rows.side_effect = RuntimeError(self._PRIV_ERR)
+
+        with pytest.raises(CliError, match="feature views"):
+            FeatureManager()._fetch_feature_view_rows(target)  # noqa: SLF001
+
+    def test_fetch_feature_view_rows_reraises_not_initialized(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``FeatureStoreNotInitializedError`` remains first-class — the
+        command-layer wrapper rewraps it into the actionable ``snow
+        feature init`` message, so this helper MUST propagate it
+        unchanged (not as a generic ``CliError``)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        target = _make_target()
+        mock_decl.fetch_feature_view_rows.side_effect = FeatureStoreNotInitializedError(
+            "TEST_DB",
+            "TEST_SCHEMA",
+            RuntimeError("missing SNOWML_FEATURE_STORE_OBJECT tag"),
+        )
+
+        with pytest.raises(FeatureStoreNotInitializedError):
+            FeatureManager()._fetch_feature_view_rows(target)  # noqa: SLF001
+
+    def test_plan_surfaces_transient_feature_view_error_not_empty_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan()`` MUST propagate a transient feature-view-read error
+        rather than continuing with an empty applied state (which would
+        surface as a spurious ``CREATE_FV`` in the persisted plan)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        mock_decl.fetch_feature_view_rows.side_effect = RuntimeError(self._PRIV_ERR)
+
+        with pytest.raises(CliError, match="feature views"):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                destructive=False,
+            )
+
+
+class TestFetchFeatureGroupRowsResilience:
+    """The feature-group read path must NOT swallow a backend failure into
+    an empty list.
+
+    ``FeatureGroup`` has no ``SHOW`` analogue, so ``list_feature_groups()``
+    is the *only* path that surfaces deployed FGs into applied state.  An
+    ``except Exception: return []`` turns a missing privilege or the
+    warehouse-auto-suspend race into a plan that re-emits ``CREATE_FG``
+    for every already-deployed FG.  ``plan`` persists that op set once and
+    ``apply`` never re-plans, so the swallow is a confidently-wrong plan.
+    A post-retry backend failure MUST surface as a ``CliError`` instead
+    (``FeatureStoreNotInitializedError`` still stays first-class).
+    """
+
+    _PRIV_ERR = "SQL access control error: Insufficient privileges"
+
+    def test_fetch_feature_group_rows_reraises_generic_exception_as_clierror(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """A generic backend failure MUST raise a ``CliError`` naming the
+        feature-group read — never degrade to ``[]``."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        target = _make_target()
+        mock_decl.fetch_feature_group_rows.side_effect = RuntimeError(self._PRIV_ERR)
+
+        with pytest.raises(CliError, match="feature groups"):
+            FeatureManager()._fetch_feature_group_rows(target)  # noqa: SLF001
+
+    def test_fetch_feature_group_rows_reraises_not_initialized(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``FeatureStoreNotInitializedError`` remains first-class — the
+        command-layer wrapper rewraps it into the actionable ``snow
+        feature init`` message, so this helper MUST propagate it
+        unchanged (not as a generic ``CliError``)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        target = _make_target()
+        mock_decl.fetch_feature_group_rows.side_effect = (
+            FeatureStoreNotInitializedError(
+                "TEST_DB",
+                "TEST_SCHEMA",
+                RuntimeError("missing SNOWML_FEATURE_STORE_OBJECT tag"),
+            )
+        )
+
+        with pytest.raises(FeatureStoreNotInitializedError):
+            FeatureManager()._fetch_feature_group_rows(target)  # noqa: SLF001
+
+    def test_plan_surfaces_transient_feature_group_error_not_empty_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan()`` MUST propagate a transient feature-group-read error
+        rather than continuing with an empty applied state (which would
+        surface as a spurious ``CREATE_FG`` in the persisted plan)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        mock_decl.fetch_feature_group_rows.side_effect = RuntimeError(self._PRIV_ERR)
+
+        with pytest.raises(CliError, match="feature groups"):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                destructive=False,
+            )
+
+
+class TestFetchStreamSourceRowsThreading:
+    """Wave 3B — ``_fetch_stream_source_rows`` + bundle threading."""
+
+    # ------------------------------------------------------------------
+    # _fetch_stream_source_rows direct unit tests
+    # ------------------------------------------------------------------
+
+    def test_fetch_stream_source_rows_calls_decl_api_facade(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``_fetch_stream_source_rows(target)`` delegates to
+        ``decl_api.fetch_stream_source_rows(session, database, schema,
+        warehouse)`` and returns the result verbatim."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        target = _make_target()
+        rows = [
+            {
+                "name": "USER_CLICKS_STREAM",
+                "schema": [{"name": "USER_ID", "type": "StringType"}],
+                "desc": "click events",
+                "owner": "OPS",
+            }
+        ]
+        mock_decl.fetch_stream_source_rows.return_value = rows
+
+        result = FeatureManager()._fetch_stream_source_rows(target)  # noqa: SLF001
+
+        assert result == rows
+        mock_decl.fetch_stream_source_rows.assert_called_once()
+        args = mock_decl.fetch_stream_source_rows.call_args.args
+        # (session, database, schema, warehouse) positional signature —
+        # mirrors fetch_entity_rows / fetch_feature_view_rows /
+        # fetch_feature_group_rows so the manager's helpers stay
+        # uniform.  ``warehouse`` flows from the active connection
+        # context (``ctx.connection.warehouse``), matching the other
+        # _fetch_* helpers.
+        assert args[1] == "TEST_DB"
+        assert args[2] == "TEST_SCHEMA"
+        assert args[3] == "TEST_WH"
+
+    def test_fetch_stream_source_rows_reraises_generic_exception_as_clierror(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Any non-init-required exception (e.g. a missing privilege or the
+        warehouse-suspend race surviving the imperative-layer retry) MUST
+        raise a ``CliError`` naming the stream-source read — never degrade to
+        ``[]``.
+
+        Stream sources are runtime-authoritative: an empty result means "no
+        sources registered", which the planner turns into ``CREATE_SOURCE``
+        for sources that already exist.  ``plan`` persists that op set once and
+        ``apply`` never re-plans, so a swallowed read is a confidently-wrong
+        plan, not a downgrade."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        target = _make_target()
+        mock_decl.fetch_stream_source_rows.side_effect = RuntimeError(
+            "SQL access control error: Insufficient privileges"
+        )
+
+        with pytest.raises(CliError, match="stream sources"):
+            FeatureManager()._fetch_stream_source_rows(target)  # noqa: SLF001
+
+    def test_plan_surfaces_transient_stream_source_error_not_empty_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan()`` MUST propagate a transient stream-source-read error
+        rather than continuing with an empty applied state (which would
+        surface as a spurious ``CREATE_SOURCE`` in the persisted plan)."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        mock_decl.fetch_stream_source_rows.side_effect = RuntimeError(
+            "SQL access control error: Insufficient privileges"
+        )
+
+        with pytest.raises(CliError, match="stream sources"):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                destructive=False,
+            )
+
+    def test_fetch_stream_source_rows_reraises_not_initialized(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``FeatureStoreNotInitializedError`` is first-class — the CLI's
+        command-layer wrapper rewraps it into the actionable ``snow
+        feature init`` message, so this helper MUST propagate rather
+        than swallow."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.ml.feature_store.decl.errors import (
+            FeatureStoreNotInitializedError,
+        )
+
+        target = _make_target()
+        mock_decl.fetch_stream_source_rows.side_effect = (
+            FeatureStoreNotInitializedError(
+                "TEST_DB",
+                "TEST_SCHEMA",
+                RuntimeError("missing SNOWML_FEATURE_STORE_OBJECT tag"),
+            )
+        )
+
+        with pytest.raises(FeatureStoreNotInitializedError):
+            FeatureManager()._fetch_stream_source_rows(target)  # noqa: SLF001
+
+    # ------------------------------------------------------------------
+    # Bundle threading — ``plan()`` / ``write_plan()`` MUST forward the
+    # rows into ``decl_api.fetch_applied_state(stream_source_rows=...)``.
+    # ------------------------------------------------------------------
+
+    def test_plan_threads_stream_source_rows_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``plan()`` MUST call ``_fetch_stream_source_rows`` and feed
+        the rows into ``fetch_applied_state(..., stream_source_rows=...)``
+        so the planner's source-diff branch sees runtime-authoritative
+        ``Datasource`` AppliedObjects."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        rows = [
+            {
+                "name": "USER_CLICKS_STREAM",
+                "schema": [{"name": "USER_ID", "type": "StringType"}],
+                "desc": "click events",
+                "owner": "OPS",
+            }
+        ]
+        mock_decl.fetch_stream_source_rows.return_value = rows
+
+        FeatureManager().plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            destructive=False,
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        assert call.kwargs.get("stream_source_rows") == rows
+
+    def test_write_plan_threads_stream_source_rows_into_fetch_applied_state(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """``write_plan()`` MUST also feed stream-source rows into
+        ``fetch_applied_state`` — both code paths share the
+        applied-state bundle contract."""
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        rows = [
+            {
+                "name": "USER_CLICKS_STREAM",
+                "schema": [{"name": "USER_ID", "type": "StringType"}],
+                "desc": "click events",
+                "owner": "OPS",
+            }
+        ]
+        mock_decl.fetch_stream_source_rows.return_value = rows
+
+        FeatureManager().write_plan(
+            from_dir=tmp_path,
+            target_name=None,
+            variables=[],
+            out_path=str(tmp_path / "plan.json"),
+        )
+
+        mock_decl.fetch_applied_state.assert_called_once()
+        call = mock_decl.fetch_applied_state.call_args
+        assert call.kwargs.get("stream_source_rows") == rows
+
+
+# ===========================================================================
+# sync — L7 name_filter validation
+# ===========================================================================
+
+
+class TestFeatureManagerSync:
+    """``FeatureManager.sync`` contract: ``--name`` with no match → ``CliError``."""
+
+    def test_sync_name_filter_no_match_raises_cli_error(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """When ``name_filter`` is given and the exporter returns no files,
+        ``sync`` must raise ``CliError`` with the missing name in the message.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+        from snowflake.cli.api.exceptions import CliError
+
+        _write_manifest(tmp_path)
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path / "sources"),
+            "files": [],
+        }
+        mock_decl.export_specs_as_python.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path / "sources"),
+            "files": [],
+        }
+
+        with pytest.raises(CliError, match="DOES_NOT_EXIST"):
+            FeatureManager().sync(
+                from_dir=tmp_path,
+                target_name=None,
+                name_filter="DOES_NOT_EXIST",
+                python=False,
+            )
+
+    def test_sync_name_filter_with_match_does_not_raise(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """When ``name_filter`` matches at least one file, ``sync`` returns
+        normally (no ``CliError``).
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        sources_dir = tmp_path / "sources" / "feature_views"
+        sources_dir.mkdir(parents=True)
+        written = sources_dir / "my_fv.yaml"
+        written.write_text("name: my_fv\n")
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path / "sources"),
+            "files": [str(written)],
+        }
+
+        result = FeatureManager().sync(
+            from_dir=tmp_path,
+            target_name=None,
+            name_filter="MY_FV",
+            python=False,
+        )
+        assert result["status"] == "synced"
+        assert len(result["files"]) == 1
+
+    def test_sync_no_name_filter_empty_result_does_not_raise(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        """Without ``name_filter``, an empty export (schema has no objects)
+        is a valid outcome — no ``CliError`` should be raised.
+        """
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_decl.export_specs.return_value = {
+            "status": "exported",
+            "directory": str(tmp_path / "sources"),
+            "files": [],
+        }
+
+        result = FeatureManager().sync(
+            from_dir=tmp_path,
+            target_name=None,
+            name_filter=None,
+            python=False,
+        )
+        assert result["status"] == "synced"
+        assert result["files"] == []
+
+
+# ===========================================================================
+# State-fetch progress bar (stderr, TABLE-only).  The CLI renders a Rich
+# ``Progress`` on stderr while ``plan`` / ``list`` fetch online-feature-table
+# specs and enumerate feature views / entities / feature groups.  The library
+# stays silent: the manager passes a per-row ``on_progress`` callback into
+# ``_fetch_oft_state`` and the ``decl_api.fetch_*`` facades.  When the output
+# is structured (JSON/CSV) or ``--silent`` is set, ``get_cli_context().silent``
+# is True and NO bar is constructed and NO callback is threaded.
+# ===========================================================================
+
+
+class _ProgressRecorder:
+    """Records every ``on_progress(completed, total, label)`` call."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, completed, total, label):
+        self.calls.append((completed, total, label))
+
+
+class TestStateFetchProgressOftLoop:
+    """``_fetch_oft_state`` must drive the per-OFT progress callback:
+    ``(0, N, "")`` once up front, then ``(i, N, name)`` per OFT row."""
+
+    def test_fetch_oft_state_reports_progress_per_oft(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        state_sqls = {
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        oft_rows = [{"name": "OFT_A"}, {"name": "OFT_B"}]
+        mock_execute_query.return_value = iter([{"spec": "{}"}])
+        mock_decl.parse_specification_rows.return_value = {"kind": "BatchFeatureView"}
+
+        rec = _ProgressRecorder()
+        FeatureManager()._fetch_oft_state(  # noqa: SLF001
+            oft_rows, state_sqls, on_progress=rec
+        )
+
+        assert rec.calls[0] == (0, 2, "")
+        assert rec.calls[1] == (1, 2, "OFT_A")
+        assert rec.calls[2] == (2, 2, "OFT_B")
+        assert len(rec.calls) == 3
+
+    def test_fetch_oft_state_empty_reports_zero_total(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        state_sqls = {
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        rec = _ProgressRecorder()
+        mgr = FeatureManager()
+        mgr._fetch_oft_state([], state_sqls, on_progress=rec)  # noqa: SLF001
+
+        assert rec.calls == [(0, 0, "")]
+
+    def test_fetch_oft_state_none_callback_is_noop(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        state_sqls = {
+            "describe_specification_template": (
+                'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+                "TYPE = SPECIFICATION"
+            ),
+        }
+        mock_execute_query.return_value = iter([{"spec": "{}"}])
+        mock_decl.parse_specification_rows.return_value = {"kind": "BatchFeatureView"}
+
+        result = FeatureManager()._fetch_oft_state(  # noqa: SLF001
+            [{"name": "OFT_A"}], state_sqls, on_progress=None
+        )
+        assert "OFT_A" in result
+
+
+class TestFetchOftStateNameEscaping:
+    """``_fetch_oft_state`` fills the decl ``describe_specification_template``
+    whose ``{name}`` slot is *already* wrapped in double quotes. A SHOW row
+    ``name`` containing a ``"`` must be escaped (doubled) so it cannot close
+    the identifier early / break the DESCRIBE SQL — and a name that only needs
+    quoting (e.g. a space) must NOT be double-wrapped the way
+    ``to_quoted_identifier`` would."""
+
+    _TEMPLATE = (
+        'DESCRIBE ONLINE FEATURE TABLE "TEST_DB"."TEST_SCHEMA"."{name}" '
+        "TYPE = SPECIFICATION"
+    )
+
+    def test_embedded_quote_is_doubled_in_quoted_slot(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        captured: list[str] = []
+
+        def fake_execute_query(sql, *args, **kwargs):
+            captured.append(str(sql))
+            return iter([{"spec": "{}"}])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.parse_specification_rows.return_value = {"kind": "BatchFeatureView"}
+
+        state_sqls = {"describe_specification_template": self._TEMPLATE}
+        result = FeatureManager()._fetch_oft_state(  # noqa: SLF001
+            [{"name": 'OFT"INJECT'}], state_sqls, on_progress=None
+        )
+
+        assert len(captured) == 1
+        assert '"TEST_DB"."TEST_SCHEMA"."OFT""INJECT"' in captured[0]
+        # specification_map stays keyed by the raw SHOW name so enrichment
+        # (which also keys off the raw name) still matches.
+        assert 'OFT"INJECT' in result
+
+    def test_name_needing_quotes_is_not_double_wrapped(
+        self, mock_execute_query, mock_decl, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        captured: list[str] = []
+
+        def fake_execute_query(sql, *args, **kwargs):
+            captured.append(str(sql))
+            return iter([{"spec": "{}"}])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.parse_specification_rows.return_value = {"kind": "BatchFeatureView"}
+
+        state_sqls = {"describe_specification_template": self._TEMPLATE}
+        result = FeatureManager()._fetch_oft_state(  # noqa: SLF001
+            [{"name": "My OFT$V1$ONLINE"}], state_sqls, on_progress=None
+        )
+
+        assert len(captured) == 1
+        # The template's slot is already quoted; the fill must slot the bare
+        # name inside it, NOT wrap it in a second pair of quotes as
+        # ``to_quoted_identifier`` would (``""My OFT$V1$ONLINE""``).
+        assert '"TEST_DB"."TEST_SCHEMA"."My OFT$V1$ONLINE"' in captured[0]
+        assert '""My OFT$V1$ONLINE""' not in captured[0]
+        assert "My OFT$V1$ONLINE" in result
+
+    def test_plain_name_unchanged(self, mock_execute_query, mock_decl, tmp_path):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        captured: list[str] = []
+
+        def fake_execute_query(sql, *args, **kwargs):
+            captured.append(str(sql))
+            return iter([{"spec": "{}"}])
+
+        mock_execute_query.side_effect = fake_execute_query
+        mock_decl.parse_specification_rows.return_value = {"kind": "BatchFeatureView"}
+
+        state_sqls = {"describe_specification_template": self._TEMPLATE}
+        FeatureManager()._fetch_oft_state(  # noqa: SLF001
+            [{"name": "OFT_A$V1$ONLINE"}], state_sqls, on_progress=None
+        )
+
+        assert len(captured) == 1
+        assert '"TEST_DB"."TEST_SCHEMA"."OFT_A$V1$ONLINE"' in captured[0]
+
+
+class TestStateFetchProgressHelper:
+    """``_state_fetch_progress`` gates on ``get_cli_context().silent``."""
+
+    def test_silent_yields_none_callback(self, mock_cli_context):
+        from snowflake.cli._plugins.feature import manager as mgr
+
+        mock_cli_context.return_value.silent = True
+        with mgr._state_fetch_progress() as prog:  # noqa: SLF001
+            assert prog.callback("Loading feature views") is None
+
+    def test_non_silent_yields_callable(self, mock_cli_context):
+        from snowflake.cli._plugins.feature import manager as mgr
+
+        mock_cli_context.return_value.silent = False
+        with mgr._state_fetch_progress() as prog:  # noqa: SLF001
+            cb = prog.callback("Loading feature views")
+            assert callable(cb)
+            # Driving the callback must not raise (it updates the bar).
+            cb(0, 2, "")
+            cb(1, 2, "FV_A")
+            cb(2, 2, "FV_B")
+
+    def test_silent_constructs_no_rich_progress(self, mock_cli_context):
+        from snowflake.cli._plugins.feature import manager as mgr
+
+        mock_cli_context.return_value.silent = True
+        with mock.patch("rich.progress.Progress") as mock_progress:
+            with mgr._state_fetch_progress() as prog:  # noqa: SLF001
+                prog.callback("Loading feature views")
+        mock_progress.assert_not_called()
+
+    def test_non_silent_writes_to_stderr_not_stdout(self, mock_cli_context):
+        """The bar targets a stderr ``Console`` so JSON/CSV on stdout stays
+        parseable even if someone forgot to set ``--format``."""
+        import sys
+
+        from snowflake.cli._plugins.feature import manager as mgr
+
+        mock_cli_context.return_value.silent = False
+        with mock.patch("rich.console.Console") as mock_console:
+            with mgr._state_fetch_progress():  # noqa: SLF001
+                pass
+        # A Console was constructed bound to sys.stderr.
+        assert any(
+            call.kwargs.get("file") is sys.stderr
+            for call in mock_console.call_args_list
+        ), f"expected a Console(file=sys.stderr); got {mock_console.call_args_list!r}"
+
+
+class TestListSpecsThreadsProgress:
+    """``list_specs`` threads the progress callback into every fetch seam
+    when not silent, and passes ``None`` when silent (JSON/CSV/--silent)."""
+
+    def test_threads_callable_callback_when_not_silent(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_cli_context.return_value.silent = False
+
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+
+        for facade in (
+            mock_decl.fetch_feature_view_rows,
+            mock_decl.fetch_entity_rows,
+            mock_decl.fetch_feature_group_rows,
+        ):
+            assert facade.called, f"{facade} was not called by list_specs"
+            cb = facade.call_args.kwargs.get("on_progress")
+            assert callable(cb), (
+                f"{facade} must receive a callable on_progress when not "
+                f"silent; got {cb!r}"
+            )
+
+    def test_threads_none_callback_when_silent(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_cli_context.return_value.silent = True
+
+        FeatureManager().list_specs(from_dir=tmp_path, target_name=None)
+
+        for facade in (
+            mock_decl.fetch_feature_view_rows,
+            mock_decl.fetch_entity_rows,
+            mock_decl.fetch_feature_group_rows,
+        ):
+            assert facade.called, f"{facade} was not called by list_specs"
+            cb = facade.call_args.kwargs.get("on_progress")
+            assert (
+                cb is None
+            ), f"{facade} must receive on_progress=None when silent; got {cb!r}"
+
+
+class _BundleProgressRecorder:
+    """Records the progress-handle calls the bundle makes."""
+
+    def __init__(self):
+        self.add_known_calls = []
+        self.begin_phase_calls = []  # (label, pre_counted)
+
+    def add_known(self, n):
+        self.add_known_calls.append(n)
+
+    def begin_phase(self, label, *, pre_counted=False):
+        self.begin_phase_calls.append((label, pre_counted))
+
+    def callback(self, label):
+        return lambda *a, **k: None
+
+
+class TestBundleThreadsProgress:
+    """``_fetch_applied_state_bundle`` (the ``plan`` path) drives the
+    progress bar with the same front-loaded design as ``list``: pre-seed the
+    OFT count, run the OFT DESCRIBE phase last as ``pre_counted``, and order
+    the per-item listings the same way (plus a stream-sources phase)."""
+
+    def test_bundle_matches_list_progress_design(
+        self, mock_execute_query, mock_decl, mock_cli_context, tmp_path
+    ):
+        import contextlib
+
+        from snowflake.cli._plugins.feature import manager as mgr
+        from snowflake.cli._plugins.feature.manager import FeatureManager
+
+        _write_manifest(tmp_path)
+        mock_cli_context.return_value.silent = False
+
+        # Two OFT rows so ``add_known`` reflects the SHOW-OFT row count; empty
+        # results for every other query keep the real helpers cheap.
+        oft_rows = [{"name": "OFT_A"}, {"name": "OFT_B"}]
+
+        def _exec(sql, *a, **k):
+            if str(sql).startswith("SHOW ONLINE FEATURE TABLES"):
+                return iter(list(oft_rows))
+            return iter([])
+
+        mock_execute_query.side_effect = _exec
+
+        rec = _BundleProgressRecorder()
+
+        @contextlib.contextmanager
+        def _fake_progress():
+            yield rec
+
+        with mock.patch.object(mgr, "_state_fetch_progress", _fake_progress):
+            FeatureManager().plan(
+                from_dir=tmp_path,
+                target_name=None,
+                variables=[],
+                destructive=False,
+            )
+
+        # Pre-seed: add_known called once with the SHOW-OFT row count.
+        assert rec.add_known_calls == [len(oft_rows)]
+
+        # Phase order mirrors list (entities, feature groups, feature views),
+        # then the plan-only stream sources, then the OFT DESCRIBE phase last.
+        labels = [lbl for (lbl, _pc) in rec.begin_phase_calls]
+        assert labels == [
+            "Loading entities",
+            "Loading feature groups",
+            "Loading feature views",
+            "Loading stream sources",
+            "Loading online feature tables",
+        ]
+
+        # Only the (last) OFT DESCRIBE phase is pre-counted.
+        pre_counted = dict(rec.begin_phase_calls)
+        assert pre_counted["Loading online feature tables"] is True
+        assert all(
+            pc is False
+            for (lbl, pc) in rec.begin_phase_calls
+            if lbl != "Loading online feature tables"
+        )
+
+        # Every listing facade receives a callable on_progress when not silent.
+        for facade in (
+            mock_decl.fetch_entity_rows,
+            mock_decl.fetch_feature_group_rows,
+            mock_decl.fetch_feature_view_rows,
+            mock_decl.fetch_stream_source_rows,
+        ):
+            assert facade.called, f"{facade} was not called by the bundle"
+            assert callable(facade.call_args.kwargs.get("on_progress"))
+
+
+class TestCumulativeProgress:
+    """``_RichStateFetchProgress`` renders ONE cumulative, monotonic bar.
+
+    ``completed`` never resets between phases and ``total`` grows as each
+    listing reveals its count; ``begin_phase`` relabels (and finalizes the
+    prior phase into the running base) before the next slow fetch so the
+    label is never stale and the count only ever climbs.
+    """
+
+    @staticmethod
+    def _make_handle():
+        from rich.progress import Progress
+        from snowflake.cli._plugins.feature.manager import _RichStateFetchProgress
+
+        # A live-refresh thread would fight the test; disable auto-refresh so
+        # ``tasks[0]`` reflects exactly the ``update`` calls we drive.
+        progress = Progress(auto_refresh=False)
+        task_id = progress.add_task("Loading feature store state", total=None)
+        return progress, _RichStateFetchProgress(progress, task_id)  # noqa: SLF001
+
+    def test_total_grows_and_completed_is_monotonic_across_phases(self):
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        # First phase (entities) — an in-flight phase reserves +1 until its
+        # count is known, so the bar never reads 0/0 ("done") during collect.
+        handle.begin_phase("Loading entities")
+        assert task.completed == 0
+        assert task.total == 1  # in-flight reserve (+1), not a spinner
+
+        cb1 = handle.callback("Loading entities")
+        cb1(0, 8, "")
+        assert task.total == 8  # reserve released, real count added
+        assert task.completed == 0
+        for i in range(1, 9):
+            cb1(i, 8, f"E{i}")
+        assert task.completed == 8
+        assert task.total == 8
+
+        # Phase 2: feature groups — begin_phase must NOT reset completed; the
+        # in-flight reserve makes total 8+1 until FG's count returns.
+        handle.begin_phase("Loading feature groups")
+        assert task.completed == 8, "completed must be monotonic across phases"
+        assert task.description == "Loading feature groups"
+        assert task.total == 9  # known(8) + reserve(1)
+
+        cb2 = handle.callback("Loading feature groups")
+        cb2(0, 3, "")
+        assert task.total == 11, "total must grow as the next listing returns"
+        assert task.completed == 8
+        for i in range(1, 4):
+            cb2(i, 3, f"G{i}")
+        assert task.completed == 11
+        assert task.total == 11
+
+    def test_per_item_ticks_keep_phase_label_without_object_name(self):
+        # A long per-item object name would push the bar's right edge around
+        # as its width changes tick to tick, so the description must stay the
+        # stable phase label regardless of the name passed to the callback.
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        handle.begin_phase("Loading feature views")
+        cb = handle.callback("Loading feature views")
+        cb(0, 2, "")
+        cb(1, 2, "A_VERY_LONG_FEATURE_VIEW_NAME_THAT_WOULD_SHIFT_THE_BAR")
+        assert task.description == "Loading feature views"
+        assert task.completed == 1
+        cb(2, 2, "ANOTHER_LONG_NAME")
+        assert task.description == "Loading feature views"
+        assert task.completed == 2
+
+    def test_in_flight_phase_reserves_one_until_count_known(self):
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        handle.begin_phase("Loading entities")
+        # Before any callback the phase is in-flight with an unknown count:
+        # total must strictly exceed completed so the bar reads mid-flight.
+        assert task.total == task.completed + 1
+
+        cb = handle.callback("Loading entities")
+        cb(0, 5, "")
+        # The reserve is swapped for the real count (no lingering +1).
+        assert task.total == 5
+        assert task.completed == 0
+
+    def test_preseed_known_total_not_double_counted_by_pre_counted_phase(self):
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        # OFT count known up front (from SHOW ONLINE FEATURE TABLES).
+        handle.add_known(13)
+        assert task.total == 13
+        assert task.completed == 0
+
+        # Entities phase (normal) climbs to 8; total = 13 + 8 = 21.
+        handle.begin_phase("Loading entities")
+        cbe = handle.callback("Loading entities")
+        cbe(0, 8, "")
+        for i in range(1, 9):
+            cbe(i, 8, f"E{i}")
+        assert task.completed == 8
+        assert task.total == 21
+
+        # OFT phase is pre-counted: no +1 reserve, and its (0, n, "") must NOT
+        # add n again (it was pre-seeded via add_known).
+        handle.begin_phase("Loading online feature tables", pre_counted=True)
+        assert task.total == 21  # no reserve for a pre-counted phase
+        cbo = handle.callback("Loading online feature tables")
+        cbo(0, 13, "")
+        assert task.total == 21, "pre-counted phase must not double-count"
+        for i in range(1, 14):
+            cbo(i, 13, f"OFT{i}")
+        assert task.completed == 21
+        assert task.total == 21
+
+    def test_not_done_during_feature_view_stall(self):
+        # Reproduces the reported 8/8 case: after entities, the feature-views
+        # collect stalls before its count is known. With the OFT count pre-
+        # seeded and the in-flight reserve, the bar must read mid-flight.
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        handle.add_known(13)  # OFT describes (E), known at A
+        handle.begin_phase("Loading entities")
+        cbe = handle.callback("Loading entities")
+        cbe(0, 8, "")
+        for i in range(1, 9):
+            cbe(i, 8, f"E{i}")
+
+        # Feature groups: empty.
+        handle.begin_phase("Loading feature groups")
+        handle.callback("Loading feature groups")(0, 0, "")
+
+        # Feature views: in-flight, count still unknown (the stall).
+        handle.begin_phase("Loading feature views")
+        assert task.completed < task.total, (
+            "bar must read mid-flight during the feature-views stall, "
+            f"not done; got {task.completed}/{task.total}"
+        )
+        assert task.completed == 8
+        assert task.total == 22  # entities(8) + OFT(13) + reserve(1)
+
+    def test_empty_phase_releases_reserve_and_keeps_completed(self):
+        progress, handle = self._make_handle()
+        task = progress.tasks[0]
+
+        handle.begin_phase("Loading entities")
+        cb1 = handle.callback("Loading entities")
+        cb1(0, 2, "")
+        cb1(1, 2, "E1")
+        cb1(2, 2, "E2")
+        assert task.completed == 2
+        assert task.total == 2
+
+        # An empty phase: reserve +1 while in-flight, released to +0 on (0,0,"").
+        handle.begin_phase("Loading feature groups")
+        assert task.total == 3  # known(2) + reserve(1)
+        cb2 = handle.callback("Loading feature groups")
+        cb2(0, 0, "")
+        assert task.total == 2  # reserve released; empty phase adds nothing
+        assert task.completed == 2
+
+
+class TestNullProgressBeginPhase:
+    """The silent/JSON handle stays a no-op, including ``begin_phase``."""
+
+    def test_begin_phase_and_add_known_are_noop_and_callback_is_none(self):
+        from snowflake.cli._plugins.feature.manager import _NullStateFetchProgress
+
+        handle = _NullStateFetchProgress()  # noqa: SLF001
+        # Must not raise and must not construct any Rich objects.
+        handle.begin_phase("Loading entities")
+        handle.add_known(5)
+        assert handle.callback("Loading entities") is None

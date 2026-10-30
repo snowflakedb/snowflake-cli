@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from subprocess import run, PIPE
-from typing import Generator, cast
+from typing import ClassVar, Generator, cast
 
 import pytest
 import requests
@@ -21,9 +22,55 @@ from _pytest.terminal import TerminalReporter
 
 TEST_TYPE_OPTION = "--deflake-test-type"
 PREVIOUS_OUTCOME_KEY = StashKey[dict[str, str]]()
+RETRY_COUNT_KEY = StashKey[dict[str, int]]()
 
 FAILED = "failed"
 FLAKY = "flaky"
+
+# One retry for ordinary flakes; GS 429/503 often lasts through that.
+DEFAULT_MAX_RETRIES = 1
+TRANSIENT_MAX_RETRIES = 3
+TRANSIENT_BACKOFF_START_S = 5
+TRANSIENT_BACKOFF_CAP_S = 20
+
+# Shared by extra retries and by the GitHub flake-issue filter.
+KNOWN_SERVER_ISSUE_FRAGMENTS = (
+    "Exceeded maximum number of inbound queries allowed for this instance",
+    "GS instance is still unavailable at",
+    "Insufficient resource during interleaved execution",
+    "HTTP 429: Too Many Requests",
+    "HTTP 503: Service Unavailable",
+)
+
+_sleep = time.sleep
+
+
+def matches_known_server_issue(text: str) -> bool:
+    """True when `text` looks like a known GS/rate-limit failure."""
+    if not text:
+        return False
+    # pytest prefixes every continuation line of an exception/assertion
+    # explanation with "E"; strip it so wrapped messages still match.
+    text = re.sub(r"(?m)^E(?=\s)", " ", text)
+    for fragment in KNOWN_SERVER_ISSUE_FRAGMENTS:
+        # Allow whitespace, punctuation, and box-drawing between words.
+        regex = r"\s*[^\w]*\s*".join(re.escape(word) for word in fragment.split())
+        if re.search(regex, text, re.DOTALL):
+            return True
+    return False
+
+
+def max_retries_for(text: str) -> int:
+    if matches_known_server_issue(text):
+        return TRANSIENT_MAX_RETRIES
+    return DEFAULT_MAX_RETRIES
+
+
+def _report_failure_text(report: TestReport) -> str:
+    return getattr(report, "longreprtext", "") or str(
+        getattr(report, "longrepr", "") or ""
+    )
+
 
 APP_REPO = "snowflakedb/snowflake-cli"
 ISSUE_REPO = APP_REPO
@@ -79,9 +126,14 @@ class DeflakePlugin:
         reports = self.runner.runtestprotocol(item, nextitem=nextitem)
 
         # Retry if the test reports that it should retry (report.should_retry is
-        # set by us in pytest_runtest_makereport below)
-        if any(getattr(report, "should_retry", False) for report in reports):
-            self.runner.runtestprotocol(item, nextitem=nextitem)
+        # set by us in pytest_runtest_makereport below). Transient GS 429/503
+        # get extra attempts with backoff; a single immediate retry is not enough.
+        backoff = TRANSIENT_BACKOFF_START_S
+        while any(getattr(report, "should_retry", False) for report in reports):
+            if any(getattr(report, "transient_retry", False) for report in reports):
+                _sleep(backoff)
+                backoff = min(backoff * 2, TRANSIENT_BACKOFF_CAP_S)
+            reports = self.runner.runtestprotocol(item, nextitem=nextitem)
 
         # Close the log line for this test
         ihook.pytest_runtest_logfinish(nodeid=item.nodeid, location=item.location)
@@ -98,23 +150,27 @@ class DeflakePlugin:
         # Wrap the creation of the test report for this phase to override the
         # status to "flaky" if it's a retry and it passed
         previous_outcomes = item.stash.setdefault(PREVIOUS_OUTCOME_KEY, {})
+        retry_counts = item.stash.setdefault(RETRY_COUNT_KEY, {})
 
         # yield nothing, receive result when generator resumes
         result_wrapper: pluggy.Result = yield
         report = result_wrapper.get_result()
 
         report.should_retry = False
-        if call.when in previous_outcomes:
-            # This is a retry
-            if previous_outcomes[call.when] == FAILED and report.outcome == "passed":
-                # This test initially failed then passed on a retry, it's flaky
-                report.outcome = FLAKY
-                self.flaky_tests += 1
+        report.transient_retry = False
+        if report.outcome == "passed" and previous_outcomes.get(call.when) == FAILED:
+            # This test initially failed then passed on a retry, it's flaky
+            report.outcome = FLAKY
+            self.flaky_tests += 1
         elif report.outcome == FAILED:
-            # This test should be retried
-            report.should_retry = True
-            # Don't count this as an error
-            report.wasxfail = "Failure will be retried"
+            failure_text = _report_failure_text(report)
+            retries = retry_counts.get(call.when, 0)
+            if retries < max_retries_for(failure_text):
+                report.should_retry = True
+                # Don't count this as an error until retries are exhausted
+                report.wasxfail = "Failure will be retried"
+                report.transient_retry = matches_known_server_issue(failure_text)
+                retry_counts[call.when] = retries + 1
 
         previous_outcomes[call.when] = report.outcome
         return report
@@ -157,27 +213,10 @@ class DeflakePlugin:
         """Some tests might fail due to non-deterministic server-side issue,
         often caused by multiple instances of workers running the tests, which raises false-positive flaky test alert.
         This functions recognizes some of these cases."""
-        known_server_issues = [
-            (
-                "call",
-                "Exceeded maximum number of inbound queries allowed for this instance",
-            ),
-            ("setup", "GS instance is still unavailable at"),
-            (
-                "call",
-                "Insufficient resource during interleaved execution",
-            ),
-        ]
-        for phase, known_message in known_server_issues:
-            phase_info = getattr(test, phase)
-            # match messages via regex, as they might be printed in multiple lines / pretty formatted by typer etc.
-            # regex pattern allows whitespace, punctuation, and box-drawing chars but not entire phrases.
-            regex = r"\s*[^\w]*\s*".join(
-                re.escape(word) for word in known_message.split()
-            )
-            if re.search(regex, phase_info.longrepr, re.DOTALL):
-                return True
-        return False
+        return any(
+            matches_known_server_issue(getattr(test, phase).longrepr)
+            for phase in PHASES
+        )
 
     def pytest_sessionfinish(self) -> None:
         # Called at the end of the pytest run to log flaky tests to GitHub
@@ -242,6 +281,8 @@ class Crash:
 
 @dataclass
 class TestPhase:
+    # pytest collects classes named Test*; these are data records, not tests.
+    __test__: ClassVar[bool] = False
     outcome: str = "passed"
     longrepr: str = ""
     crash: Crash | None = field(default=None)
@@ -249,6 +290,7 @@ class TestPhase:
 
 @dataclass
 class TestResult:
+    __test__: ClassVar[bool] = False
     nodeid: str
     outcome: str = "passed"
     setup: TestPhase = field(default_factory=TestPhase)
@@ -258,6 +300,7 @@ class TestResult:
 
 @dataclass
 class TestRun:
+    __test__: ClassVar[bool] = False
     root: Path = field(init=False)
     tests: dict[str, TestResult] = field(default_factory=dict)
 

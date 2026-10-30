@@ -350,6 +350,70 @@ def test_deploy_async_project_with_from_stage_without_prefix(mock_conn_cursor):
     )
 
 
+@pytest.mark.parametrize(
+    "deployment,expected_sql_name",
+    [
+        ("v1", '"v1"'),
+        ("DEPLOYMENT$1", '"DEPLOYMENT$1"'),
+        ("test-1", '"test-1"'),
+        ("seed", '"seed"'),
+    ],
+)
+def test_deploy_async_from_deployment(mock_conn_cursor, deployment, expected_sql_name):
+    mgr = DCMProjectManager()
+    sfqid = mgr.deploy_async(
+        project_identifier=TEST_PROJECT,
+        from_stage=None,
+        deployment_name=deployment,
+    )
+
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY"
+        f" FROM DEPLOYMENT {expected_sql_name}",
+        None,
+        _force_qmark_paramstyle=True,
+    )
+
+
+def test_deploy_async_from_deployment_ignores_from_stage(mock_conn_cursor):
+    mgr = DCMProjectManager()
+    sfqid = mgr.deploy_async(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        deployment_name="v1",
+    )
+
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM DEPLOYMENT \"v1\"",
+        None,
+        _force_qmark_paramstyle=True,
+    )
+
+
+def test_deploy_async_from_deployment_omits_target_configuration(mock_conn_cursor):
+    mgr = DCMProjectManager()
+    sfqid = mgr.deploy_async(
+        project_identifier=TEST_PROJECT,
+        from_stage=None,
+        configuration="DEV",
+        variables=["db=analytics"],
+        env_vars={"WH_SIZE": "XLARGE"},
+        alias="from-existing",
+        skip_plan=True,
+        deployment_name="v1",
+    )
+
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS \"from-existing\""
+        ' FROM DEPLOYMENT "v1" SKIP PLAN',
+        None,
+        _force_qmark_paramstyle=True,
+    )
+
+
 def test_deploy_async_project_with_default_deployment(
     mock_conn_cursor, project_directory
 ):
@@ -447,6 +511,54 @@ def test_plan_async_project_with_from_stage(mock_conn_cursor):
     mock_conn_cursor.execute_async.assert_called_once_with(
         "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION"
         " some_configuration FROM @my_stage",
+        None,
+        _force_qmark_paramstyle=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "deployment,expected_sql_name",
+    [
+        ("v1", '"v1"'),
+        ("DEPLOYMENT$1", '"DEPLOYMENT$1"'),
+        ("test-1", '"test-1"'),
+        ("seed", '"seed"'),
+    ],
+)
+def test_plan_async_from_deployment(mock_conn_cursor, deployment, expected_sql_name):
+    mgr = DCMProjectManager()
+    sfqid = mgr.plan_async(
+        project_identifier=TEST_PROJECT,
+        from_stage=None,
+        deployment_name=deployment,
+    )
+
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN"
+        f" FROM DEPLOYMENT {expected_sql_name}",
+        None,
+        _force_qmark_paramstyle=True,
+    )
+
+
+def test_plan_async_from_deployment_omits_target_configuration(mock_conn_cursor):
+    mgr = DCMProjectManager()
+    sfqid = mgr.plan_async(
+        project_identifier=TEST_PROJECT,
+        from_stage=None,
+        configuration="DEV",
+        variables=["db=analytics"],
+        env_vars={"WH_SIZE": "XLARGE"},
+        delta=True,
+        output_path="@output_stage/outputs",
+        deployment_name="v1",
+    )
+
+    assert sfqid == TEST_SFQID
+    mock_conn_cursor.execute_async.assert_called_once_with(
+        "EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN DELTA"
+        ' FROM DEPLOYMENT "v1" OUTPUT_PATH @output_stage/outputs',
         None,
         _force_qmark_paramstyle=True,
     )
@@ -747,6 +859,34 @@ def test_unit_test_project_with_env_vars(mock_execute_with_params, mock_execute_
         params=[json.dumps(env_vars)],
     )
     mock_execute_query.assert_not_called()
+
+
+@mock.patch(execute_queries)
+@pytest.mark.parametrize(
+    "scripts,expected_suffix",
+    [
+        (None, " FROM @test_stage OUTPUT_PATH @output_stage/outputs/test"),
+        (
+            ["script_one"],
+            ' FROM @test_stage SCRIPTS ("script_one")'
+            " OUTPUT_PATH @output_stage/outputs/test",
+        ),
+    ],
+)
+def test_unit_test_project_with_output_path(
+    mock_execute_query, scripts, expected_suffix
+):
+    mgr = DCMProjectManager()
+    mgr.unit_test(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        scripts=scripts,
+        output_path="@output_stage/outputs/test",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') TEST" + expected_suffix
+    )
 
 
 @pytest.mark.parametrize(

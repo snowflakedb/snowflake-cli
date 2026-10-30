@@ -27,6 +27,7 @@ from snowflake.cli._app.auth.errors import (
     OidcProviderUnavailableError,
     OidcTokenRetrievalError,
 )
+from snowflake.cli.api.config import is_air_gapped
 
 logger = logging.getLogger(__name__)
 
@@ -125,10 +126,19 @@ class GitHubOidcProvider(OidcTokenProvider):
         """
         Returns the audience URL for GitHub OIDC.
 
-        Returns:
-            The audience URL, defaults to 'snowflakecomputing.com' if SNOWFLAKE_AUDIENCE environment variable is not set
+        Uses ``SNOWFLAKE_AUDIENCE`` when set. Otherwise defaults to
+        ``snowflakecomputing.com``, unless air-gapped mode is on, in which
+        case the audience must be set explicitly.
         """
-        return os.getenv(SNOWFLAKE_AUDIENCE_ENV, "snowflakecomputing.com")
+        configured = os.getenv(SNOWFLAKE_AUDIENCE_ENV)
+        if configured:
+            return configured
+        if is_air_gapped():
+            raise OidcTokenRetrievalError(
+                "%s is not set. Set it to the audience for this deployment."
+                % SNOWFLAKE_AUDIENCE_ENV
+            )
+        return "snowflakecomputing.com"
 
     @property
     def issuer(self) -> str:

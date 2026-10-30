@@ -29,6 +29,11 @@ from rich import print as rich_print
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
+from snowflake.cli._app.ascii_table import (
+    maybe_log_large_result,
+    probe_rows,
+    stream_probed_table,
+)
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
@@ -44,11 +49,75 @@ from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 NO_ITEMS_FOUND: str = "No data"
 
+# Rich falls back to width=80 when stdout is not a terminal. With many columns
+# that squeezes each cell below readability, producing a series of "|"
+# separators with no content (see GH#2725). Use an effectively unlimited width
+# for non-terminal destinations so Rich picks each column's natural width.
+_NON_TERMINAL_RENDER_WIDTH = 1_000_000
+
 # ensure we do not break URLs that wrap lines
 get_console().soft_wrap = True
 
 # Disable markup to avoid escaping errors
 get_console()._markup = False  # noqa: SLF001
+
+
+class TeeTextIO:
+    """Write the same text to stdout and an open spool file. Never a TTY."""
+
+    def __init__(self, primary: TextIO, secondary: TextIO) -> None:
+        self._primary = primary
+        self._secondary = secondary
+
+    def write(self, s: str) -> int:
+        written = self._primary.write(s)
+        self._secondary.write(s)
+        return written
+
+    def flush(self) -> None:
+        self._primary.flush()
+        self._secondary.flush()
+
+    def isatty(self) -> bool:
+        return False
+
+    @property
+    def encoding(self) -> str:
+        return getattr(self._primary, "encoding", None) or "utf-8"
+
+    @property
+    def errors(self) -> str | None:
+        return getattr(self._primary, "errors", None)
+
+
+def _result_stream() -> TextIO | TeeTextIO:
+    spool = get_cli_context().spool_stream
+    if spool is None:
+        return sys.stdout
+    return TeeTextIO(sys.stdout, spool)
+
+
+def _print(*args, **kwargs) -> None:
+    kwargs.setdefault("file", _result_stream())
+    print(*args, **kwargs)
+
+
+def _rich_print(*args, **kwargs) -> None:
+    stream = _result_stream()
+    if stream is sys.stdout:
+        rich_print(*args, **kwargs)
+        return
+    flush = kwargs.pop("flush", False)
+    Console(
+        file=stream,
+        force_terminal=False,
+        markup=False,
+        soft_wrap=True,
+        width=_NON_TERMINAL_RENDER_WIDTH,
+        height=_NON_TERMINAL_RENDER_WIDTH,
+    ).print(*args, **kwargs)
+    if flush:
+        stream.flush()
 
 
 class CustomJSONEncoder(JSONEncoder):
@@ -102,11 +171,16 @@ def _print_json_item_with_array_indentation(item: Any, indent: int):
         indented_lines = indented_output.split("\n")
         for i, line in enumerate(indented_lines):
             if i == 0:
-                print(" " * indent + line, end="")
+                _print(" " * indent + line, end="")
             else:
-                print("\n" + " " * indent + line, end="")
+                _print("\n" + " " * indent + line, end="")
     else:
-        json.dump(item, sys.stdout, cls=StreamingJSONEncoder, separators=(",", ":"))
+        json.dump(
+            item,
+            _result_stream(),
+            cls=StreamingJSONEncoder,
+            separators=(",", ":"),
+        )
 
 
 def _stream_collection_as_json(result: CollectionResult, indent: int = 4):
@@ -115,18 +189,18 @@ def _stream_collection_as_json(result: CollectionResult, indent: int = 4):
     try:
         first_item = next(items)
     except StopIteration:
-        print("[]", end="")
+        _print("[]", end="")
         return
 
-    print("[")
+    _print("[")
 
     _print_json_item_with_array_indentation(first_item, indent)
 
     for item in items:
-        print(",")
+        _print(",")
         _print_json_item_with_array_indentation(item, indent)
 
-    print("\n]", end="")
+    _print("\n]", end="")
 
 
 def _stream_collection_as_csv(result: CollectionResult):
@@ -141,7 +215,9 @@ def _stream_collection_as_csv(result: CollectionResult):
     if not isinstance(first_item, dict):
         raise TypeError("CSV output requires dictionary items")
 
-    writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames, lineterminator="\n")
+    writer = csv.DictWriter(
+        _result_stream(), fieldnames=fieldnames, lineterminator="\n"
+    )
     writer.writeheader()
     _write_csv_row(writer, first_item)
 
@@ -178,20 +254,24 @@ def _get_format_type() -> OutputFormat:
     return OutputFormat.TABLE
 
 
-def _get_table():
+def _is_plain_format(output_format: OutputFormat | None = None) -> bool:
+    fmt = output_format or _get_format_type()
+    return fmt is OutputFormat.PLAIN
+
+
+def _get_table(output_format: OutputFormat | None = None):
+    if _is_plain_format(output_format):
+        return Table(show_header=True, box=None, show_edge=False, pad_edge=False)
     return Table(show_header=True, box=box.ASCII)
-
-
-# Rich falls back to width=80 when stdout is not a terminal. With many columns
-# that squeezes each cell below readability, producing a series of "|"
-# separators with no content (see GH#2725). Use an effectively unlimited width
-# for non-terminal destinations so Rich picks each column's natural width.
-_NON_TERMINAL_RENDER_WIDTH = 1_000_000
 
 
 def _stdout_is_terminal() -> bool:
     # Current stdout, not get_console().is_terminal: Rich caches the latter on
     # the stream it first saw, and FORCE_COLOR (even "0") makes that True.
+    # While spooling, both sinks get the non-TTY layout so the file does not
+    # pick up Rich ANSI / Live (see GH#2725).
+    if get_cli_context().spool_stream is not None:
+        return False
     isatty = getattr(sys.stdout, "isatty", None)
     try:
         return False if isatty is None else bool(isatty())
@@ -201,9 +281,11 @@ def _stdout_is_terminal() -> bool:
 
 
 def _render_console_for_table() -> Console:
+    stream = _result_stream()
     if _stdout_is_terminal():
         default_console = get_console()
         return Console(
+            file=stream,
             width=default_console.width,
             height=default_console.height or 25,
             soft_wrap=True,
@@ -215,6 +297,7 @@ def _render_console_for_table() -> Console:
     # size falls back to 80x25 and many-column tables collapse. Both dimensions
     # are required for the unlimited width to actually apply (GH#2725).
     return Console(
+        file=stream,
         width=_NON_TERMINAL_RENDER_WIDTH,
         height=_NON_TERMINAL_RENDER_WIDTH,
         soft_wrap=True,
@@ -223,23 +306,54 @@ def _render_console_for_table() -> Console:
     )
 
 
-def _print_multiple_table_results(obj: CollectionResult):
-    items = obj.result
+def _print_multiple_table_results(
+    obj: CollectionResult, output_format: OutputFormat | None = None
+):
+    items = iter(obj.result)
     try:
         first_item = next(items)
     except StopIteration:
-        rich_print(NO_ITEMS_FOUND, end="\n\n")
+        _rich_print(NO_ITEMS_FOUND, end="\n\n")
         return
-    table = _get_table()
-    for column in first_item.keys():
+    probed = probe_rows(first_item, items)
+    if probed.use_rich:
+        _print_rich_table(probed.columns, probed.rows, output_format)
+        return
+    console = _render_console_for_table()
+    is_tty = _stdout_is_terminal()
+    maybe_log_large_result(probed.cells, probed.chars, is_tty)
+
+    def _trailer() -> None:
+        if _is_plain_format(output_format):
+            sys.stdout.flush()
+            return
+        if console.is_terminal:
+            _result_stream().write("\n")
+        _rich_print(flush=True)
+
+    stream_probed_table(
+        probed,
+        console=console,
+        is_tty=is_tty,
+        on_success=_trailer,
+        plain=_is_plain_format(output_format),
+        stream=_result_stream(),
+    )
+
+
+def _print_rich_table(
+    columns: list[str],
+    rows: list[list[str]],
+    output_format: OutputFormat | None = None,
+) -> None:
+    table = _get_table(output_format)
+    for column in columns:
         table.add_column(column, overflow="fold")
     console = _render_console_for_table()
     with Live(table, console=console, refresh_per_second=4):
-        table.add_row(*[__to_str(i) for i in first_item.values()])
-        for item in items:
-            table.add_row(*[__to_str(i) for i in item.values()])
-    # Add separator between tables
-    rich_print(flush=True)
+        for row in rows:
+            table.add_row(*row)
+    _rich_print(flush=True)
 
 
 def __to_str(val):
@@ -262,7 +376,7 @@ def print_structured(
         if output_format == OutputFormat.CSV:
             for command_result in result.result:
                 _print_csv_result_streaming(command_result)
-                print(flush=True)
+                _print(flush=True)
             printed_end_line = True
         else:
             _stream_json(result)
@@ -273,8 +387,8 @@ def print_structured(
             if output_format == OutputFormat.CSV:
                 _print_csv_result_streaming(r)
             else:
-                json.dump(r, sys.stdout, cls=StreamingJSONEncoder)
-            print(flush=True)
+                json.dump(r, _result_stream(), cls=StreamingJSONEncoder)
+            _print(flush=True)
             printed_end_line = True
     else:
         if output_format == OutputFormat.CSV:
@@ -285,7 +399,7 @@ def print_structured(
 
     # Adds empty line at the end
     if not printed_end_line:
-        print(flush=True)
+        _print(flush=True)
 
 
 def _print_json_result_streaming(result: CommandResult):
@@ -293,9 +407,9 @@ def _print_json_result_streaming(result: CommandResult):
     if isinstance(result, CollectionResult):
         _stream_collection_as_json(result, indent=4)
     elif isinstance(result, (ObjectResult, MessageResult)):
-        json.dump(result, sys.stdout, cls=StreamingJSONEncoder, indent=4)
+        json.dump(result, _result_stream(), cls=StreamingJSONEncoder, indent=4)
     else:
-        json.dump(result, sys.stdout, cls=StreamingJSONEncoder, indent=4)
+        json.dump(result, _result_stream(), cls=StreamingJSONEncoder, indent=4)
 
 
 def _print_object_result_as_csv(result: ObjectResult):
@@ -307,7 +421,7 @@ def _print_object_result_as_csv(result: ObjectResult):
     data = result.result
     if isinstance(data, dict):
         writer = csv.DictWriter(
-            sys.stdout, fieldnames=list(data.keys()), lineterminator="\n"
+            _result_stream(), fieldnames=list(data.keys()), lineterminator="\n"
         )
         writer.writeheader()
         _write_csv_row(writer, data)
@@ -319,7 +433,9 @@ def _print_message_result_as_csv(result: MessageResult):
     Creates a simple CSV structure with one column named 'message'
     containing the sanitized message text.
     """
-    writer = csv.DictWriter(sys.stdout, fieldnames=["message"], lineterminator="\n")
+    writer = csv.DictWriter(
+        _result_stream(), fieldnames=["message"], lineterminator="\n"
+    )
     writer.writeheader()
     writer.writerow({"message": sanitize_for_terminal(result.message)})
 
@@ -339,62 +455,70 @@ def _stream_json(result):
     indent_size = 2
 
     class _Indented:
-        def __init__(self, stream: TextIO):
+        def __init__(self, stream: TextIO | TeeTextIO):
             self._stream = stream
 
         def write(self, text: str):
             return self._stream.write(indent(text, " " * indent_size))
 
-    print("[")
+    _print("[")
     results = result.result
     res = next(results, None)
     while res:
-        json.dump(res, _Indented(sys.stdout), cls=CustomJSONEncoder, indent=indent_size)  # type: ignore
+        json.dump(
+            res,
+            _Indented(_result_stream()),
+            cls=CustomJSONEncoder,
+            indent=indent_size,
+        )  # type: ignore
         if res := next(results, None):
-            print(",")
-    print("\n]")
+            _print(",")
+    _print("\n]")
 
 
-def print_unstructured(obj: CommandResult | None):
+def print_unstructured(
+    obj: CommandResult | None, output_format: OutputFormat | None = None
+):
     """Handles outputs like table, plain text and other unstructured types."""
     if not obj:
-        rich_print("Done", flush=True)
+        _rich_print("Done", flush=True)
     elif not obj.result:
-        rich_print("No data", flush=True)
+        _rich_print("No data", flush=True)
     elif isinstance(obj, MessageResult):
-        rich_print(sanitize_for_terminal(obj.message), flush=True)
+        _rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:
         if isinstance(obj, ObjectResult):
-            _print_single_table(obj)
+            _print_single_table(obj, output_format)
         elif isinstance(obj, CollectionResult):
-            _print_multiple_table_results(obj)
+            _print_multiple_table_results(obj, output_format)
         else:
             raise TypeError(f"No print strategy for type: {type(obj)}")
 
 
-def _print_single_table(obj):
-    table = _get_table()
+def _print_single_table(obj, output_format: OutputFormat | None = None):
+    table = _get_table(output_format)
     table.add_column("key", overflow="fold")
     table.add_column("value", overflow="fold")
     for key, value in obj.result.items():
         table.add_row(
             sanitize_for_terminal(str(key)), sanitize_for_terminal(__to_str(value))
         )
-    rich_print(table, flush=True)
+    _rich_print(table, flush=True)
 
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
-    output_format = output_format or _get_format_type()
+    resolved_format = output_format or _get_format_type()
 
     match cmd_result:
         case EmptyResult():
             return
-        case _ if is_structured_format(output_format):
-            print_structured(cmd_result, output_format)
+        case _ if is_structured_format(resolved_format):
+            print_structured(cmd_result, resolved_format)
         case MultipleResults() | StreamResult():
             for res in cmd_result.result:
-                print_result(res)
+                print_result(res, output_format)
         case MessageResult() | ObjectResult() | CollectionResult() | None:
-            print_unstructured(cmd_result)
+            print_unstructured(cmd_result, resolved_format)
         case _:
             raise ValueError(f"Unexpected type {type(cmd_result)}")
+    _result_stream().flush()

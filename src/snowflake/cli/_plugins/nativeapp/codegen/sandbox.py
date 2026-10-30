@@ -25,6 +25,7 @@ from venv import EnvBuilder
 
 from click.exceptions import ClickException
 from snowflake.cli.api.config import get_subprocess_encoding
+from snowflake.cli.api.pip_index import constrain_pip_install_args
 
 EnvVars = Mapping[str, str]  # Only support str -> str for cross-platform compatibility
 
@@ -306,4 +307,4 @@ class SandboxEnvBuilder(EnvBuilder):
         """
         Invokes pip install with the provided arguments.
         """
-        self.run_python("-m", "pip", "install", *[str(arg) for arg in args])
+        self.run_python("-m", "pip", "install", *constrain_pip_install_args(args))

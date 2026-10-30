@@ -10,5 +10,5 @@
     "author_email": "you@example.com",
     "requires_connection": true,
     "command_type": ["group", "single"],
-    "python_requires": ">=3.10"
+    "python_requires": ">=3.11"
 }

@@ -3,7 +3,10 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+import yaml
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import SPCS_RUNTIME_V2_NAME
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 
 from tests.streamlit.streamlit_test_class import (
     RESTART_PARAMS,
@@ -23,13 +26,67 @@ def mock_live_version_location_uri():
         # The mock cursor must have a fetchone() method that returns the dict
         mock_cursor = mock.Mock()
         mock_cursor.fetchone.return_value = {
-            "live_version_location_uri": "snow://streamlit/db.PUBLIC.test_streamlit/versions/live/"
+            "live_version_location_uri": "snow://streamlit/db.PUBLIC.test_streamlit/versions/live/",
+            "main_file": "streamlit_app.py",
         }
         mock_describe.return_value = mock_cursor
         yield mock_describe
 
 
 class TestStreamlitCommands(StreamlitTestClass):
+    @pytest.mark.parametrize("prune", [False, True])
+    @pytest.mark.parametrize("include_warehouse", [False, True])
+    def test_deploy_versioned_main_file_change_updates_in_place(
+        self, project_directory, runner, alter_snowflake_yml, prune, include_warehouse
+    ):
+        with project_directory("example_streamlit_v2") as root:
+            SecurePath(root / "renamed_app.py").write_text(
+                "import streamlit as st\nst.write('renamed')\n"
+            )
+            alter_snowflake_yml(
+                root / "snowflake.yml",
+                "entities.test_streamlit.main_file",
+                "renamed_app.py",
+            )
+            if not include_warehouse:
+                definition = SecurePath(root / "snowflake.yml")
+                project = yaml.safe_load(definition.read_text(DEFAULT_SIZE_LIMIT_MB))
+                del project["entities"]["test_streamlit"]["query_warehouse"]
+                definition.write_text(yaml.safe_dump(project))
+            self.mock_describe.return_value.fetchone.return_value[
+                "query_warehouse"
+            ] = "LIVE_WH"
+            with mock.patch(
+                "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
+                return_value=True,
+            ):
+                command = ["streamlit", "deploy", "--replace"]
+                if prune:
+                    command.append("--prune")
+                result = runner.invoke(command)
+
+        assert result.exit_code == 0, result.output
+        sql = [call.args[0] for call in self.mock_execute.call_args_list if call.args]
+        assert any(
+            "ALTER STREAMLIT" in statement
+            and "MAIN_FILE = 'renamed_app.py'" in statement
+            for statement in sql
+        )
+        assert not any(
+            "CREATE OR REPLACE STREAMLIT" in statement
+            or "ADD LIVE VERSION" in statement
+            for statement in sql
+        )
+        assert (
+            any("QUERY_WAREHOUSE" in statement for statement in sql)
+            is include_warehouse
+        )
+        assert any(
+            call.kwargs.get("local_path")
+            and call.kwargs["local_path"].name == "renamed_app.py"
+            for call in self.mock_put.call_args_list
+        )
+
     def test_list_streamlit(self, runner, mock_streamlit_ctx):
         self.mock_connector.return_value = mock_streamlit_ctx
 
@@ -118,7 +175,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         expected_query = dedent(
             f"""
-                    CREATE OR REPLACE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
+                    CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                     ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                     MAIN_FILE = 'streamlit_app.py'
                     QUERY_WAREHOUSE = test_warehouse
@@ -422,8 +479,9 @@ class TestStreamlitCommands(StreamlitTestClass):
                     parameter_path="entities.test_streamlit.artifacts",
                     value=["streamlit_app.py", "environment.yml", "pages/"],
                 )
-            # Simulate a new (non-existing) app so --replace triggers
-            # CREATE OR REPLACE rather than ALTER.
+            # Simulate a new (non-existing) app. DESCRIBE's 2003 cannot tell
+            # missing from unauthorized, so --replace must not become
+            # CREATE OR REPLACE; it creates with IF NOT EXISTS instead.
             with mock.patch(
                 "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
                 return_value=False,
@@ -432,7 +490,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         expected_query = dedent(
             f"""
-                    CREATE OR REPLACE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
+                    CREATE STREAMLIT IF NOT EXISTS IDENTIFIER('{STREAMLIT_NAME}')
                     MAIN_FILE = 'streamlit_app.py'
                     QUERY_WAREHOUSE = test_warehouse
                     TITLE = 'My Fancy Streamlit';
@@ -545,7 +603,6 @@ class TestStreamlitCommands(StreamlitTestClass):
             f"""
                 ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') SET
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
-                MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
                 TITLE = 'My Fancy Streamlit';
                 """
@@ -554,17 +611,210 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_execute.assert_any_call(expected_query)
         assert restart_calls(self.mock_execute_with_params) == []
 
-    def test_share_streamlit(self, runner, mock_streamlit_ctx):
+    @pytest.mark.parametrize(
+        "extra_args, expected_grantee",
+        [
+            (["other_role"], "ROLE other_role"),
+            (["--to-user", "AAMADHAVAN"], "USER AAMADHAVAN"),
+            # A user named after an email address is not a bare identifier.
+            (["--to-user", "first.last@example.com"], 'USER "first.last@example.com"'),
+            (
+                ["other_role", "--with-grant-option"],
+                "ROLE other_role WITH GRANT OPTION",
+            ),
+            (
+                ["--to-user", "AAMADHAVAN", "--with-grant-option"],
+                "USER AAMADHAVAN WITH GRANT OPTION",
+            ),
+        ],
+    )
+    def test_share_streamlit(
+        self, runner, mock_streamlit_ctx, extra_args, expected_grantee
+    ):
         self.mock_connector.return_value = mock_streamlit_ctx
-        role = "other_role"
 
-        result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, role])
+        result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, *extra_args])
 
         assert result.exit_code == 0, result.output
         assert (
             mock_streamlit_ctx.get_query()
-            == f"grant usage on streamlit IDENTIFIER('{STREAMLIT_NAME}') to role {role}"
+            == f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO {expected_grantee}"
         )
+
+    def test_share_streamlit_with_several_users(self, runner, mock_streamlit_ctx):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(
+            [
+                "streamlit",
+                "share",
+                STREAMLIT_NAME,
+                "--to-user",
+                "AAMADHAVAN",
+                "--to-user",
+                "CLAU",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        grant = f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO USER"
+        assert mock_streamlit_ctx.get_queries() == [
+            f"{grant} AAMADHAVAN",
+            f"{grant} CLAU",
+        ]
+
+    def test_share_streamlit_records_a_user_share_in_the_project_file(
+        self, runner, mock_streamlit_ctx, project_directory
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        with project_directory("streamlit_full_definition_v2") as root:
+            result = runner.invoke(
+                ["streamlit", "share", STREAMLIT_NAME, "--to-user", "AAMADHAVAN"]
+            )
+
+            assert result.exit_code == 0, result.output
+            assert (
+                (root / "snowflake.yml")
+                .read_text()
+                .endswith(
+                    "    - extra_file.py\n"
+                    "    grants:\n"
+                    "      - privilege: USAGE\n"
+                    "        user: AAMADHAVAN\n"
+                )
+            )
+
+    def test_share_streamlit_does_not_record_a_role_share(
+        self, runner, mock_streamlit_ctx, project_directory
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        with project_directory("streamlit_full_definition_v2") as root:
+            before = (root / "snowflake.yml").read_text()
+
+            result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, "other_role"])
+
+            assert result.exit_code == 0, result.output
+            assert (root / "snowflake.yml").read_text() == before
+
+    def test_share_streamlit_grants_location_usage(self, runner, mock_streamlit_ctx):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(
+            [
+                "streamlit",
+                "share",
+                STREAMLIT_NAME,
+                "--to-user",
+                "AAMADHAVAN",
+                "--grant-location-usage",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_streamlit_ctx.get_queries() == [
+            f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO USER AAMADHAVAN",
+            "GRANT USAGE ON DATABASE IDENTIFIER('MockDatabase') TO USER AAMADHAVAN",
+            "GRANT USAGE ON SCHEMA IDENTIFIER('MockDatabase.MockSchema') TO USER AAMADHAVAN",
+        ]
+
+    def test_share_streamlit_warns_that_a_user_may_need_location_usage(
+        self, runner, mock_streamlit_ctx
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(
+            ["streamlit", "share", STREAMLIT_NAME, "--to-user", "AAMADHAVAN"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "--grant-location-usage" in result.output
+        assert mock_streamlit_ctx.get_queries() == [
+            f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO USER AAMADHAVAN"
+        ]
+
+    def test_share_streamlit_with_a_role_does_not_warn(
+        self, runner, mock_streamlit_ctx
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, "other_role"])
+
+        assert result.exit_code == 0, result.output
+        assert "--grant-location-usage" not in result.output
+
+    def test_share_streamlit_still_reports_a_share_a_broken_project_file_cannot_record(
+        self, runner, mock_streamlit_ctx, project_directory
+    ):
+        # An invalid entity elsewhere in the file: reading the project definition
+        # validates all of it, so this used to raise after the GRANT had already
+        # been made and report a share that had succeeded as a failure.
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        with project_directory("streamlit_full_definition_v2") as root:
+            definition = root / "snowflake.yml"
+            definition.write_text(
+                definition.read_text()
+                + dedent(
+                    """\
+                      other_app:
+                        type: streamlit
+                        main_file: other.py
+                        grants:
+                          - privilege: DROP TABLE; SELECT 1
+                            role: ANALYST
+                    """
+                )
+            )
+
+            result = runner.invoke(
+                ["streamlit", "share", STREAMLIT_NAME, "--to-user", "AAMADHAVAN"]
+            )
+
+            assert result.exit_code == 0, result.output
+            assert "Could not record the share in snowflake.yml" in result.output
+            assert mock_streamlit_ctx.get_queries() == [
+                f"GRANT USAGE ON STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') TO USER AAMADHAVAN"
+            ]
+
+    def test_share_streamlit_sanitizes_a_user_it_cannot_record(
+        self, runner, mock_streamlit_ctx, project_directory
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        with project_directory("streamlit_full_definition_v2") as root:
+            definition = root / "snowflake.yml"
+            # An inline value has no list to append to, so recording is reported
+            # rather than done, and the name is echoed back for pasting.
+            definition.write_text(definition.read_text() + "    grants: []\n")
+
+            result = runner.invoke(
+                ["streamlit", "share", STREAMLIT_NAME, "--to-user", "\x1b[31mEVIL"]
+            )
+
+            assert result.exit_code == 0, result.output
+            assert "EVIL" in result.output
+            assert "\x1b" not in result.output
+
+    @pytest.mark.parametrize(
+        "extra_args, expected_error",
+        [
+            ([], "Name the role to share with"),
+            (["--with-grant-option"], "Name the role to share with"),
+            (["other_role", "--to-user", "AAMADHAVAN"], "not both"),
+        ],
+    )
+    def test_share_streamlit_needs_exactly_one_grantee(
+        self, runner, mock_streamlit_ctx, extra_args, expected_error
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+
+        result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, *extra_args])
+
+        assert result.exit_code == 1, result.output
+        assert expected_error in result.output
+        assert mock_streamlit_ctx.get_query() == ""
 
     def test_drop_streamlit(self, runner, mock_streamlit_ctx):
         self.mock_connector.return_value = mock_streamlit_ctx
@@ -620,7 +870,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         expected_query = dedent(
             f"""
-                CREATE OR REPLACE STREAMLIT IDENTIFIER('{entity_id}')
+                CREATE STREAMLIT IDENTIFIER('{entity_id}')
                 ROOT_LOCATION = '@streamlit/{entity_id}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = streamlit;"""
@@ -649,7 +899,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         expected_query = dedent(
             f"""
-                CREATE OR REPLACE STREAMLIT IDENTIFIER('test_streamlit_deploy_snowcli')
+                CREATE STREAMLIT IDENTIFIER('test_streamlit_deploy_snowcli')
                 ROOT_LOCATION = '@streamlit/test_streamlit_deploy_snowcli'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = xsmall

@@ -19,6 +19,7 @@ import pytest
 from click import ClickException
 from snowflake.cli._plugins.spcs.common import (
     format_event_row,
+    format_metric_row,
     handle_object_already_exists,
     validate_and_set_instances,
 )
@@ -119,3 +120,63 @@ def test_format_event_row_handles_null_json_columns():
     assert formatted["EVENT NAME"] == "Unknown Event"
     assert formatted["SEVERITY"] == "Unknown Severity"
     assert formatted["EVENT VALUE"] == "READY"
+
+
+_METRIC_RESOURCE_ATTRIBUTES = json.dumps(
+    {
+        "snow.database.name": "DB",
+        "snow.schema.name": "SCH",
+        "snow.service.name": "SVC",
+        "snow.service.container.instance": "0",
+        "snow.service.container.name": "main",
+    }
+)
+
+
+@pytest.mark.parametrize(
+    "record, value, expected_name, expected_value",
+    [
+        # Legacy event table: nested record.metric, bare scalar VALUE.
+        (
+            {"metric": {"name": "container.cpu.usage", "unit": "cpu"}},
+            "0.25",
+            "container.cpu.usage",
+            "0.25",
+        ),
+        # Next-gen event table: flattened record.name, tagged scalar VALUE.
+        (
+            {"name": "container.cpu.usage", "unit": "cpu"},
+            json.dumps({"double_value": 0.25}),
+            "container.cpu.usage",
+            "0.25",
+        ),
+        (
+            {"name": "container.memory.usage", "unit": "By"},
+            json.dumps({"int_value": 1048576}),
+            "container.memory.usage",
+            "1048576",
+        ),
+        # Non-scalar values (histograms) are passed through unchanged.
+        (
+            {"name": "request.latency", "unit": "ms"},
+            json.dumps({"count": 3, "sum": 9.0}),
+            "request.latency",
+            json.dumps({"count": 3, "sum": 9.0}),
+        ),
+    ],
+)
+def test_format_metric_row_dual_reads_legacy_and_next_gen_shapes(
+    record, value, expected_name, expected_value
+):
+    formatted = format_metric_row(
+        {
+            "TIMESTAMP": "2024-12-14 22:27:25.420",
+            "RESOURCE_ATTRIBUTES": _METRIC_RESOURCE_ATTRIBUTES,
+            "RECORD": json.dumps(record),
+            "VALUE": value,
+        }
+    )
+
+    assert formatted["METRIC NAME"] == expected_name
+    assert formatted["METRIC VALUE"] == expected_value
+    assert formatted["SERVICE NAME"] == "SVC"

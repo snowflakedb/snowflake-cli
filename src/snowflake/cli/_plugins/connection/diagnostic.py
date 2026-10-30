@@ -368,7 +368,7 @@ def _issuer_org_name(cert: dict) -> Optional[str]:
 def _probe_tls(sock: socket.socket, host: str) -> tuple[Optional[str], Optional[str]]:
     """Wrap `sock` in TLS; return `(issuer_org, not_after)` from the peer cert."""
     context = ssl.create_default_context(cafile=_resolve_cafile())
-    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.minimum_version = ssl.TLSVersion.TLSv1_3
     with context.wrap_socket(sock, server_hostname=host) as ssock:
         cert: Any = ssock.getpeercert() or {}
     not_after = cert.get("notAfter")

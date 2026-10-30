@@ -10,9 +10,13 @@ from urllib.parse import urlencode
 
 import click
 from snowflake.cli._app.printing import print_result
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult, QueryResult
 from snowflake.connector import SnowflakeConnection
 
@@ -84,8 +88,9 @@ class ReplCommand(abc.ABC):
                 args.append(cmd_arg)
             else:
                 key, val = cmd_arg.split("=", maxsplit=1)
+                key = key.lower()
                 if key in kwargs:
-                    raise ValueError(f"Duplicated argument '{key}'")
+                    raise ValueError(f"Duplicated argument {key!r}")
                 kwargs[key] = val
 
         return args, kwargs
@@ -441,6 +446,119 @@ class AbortCommand(ReplCommand):
         return CompileCommandResult(command=cls(args[0]))
 
 
+_SET_USAGE = "Usage: `!set output_format=<format>`"
+_SET_OPTION_OUTPUT_FORMAT = "output_format"
+
+
+@register_command("!set")
+@dataclass
+class SetCommand(ReplCommand):
+    """Set a session option. Only output_format is supported."""
+
+    option: str
+    value: str
+
+    def execute(self, connection: SnowflakeConnection):
+        get_cli_context_manager().output_format = OutputFormat.from_string(self.value)
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        if isinstance(raw_args, str):
+            try:
+                args, kwargs = cls._parse_args(raw_args)
+            except ValueError as e:
+                return CompileCommandResult(error_message=str(e))
+        else:
+            args, kwargs = raw_args, kwargs or {}
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
+        if args:
+            return CompileCommandResult(
+                error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+            )
+        if not kwargs:
+            return CompileCommandResult(
+                error_message=f"No arguments passed to 'set' command. {_SET_USAGE}"
+            )
+
+        output_format_keys = [
+            key for key in kwargs if key.lower() == _SET_OPTION_OUTPUT_FORMAT
+        ]
+        if len(output_format_keys) > 1:
+            names = ", ".join(f"{key!r}" for key in output_format_keys)
+            return CompileCommandResult(error_message=f"Duplicated argument {names}")
+
+        unknown = [key for key in kwargs if key.lower() != _SET_OPTION_OUTPUT_FORMAT]
+        if unknown:
+            names = ", ".join(f"{key!r}" for key in unknown)
+            return CompileCommandResult(
+                error_message=(
+                    f"Unknown option passed to 'set' command: {names}. "
+                    "Only output_format is supported."
+                )
+            )
+
+        value = next(iter(kwargs.values()))
+        try:
+            OutputFormat.from_string(value)
+        except ValueError as e:
+            return CompileCommandResult(error_message=str(e))
+        return CompileCommandResult(
+            command=cls(option=_SET_OPTION_OUTPUT_FORMAT, value=value)
+        )
+
+
+_SPOOL_USAGE = "Usage: `!spool <file>` | `!spool off`"
+_SPOOL_OFF = "off"
+
+
+def _strip_matching_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+@register_command("!spool")
+@dataclass
+class SpoolCommand(ReplCommand):
+    """Append subsequent print_result output to a file until !spool off."""
+
+    path: str | None = None
+
+    def execute(self, connection: SnowflakeConnection):
+        manager = get_cli_context_manager()
+        if self.path is None:
+            manager.close_spool()
+            return
+        manager.open_spool(self.path)
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        if isinstance(raw_args, str):
+            args, kwargs = cls._parse_args(raw_args)
+        else:
+            args, kwargs = raw_args, kwargs or {}
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _parse_args(cls, raw_args: str) -> tuple[List[str], Dict[str, Any]]:
+        return [raw_args] if raw_args else [], {}
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
+        remainder = " ".join(args) if args else ""
+        remainder = _strip_matching_quotes(remainder.strip())
+        if not remainder:
+            return CompileCommandResult(
+                error_message=f"No arguments passed to 'spool' command. {_SPOOL_USAGE}"
+            )
+        if remainder.lower() == _SPOOL_OFF:
+            return CompileCommandResult(command=cls(path=None))
+        return CompileCommandResult(command=cls(path=remainder))
+
+
 @register_command("!edit")
 @dataclass
 class EditCommand(ReplCommand):
@@ -544,6 +662,23 @@ class EditCommand(ReplCommand):
         """
         sql_content = " ".join(args) if args else ""
         return CompileCommandResult(command=cls(sql_content=sql_content))
+
+
+@register_command("!rehash")
+@dataclass
+class RehashCommand(ReplCommand):
+    """Drop the REPL object-completion cache. Does not prefetch."""
+
+    def execute(self, connection: SnowflakeConnection):
+        repl = get_cli_context().repl
+        if repl is None:
+            cli_console.message("Autocomplete is disabled.")
+            return
+        repl.refresh_completion_catalog()
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        return CompileCommandResult(command=cls())
 
 
 def detect_command(input_text: str) -> tuple[str, str] | None:

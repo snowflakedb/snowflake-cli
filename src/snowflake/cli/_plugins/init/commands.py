@@ -21,14 +21,31 @@ import typer
 import yaml
 from click import ClickException
 from snowflake.cli.__about__ import VERSION
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    note,
+    plain_text,
+)
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
     variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
+from snowflake.cli.api.config import (
+    CLI_SECTION,
+    INIT_TEMPLATE_SOURCE_KEY,
+    get_config_value,
+    get_env_variable_name,
+    is_air_gapped,
+)
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.exceptions import InvalidTemplateError
+from snowflake.cli.api.exceptions import CliError, InvalidTemplateError
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -41,7 +58,21 @@ from snowflake.cli.api.secure_path import SecurePath
 app = SnowTyperFactory()
 
 
-DEFAULT_SOURCE = "https://github.com/snowflakedb/snowflake-cli-templates"
+_DEFAULT_TEMPLATE_REPO = "https://github.com/snowflakedb/snowflake-cli-templates"
+TEMPLATE_SOURCE_ENV = get_env_variable_name(CLI_SECTION, key=INIT_TEMPLATE_SOURCE_KEY)
+
+
+def get_default_template_source() -> str:
+    return get_config_value(
+        CLI_SECTION, key=INIT_TEMPLATE_SOURCE_KEY, default=_DEFAULT_TEMPLATE_REPO
+    )
+
+
+def _is_default_public_template_source(source: str | None) -> bool:
+    if source is None:
+        return True
+    return source.rstrip("/") == _DEFAULT_TEMPLATE_REPO.rstrip("/")
+
 
 log = logging.getLogger(__name__)
 
@@ -68,9 +99,12 @@ TemplateOption = typer.Option(
     show_default=False,
 )
 SourceOption = typer.Option(
-    DEFAULT_SOURCE,
+    get_default_template_source,
     "--template-source",
-    help=f"local path to template directory or URL to git repository with templates.",
+    help=(
+        "local path to template directory or URL to git repository with templates. "
+        f"Default: {_DEFAULT_TEMPLATE_REPO}. Override with {TEMPLATE_SOURCE_ENV}."
+    ),
 )
 VariablesOption = variables_option(
     "String in `key=value` format. Provided variables will not be prompted for."
@@ -186,7 +220,118 @@ def _validate_cli_version(required_version: str) -> None:
         )
 
 
-@app.command(no_args_is_help=True)
+@app.command(
+    no_args_is_help=True,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/bootstrap-commands/overview",
+                "Snowflake CLI command reference",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow init"),
+                " command initializes a directory specified in the ",
+                code("<path>"),
+                " parameter with a chosen template. It renders all files mentioned "
+                "in the ",
+                code("files_to_render"),
+                " list in the ",
+                code("template.yml"),
+                ", resolving all variables enclosed in ",
+                code("<! … !>"),
+                ". If a ",
+                code("template.yml"),
+                " file is not present in the template's root directory, the command "
+                "finishes with an error. For information about creating project "
+                "templates, see ",
+                link("/developer-guide/snowflake-cli/bootstrap-project/bootstrap"),
+                ".",
+            ),
+            plain_text(
+                "By default, the command interactively prompts you for each parameter "
+                "defined in the ",
+                code("template.yml"),
+                " file. You can bypass the interactive prompts in the following ways:",
+            ),
+            bullet_list(
+                bullet(
+                    "Use the ",
+                    code("-D"),
+                    " option to specify the values for each parameter contained in "
+                    "the project template.",
+                ),
+                bullet(
+                    "Use the ",
+                    code("--no-interactive"),
+                    " option to use default values, if defined, for each template "
+                    "parameter in the ",
+                    code("template.yml"),
+                    " file.",
+                ),
+                bullet(
+                    "Use a combination of the ",
+                    code("-D"),
+                    " and ",
+                    code("--no-interactive"),
+                    " options to define values for some parameters and use the "
+                    "specified default values for the template.",
+                ),
+            ),
+            note(
+                "If you do not provide a value using the ",
+                code("-D"),
+                " option that does not have a corresponding default value defined, "
+                "the snow init command terminates with an error.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Bootstrap a Snowpark project that prompts for the parameters "
+                    "specified in the ",
+                    code("example_snowpark"),
+                    " template contained in the ",
+                    link(
+                        "https://github.com/snowflakedb/snowflake-cli-templates/",
+                        "snowflake-cli-templates Git repository",
+                    ),
+                    ".",
+                ),
+                command=(
+                    "snow init new_snowpark_project --template example_snowpark\n"
+                    "\n"
+                    "  Project identifier (used to determine artifacts stage path) "
+                    "[my_snowpark_project]:\n"
+                    "  What stage should the procedures and functions be deployed to? "
+                    "[dev_deployment]: snowpark"
+                ),
+                output="Initialized the new project in new_snowpark_project",
+            ),
+            Example(
+                description=plain_text(
+                    "Bootstrap a Streamlit project by using the ",
+                    code("-D"),
+                    " option to provide the values for some of the parameters "
+                    "specified in the local ",
+                    code("../local_templates/example_streamlit"),
+                    " template and prompt for others.",
+                ),
+                command=(
+                    "snow init new_streamlit_project "
+                    "--template-source ../local_templates/example_streamlit "
+                    "-D query_warehouse=dev_wareshouse -D stage=testing\n"
+                    "\n"
+                    "  Name of the streamlit app [streamlit_app]: My streamlit"
+                ),
+                output="Initialized the new project in new_streamlit_project",
+            ),
+        ),
+    ),
+)
 def init(
     path: str = PathArgument,
     template: Optional[str] = TemplateOption,
@@ -201,9 +346,21 @@ def init(
     variables_from_flags = {
         v.key: v.value for v in parse_key_value_variables(variables)
     }
-    is_remote = template_source is not None and any(
-        template_source.startswith(prefix)
-        for prefix in ["git@", "http://", "https://"]  # type: ignore
+    if template_source and template_source.lower().startswith("http://"):
+        raise CliError(
+            "Plaintext http:// template sources are not allowed. "
+            "Use https://, git@, or a local path."
+        )
+    if is_air_gapped() and _is_default_public_template_source(template_source):
+        raise CliError(
+            "The default snow init template repository is disabled because "
+            "cli.air_gapped is set. Set cli.init_template_source or "
+            f"{TEMPLATE_SOURCE_ENV} to a local path or an in-region git URL, "
+            "or pass --template-source."
+        )
+    is_remote = template_source is not None and (
+        template_source.startswith("git@")
+        or template_source.lower().startswith("https://")
     )
     args_error_msg = f"Check whether {TemplateOption.param_decls[0]} and {SourceOption.param_decls[0]} arguments are correct."
 

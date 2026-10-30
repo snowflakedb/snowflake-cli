@@ -97,7 +97,9 @@ class FQN:
     def __str__(self):
         return self.identifier
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, FQN):
+            return NotImplemented
         return self.identifier == other.identifier
 
     @classmethod

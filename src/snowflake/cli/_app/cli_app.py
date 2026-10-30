@@ -30,18 +30,21 @@ from snowflake.cli._app.commands_registration.commands_registration_with_callbac
     CommandsRegistrationWithCallbacks,
 )
 from snowflake.cli._app.dev.commands_structure import generate_commands_structure
-from snowflake.cli._app.dev.docs.generator import generate_docs, generate_docs_pages
+from snowflake.cli._app.dev.docs.generator import generate_docs
 from snowflake.cli._app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
 from snowflake.cli._app.main_typer import SnowCliMainTyper
 from snowflake.cli._app.printing import MessageResult, print_result
 from snowflake.cli._app.version_check import show_new_version_banner_callback
+from snowflake.cli.api.commands.docs_help import render_shared_configuration_panels
 from snowflake.cli.api.config import (
     config_init,
     get_config_manager,
     get_feature_flags_section,
 )
+from snowflake.cli.api.exceptions import install_plain_remediation_error_renderer
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult
 from snowflake.cli.api.secure_path import SecurePath
@@ -52,9 +55,9 @@ INTERNAL_CLI_FLAGS = {
     "custom_help",
     "version",
     "docs",
-    "docs_pages",
     "structure",
     "info",
+    "no_auto_upgrade",
     "configuration_file",
     "pycharm_debug_library_path",
     "pycharm_debug_server_host",
@@ -71,6 +74,18 @@ def _do_not_execute_on_completion(callback):
         callback(value)
 
     return enriched_callback
+
+
+def _connector_version() -> str:
+    try:
+        import snowflake.connector
+
+        version = getattr(snowflake.connector, "__version__", None)
+        if version:
+            return str(version)
+    except ImportError:
+        pass
+    return "unknown"
 
 
 class CliAppFactory:
@@ -119,17 +134,6 @@ class CliAppFactory:
 
         return callback
 
-    def _docs_pages_callback(self):
-        @_do_not_execute_on_completion
-        @self._commands_registration.after
-        def callback(value: bool):
-            if value:
-                ctx = click.get_current_context()
-                generate_docs_pages(SecurePath("gen_docs"), ctx.command)
-                self._exit_with_cleanup()
-
-        return callback
-
     def _help_callback(self):
         @_do_not_execute_on_completion
         @self._commands_registration.after
@@ -137,6 +141,7 @@ class CliAppFactory:
             if value:
                 ctx = click.get_current_context()
                 typer.echo(ctx.get_help())
+                render_shared_configuration_panels(ctx)
                 self._exit_with_cleanup()
 
         return callback
@@ -178,8 +183,16 @@ class CliAppFactory:
                         },
                         {"key": "python_version", "value": sys.version},
                         {"key": "system_info", "value": platform.platform()},
+                        {
+                            "key": "installation_source",
+                            "value": __about__.INSTALLATION_SOURCE.value,
+                        },
                         {"key": "feature_flags", "value": get_feature_flags_section()},
                         {"key": "SNOWFLAKE_HOME", "value": os.getenv("SNOWFLAKE_HOME")},
+                        {
+                            "key": "snowflake_connector_python_version",
+                            "value": _connector_version(),
+                        },
                     ],
                 )
                 print_result(result, output_format=OutputFormat.JSON)
@@ -188,6 +201,7 @@ class CliAppFactory:
         return callback
 
     def create_or_get_app(self) -> SnowCliMainTyper:
+        install_plain_remediation_error_renderer()
         if self._app:
             return self._app
 
@@ -210,7 +224,7 @@ class CliAppFactory:
                 "--help",
                 "-h",
                 help="Show this message and exit.",
-                callback=self._help_callback,
+                callback=self._help_callback(),
                 is_eager=True,
             ),
             version: bool = typer.Option(
@@ -224,16 +238,11 @@ class CliAppFactory:
                 None,
                 "--docs",
                 hidden=True,
-                help="Generates Snowflake CLI documentation",
+                help=(
+                    "Generates Snowflake CLI command-reference pages and "
+                    "project-definition documentation"
+                ),
                 callback=self._docs_callback(),
-                is_eager=True,
-            ),
-            docs_pages: bool = typer.Option(
-                None,
-                "--docs-pages",
-                hidden=True,
-                help="Generates full Snowflake CLI command-reference pages",
-                callback=self._docs_pages_callback(),
                 is_eager=True,
             ),
             structure: bool = typer.Option(
@@ -249,6 +258,13 @@ class CliAppFactory:
                 "--info",
                 help="Shows information about the Snowflake CLI",
                 callback=self._info_callback(),
+            ),
+            no_auto_upgrade: bool = typer.Option(
+                False,
+                "--no-auto-upgrade",
+                help="Skip auto-upgrade for this invocation.",
+                hidden=FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE.is_disabled(),
+                is_eager=True,
             ),
             configuration_file: Path = typer.Option(
                 None,
@@ -299,6 +315,7 @@ class CliAppFactory:
             """
             if not ctx.invoked_subcommand:
                 typer.echo(ctx.get_help())
+                render_shared_configuration_panels(ctx)
             setup_pycharm_remote_debugger_if_provided(
                 pycharm_debug_library_path=pycharm_debug_library_path,
                 pycharm_debug_server_host=pycharm_debug_server_host,

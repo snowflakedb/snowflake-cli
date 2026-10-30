@@ -128,7 +128,7 @@ def validate_interface_handler(
     Raises ``InterfaceValidationError`` with all violations listed.
     """
     errors: list[str] = []
-    for cmd in _collect_commands(spec):
+    for cmd in iter_command_defs(spec):
         method = getattr(handler, cmd.handler_method, None)
         if method is None:
             errors.append(
@@ -141,7 +141,7 @@ def validate_interface_handler(
         raise InterfaceValidationError(errors)
 
 
-def _collect_commands(
+def iter_command_defs(
     spec: CommandGroupSpec | SingleCommandSpec,
 ) -> list[CommandDef]:
     """Recursively collect all ``CommandDef`` objects from a spec tree."""
@@ -149,8 +149,12 @@ def _collect_commands(
         return [spec.command]
     commands = list(spec.commands)
     for sub in spec.subgroups:
-        commands.extend(_collect_commands(sub))
+        commands.extend(iter_command_defs(sub))
     return commands
+
+
+# Backwards-compatible alias for internal callers.
+_collect_commands = iter_command_defs
 
 
 # ---------------------------------------------------------------------------
@@ -238,12 +242,22 @@ def _register_command(
             )
         command_fn = dec_factory()(command_fn)
 
+    extra_command_kwargs: dict = {}
+    if cmd_def.context_settings is not None:
+        # Forwarded to Click, which merges nothing: these settings replace the
+        # per-command defaults, matching what `@app.command(context_settings=...)`
+        # does for a hand-written command.
+        extra_command_kwargs["context_settings"] = dict(cmd_def.context_settings)
+    if cmd_def.docs is not None:
+        extra_command_kwargs["docs"] = cmd_def.docs
+
     factory.command(
         name=cmd_def.name,
         requires_connection=cmd_def.requires_connection,
         require_warehouse=cmd_def.require_warehouse,
         preview=cmd_def.is_preview,
         hidden=cmd_def.is_hidden,
+        **extra_command_kwargs,
     )(command_fn)
 
 

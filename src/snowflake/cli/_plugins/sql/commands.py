@@ -22,11 +22,21 @@ from typing import List, Optional
 
 import typer
 from click import UsageError
+from snowflake.cli._app.printing import print_result
+from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
     require_string_prompt_format,
     unknown_token_warning,
     unknown_tokens_in_prompt_format,
+)
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    code,
+    link,
+    note,
+    plain_text,
 )
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -42,6 +52,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
+    EmptyResult,
     MultipleResults,
     QueryResult,
 )
@@ -104,7 +115,137 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
         cli_console.stderr_warning(unknown_token_warning(unknown_tokens))
 
 
-@app.command(name="sql", requires_connection=True, no_args_is_help=False)
+@app.command(
+    name="sql",
+    requires_connection=True,
+    no_args_is_help=False,
+    docs=CommandDocs(
+        related=(
+            link("/developer-guide/snowflake-cli/index"),
+            link(
+                "/developer-guide/snowflake-cli/sql/execute-sql",
+                "Execute SQL statements",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/overview",
+                "Snowflake CLI command reference",
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/sql-commands/overview",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "Provide the SQL using exactly one source: ",
+                code("--query"),
+                " / ",
+                code("-q"),
+                ", ",
+                code("--filename"),
+                " / ",
+                code("-f"),
+                " (repeatable; files run sequentially on one connection), or ",
+                code("--stdin"),
+                " / ",
+                code("-i"),
+                " when piping input (for example ",
+                code("cat my.sql | snow sql -i"),
+                ").",
+            ),
+            plain_text(
+                "With no query source, the command opens an interactive REPL. The prompt "
+                "stays ",
+                code('" > "'),
+                " unless you set ",
+                code("--prompt-format"),
+                ", for example ",
+                code('--prompt-format "[user]#[warehouse]@[database].[schema]> "'),
+                ". Placeholders: ",
+                code("[user]"),
+                ", ",
+                code("[host]"),
+                ", ",
+                code("[account]"),
+                ", ",
+                code("[role]"),
+                ", ",
+                code("[warehouse]"),
+                ", ",
+                code("[database]"),
+                ", ",
+                code("[schema]"),
+                ", and ",
+                code("[connection]"),
+                " (the ",
+                code("-c"),
+                " connection name). They update after USE. Use ",
+                code("[#rrggbb]"),
+                " for foreground colour and ",
+                code("[bg:#rrggbb]"),
+                " for background colour; each applies to the prompt text that follows. "
+                "Set a quoted ",
+                code("prompt_format"),
+                " in the ",
+                code("[cli]"),
+                " section of ",
+                code("config.toml"),
+                " to make a format the default.",
+            ),
+            plain_text(
+                "The command supports client-side variable substitution. Use ",
+                code("<% name %>"),
+                " placeholders in the SQL and pass values with ",
+                code('-D "name=value"'),
+                ". For SnowSQL-style ",
+                code("&name"),
+                " syntax, project ",
+                code("env.yml"),
+                " overrides, and templating flags, see ",
+                link(
+                    "/developer-guide/snowflake-cli/sql/execute-sql",
+                    "Execute SQL statements",
+                ),
+                ".",
+            ),
+            note(
+                "When the query contains characters the shell interprets (for example ",
+                code("$"),
+                " in ",
+                code("SYSTEM$CLIENT_VERSION_INFO()"),
+                " functions), wrap the query in single quotes: ",
+                code("snow sql -q 'SELECT SYSTEM$CLIENT_VERSION_INFO()'"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Run a single query."),
+                command="snow sql -q 'SELECT CURRENT_VERSION();'",
+                output=(
+                    "+-------------------+\n"
+                    "| CURRENT_VERSION() |\n"
+                    "|-------------------|\n"
+                    "| 8.25.1            |\n"
+                    "+-------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text("Run a SQL file."),
+                command="snow sql -f setup.sql",
+            ),
+            Example(
+                description=plain_text("Substitute a client-side template variable."),
+                command=(
+                    'snow sql -q "select * from <% database %>.logs" -D "database=dev"'
+                ),
+            ),
+            Example(
+                description=plain_text("Pipe SQL from another command."),
+                command="cat my.sql | snow sql -i",
+            ),
+        ),
+    ),
+)
 @with_project_definition(is_optional=True)
 def execute_sql(
     query: Optional[str] = SourceOption(
@@ -153,7 +294,7 @@ def execute_sql(
         callback=_local_only_callback,
         help=(
             "Restrict !source and !load to local files. When set, "
-            "!source/!load directives that reference http:// or https:// URLs "
+            "!source/!load directives that reference https:// URLs "
             "are rejected instead of being fetched. Use this flag in "
             "environments where SQL inputs should not trigger outbound "
             "network requests, or when running SQL files whose content "
@@ -180,32 +321,16 @@ def execute_sql(
             "Missing values render as (no user), (no database), and so on. "
             "A backslash followed by n is a newline; prefix a bracket or "
             "backslash with a backslash to make it literal. "
-            r"Unknown tokens, including colour \[#rrggbb\] / \[bg:#rrggbb\], "
-            r"are dropped with a warning. Quoted prompt_format in the \[cli\] "
+            r"Use \[#rrggbb\] for foreground colour and \[bg:#rrggbb\] "
+            "for background colour; each applies to following prompt text only. "
+            r"Unknown tokens are dropped with a warning. Quoted prompt_format in the \[cli\] "
             "section of config.toml sets the default."
         ),
         show_default=False,
     ),
     **options,
 ) -> CommandResult:
-    r"""
-    Executes Snowflake query.
-
-    Use either query, filename or input option.
-
-    Query to execute can be specified using query option, filename option (all queries from file will be executed)
-    or via stdin by piping output from other command. For example `cat my.sql | snow sql -i`.
-
-    With no query source, opens an interactive REPL. The prompt stays ' > '
-    unless you set --prompt-format, for example
-    --prompt-format "\[user\]#\[warehouse\]@\[database\].\[schema\]> ".
-    Placeholders: \[user\], \[host\], \[account\], \[role\], \[warehouse\],
-    \[database\], \[schema\], \[connection\] (the -c connection name).
-    They update after USE. Set a quoted prompt_format in the \[cli\] section
-    of config.toml to make a format the default.
-
-    The command supports variable substitution that happens on client-side.
-    """
+    """Executes SQL statements against Snowflake interactively or from a query, file, or standard input."""
 
     from snowflake.cli.api.config_ng import get_merged_variables
 
@@ -243,6 +368,9 @@ def execute_sql(
             raise CliArgumentError("single transaction cannot be used with REPL")
         from snowflake.cli._plugins.sql.repl import Repl
 
+        auto_completion = get_config_bool_value(
+            "cli", key="auto_completion", default=True
+        )
         Repl(
             SqlManager(),
             data=data,
@@ -251,32 +379,34 @@ def execute_sql(
             local_only=local_only,
             no_prompt_exit_repl=no_prompt_exit_repl,
             prompt_format=prompt_format,
+            auto_completion=auto_completion,
         ).run()
-        sys.exit(0)
+        return EmptyResult()
 
     manager = SqlManager()
 
-    expected_results_cnt, cursors = manager.execute(
-        query,
-        files,
-        std_in,
-        data=data,
-        retain_comments=retain_comments,
-        single_transaction=single_transaction,
-        template_syntax_config=template_syntax_config,
-        local_only=local_only,
-    )
-    if expected_results_cnt == 0:
-        # case expected if input only scheduled async queries
-        list(cursors)  # evaluate the result to schedule potential async queries
-        # ends gracefully with no message for consistency with snowsql.
-        sys.exit(0)
-
-    if expected_results_cnt == 1:
-        # evaluate the result to schedule async queries
-        results = list(cursors)
-        if not results:
-            return sys.exit(0)
-        return QueryResult(results[0])
-
-    return MultipleResults((QueryResult(c) for c in cursors))
+    with sql_client_query_span(defer_if_recorded=True) as gate:
+        expected_results_cnt, cursors = manager.execute(
+            query,
+            files,
+            std_in,
+            data=data,
+            retain_comments=retain_comments,
+            single_transaction=single_transaction,
+            template_syntax_config=template_syntax_config,
+            local_only=local_only,
+        )
+        gate.record = expected_results_cnt > 0
+        if expected_results_cnt == 0:
+            list(cursors)
+            return EmptyResult()
+        if expected_results_cnt == 1:
+            cursors = iter(cursors)
+            try:
+                first = next(cursors)
+            except StopIteration:
+                return EmptyResult()
+            print_result(QueryResult(first))
+            list(cursors)
+            return EmptyResult()
+        return MultipleResults((QueryResult(c) for c in cursors))

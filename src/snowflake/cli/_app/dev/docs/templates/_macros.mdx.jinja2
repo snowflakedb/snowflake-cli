@@ -11,11 +11,11 @@
     {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %} {{ param.make_metavar() }}`</dt>
 {%- else %}
 <dt><code className="samp">
-    {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %} <em>{{ param.make_metavar() }}</em></code></dt>
+    {%- for p in param.opts %}{{ p }}{{ ", " if not loop.last }}{% endfor %} <em>{{ param.make_metavar() | mdx_escape }}</em></code></dt>
 {%- endif %}
 <dd>
 
-{% if param.help %}{{ param.help | replace("\n", " ") | mdx_escape }}{% if param.help[-1] != '.' %}.{% endif %}{% if show_default and param.default is not none and param.default != "" %} Default: {{ param.default | mdx_escape }}.{% endif %}{% else %}TBD{% endif %}
+{% set help_text = param.help | collapse_whitespace %}{% if help_text %}{{ help_text | mdx_escape }}{% if not help_text.endswith('.') %}.{% endif %}{% if show_default and param.default is not none and param.default != "" %} Default: {{ param.default | mdx_escape }}.{% endif %}{% else %}TBD{% endif %}
 
 </dd>
 {%- endfor %}

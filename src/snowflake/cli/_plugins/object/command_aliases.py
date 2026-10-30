@@ -28,6 +28,7 @@ from snowflake.cli._plugins.object.commands import (
     scope_option,  # noqa: F401
     terse_option_,
 )
+from snowflake.cli.api.commands.command_docs import CommandDocs
 from snowflake.cli.api.commands.flags import IfExistsOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
@@ -44,6 +45,9 @@ def add_object_command_aliases(
     terse_option: Optional[typer.Option] = None,
     limit_option: Optional[typer.Option] = None,
     in_account_option: Optional[typer.Option] = None,
+    list_docs: CommandDocs | None = None,
+    describe_docs: CommandDocs | None = None,
+    drop_docs: CommandDocs | None = None,
 ):
     if ommit_commands is None:
         ommit_commands = list()
@@ -53,7 +57,7 @@ def add_object_command_aliases(
 
         if not scope_option:
 
-            @app.command("list", requires_connection=True)
+            @app.command("list", requires_connection=True, docs=list_docs)
             def list_cmd(
                 like: str = like_option,  # type: ignore
                 in_account: bool = in_account_option if in_account_option else in_account_option_(),  # type: ignore
@@ -73,7 +77,7 @@ def add_object_command_aliases(
 
         else:
 
-            @app.command("list", requires_connection=True)
+            @app.command("list", requires_connection=True, docs=list_docs)
             def list_cmd(
                 like: str = like_option,  # type: ignore
                 scope: Tuple[str, str] = scope_option,  # type: ignore
@@ -96,7 +100,7 @@ def add_object_command_aliases(
 
     if "drop" not in ommit_commands:
 
-        @app.command("drop", requires_connection=True)
+        @app.command("drop", requires_connection=True, docs=drop_docs)
         def drop_cmd(
             name: FQN = name_argument,
             if_exists: bool = IfExistsOption(),
@@ -113,7 +117,7 @@ def add_object_command_aliases(
 
     if "describe" not in ommit_commands:
 
-        @app.command("describe", requires_connection=True)
+        @app.command("describe", requires_connection=True, docs=describe_docs)
         def describe_cmd(name: FQN = name_argument, **options):
             return describe(
                 object_type=object_type.value.cli_name,

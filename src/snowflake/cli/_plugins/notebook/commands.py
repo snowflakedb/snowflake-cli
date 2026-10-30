@@ -21,6 +21,19 @@ from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntity
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    PUBLIC_PREVIEW_NO_GOV,
+    AdmonitionType,
+    CommandDocs,
+    Example,
+    admonition,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     PruneOption,
@@ -44,6 +57,22 @@ app = SnowTyperFactory(
 )
 log = logging.getLogger(__name__)
 
+_NOTEBOOK_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/notebook-commands/overview"),
+)
+
+_NOTEBOOK_FQN_REQUIREMENTS = bullet_list(
+    bullet("The notebook must already be deployed."),
+    bullet(
+        "If your notebook is running under a different database and schema than "
+        "specified in the connection, you must provide them in name as a "
+        "fully-qualified name, such as ",
+        code("database.schema.name"),
+        ".",
+    ),
+)
+
 NOTEBOOK_IDENTIFIER = identifier_argument(sf_object="notebook", example="MY_NOTEBOOK")
 NotebookFile: NotebookStagePath = typer.Option(
     "--notebook-file",
@@ -53,7 +82,33 @@ NotebookFile: NotebookStagePath = typer.Option(
 )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_NOTEBOOK_RELATED,
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow notebook execute"),
+                " command executes a notebook in headless mode. Currently, the "
+                "command only returns a message indicating whether the notebook "
+                "executed successfully. It doesn't return any result data from the "
+                "notebook.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example executes the ",
+                    code("MY_NOTEBOOK"),
+                    " notebook:",
+                ),
+                command="snow notebook execute MY_NOTEBOOK",
+                output="Notebook MY_NOTEBOOK executed.",
+            ),
+        ),
+    ),
+)
 def execute(
     identifier: FQN = NOTEBOOK_IDENTIFIER,
     **options,
@@ -66,7 +121,28 @@ def execute(
     return MessageResult(f"Notebook {identifier} executed.")
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_NOTEBOOK_RELATED,
+        usage_notes=(
+            plain_text(
+                "The notebook get-url command returns a url link to an existing "
+                "notebooks. Note the following requirements:",
+            ),
+            _NOTEBOOK_FQN_REQUIREMENTS,
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example gets a URL for an notebook using a fully-qualified "
+                    "database and schema name:",
+                ),
+                command="snow notebook get-url database.schema.my_notebook",
+            ),
+        ),
+    ),
+)
 def get_url(
     identifier: FQN = NOTEBOOK_IDENTIFIER,
     **options,
@@ -76,7 +152,29 @@ def get_url(
     return MessageResult(message=url)
 
 
-@app.command(name="open", requires_connection=True)
+@app.command(
+    name="open",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_NOTEBOOK_RELATED,
+        usage_notes=(
+            plain_text(
+                "The notebook open command opens existing notebooks in your default "
+                "browser. Note the following requirements:",
+            ),
+            _NOTEBOOK_FQN_REQUIREMENTS,
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example opens a notebook using a fully-qualified database "
+                    "and schema name:",
+                ),
+                command="snow notebook open database.schema.my_notebook",
+            ),
+        ),
+    ),
+)
 def open_cmd(
     identifier: FQN = NOTEBOOK_IDENTIFIER,
     **options,
@@ -87,7 +185,53 @@ def open_cmd(
     return MessageResult(message=url)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_NOTEBOOK_RELATED,
+        banners=(
+            admonition(
+                AdmonitionType.NOTE,
+                "Beginning with version 3.4.0, ",
+                ref("sf-cli"),
+                " added the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/notebook-commands/deploy"
+                ),
+                " command to replace the ",
+                code("snow notebook create"),
+                " command. To support backward compatibility, you can still create "
+                "a notebook using this command, but Snowflake recommends that you "
+                "begin using the new ",
+                link("#label-cli-deploy-notebook"),
+                " procedure.",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "By default, the command creates notebooks using the default warehouse "
+                "provided in the connection. You can use the ",
+                code("--warehouse"),
+                " parameter to specify a different warehouse or to specify one if the "
+                "connection does not include a warehouse.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example creates ",
+                    code("MY_NOTEBOOK"),
+                    " from the staged ",
+                    code("@MY_STAGE/path/to/notebook.ipynb"),
+                    " notebook:",
+                ),
+                command=(
+                    "snow notebook create MY_NOTEBOOK -f @MY_STAGE/path/to/notebook.ipynb"
+                ),
+            ),
+        ),
+    ),
+)
 def create(
     identifier: Annotated[FQN, NOTEBOOK_IDENTIFIER],
     notebook_file: Annotated[NotebookStagePath, NotebookFile],
@@ -101,7 +245,44 @@ def create(
     return MessageResult(message=notebook_url)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_NOTEBOOK_RELATED,
+        banners=(PUBLIC_PREVIEW_NO_GOV,),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow notebook deploy"),
+                " command uploads local files to a stage and creates a new Notebook "
+                "object inside your chosen database and schema. Your ",
+                link("#label-cli-deploy-notebook", "project definition file"),
+                " should specify the main notebook file and query warehouse. The ",
+                code("--replace"),
+                " option replaces the specified Notebook object if it already exists.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example uploads the files specified in your "
+                    "project definition file and creates a new notebook named ",
+                    code("my_notebook"),
+                    ":",
+                ),
+                command="snow notebook deploy my_notebook",
+                output=(
+                    "Uploading artifacts to @notebooks/my_notebook\n"
+                    "  Creating stage notebooks if not exists\n"
+                    "  Uploading artifacts\n"
+                    "Creating notebook my_notebook\n"
+                    "Notebook successfully deployed and available under "
+                    "https://snowflake.com/provider-deduced-from-connection/#/notebooks/DB.SCHEMA.MY_NOTEBOOK"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 def deploy(
     entity_id: str = entity_argument("notebook"),

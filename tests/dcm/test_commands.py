@@ -304,10 +304,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_deploy_wires_up_expected_progress_steps(
@@ -369,6 +370,7 @@ class TestDCMDeploy:
             alias=None,
             skip_plan=False,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_deploy_project_with_alias(
@@ -394,10 +396,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias="my_alias",
             skip_plan=False,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_deploy_project_with_sync(
@@ -531,10 +534,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_deploy_with_default_target(
@@ -569,10 +573,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("my_project"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_deploy_explicit_identifier_still_uses_target_config(
@@ -616,10 +621,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("explicit_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_deploy_with_target_uses_configuration(
@@ -659,10 +665,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("my_project"),
             configuration="DEV_CONFIG",
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_deploy_with_save_output(
@@ -743,10 +750,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+            deployment_name=None,
         )
 
     def test_deploy_omits_declared_env_var_missing_from_shell(
@@ -778,10 +786,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={},
+            deployment_name=None,
         )
         mock_console.warning.assert_called_once()
         warning_message = mock_console.warning.call_args[0][0]
@@ -826,10 +835,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+            deployment_name=None,
         )
 
     def test_deploy_env_file_shell_value_wins_over_file(
@@ -869,10 +879,11 @@ class TestDCMDeploy:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             alias=None,
             skip_plan=False,
             env_vars={"DB_HOST": "from-shell", "AWS_SECRET_KEY": "from-file"},
+            deployment_name=None,
         )
 
     def test_deploy_env_file_missing_fails_even_with_no_declared_env_vars(
@@ -1355,6 +1366,7 @@ class TestDCMPlan:
             delta=False,
             output_path=None,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_plan_wires_up_expected_progress_steps(
@@ -1418,10 +1430,11 @@ class TestDCMPlan:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             delta=True,
             output_path=None,
             env_vars={},
+            deployment_name=None,
         )
 
     def test_plan_project_with_save_output(
@@ -1455,10 +1468,11 @@ class TestDCMPlan:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             delta=False,
             output_path=_created_output_path(mock_output_stage),
             env_vars={},
+            deployment_name=None,
         )
 
     def test_plan_drains_the_output_stage_only_after_the_query_finishes(
@@ -1892,10 +1906,11 @@ class TestDCMPlan:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             delta=False,
             output_path=None,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+            deployment_name=None,
         )
 
     def test_plan_omits_declared_env_var_missing_from_shell(
@@ -1927,10 +1942,11 @@ class TestDCMPlan:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             delta=False,
             output_path=None,
             env_vars={},
+            deployment_name=None,
         )
         mock_console.warning.assert_called_once()
 
@@ -1965,11 +1981,226 @@ class TestDCMPlan:
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="TMP_STAGE",
-            variables=None,
+            variables=[],
             delta=False,
             output_path=None,
             env_vars={"DB_HOST": "prod.analytics.internal", "AWS_SECRET_KEY": "shhh"},
+            deployment_name=None,
         )
+
+
+class TestDCMFromDeployment:
+    @pytest.mark.parametrize(
+        "command,async_attr,expected_steps",
+        [
+            ("deploy", "deploy_async", ["RENDER", "COMPILE", "PLAN", "DEPLOY"]),
+            ("plan", "plan_async", ["RENDER", "COMPILE", "PLAN"]),
+        ],
+    )
+    def test_uses_existing_deployment_without_uploading(
+        self,
+        command,
+        async_attr,
+        expected_steps,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        mock_multistep_progress,
+    ):
+        getattr(mock_dcm_manager(), async_attr).return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", command, "fooBar", "--deployment", "v1"])
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().sync_local_files.assert_not_called()
+        call_kwargs = getattr(mock_dcm_manager(), async_attr).call_args.kwargs
+        assert call_kwargs["from_stage"] is None
+        assert call_kwargs["deployment_name"] == "v1"
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == expected_steps
+        assert "UPLOAD" not in result.output
+
+    @pytest.mark.parametrize("command", ["deploy", "plan"])
+    @pytest.mark.parametrize("deployment_first", [True, False])
+    def test_rejects_variable(
+        self,
+        command,
+        deployment_first,
+        mock_dcm_manager,
+        runner,
+        project_directory,
+    ):
+        deployment = ["--deployment", "v1"]
+        variable = ["-D", "key=value"]
+        extra = deployment + variable if deployment_first else variable + deployment
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", command, "fooBar", *extra])
+
+        assert result.exit_code == 2, result.output
+        assert "--deployment" in result.output
+        assert "--variable" in result.output
+        assert "incompatible" in result.output
+        mock_dcm_manager().deploy_async.assert_not_called()
+        mock_dcm_manager().plan_async.assert_not_called()
+        mock_dcm_manager().sync_local_files.assert_not_called()
+
+    @pytest.mark.parametrize("command", ["deploy", "plan"])
+    @pytest.mark.parametrize("deployment_first", [True, False])
+    def test_rejects_env_file(
+        self,
+        command,
+        deployment_first,
+        mock_dcm_manager,
+        runner,
+        project_directory,
+        tmp_path,
+    ):
+        env_file = tmp_path / ".env"
+        env_file.write_text("FOO=bar\n")
+        deployment = ["--deployment", "v1"]
+        env_file_args = ["--env-file", str(env_file)]
+        extra = (
+            deployment + env_file_args
+            if deployment_first
+            else env_file_args + deployment
+        )
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", command, "fooBar", *extra])
+
+        assert result.exit_code == 2, result.output
+        assert "--deployment" in result.output
+        assert "--env-file" in result.output
+        assert "incompatible" in result.output
+        mock_dcm_manager().deploy_async.assert_not_called()
+        mock_dcm_manager().plan_async.assert_not_called()
+        mock_dcm_manager().sync_local_files.assert_not_called()
+
+    def test_plan_from_deployment_with_delta(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+    ):
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "plan", "fooBar", "--deployment", "v1", "--delta"]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().sync_local_files.assert_not_called()
+        mock_dcm_manager().plan_async.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage=None,
+            variables=[],
+            delta=True,
+            output_path=None,
+            env_vars={},
+            deployment_name="v1",
+        )
+
+    def test_plan_from_deployment_with_save_output(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        mock_output_stage,
+    ):
+        mock_dcm_manager().plan_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "plan", "fooBar", "--deployment", "v1", "--save-output"]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().sync_local_files.assert_not_called()
+        mock_dcm_manager().plan_async.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar"),
+            configuration=None,
+            from_stage=None,
+            variables=[],
+            delta=False,
+            output_path=_created_output_path(mock_output_stage),
+            env_vars={},
+            deployment_name="v1",
+        )
+
+    @pytest.mark.parametrize(
+        "command", ["dcm deploy", "dcm plan", "dcm drop-deployment"]
+    )
+    @pytest.mark.parametrize("deployment", ["", "   "])
+    def test_rejects_blank_deployment(
+        self,
+        command,
+        deployment,
+        mock_dcm_manager,
+        runner,
+        project_directory,
+        mock_server_poll,
+    ):
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                [*command.split(), "fooBar", "--deployment", deployment]
+            )
+
+        assert result.exit_code == 2, result.output
+        assert "--deployment" in result.output
+        assert "cannot be blank" in result.output
+        mock_dcm_manager().deploy_async.assert_not_called()
+        mock_dcm_manager().plan_async.assert_not_called()
+        mock_dcm_manager().drop_deployment.assert_not_called()
+        mock_dcm_manager().sync_local_files.assert_not_called()
+
+    def test_deploy_from_deployment_with_skip_plan(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        mock_multistep_progress,
+    ):
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "deploy", "fooBar", "--deployment", "v1", "--skip-plan"]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().sync_local_files.assert_not_called()
+        steps = mock_multistep_progress.call_args.args[0]
+        assert [step.label for step in steps] == ["RENDER", "COMPILE", "DEPLOY"]
+        call_kwargs = mock_dcm_manager().deploy_async.call_args.kwargs
+        assert call_kwargs["from_stage"] is None
+        assert call_kwargs["deployment_name"] == "v1"
+        assert call_kwargs["skip_plan"] is True
 
 
 class TestDCMRawAnalyze:
@@ -3133,6 +3364,13 @@ class TestDCMListDeployments:
 
 
 class TestDCMDropDeployment:
+    def test_drop_deployment_requires_deployment(self, mock_dcm_manager, runner):
+        result = runner.invoke(["dcm", "drop-deployment", "fooBar"])
+
+        assert result.exit_code == 2, result.output
+        assert "Missing option '--deployment'" in result.output
+        mock_dcm_manager().drop_deployment.assert_not_called()
+
     @pytest.mark.parametrize("if_exists", [True, False])
     def test_drop_deployment(self, mock_dcm_manager, runner, if_exists):
         command = ["dcm", "drop-deployment", "fooBar", "--deployment", "v1"]
@@ -3936,6 +4174,7 @@ class TestDCMTest:
             variables=None,
             scripts=None,
             env_vars={},
+            output_path=None,
         )
         mock_dcm_manager().test.assert_not_called()
 
@@ -4027,6 +4266,7 @@ class TestDCMTest:
             variables=None,
             scripts=expected_scripts,
             env_vars={},
+            output_path=None,
         )
 
     def test_whitespace_only_script_name_is_not_silently_dropped(
@@ -4061,6 +4301,7 @@ class TestDCMTest:
             variables=None,
             scripts=[" "],
             env_vars={},
+            output_path=None,
         )
         mock_dcm_manager().test.assert_not_called()
 
@@ -4121,6 +4362,118 @@ class TestDCMTest:
             )
 
             assert result.exit_code == 0, result.output
+            _assert_json_dumped("unit_test", unit_test_result, project_dir)
+
+    def test_all_scripts_with_save_output_passes_scoped_output_path(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_output_stage,
+    ):
+        unit_test_result = {"status": "SUCCESSFUL", "scripts": []}
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "test", "my_project", "--all-scripts", "--save-output"]
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_dcm_manager().unit_test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            from_stage="TMP_STAGE",
+            configuration=None,
+            variables=None,
+            scripts=None,
+            env_vars={},
+            output_path=f"{_created_output_path(mock_output_stage)}/test",
+        )
+        mock_output_stage.get_recursive.assert_called_once()
+
+    def test_all_scripts_without_save_output_creates_no_output_stage(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_output_stage,
+    ):
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps({"status": "SUCCESSFUL", "scripts": []}),)],
+            columns=("result",),
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "test", "my_project", "--all-scripts"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_dcm_manager().unit_test.call_args.kwargs["output_path"] is None
+        mock_output_stage.create.assert_not_called()
+        mock_output_stage.get_recursive.assert_not_called()
+
+    def test_scripts_and_expectations_with_save_output_keep_both_results(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_output_stage,
+    ):
+        """The backend's scripts file is test_result.json, same as the expectations
+        reporter's own file - it must land under out/test/ so both survive."""
+        backend_file = {"version": 2, "status": "SUCCESSFUL", "from_backend": True}
+        unit_test_result = {"status": "SUCCESSFUL", "scripts": []}
+        expectations_result = {"status": "SUCCESSFUL", "expectations": []}
+
+        def download_backend_file(stage_path, dest_path, **kwargs):
+            (dest_path / "test").mkdir(parents=True, exist_ok=True)
+            (dest_path / "test" / "test_result.json").write_text(
+                json.dumps(backend_file)
+            )
+
+        mock_output_stage.get_recursive.side_effect = download_backend_file
+        mock_dcm_manager().unit_test.return_value = mock_cursor(
+            rows=[(json.dumps(unit_test_result),)], columns=("result",)
+        )
+        mock_dcm_manager().test.return_value = mock_cursor(
+            rows=[(json.dumps(expectations_result),)], columns=("result",)
+        )
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = _manifest_without_config()
+
+        with project_directory("dcm_project") as project_dir:
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "test",
+                    "my_project",
+                    "--all-scripts",
+                    "--expectations",
+                    "--save-output",
+                ]
+            )
+
+            assert result.exit_code == 0, result.output
+            out_dir = project_dir / "out"
+            assert (
+                json.loads((out_dir / "test" / "test_result.json").read_text())
+                == backend_file
+            )
+            _assert_json_dumped("test", expectations_result, project_dir)
             _assert_json_dumped("unit_test", unit_test_result, project_dir)
 
     @pytest.mark.parametrize("format_name", ["json", "json_ext"])

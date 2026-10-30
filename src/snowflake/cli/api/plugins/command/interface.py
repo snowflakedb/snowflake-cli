@@ -51,9 +51,10 @@ from __future__ import annotations
 from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, Type
+from typing import Any, Mapping, Optional, Type
 
 import click
+from snowflake.cli.api.commands.command_docs import CommandDocs
 
 
 class _RequiredSentinel:
@@ -133,7 +134,15 @@ class CommandDef:
         is_hidden: Hide from ``--help`` output.
         decorators: Names of extra decorators to apply (e.g.
             ``("with_project_definition",)``).
+        context_settings: Click context settings for this command, e.g.
+            ``{"allow_extra_args": True, "ignore_unknown_options": True}`` for a
+            command that forwards unrecognised arguments on to something else.
+            ``None`` (the default) leaves Click's defaults in place.
         output_type: Documentation hint for reviewers (not enforced at runtime).
+        docs: Rich documentation for prod-docs and extended ``--help`` (see
+            ``CommandDocs``). The bridge forwards this to the Typer command;
+            once the plugin is in ``builtin_plugins.py``, CI uses the same
+            ``test_command_docs_coverage`` check as classic commands.
     """
 
     name: str
@@ -145,7 +154,9 @@ class CommandDef:
     is_preview: bool = False
     is_hidden: bool = False
     decorators: tuple[str, ...] = ()
+    context_settings: Optional[Mapping[str, Any]] = None
     output_type: str = "CommandResult"
+    docs: Optional[CommandDocs] = None
 
 
 @dataclass(frozen=True)

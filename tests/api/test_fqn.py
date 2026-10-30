@@ -166,6 +166,51 @@ def test_quoted_identifier():
     assert fqn.identifier == 'database_name.schema_name."my object"'
 
 
+class TestFQNEquality:
+    """Equality must follow the Python data model: __eq__ has to return
+    NotImplemented for operands that are not an FQN, so Python falls back to
+    the other operand and finally to identity, yielding False instead of
+    raising. AccountIdentifier.__eq__ in the same module already does this."""
+
+    def test_equality_of_the_same_identifier(self):
+        assert FQN.from_string("db.sc.tbl") == FQN.from_string("db.sc.tbl")
+
+    def test_inequality_of_different_identifiers(self):
+        assert FQN.from_string("db.sc.tbl") != FQN.from_string("db.sc.other")
+
+    @pytest.mark.parametrize(
+        "other",
+        [
+            pytest.param("db.sc.tbl", id="same_string"),
+            pytest.param("db.sc.other", id="other_string"),
+            pytest.param(None, id="none"),
+            pytest.param(42, id="int"),
+            pytest.param(object(), id="arbitrary_object"),
+        ],
+    )
+    def test_comparison_with_non_fqn_is_false_not_an_error(self, other):
+        # These raised AttributeError, because __eq__ read .identifier off the
+        # other operand unconditionally. Both operand orders are checked, since
+        # Python falls back to the reflected operation only for the second one.
+        fqn = FQN.from_string("db.sc.tbl")
+
+        assert (fqn == other) is False
+        assert (other == fqn) is False
+        assert (fqn != other) is True
+
+    def test_membership_of_non_fqn_is_false_not_an_error(self):
+        # `in` compares every element against the needle, so searching a list of
+        # plain strings raised AttributeError before the needle could answer.
+        assert (FQN.from_string("db.sc.tbl") in ["db.sc.tbl"]) is False
+
+    def test_fqn_is_unhashable_because_it_is_mutable(self):
+        # Defining __eq__ without __hash__ makes a class unhashable in Python 3.
+        # That is the intended state here: set_database/set_schema/set_name
+        # mutate an FQN in place, so it must never be used as a dict key or set
+        # member. Adding __hash__ here would break those data structures.
+        assert FQN.__hash__ is None
+
+
 @pytest.mark.parametrize(
     "fqn, expected",
     [

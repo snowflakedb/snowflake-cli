@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, mock
@@ -30,6 +31,23 @@ def mock_is_file_for(*known_files):
         return str(self) in [str(Path(f)) for f in known_files]
 
     return mock.patch.object(Path, "is_file", autospec=True, side_effect=fake_is_file)
+
+
+def _abspath_mapping(*pairs: tuple[str, str]):
+    """Mock ``os.path.abspath`` for specific inputs only.
+
+    A blanket ``return_value=...`` breaks coverage under pytest-xdist because
+    unrelated ``abspath`` calls inherit fake paths like ``/hello/world/test``.
+    """
+    real_abspath = os.path.abspath
+
+    def fake_abspath(path: str) -> str:
+        mapped = dict(pairs)
+        if path in mapped:
+            return mapped[path]
+        return real_abspath(path)
+
+    return mock.patch("os.path.abspath", side_effect=fake_abspath)
 
 
 class DefinitionManagerTest(TestCase):
@@ -54,42 +72,43 @@ class DefinitionManagerTest(TestCase):
                 Path("/hello/world/snowflake.local.yml"),
             ]
 
-    @mock.patch("os.path.abspath", return_value="/hello/world/test")
-    def test_double_dash_project_parameter_provided(self, mock_abs):
-        with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            definition_manager = DefinitionManager("/hello/world/test")
-            assert not definition_manager.has_definition_file
-            assert definition_manager.project_root == Path("/hello/world/test")
-            assert definition_manager.project_definition is None
-            assert definition_manager.template_context == {
-                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
-            }
+    def test_double_dash_project_parameter_provided(self):
+        project = "/hello/world/test"
+        with _abspath_mapping((project, project)):
+            with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
+                definition_manager = DefinitionManager(project)
+                assert not definition_manager.has_definition_file
+                assert definition_manager.project_root == Path(project)
+                assert definition_manager.project_definition is None
+                assert definition_manager.template_context == {
+                    "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+                }
 
-    @mock.patch("os.path.abspath", return_value="/hello/world/test/again")
-    def test_dash_p_parameter_provided_no_snowflake_yml_found(self, mock_abs):
-        with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            definition_manager = DefinitionManager("/hello/world/test/again")
-            assert not definition_manager.has_definition_file
-            assert definition_manager.project_root == Path("/hello/world/test/again")
-            assert definition_manager.project_definition is None
-            assert definition_manager.template_context == {
-                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
-            }
+    def test_dash_p_parameter_provided_no_snowflake_yml_found(self):
+        project = "/hello/world/test/again"
+        with _abspath_mapping((project, project)):
+            with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
+                definition_manager = DefinitionManager(project)
+                assert not definition_manager.has_definition_file
+                assert definition_manager.project_root == Path(project)
+                assert definition_manager.project_definition is None
+                assert definition_manager.template_context == {
+                    "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+                }
 
     @mock.patch("os.getcwd", return_value="/hello/world")
-    @mock.patch("os.path.abspath", return_value="/hello/world/relative")
     def test_dash_p_with_relative_parameter_provided_but_no_matching_project_definition(
-        self, mock_abs, mock_getcwd
+        self, mock_getcwd
     ):
-        with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
-            mock_getcwd.return_value = "/hello/world"
-            definition_manager = DefinitionManager("./relative")
-            assert not definition_manager.has_definition_file
-            assert definition_manager.project_root == Path("/hello/world/relative")
-            assert definition_manager.project_definition is None
-            assert definition_manager.template_context == {
-                "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
-            }
+        with _abspath_mapping(("./relative", "/hello/world/relative")):
+            with mock_is_file_for("/hello/world/snowflake.yml") as mock_is_file:
+                definition_manager = DefinitionManager("./relative")
+                assert not definition_manager.has_definition_file
+                assert definition_manager.project_root == Path("/hello/world/relative")
+                assert definition_manager.project_definition is None
+                assert definition_manager.template_context == {
+                    "ctx": {"env": ProjectEnvironment(override_env={}, default_env={})}
+                }
 
     @mock.patch("os.path.abspath", return_value="/tmp")
     def test_find_definition_files_under_root_folder(self, mock_abs):

@@ -5,33 +5,25 @@ from unittest import mock
 
 import pytest
 from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.completion import ThreadedCompleter
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.keys import Keys
+from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
 from snowflake.cli._plugins.sql.manager import SqlManager
-from snowflake.cli._plugins.sql.repl import Repl
+from snowflake.cli._plugins.sql.repl import Repl, _print_sql_elapsed
 from snowflake.cli._plugins.sql.repl_commands import EditCommand
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.output.formats import OutputFormat
+
+from tests.sql.conftest import run_repl, sql_output_settings
 
 
-@pytest.fixture(name="repl")
-def make_repl(mock_cursor):
-    mocked_cursor = [
-        mock_cursor(
-            rows=[("1",)],
-            columns=["1"],
-        ),
-    ]
+def test_execute_returns_expected_results_count_with_cursors(repl):
+    expected_results_cnt, cursors = repl._execute("select 1;")  # noqa: SLF001
 
-    with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursor):
-        manager = SqlManager()
-        repl = Repl(manager)
-
-        setattr(repl, "_history", mock.Mock())
-        repl.history.get_strings.return_value = ["SELECT 1;", "SELECT 2;"]
-
-        repl.session.prompt = mock.Mock(return_value="mocked_prompt_result")
-
-        yield repl
+    assert expected_results_cnt == 1
+    assert list(cursors)
 
 
 def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
@@ -41,11 +33,218 @@ def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
         repl.session,
         "prompt",
         side_effect=user_inputs,
+    ), mock.patch(
+        "snowflake.cli._plugins.sql.repl.time.monotonic",
+        side_effect=(0.0, 0.123),
     ):
         repl.run()
 
     output = capsys.readouterr().out
     os_agnostic_snapshot.assert_match(output)
+
+
+def test_repl_prints_one_elapsed_footer_per_input(repl, capsys, mock_cursor):
+    """One input holding several statements is timed as a whole, not per statement."""
+    cursors = [
+        mock_cursor(rows=[("1",)], columns=["1"]),
+        mock_cursor(rows=[("2",)], columns=["2"]),
+    ]
+
+    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
+        repl, "_execute", return_value=(len(cursors), cursors)
+    ), mock.patch(
+        "snowflake.cli._plugins.sql.repl.time.monotonic", side_effect=(0.0, 0.5)
+    ), mock.patch.object(
+        repl.session, "prompt", side_effect=iter(("select 1; select 2;", "exit", "y"))
+    ):
+        repl.run()
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.500s" in output
+
+
+def test_repl_prints_elapsed_after_result_rendering_error(repl, capsys):
+    """Statements ran before rendering blew up, so the timing is still reported."""
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl.print_result",
+        side_effect=Exception("query failed"),
+    ):
+        run_repl(repl, ("select 1;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Error occurred: query failed" in output
+    assert "Time Elapsed: 0.500s" in output
+    assert output.index("query failed") < output.index("Time Elapsed")
+
+
+def test_repl_prints_elapsed_after_execution_error(repl, capsys):
+    """Statements ran until execution blew up, so the warning is printed and then the timing."""
+
+    def failing_cursors():
+        raise Exception("execution failed")
+        yield
+
+    with mock.patch.object(repl, "_execute", return_value=(1, failing_cursors())):
+        run_repl(repl, ("select 1;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Error occurred: execution failed" in output
+    assert "Time Elapsed: 0.500s" in output
+    assert output.index("execution failed") < output.index("Time Elapsed")
+
+
+def test_repl_skips_elapsed_when_compilation_fails(repl, capsys):
+    """Compilation fails before a results count exists — nothing was timed."""
+    run_repl(repl, ("select <% missing %>;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Error occurred: SQL rendering error" in output
+    assert "Time Elapsed" not in output
+
+
+def test_repl_skips_elapsed_when_no_statements_found(repl, capsys):
+    """A comment-only submission compiles to nothing — no query time to report."""
+    run_repl(repl, ("-- just a comment", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Error occurred: No SQL statements found to execute." in output
+    assert "Time Elapsed" not in output
+
+
+def test_repl_skips_elapsed_for_empty_input(repl, capsys):
+    """Empty and whitespace-only submissions are skipped before timing starts — nothing was timed."""
+    run_repl(repl, ("", "   ", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "Time Elapsed" not in output
+
+
+def test_repl_skips_elapsed_for_repl_command_only_input(compiling_repl, capsys):
+    """A `!command` runs no SQL, so there is no query time to report."""
+    run_repl(compiling_repl, ("!queries help", "exit", "y"))
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+def test_repl_set_output_format_plain_applies_to_query_on_same_line(
+    compiling_repl, capsys
+):
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    manager.output_format = OutputFormat.TABLE
+    try:
+        run_repl(
+            compiling_repl,
+            ("!set output_format=plain;\nselect 1;", "exit", "y"),
+        )
+        output = capsys.readouterr().out
+    finally:
+        manager.output_format = previous
+
+    assert "1\n1\n" in output
+    assert "| 1 |" not in output
+
+
+def test_repl_skips_elapsed_for_async_only_input(compiling_repl, capsys):
+    """An async statement only schedules work — the REPL never waits for it."""
+    run_repl(compiling_repl, ("select 1;>", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "01b0-async" in output
+    assert "Time Elapsed" not in output
+
+
+def test_repl_prints_one_elapsed_footer_for_mixed_sync_and_command_input(
+    compiling_repl, capsys
+):
+    """One synchronous statement alongside a `!command` yields one footer."""
+    run_repl(compiling_repl, ("select 1; !queries help;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.500s" in output
+
+
+def test_repl_prints_one_elapsed_footer_for_mixed_sync_and_async_input(
+    compiling_repl, capsys
+):
+    """A sync statement plus an async one still yields one footer — only sync waits."""
+    run_repl(compiling_repl, ("select 1; select 2;>", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert "01b0-async" in output
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.500s" in output
+
+
+def test_repl_times_only_the_query_that_survives_an_interrupt(
+    repl, capsys, mock_cursor
+):
+    """Ctrl-C mid-query reports no time, and the next query is still timed."""
+    cursors = [mock_cursor(rows=[("2",)], columns=["2"])]
+
+    with mock.patch.object(
+        repl, "_execute", side_effect=(KeyboardInterrupt, (len(cursors), cursors))
+    ) as mocked_execute:
+        run_repl(
+            repl,
+            ("select 1;", "select 2;", "exit", "y"),
+            # The interrupted submission only consumes its start reading, so a
+            # footer timed from it would read 10.000s rather than 0.250s.
+            monotonic_values=(0.0, 10.0, 10.25),
+        )
+
+    output = capsys.readouterr().out
+    assert mocked_execute.call_count == 2
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.250s" in output
+
+
+def test_repl_prints_independent_elapsed_footers_for_successive_queries(repl, capsys):
+    """Each submission gets its own clock; the second does not inherit the first."""
+    run_repl(
+        repl,
+        ("select 1;", "select 2;", "exit", "y"),
+        monotonic_values=(0.0, 0.1, 1.0, 1.4),
+    )
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed") == 2
+    assert "Time Elapsed: 0.100s" in output
+    assert "Time Elapsed: 0.400s" in output
+    assert output.index("Time Elapsed: 0.100s") < output.index("Time Elapsed: 0.400s")
+
+
+def test_repl_skips_elapsed_when_rendering_is_interrupted(repl, capsys, mock_cursor):
+    """Ctrl-C during result printing is not Exception, so no footer for that query."""
+    cursors = [mock_cursor(rows=[("2",)], columns=["2"])]
+
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl.print_result",
+        side_effect=(KeyboardInterrupt, None),
+    ), mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)):
+        run_repl(
+            repl,
+            ("select 1;", "select 2;", "exit", "y"),
+            monotonic_values=(0.0, 10.0, 10.25),
+        )
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed") == 1
+    assert "Time Elapsed: 0.250s" in output
+
+
+def test_repl_skips_elapsed_on_ctrl_d(repl, capsys):
+    """Ctrl-D at the prompt is EOFError, so the loop prints no elapsed footer."""
+    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
+        repl.session, "prompt", side_effect=EOFError
+    ):
+        repl.run()
+
+    output = capsys.readouterr().out
+    assert "Time Elapsed" not in output
+    assert "Leaving REPL" in output
 
 
 @pytest.mark.parametrize(
@@ -106,7 +305,7 @@ def test_repl_full_app(runner, os_agnostic_snapshot, mock_cursor):
         mock_instance.prompt.side_effect = user_inputs
         mock_prompt.return_value = mock_instance
 
-        with mock.patch(repl_execute, return_value=mocked_cursor):
+        with mock.patch(repl_execute, return_value=(1, mocked_cursor)):
             result = runner.invoke(("sql",))
             assert result.exit_code == 0
             os_agnostic_snapshot.assert_match(result.output)
@@ -370,6 +569,13 @@ class TestReplPasteHandling:
                 return binding.handler
         raise AssertionError("Enter handler not found")
 
+    def _find_control_j_handler(self, key_bindings):
+        """Find the Control+J handler from key bindings."""
+        for binding in key_bindings.bindings:
+            if binding.keys == (Keys.ControlJ,):
+                return binding.handler
+        raise AssertionError("ControlJ handler not found")
+
     def test_bracketed_paste_strips_trailing_newlines(self, repl, mock_app_buffer):
         """Test that bracketed paste strips trailing newlines from pasted content."""
         app, buffer = mock_app_buffer
@@ -475,8 +681,8 @@ class TestReplPasteHandling:
         expected_sql_with_newline = "SELECT 1\n"
         assert buffer.text == expected_sql_with_newline
 
-    def test_enter_key_with_cursor_in_middle_adds_newline(self, repl, mock_app_buffer):
-        """Test Enter key adds newline when cursor is not at meaningful content end."""
+    def test_enter_key_with_cursor_in_middle_submits(self, repl, mock_app_buffer):
+        """Test Enter key submits a semicolon-terminated buffer from any cursor."""
         app, buffer = mock_app_buffer
         key_bindings = repl._setup_key_bindings()  # noqa: SLF001
 
@@ -484,6 +690,7 @@ class TestReplPasteHandling:
         cursor_in_middle_position = 3
         buffer.text = complete_sql
         buffer.cursor_position = cursor_in_middle_position
+        buffer.validate_and_handle = mock.MagicMock()
 
         enter_event = mock.MagicMock()
         enter_event.app = app
@@ -491,8 +698,67 @@ class TestReplPasteHandling:
         enter_handler = self._find_enter_handler(key_bindings)
         enter_handler(enter_event)
 
-        expected_sql_with_newline_in_middle = "SEL\nECT 1;"
-        assert buffer.text == expected_sql_with_newline_in_middle
+        buffer.validate_and_handle.assert_called_once()
+        assert buffer.text == complete_sql
+
+    def test_enter_key_with_cursor_on_earlier_line_submits(self, repl, mock_app_buffer):
+        """Test Enter key submits a multiline buffer with the cursor on an earlier line."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        multiline_sql = "SELECT 1,\n  2\nFROM dual;"
+        buffer.text = multiline_sql
+        buffer.cursor_position = len("SELECT 1,")
+        buffer.validate_and_handle = mock.MagicMock()
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        buffer.validate_and_handle.assert_called_once()
+        assert buffer.text == multiline_sql
+
+    def test_enter_key_with_incomplete_input_in_middle_adds_newline(
+        self, repl, mock_app_buffer
+    ):
+        """Test Enter key inserts a newline at the cursor for incomplete input."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        incomplete_sql = "SELECT 1"
+        buffer.text = incomplete_sql
+        buffer.cursor_position = 3
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        assert buffer.text == "SEL\nECT 1"
+
+    def test_control_j_adds_newline_to_semicolon_terminated_input(
+        self, repl, mock_app_buffer
+    ):
+        """Test Ctrl+J inserts a newline instead of submitting complete input."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        complete_sql = "SELECT 1;"
+        buffer.text = complete_sql
+        buffer.cursor_position = len(complete_sql)
+        buffer.validate_and_handle = mock.MagicMock()
+
+        control_j_event = mock.MagicMock()
+        control_j_event.app = app
+
+        control_j_handler = self._find_control_j_handler(key_bindings)
+        control_j_handler(control_j_event)
+
+        assert buffer.text == "SELECT 1;\n"
+        buffer.validate_and_handle.assert_not_called()
 
     def test_enter_key_handles_exit_keywords(self, repl, mock_app_buffer):
         """Test Enter key handles exit keywords correctly."""
@@ -602,6 +868,68 @@ def test_repl_keeps_historical_default_prompt(repl):
     repl.session.prompt = mock.Mock(return_value="exit")
     repl.repl_prompt()
     assert repl.session.prompt.call_args.args[0] == " > "
+
+
+def test_repl_prompt_disables_complete_while_typing(repl):
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    assert repl.session.prompt.call_args.kwargs["complete_while_typing"] is False
+
+
+def test_repl_uses_sql_repl_completer_when_auto_completion_enabled(repl):
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    completer = repl.session.prompt.call_args.kwargs["completer"]
+    assert isinstance(completer, ThreadedCompleter)
+    assert isinstance(completer.completer, SqlReplCompleter)
+
+
+def test_repl_prompt_shows_fetch_spinner_while_catalog_fetches(repl):
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    rprompt = repl.session.prompt.call_args.kwargs["rprompt"]
+    assert rprompt() == []
+    with repl._fetch_indicator.running():  # noqa: SLF001
+        assert "fetching names" in rprompt()[0][1]
+    assert rprompt() == []
+
+
+def test_repl_uses_no_completer_when_auto_completion_disabled():
+    repl = Repl(SqlManager(), auto_completion=False)
+    repl.session.prompt = mock.Mock(return_value="exit")
+    repl.repl_prompt()
+    assert repl.session.prompt.call_args.kwargs["completer"] is None
+    assert repl.session.prompt.call_args.kwargs["complete_while_typing"] is False
+    assert repl.session.prompt.call_args.kwargs["rprompt"] is None
+
+
+@pytest.mark.parametrize(
+    "env_var, config_value, expected",
+    [
+        ({}, {}, True),
+        ({}, {"auto_completion": "false"}, False),
+        ({"SNOWFLAKE_CLI_AUTO_COMPLETION": "false"}, {}, False),
+        ({"SNOWFLAKE_CLI_AUTO_COMPLETION": "true"}, {"auto_completion": "false"}, True),
+    ],
+)
+@mock.patch("snowflake.cli.api.config.get_config_section")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl")
+def test_auto_completion_config_is_passed_to_repl(
+    mock_repl_cls,
+    mock_get_config_section,
+    runner,
+    env_var,
+    config_value,
+    expected,
+):
+    mock_repl_cls.return_value.run.return_value = None
+    mock_get_config_section.return_value = config_value
+
+    with mock.patch.dict(os.environ, env_var):
+        result = runner.invoke(["sql"])
+
+    assert result.exit_code == 0
+    assert mock_repl_cls.call_args.kwargs["auto_completion"] is expected
 
 
 def _config_with_prompt_format(prompt_format: str | None) -> str:
@@ -818,7 +1146,7 @@ def test_prompt_format_flag_ignored_for_one_shot_query(mock_manager, runner):
 def test_prompt_format_uses_cli_connection_name(
     mock_execute, mock_prompt_session, runner, mock_cursor
 ):
-    mock_execute.return_value = (mock_cursor(["1"], ["1"]) for _ in range(2))
+    mock_execute.return_value = (1, iter([mock_cursor(["1"], ["1"])]))
     mock_prompt = mock.MagicMock()
     mock_prompt.prompt.side_effect = iter(("exit", "y"))
     mock_prompt_session.return_value = mock_prompt
@@ -829,13 +1157,21 @@ def test_prompt_format_uses_cli_connection_name(
     assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
 
 
-@pytest.mark.parametrize("colour_token", ["[#ff00ff]", "[bg:#00ff00]"])
+@pytest.mark.parametrize(
+    "colour_token, expected_style",
+    [("[#ff00ff]", "fg:#ff00ff"), ("[bg:#00ff00]", "bg:#00ff00")],
+)
 @mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
 @mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
-def test_prompt_format_warns_and_drops_colour_token_in_repl(
-    mock_execute, mock_prompt_session, runner, mock_cursor, colour_token
+def test_prompt_format_renders_colour_without_warning(
+    mock_execute,
+    mock_prompt_session,
+    runner,
+    mock_cursor,
+    colour_token,
+    expected_style,
 ):
-    mock_execute.return_value = (mock_cursor(["1"], ["1"]) for _ in range(2))
+    mock_execute.return_value = (1, iter([mock_cursor(["1"], ["1"])]))
     mock_prompt = mock.MagicMock()
     mock_prompt.prompt.side_effect = iter(("exit", "y"))
     mock_prompt_session.return_value = mock_prompt
@@ -845,9 +1181,34 @@ def test_prompt_format_warns_and_drops_colour_token_in_repl(
     )
 
     assert result.exit_code == 0, result.output
-    assert colour_token in result.output
-    assert "not supported in this version" in result.output
-    assert mock_prompt.prompt.call_args_list[0].args[0] == "full>"
+    assert colour_token not in result.output
+    first_prompt_call = mock_prompt.prompt.call_args_list[0]
+    assert first_prompt_call.args[0] == FormattedText([(expected_style, "full>")])
+    assert first_prompt_call.kwargs["lexer"] is not None
+
+
+def test_coloured_prompt_reflects_use_statement(mock_cursor):
+    mocked_cursor = [mock_cursor(rows=[("1",)], columns=["1"])]
+    connection = _connection_for_prompt(database="DB1")
+
+    def execute_and_update_connection(sql_text, **kwargs):
+        if "use " in sql_text.lower():
+            connection.database = "DB2"
+        return mocked_cursor
+
+    with mock.patch.object(
+        SqlManager, "_execute_string", side_effect=execute_and_update_connection
+    ):
+        repl = Repl(
+            SqlManager(connection=connection),
+            prompt_format="[#ff00ff][database]>",
+        )
+        repl.session.prompt = mock.Mock(side_effect=["USE DATABASE DB2;", "exit", "y"])
+        repl.run()
+
+    prompt_messages = [call.args[0] for call in repl.session.prompt.call_args_list]
+    assert prompt_messages[0] == FormattedText([("fg:#ff00ff", "DB1>")])
+    assert prompt_messages[1] == FormattedText([("fg:#ff00ff", "DB2>")])
 
 
 @mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
@@ -855,7 +1216,7 @@ def test_prompt_format_warns_and_drops_colour_token_in_repl(
 def test_prompt_format_warns_and_drops_unknown_token_in_repl(
     mock_execute, mock_prompt_session, runner, mock_cursor
 ):
-    mock_execute.return_value = (mock_cursor(["1"], ["1"]) for _ in range(2))
+    mock_execute.return_value = (1, iter([mock_cursor(["1"], ["1"])]))
     mock_prompt = mock.MagicMock()
     mock_prompt.prompt.side_effect = iter(("exit", "y"))
     mock_prompt_session.return_value = mock_prompt
@@ -877,3 +1238,388 @@ def test_prompt_format_unknown_token_warning_skipped_for_one_shot(mock_manager, 
     )
     assert result.exit_code == 0, result.output
     assert "future-token" not in result.output
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.TABLE, OutputFormat.PLAIN),
+)
+def test_print_sql_elapsed_human_formats_not_silent(output_format, capsys):
+    with sql_output_settings(output_format, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed: 0.123s" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
+)
+def test_print_sql_elapsed_skips_structured_formats(output_format, capsys):
+    with sql_output_settings(output_format, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.TABLE, OutputFormat.PLAIN),
+)
+def test_print_sql_elapsed_human_formats_silent(output_format, capsys):
+    with sql_output_settings(output_format, silent=True):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
+)
+def test_repl_skips_elapsed_for_structured_output(output_format, repl, capsys):
+    """A footer would corrupt machine-readable output, so the loop prints none."""
+    with sql_output_settings(output_format, silent=False):
+        run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+def test_repl_prints_elapsed_for_plain_output(repl, capsys):
+    with sql_output_settings(OutputFormat.PLAIN, silent=False):
+        run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
+
+    assert "Time Elapsed: 0.123s" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.TABLE, OutputFormat.PLAIN),
+)
+def test_repl_skips_elapsed_when_silent(output_format, repl, capsys):
+    """Silent mode hides the footer even though the table format allows it."""
+    with sql_output_settings(output_format, silent=True):
+        run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+
+
+def test_refresh_completion_catalog_disabled_says_so(capsys):
+    repl = Repl(SqlManager(), auto_completion=False)
+    repl.refresh_completion_catalog()
+    assert "disabled" in capsys.readouterr().out.lower()
+
+
+def test_refresh_completion_catalog_drops_when_enabled():
+    from snowflake.cli._plugins.sql.completion.catalog import ObjectCatalog
+    from snowflake.cli._plugins.sql.completion.context import CompletionKind
+
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def lookup(self, kind, path, prefix):
+            self.calls.append((kind, path, prefix))
+            return ["OLD"]
+
+    repl = Repl(SqlManager(), auto_completion=True)
+    assert repl._catalog is not None  # noqa: SLF001
+    provider = Provider()
+    repl._catalog = ObjectCatalog(provider)  # noqa: SLF001
+    repl._sql_manager.on_compiled_success = repl._catalog.on_success  # noqa: SLF001
+    repl._catalog.lookup(CompletionKind.TABLE, (), "OL")  # noqa: SLF001
+    assert repl._catalog.lookup(CompletionKind.TABLE, (), "OL") == (  # noqa: SLF001
+        "OLD",
+    )  # noqa: SLF001
+    assert repl._catalog.lookup(CompletionKind.TABLE, (), "") == ()  # noqa: SLF001
+    assert len(provider.calls) == 1
+    repl.refresh_completion_catalog()
+    provider.calls.clear()
+    assert repl._catalog.lookup(CompletionKind.TABLE, (), "") == ()  # noqa: SLF001
+    assert provider.calls == []
+    assert repl._catalog.lookup(CompletionKind.TABLE, (), "OL") == (  # noqa: SLF001
+        "OLD",
+    )  # noqa: SLF001
+    assert provider.calls
+
+
+def test_enabled_repl_wires_success_hook_to_catalog():
+    repl = Repl(SqlManager(), auto_completion=True)
+    hook = repl._sql_manager.on_compiled_success  # noqa: SLF001
+    assert hook is not None
+    assert hook.__self__ is repl._catalog  # noqa: SLF001
+
+
+def test_disabled_session_constructs_no_metadata_provider():
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl.SnowflakeMetadataProvider"
+    ) as provider_cls:
+        repl = Repl(SqlManager(), auto_completion=False)
+        repl.refresh_completion_catalog()
+    provider_cls.assert_not_called()
+    assert repl._completer is None  # noqa: SLF001
+    assert repl._catalog is None  # noqa: SLF001
+
+
+def test_disabled_repl_prompt_cannot_issue_show():
+    executes = []
+
+    class Cursor:
+        def execute(self, *args, **kwargs):
+            executes.append((args, kwargs))
+            return self
+
+        def close(self):
+            return None
+
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl.SnowflakeMetadataProvider"
+    ) as provider_cls:
+        repl = Repl(SqlManager(), auto_completion=False)
+        repl.session.prompt = mock.Mock(return_value="exit")
+        repl.repl_prompt()
+    provider_cls.assert_not_called()
+    assert repl.session.prompt.call_args.kwargs["completer"] is None
+    assert executes == []
+
+
+def _accepted_payloads():
+    from snowflake.cli._plugins.sql.completion.telemetry import build_completion_payload
+
+    payloads = []
+
+    def capture(**kwargs):
+        payloads.append(build_completion_payload(**kwargs))
+
+    return payloads, mock.patch(
+        "snowflake.cli._plugins.sql.completion.telemetry.emit_completion",
+        side_effect=capture,
+    )
+
+
+def _run_in_app(fn):
+    import asyncio
+    import inspect
+
+    from prompt_toolkit.application import create_app_session
+    from prompt_toolkit.application.current import get_app
+    from prompt_toolkit.output import DummyOutput
+
+    async def body():
+        with create_app_session(output=DummyOutput()):
+            get_app().loop = asyncio.get_running_loop()
+            result = fn()
+            if inspect.isawaitable(result):
+                await result
+
+    asyncio.run(body())
+
+
+def test_apply_completion_emits_accepted_without_names():
+    from prompt_toolkit.buffer import CompletionState
+    from prompt_toolkit.completion import Completion
+    from prompt_toolkit.document import Document
+
+    payloads, patch = _accepted_payloads()
+    suggestion = "TELEMETRY_SENTINEL_SUGGESTION"
+    seen = {}
+
+    def drive():
+        repl = Repl(SqlManager(), auto_completion=True)
+        repl._completer._last_slot = "object"  # noqa: SLF001
+        repl._completer._last_kind = "table"  # noqa: SLF001
+        buffer = repl.session.default_buffer
+        document = Document("SEL")
+        buffer.set_document(document, bypass_readonly=True)
+        buffer.complete_state = CompletionState(
+            document,
+            completions=[Completion("SELECT", start_position=-3)],
+        )
+        with patch:
+            buffer.complete_next()
+            assert not [item for item in payloads if item.get("event") == "accepted"]
+            buffer.apply_completion(Completion(suggestion, start_position=0))
+        seen["text"] = buffer.text
+
+    _run_in_app(drive)
+    accepted = [item for item in payloads if item.get("event") == "accepted"]
+    assert len(accepted) == 1
+    assert suggestion not in __import__("json").dumps(accepted)
+    assert suggestion in seen["text"]
+
+
+def test_complete_next_emits_accepted_without_names():
+    from prompt_toolkit.buffer import CompletionState
+    from prompt_toolkit.completion import Completion
+    from prompt_toolkit.document import Document
+
+    payloads, patch = _accepted_payloads()
+    seen = {}
+
+    def drive():
+        repl = Repl(SqlManager(), auto_completion=True)
+        repl._completer._last_slot = "keyword"  # noqa: SLF001
+        repl._completer._last_kind = "keyword"  # noqa: SLF001
+        buffer = repl.session.default_buffer
+        document = Document("SEL")
+        buffer.set_document(document, bypass_readonly=True)
+        buffer.complete_state = CompletionState(
+            document,
+            completions=[Completion("SELECT", start_position=-3)],
+        )
+        with patch:
+            buffer.complete_next()
+            assert not [item for item in payloads if item.get("event") == "accepted"]
+            buffer.insert_text(" ")
+        seen["text"] = buffer.text
+
+    _run_in_app(drive)
+    accepted = [item for item in payloads if item.get("event") == "accepted"]
+    assert len(accepted) == 1
+    assert accepted[0]["slot"] == "keyword"
+    assert "SELECT" not in __import__("json").dumps(accepted)
+    assert seen["text"] == "SELECT "
+
+
+def test_unique_tab_insert_emits_one_accepted():
+    import asyncio
+
+    from prompt_toolkit.completion import Completer, Completion
+    from prompt_toolkit.document import Document
+    from prompt_toolkit.filters import to_filter
+
+    class _SelectCompleter(Completer):
+        def get_completions(self, document, complete_event):
+            yield Completion("SELECT", start_position=-3)
+
+    payloads, patch = _accepted_payloads()
+    seen = {}
+
+    async def drive():
+        repl = Repl(SqlManager(), auto_completion=True)
+        repl._completer._last_slot = "keyword"  # noqa: SLF001
+        repl._completer._last_kind = "keyword"  # noqa: SLF001
+        buffer = repl.session.default_buffer
+        # Match session.prompt(complete_while_typing=False). A bare False is
+        # not callable, and the PromptSession default (True) starts another
+        # completion after the unique insert.
+        buffer.complete_while_typing = to_filter(False)
+        buffer.completer = _SelectCompleter()
+        buffer.set_document(Document("SEL", cursor_position=3), bypass_readonly=True)
+        with patch:
+            buffer.start_completion(insert_common_part=True)
+            for _ in range(100):
+                if buffer.text == "SELECT":
+                    break
+                await asyncio.sleep(0.01)
+        seen["text"] = buffer.text
+        seen["state"] = buffer.complete_state
+
+    _run_in_app(drive)
+    accepted = [item for item in payloads if item.get("event") == "accepted"]
+    assert seen["text"] == "SELECT"
+    assert seen["state"] is None
+    assert len(accepted) == 1
+    assert accepted[0]["slot"] == "keyword"
+    assert "SEL" not in __import__("json").dumps(accepted)
+
+
+def test_browse_then_cancel_emits_no_accepted():
+    from prompt_toolkit.buffer import CompletionState
+    from prompt_toolkit.completion import Completion
+    from prompt_toolkit.document import Document
+
+    payloads, patch = _accepted_payloads()
+    seen = {}
+
+    def drive():
+        repl = Repl(SqlManager(), auto_completion=True)
+        buffer = repl.session.default_buffer
+        document = Document("S")
+        buffer.set_document(document, bypass_readonly=True)
+        buffer.complete_state = CompletionState(
+            document,
+            completions=[
+                Completion("SELECT", start_position=-1),
+                Completion("SHOW", start_position=-1),
+                Completion("SET", start_position=-1),
+            ],
+        )
+        with patch:
+            buffer.complete_next()
+            buffer.complete_next()
+            buffer.complete_next()
+            buffer.cancel_completion()
+        seen["text"] = buffer.text
+
+    _run_in_app(drive)
+    accepted = [item for item in payloads if item.get("event") == "accepted"]
+    assert accepted == []
+    assert seen["text"] == "S"
+
+
+def test_selection_committed_by_submit_counts_once():
+    from prompt_toolkit.buffer import CompletionState
+    from prompt_toolkit.completion import Completion
+    from prompt_toolkit.document import Document
+
+    def _select(repl):
+        buffer = repl.session.default_buffer
+        document = Document("SEL")
+        buffer.set_document(document, bypass_readonly=True)
+        buffer.complete_state = CompletionState(
+            document,
+            completions=[Completion("SELECT", start_position=-3)],
+        )
+        buffer.complete_next()
+
+    payloads, patch = _accepted_payloads()
+
+    def drive():
+        repl = Repl(SqlManager(), auto_completion=True)
+        repl._completer._last_slot = "keyword"  # noqa: SLF001
+
+        def accept(*_args, **_kwargs):
+            _select(repl)
+            return "SELECT;"
+
+        repl.session.prompt = mock.Mock(side_effect=accept)
+        with patch:
+            assert repl.repl_prompt() == "SELECT;"
+
+    _run_in_app(drive)
+    accepted = [item for item in payloads if item.get("event") == "accepted"]
+    assert len(accepted) == 1
+
+    interrupted, interrupt_patch = _accepted_payloads()
+
+    def drive_interrupt():
+        repl = Repl(SqlManager(), auto_completion=True)
+
+        def cancel(*_args, **_kwargs):
+            _select(repl)
+            raise KeyboardInterrupt
+
+        repl.session.prompt = mock.Mock(side_effect=cancel)
+        with interrupt_patch:
+            with pytest.raises(KeyboardInterrupt):
+                repl.repl_prompt()
+
+    _run_in_app(drive_interrupt)
+    assert [item for item in interrupted if item.get("event") == "accepted"] == []
+
+
+def test_repl_loop_drains_completion_telemetry_before_prompt():
+    with mock.patch("snowflake.cli._plugins.sql.completion.telemetry.drain") as drain:
+        repl = Repl(SqlManager(), auto_completion=True, no_prompt_exit_repl=True)
+        repl.repl_prompt = mock.Mock(side_effect=EOFError)
+        with pytest.raises(EOFError):
+            repl._repl_loop()  # noqa: SLF001
+    drain.assert_called_once()
+
+    with mock.patch("snowflake.cli._plugins.sql.completion.telemetry.drain") as drain:
+        repl = Repl(SqlManager(), auto_completion=False, no_prompt_exit_repl=True)
+        repl.repl_prompt = mock.Mock(side_effect=EOFError)
+        with pytest.raises(EOFError):
+            repl._repl_loop()  # noqa: SLF001
+    drain.assert_not_called()

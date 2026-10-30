@@ -1,5 +1,5 @@
 spec:
   containers:
   - name: main
-    image: /snowcli_db/public/snowcli_repository/test_counter
+    image: /snowcli_db/public/snowcli_repository/test_counter:latest
     args: ["1"]

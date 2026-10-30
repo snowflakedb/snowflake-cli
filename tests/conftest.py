@@ -612,6 +612,25 @@ def global_setup(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def reset_cli_telemetry_buffer():
+    """Drop telemetry left queued by a test that never opened a connection.
+
+    ``CLITelemetryClient`` is a process-wide singleton. ``flush()`` clears the
+    buffer, but a test that patches ``flush_telemetry`` skips that and the next
+    test to open a connection drains the stale events as its own.
+    """
+    from snowflake.cli._app.telemetry import _telemetry
+
+    def _clear() -> None:
+        with _telemetry._lock:  # noqa: SLF001
+            _telemetry._pending.clear()  # noqa: SLF001
+
+    _clear()
+    yield
+    _clear()
+
+
+@pytest.fixture(autouse=True)
 def disable_background_version_refresh():
     """Prevent background version-refresh threads from running during tests.
 

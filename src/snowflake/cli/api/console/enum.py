@@ -14,4 +14,4 @@
 
 from enum import Enum
 
-Output = Enum("Output", ("PHASE", "STEP", "INFO", "IMPORTANT", "PANEL"))
+Output = Enum("Output", ("PHASE", "STEP", "INFO", "IMPORTANT", "PANEL", "PLAIN"))

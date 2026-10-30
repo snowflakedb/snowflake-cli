@@ -19,6 +19,7 @@ from typing import Generator
 from unittest import mock
 
 import pytest
+from rich.errors import MarkupError
 from rich.text import Text
 from rich.tree import Tree
 from snowflake.cli.api.console.console import (
@@ -221,6 +222,53 @@ def test_indented_cleans_up_on_exception(cli_console, capsys):
     cli_console.message("Not indented message")
 
     assert_output_matches("Not indented message\n", capsys)
+
+
+def test_plain_message_prints_closing_markup_tags_verbatim(cli_console, capsys):
+    cli_console.plain_message("tag [/x] here")
+    assert_output_matches("tag [/x] here\n", capsys)
+
+
+def test_plain_message_strips_ansi_escapes(cli_console, capsys):
+    cli_console.plain_message("tag \033[31m[/x]\033[0m here")
+    assert_output_matches("tag [/x] here\n", capsys)
+
+
+def test_plain_message_follows_phase_and_indented_padding(cli_console, capsys):
+    with cli_console.phase("42"):
+        cli_console.message("trusted")
+        cli_console.plain_message("tag [/x] here")
+        with cli_console.indented():
+            cli_console.plain_message("[bold] still literal")
+        cli_console.plain_message("single indent again")
+    cli_console.plain_message("outside")
+
+    expected_output = dedent(
+        f"""\
+    42
+      trusted
+      tag [/x] here
+        [bold] still literal
+      single indent again
+    outside
+    """
+    )
+
+    assert_output_matches(expected_output, capsys)
+
+
+def test_message_raises_on_unmatched_closing_markup_tag(cli_console):
+    with pytest.raises(MarkupError, match=r"\[/x\]"):
+        cli_console.message("tag [/x] here")
+
+
+def test_plain_message_is_muted_when_silent(cli_console, capsys):
+    with mock.patch.object(
+        type(cli_console), "is_silent", new_callable=mock.PropertyMock
+    ) as silent:
+        silent.return_value = True
+        cli_console.plain_message("tag [/x] here")
+    assert_output_matches("", capsys)
 
 
 def test_spinner_returns_progress_object(cli_console):

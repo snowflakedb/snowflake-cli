@@ -169,3 +169,13 @@ def test_grants_are_emitted_in_order():
         f"{GRANT} TO ROLE ANALYST",
         f"{GRANT} TO USER AAMADHAVAN",
     ]
+
+
+def test_grant_can_carry_the_grant_option():
+    """So a share recorded in `grants:` keeps view-and-share on the next deploy."""
+    assert _entity(
+        {"privilege": "USAGE", "user": "AAMADHAVAN", "with_grant_option": True}
+    ).get_grant_sqls() == [
+        "GRANT USAGE ON STREAMLIT IDENTIFIER('my_app') TO USER AAMADHAVAN"
+        " WITH GRANT OPTION"
+    ]

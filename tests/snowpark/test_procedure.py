@@ -848,3 +848,53 @@ def _put_query(project_root: Path, source: str, dest: str):
     return dedent(
         f"put file://{project_root.resolve() / 'output' / 'bundle' / 'snowpark' / source} {dest} auto_compress=false parallel=4 overwrite=True"
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
+@mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
+@mock_session_has_warehouse
+def test_deploy_procedure_quotes_each_part_of_eai_and_secret_names(
+    mock_download,
+    mock_om_show,
+    mock_om_describe,
+    mock_conn,
+    runner,
+    mock_ctx,
+    project_directory,
+    alter_snowflake_yml,
+    enable_snowpark_glob_support_feature_flag,
+):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
+    mock_om_describe.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+    mock_om_show.return_value = [{"name": "my-eai", "type": "EXTERNAL_ACCESS"}]
+    ctx = mock_ctx()
+    mock_conn.return_value = ctx
+
+    with project_directory("snowpark_procedure_external_access") as project_dir:
+        snowflake_yml = project_dir / "snowflake.yml"
+        alter_snowflake_yml(
+            snowflake_yml,
+            "snowpark.procedures.0.external_access_integrations",
+            ["my-eai"],
+        )
+        alter_snowflake_yml(
+            snowflake_yml,
+            "snowpark.procedures.0.secrets",
+            {"cred": "db.schema.my-secret"},
+        )
+        result = runner.invoke(
+            ["snowpark", "build", "--ignore-anaconda"], catch_exceptions=False
+        )
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(["snowpark", "deploy"])
+
+    assert result.exit_code == 0, result.output
+    query = ctx.get_queries()[-1]
+    assert 'external_access_integrations=("my-eai")' in query
+    assert "secrets=('cred'=db.schema.\"my-secret\")" in query

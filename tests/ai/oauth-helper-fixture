@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+"""Synthetic helper: unique credentials expose renewal and concurrent-call sharing."""
+import os
+import sys
+import time
+
+if os.environ.get("OAUTH_FIXTURE_FAIL"):
+    sys.stderr.write("fixture-sensitive-error")
+    sys.exit(1)
+if os.environ.get("OAUTH_FIXTURE_EXIT"):
+    sys.stderr.write("fixture-sensitive-error")
+    sys.exit(int(os.environ["OAUTH_FIXTURE_EXIT"]))
+# Keep a call in flight long enough for overlapping test requests to join it.
+time.sleep(0.1)
+if os.environ.get("OAUTH_FIXTURE_CHECK_BINDING"):
+    if os.environ.get("SNOWFLAKE_AI_OAUTH_BINDING") != "original-binding":
+        sys.exit(2)
+sys.stdout.write("fixture-token-" + str(time.time_ns()))

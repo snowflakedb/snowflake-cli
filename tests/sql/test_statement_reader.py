@@ -1,13 +1,19 @@
+import io
+import urllib.error
 from functools import partial
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from threading import Thread
+from urllib.request import Request
 
 import pytest
 from jinja2 import UndefinedError
-from pytest_httpserver import HTTPServer
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
     ParsedStatement,
     StatementType,
+    _HttpsOnlyRedirectHandler,
+    _PlaintextRedirectError,
     _protect_sql_comments,
     compile_statements,
     files_reader,
@@ -33,16 +39,41 @@ WORKING_OPERATOR_FUNCS = (successful_sql_operator,)
 FAILING_OPERATOR_FUNCS = (failing_sql_operator,)
 
 
-def test_mixed_recursion(
-    tmp_path_factory: pytest.TempPathFactory,
-    httpserver: HTTPServer,
-):
-    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+class _FakeResponse:
+    def __init__(self, url: str, body: str):
+        self._url = url
+        self._buf = io.BytesIO(body.encode())
 
-    httpserver.expect_request("/u1.sql").respond_with_data(
-        f"select 1; !source {f1.as_posix()}; select 1a;"
+    def geturl(self) -> str:
+        return self._url
+
+    def read(self) -> bytes:
+        return self._buf.read()
+
+    def close(self) -> None:
+        return
+
+
+class _FakeUrlOpen:
+    def __init__(
+        self, responses: dict[str, str], redirects: dict[str, str] | None = None
+    ):
+        self.responses = responses
+        self.redirects = redirects or {}
+
+    def __call__(self, url, timeout=None):  # noqa: ARG002
+        if url not in self.responses:
+            raise urllib.error.HTTPError(url, 404, "Not Found", hdrs=None, fp=None)
+        return _FakeResponse(self.redirects.get(url, url), self.responses[url])
+
+
+def test_mixed_recursion(tmp_path_factory: pytest.TempPathFactory, monkeypatch):
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    url = "https://example.com/u1.sql"
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.sql.statement_reader.urlopen",
+        _FakeUrlOpen({url: f"select 1; !source {f1.as_posix()}; select 1a;"}),
     )
-    url = httpserver.url_for("/u1.sql")
 
     f1.write_text(f"select 2; !source {url}; select 2a;")
 
@@ -65,15 +96,20 @@ def test_mixed_recursion(
     ]
 
 
-def test_recursion_from_url(httpserver: HTTPServer):
-    httpserver.expect_request("/f1.sql").respond_with_data(
-        f"select 1; !source {httpserver.url_for('f2.sql')}; select 1a;"
-    )
-    httpserver.expect_request("/f2.sql").respond_with_data(
-        f"select 2; !source {httpserver.url_for('f1.sql')}; select 2a;"
+def test_recursion_from_url(monkeypatch):
+    url_f1 = "https://example.com/f1.sql"
+    url_f2 = "https://example.com/f2.sql"
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.sql.statement_reader.urlopen",
+        _FakeUrlOpen(
+            {
+                url_f1: f"select 1; !source {url_f2}; select 1a;",
+                url_f2: f"select 2; !source {url_f1}; select 2a;",
+            }
+        ),
     )
 
-    query = f"select 0;\n!source {httpserver.url_for('f1.sql')};\nselect 0a;"
+    query = f"select 0;\n!source {url_f1};\nselect 0a;"
     source = query_reader(query, WORKING_OPERATOR_FUNCS)
     errors, cnt, compiled = compile_statements(source)
 
@@ -141,10 +177,13 @@ def test_recusion_detection_from_files(tmp_path_factory: pytest.TempPathFactory)
     ]
 
 
-def test_source_missing_url(httpserver: HTTPServer):
-    httpserver.expect_request("/f1.sql").respond_with_data("select 1;")
+def test_source_missing_url(monkeypatch):
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.sql.statement_reader.urlopen",
+        _FakeUrlOpen({}),
+    )
 
-    query = f"!source {httpserver.url_for('missing.sql')};"
+    query = "!source https://example.com/missing.sql;"
     source = query_reader(query, WORKING_OPERATOR_FUNCS)
     errors, cnt, compiled = compile_statements(source)
     assert errors
@@ -153,12 +192,11 @@ def test_source_missing_url(httpserver: HTTPServer):
     assert not compiled
 
 
-@pytest.mark.parametrize("scheme", ["http", "https"])
 @pytest.mark.parametrize("command", ["source", "load"])
-def test_url_sources_disabled_blocks_fetch(scheme, command):
-    """When URL sources are disabled, http/https !source/!load must error
+def test_url_sources_disabled_blocks_fetch(command):
+    """When URL sources are disabled, https !source/!load must error
     without making any network call."""
-    url = f"{scheme}://example.invalid/payload.sql"
+    url = "https://example.invalid/payload.sql"
     query = f"!{command} {url};"
 
     source = query_reader(query, WORKING_OPERATOR_FUNCS, disable_url_sources=True)
@@ -169,6 +207,63 @@ def test_url_sources_disabled_blocks_fetch(scheme, command):
     assert url in errors[0]
     assert cnt == 0
     assert not compiled
+
+
+@pytest.mark.parametrize("command", ["source", "load"])
+def test_plaintext_http_source_rejected(command):
+    url = "http://example.invalid/payload.sql"
+    source = parse_statement(f"!{command} {url};", WORKING_OPERATOR_FUNCS)
+    assert source.statement_type == StatementType.UNKNOWN
+    assert source.error
+    assert source.error.startswith("Plaintext http:// sources are not allowed")
+
+
+def test_https_redirect_handler_refuses_http_location():
+    handler = _HttpsOnlyRedirectHandler()
+    req = Request("https://example.com/payload.sql")
+    with pytest.raises(_PlaintextRedirectError, match="Plaintext http://"):
+        handler.redirect_request(
+            req, None, 302, "Found", {}, "http://example.com/payload.sql"
+        )
+
+
+def test_from_url_does_not_follow_http_redirect():
+    hits: list[str] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            hits.append(self.path)
+            if self.path == "/start.sql":
+                self.send_response(302)
+                self.send_header(
+                    "Location",
+                    f"http://127.0.0.1:{self.server.server_port}/secret.sql",
+                )
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"select leaked;")
+
+        def log_message(self, format, *args):  # noqa: A002
+            return
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        parsed = ParsedStatement.from_url(
+            f"http://127.0.0.1:{server.server_port}/start.sql",
+            "raw",
+        )
+        assert parsed.statement_type == StatementType.UNKNOWN
+        assert parsed.error
+        assert parsed.error.startswith("Plaintext http:// sources are not allowed")
+        assert "/start.sql" in hits
+        assert "/secret.sql" not in hits
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def test_url_sources_disabled_local_file_still_works(
@@ -221,7 +316,7 @@ def test_url_sources_disabled_no_network_call(monkeypatch):
     monkeypatch.setattr(sr, "urlopen", fail_urlopen)
 
     source = query_reader(
-        "!source http://example.invalid/x.sql;",
+        "!source https://example.invalid/x.sql;",
         WORKING_OPERATOR_FUNCS,
         disable_url_sources=True,
     )
@@ -272,24 +367,28 @@ def test_parsed_source_repr():
     )
 
 
-def test_parse_source_url(httpserver: HTTPServer):
-    httpserver.expect_request("/f1.sql").respond_with_data("select 1;")
+def test_parse_source_url(monkeypatch):
+    url = "https://example.com/f1.sql"
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.sql.statement_reader.urlopen",
+        _FakeUrlOpen({url: "select 1;"}),
+    )
 
-    query = f"!source {httpserver.url_for('f1.sql')};"
+    query = f"!source {url};"
     source = parse_statement(query, WORKING_OPERATOR_FUNCS)
 
     assert source.statement_type == StatementType.URL
-    assert source.source_path and source.source_path == httpserver.url_for("f1.sql")
-    assert source.source_path.startswith("http://localhost:")
-    assert source.source_path.endswith("/f1.sql")
+    assert source.source_path == url
     assert source.statement.read() == "select 1;"
     assert source.error is None
 
 
-def test_parse_source_invalid_url(httpserver: HTTPServer):
-    httpserver.expect_request("/f1.sql").respond_with_data("select 1;")
-
-    invalid_url = httpserver.url_for("invalid.sql")
+def test_parse_source_invalid_url(monkeypatch):
+    invalid_url = "https://example.com/invalid.sql"
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.sql.statement_reader.urlopen",
+        _FakeUrlOpen({}),
+    )
     invalid_source = f"!source {invalid_url};"
 
     source = parse_statement(invalid_source, WORKING_OPERATOR_FUNCS)
@@ -411,17 +510,19 @@ def test_allow_comments_at_source_file(tmp_path_factory: pytest.TempPathFactory)
     assert source.error is None
 
 
-def test_allow_comments_at_source_url(httpserver: HTTPServer):
+def test_allow_comments_at_source_url(monkeypatch):
     expected_content = "select 73"
-    httpserver.expect_request("/f1.sql").respond_with_data(expected_content)
+    url = "https://example.com/f1.sql"
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.sql.statement_reader.urlopen",
+        _FakeUrlOpen({url: expected_content}),
+    )
 
-    query = f"!source {httpserver.url_for('f1.sql')} --noqa: XXX"
+    query = f"!source {url} --noqa: XXX"
     source = parse_statement(query, WORKING_OPERATOR_FUNCS)
 
     assert source.statement_type == StatementType.URL
-    assert source.source_path and source.source_path == httpserver.url_for("f1.sql")
-    assert source.source_path.startswith("http://localhost:")
-    assert source.source_path.endswith("/f1.sql")
+    assert source.source_path == url
     assert source.statement.read() == expected_content
     assert source.error is None
 
@@ -525,7 +626,10 @@ def test_source_file_receives_pre_render(tmp_path_factory: pytest.TempPathFactor
     assert any("{% if flag %}" in c for c in rendered_calls)
 
 
-@pytest.mark.parametrize("command", ["queries", "abort", "result", "AbOrT"])
+@pytest.mark.parametrize(
+    "command",
+    ["queries", "abort", "result", "AbOrT", "rehash", "set", "SET", "spool", "SPOOL"],
+)
 def test_parse_command(command):
     query = f"!{command} args k1=v1 k2=v2;"
     parsed_statement = parse_statement(query, [])
@@ -646,7 +750,7 @@ def test_from_file_utf8_content(tmp_path_factory, monkeypatch):
     encoding must be explicitly configured to correctly read files with non-ASCII characters.
     """
     # Simulate Windows cp1252 environment where platform default would fail for UTF-8
-    monkeypatch.setattr("locale.getpreferredencoding", lambda: "cp1252")
+    monkeypatch.setattr("locale.getpreferredencoding", lambda *_args: "cp1252")
     monkeypatch.setattr("sys.getfilesystemencoding", lambda: "cp1252")
     monkeypatch.setattr("sys.getdefaultencoding", lambda: "cp1252")
 

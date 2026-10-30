@@ -42,6 +42,15 @@ from snowflake.cli._plugins.connection.util import (
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    RelatedLink,
+    code,
+    link,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
     AccountOption,
@@ -94,6 +103,29 @@ app = SnowTyperFactory(
     name="connection",
     help="Manages connections to Snowflake.",
 )
+
+_CONNECTION_OVERVIEW = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/connection-commands/overview",
+        "Connection command reference",
+    ),
+)
+
+
+def _connection_related(*slugs: str) -> tuple[RelatedLink, ...]:
+    return _CONNECTION_OVERVIEW + tuple(
+        link(
+            f"/developer-guide/snowflake-cli/command-reference/connection-commands/{slug}"
+        )
+        for slug in slugs
+    )
+
+
 log = logging.getLogger(__name__)
 
 
@@ -109,7 +141,43 @@ def mask_sensitive_parameters(connection_params: dict):
     }
 
 
-@app.command(name="list")
+@app.command(
+    name="list",
+    docs=CommandDocs(
+        related=_connection_related(
+            "add-connection",
+            "set-default-connection",
+            "test-connection",
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow connection list"),
+                " command lists the connections in your default ",
+                code("config.toml"),
+                " file. For more information, see ",
+                link("/developer-guide/snowflake-cli/connecting/connect"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow connection list",
+                output=(
+                    "+--------------------------------------------------------------------------------------------------------------------------------+\n"
+                    "| connection_name | parameters                                                                                                   |\n"
+                    "|-----------------+--------------------------------------------------------------------------------------------------------------|\n"
+                    "| my-prod         | {'account': 'po52878', 'user': 'JDOE', 'password': '****', 'role': 'integration_tests', 'database':          |\n"
+                    "|                 | 'SNOWFLAKE'}                                                                                                 |\n"
+                    "|-----------------+--------------------------------------------------------------------------------------------------------------|\n"
+                    "| my-test         | {'account': 'po52878', 'user': 'SSMITH', 'password': '****', 'role': 'integration_tests', 'database':        |\n"
+                    "|                 | 'SNOWFLAKE'}                                                                                                 |\n"
+                    "+--------------------------------------------------------------------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def list_connections(
     all_sources: bool = typer.Option(
         False,
@@ -173,7 +241,50 @@ def _password_callback(ctx: Context, param: Parameter, value: str):
     return value
 
 
-@app.command()
+@app.command(
+    docs=CommandDocs(
+        related=_connection_related("list-connections", "test-connection"),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow connection add"),
+                " command adds the connection to your default ",
+                code("config.toml"),
+                " file. For more information, see ",
+                link("/developer-guide/snowflake-cli/connecting/connect"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("To add a connection, run the following:"),
+                command=(
+                    "snow connection add\n"
+                    "Enter connection name: <connection_name>\n"
+                    "Enter account: <account>\n"
+                    "Enter user: <user-name>\n"
+                    "Enter password: <password>\n"
+                    "Enter role: <role-name>\n"
+                    "Enter warehouse: <warehouse-name>\n"
+                    "Enter database: <database-name>\n"
+                    "Enter schema: <schema-name>\n"
+                    "Enter host: <host-name>\n"
+                    "Enter port: <port-number>\n"
+                    "Enter region: <region-name>\n"
+                    "Enter authenticator: <authentication-method>\n"
+                    "Enter private key file: <path-to-private-key-file>\n"
+                    "Enter token file path: <path-to-mfa-token>\n"
+                    "Do you want to configure key pair authentication? [y/N]: y\n"
+                    "Key length [2048]: <key-length>\n"
+                    "Output path [~/.ssh]: <path-to-output-file>\n"
+                    "Private key passphrase: <key-description>\n"
+                    "Wrote new connection <connection-name> to config.toml"
+                ),
+                output="Wrote new connection my_conn to <user-home>/.snowflake/config.toml",
+            ),
+        ),
+    ),
+)
 def add(
     connection_name: str = typer.Option(
         None,
@@ -384,7 +495,28 @@ def add(
     )
 
 
-@app.command(requires_connection=False)
+@app.command(
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_connection_related(
+            "add-connection",
+            "list-connections",
+            "test-connection",
+        ),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    "To remove a connection, execute a ",
+                    code("snow connection remove"),
+                    " command similar to the following:",
+                ),
+                command="snow connection remove bad_connection",
+                output="Removed connection bad_connection from /Users/jdoe/.snowflake/config.toml.",
+            ),
+        ),
+    ),
+)
 def remove(
     connection_name: str = typer.Argument(
         help="Name of the connection to remove.",
@@ -408,7 +540,57 @@ def remove(
     )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_connection_related(
+            "add-connection",
+            "list-connections",
+            "set-default-connection",
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow connection test"),
+                " command tests the connection in your default ",
+                code("config.toml"),
+                " file. For more information, see ",
+                link("/developer-guide/snowflake-cli/connecting/connect"),
+                ".",
+            ),
+            plain_text(
+                "If your account requires multi-factor authentication (MFA), this command prompts you to approve the login, and so does every subsequent ",
+                code("snow"),
+                " command that opens a new connection. To approve once and reuse the cached token, enable ",
+                link("#label-" + "snow" + "cli" + "-mfa-caching", "MFA caching"),
+                ". On Linux, caching also requires secure credential storage. To supply a passcode directly instead of using the push mechanism, use the ",
+                code("--mfa-passcode"),
+                " option.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "To test particular connection you can run the following command:"
+                ),
+                command="$ snow connection test --connection conn2",
+                output=(
+                    "+---------------------------------+\n"
+                    "| key             | value         |\n"
+                    "|-----------------+---------------|\n"
+                    "| Connection name | conn2         |\n"
+                    "| Status          | OK            |\n"
+                    "| Account         | foo           |\n"
+                    "| User            | jdoe          |\n"
+                    "| Role            | ACCOUNTADMIN  |\n"
+                    "| Database        | not set       |\n"
+                    "| Warehouse       | XSMALL        |\n"
+                    "+---------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 def test(
     print_diag: bool = typer.Option(
         False,
@@ -589,7 +771,31 @@ def _diagnostic_table_results(
     return results
 
 
-@app.command(requires_connection=False)
+@app.command(
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_connection_related(
+            "add-connection",
+            "list-connections",
+            "test-connection",
+        ),
+        usage_notes=(
+            plain_text(
+                "This command lets you change the default connection from the command line instead of changing the value of ",
+                code("default_connection_name"),
+                " in the ",
+                code("config.toml"),
+                " file each time. Using this command can simplify changing between multiple connections.",
+            ),
+        ),
+        examples=(
+            Example(
+                command='snow connection set-default "my_test_connection"',
+                output="Default connection set to: my_test_connection",
+            ),
+        ),
+    ),
+)
 def set_default(
     name: str = typer.Argument(
         help="Name of the connection, as defined in your `config.toml` file",
@@ -603,7 +809,42 @@ def set_default(
     return MessageResult(f"Default connection set to: {name}")
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_connection_related(
+            "add-connection",
+            "list-connections",
+            "set-default-connection",
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow connection generate-jwt"),
+                " command generates a JWT (JSON Web Token) that you can use for key-pair authentication when connecting to Snowflake. You can use the token to connect to Snowflake from any Snowflake application, such as the SQL REST API or the Snowflake REST APIs.",
+            ),
+            plain_text(
+                "The command prompts you for a private key passphrase to complete the connection. You can avoid the prompt by providing the passphrase in the ",
+                code("PRIVATE_KEY_PASSPHRASE"),
+                " environment variable.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example generates a token for account ",
+                    code("TEST"),
+                    " and user ",
+                    code("JDOE"),
+                    ", using the private key from ",
+                    code("rsa_key.p8"),
+                    ":",
+                ),
+                command="snow connection generate-jwt --user JDOE --account TEST --private-key-file=rsa_key.p8",
+            ),
+        ),
+    ),
+)
 def generate_jwt(
     **options,
 ) -> CommandResult:
@@ -656,7 +897,40 @@ def generate_jwt(
         raise ClickException(str(err))
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_connection_related("add-connection", "generate-jwt"),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow connection generate-workload-identity-token"),
+                " command generates a workload identity token for the current execution environment. Use this token for workload identity authentication when connecting to Snowflake from a workload running in AWS, GCP, Azure, or any OIDC-compliant environment.",
+            ),
+            plain_text(
+                "You can select the provider with the ",
+                code("--workload-identity-provider"),
+                " option, or let ",
+                ref("sf-cli"),
+                " resolve it from the active connection configuration.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Generate a workload identity token using the provider configured in the active connection:"
+                ),
+                command="snow connection generate-workload-identity-token",
+            ),
+            Example(
+                description=plain_text(
+                    "Generate a token for a specific provider, such as AWS:"
+                ),
+                command="snow connection generate-workload-identity-token --workload-identity-provider AWS",
+            ),
+        ),
+    ),
+)
 def generate_workload_identity_token(
     **options,
 ) -> CommandResult:

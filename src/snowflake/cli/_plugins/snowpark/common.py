@@ -42,6 +42,7 @@ from snowflake.cli.api.constants import (
     ObjectType,
 )
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.cli.api.project.util import to_string_literal
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
@@ -77,6 +78,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
         entity: SnowparkEntityModel,
         artifact_files: set[str],
         snowflake_dependencies: list[str],
+        artifact_repository_requirements: list[str] | None = None,
     ) -> str:
         entity.imports.extend(artifact_files)
         imports = [f"'{x}'" for x in entity.imports]
@@ -110,26 +112,39 @@ class SnowparkObjectManager(SqlExecutionMixin):
             # Anaconda packages picked up during build must not be mixed in: they
             # may not exist in that repository, and a version pinned by Anaconda
             # can collide with the same package declared for the repository.
-            if snowflake_dependencies:
-                cli_console.warning(
-                    f"Packages resolved from the Anaconda channel are not sent for "
-                    f"{sanitize_for_terminal(entity.entity_id)}: ARTIFACT_REPOSITORY "
-                    f"applies to the whole PACKAGES clause, so everything the entity "
-                    f"needs, snowflake-snowpark-python included, has to be declared in "
-                    f"its artifact_repository_packages or packages, and come from "
-                    f"artifact repository "
-                    f"{sanitize_for_terminal(entity.artifact_repository)}. If no entity "
-                    f"in the project needs the Anaconda channel, drop requirements.txt, "
-                    f"and delete the requirements.snowflake.txt and dependencies.zip "
-                    f"left by an earlier build, which deploy still reads."
-                )
+            _warn_about_dropped_dependencies(
+                entity,
+                snowflake_dependencies,
+                hint=(
+                    "Declare them in the artifact_repository_packages or packages of "
+                    "the entity. If no entity in the project needs the Anaconda "
+                    "channel, drop requirements.txt, and delete the "
+                    "requirements.snowflake.txt and dependencies.zip left by an "
+                    "earlier build, which deploy still reads."
+                ),
+            )
             packages_list = list(declared_packages)
+            query.append(
+                f"ARTIFACT_REPOSITORY= {entity.artifact_repository}",
+            )
+        elif (
+            entity.artifact_repository and artifact_repository_requirements is not None
+        ):
+            # The entity declares no packages of its own, so the dependencies the
+            # project declares are what the artifact repository is asked to resolve.
+            # An empty list is still this path: None means the feature is off.
+            _warn_about_dropped_dependencies(
+                entity,
+                snowflake_dependencies,
+                hint="requirements.txt or pyproject.toml is used to declare them instead.",
+            )
+            packages_list = list(artifact_repository_requirements)
             query.append(
                 f"ARTIFACT_REPOSITORY= {entity.artifact_repository}",
             )
         else:
             packages_list = snowflake_dependencies.copy()
-        packages = [f"'{item}'" for item in packages_list]
+        packages = [to_string_literal(item) for item in packages_list]
         query.append(f"packages=({','.join(packages)})")
 
         if entity.resource_constraint:
@@ -149,15 +164,27 @@ class SnowparkObjectManager(SqlExecutionMixin):
         existing_objects: Dict[str, SnowflakeCursor],
         snowflake_dependencies: List[str],
         entities_to_artifact_map: EntityToImportPathsMapping,
+        artifact_repository_requirements: List[str] | None = None,
     ):
         cli_console.step(f"Creating {entity.type} {entity.fqn}")
+        entity_requirements = (
+            artifact_repository_requirements
+            if uses_project_requirements(entity)
+            else None
+        )
         object_exists = entity.entity_id in existing_objects
         replace_object = False
         if object_exists:
             replace_object = _check_if_replace_is_required(
                 entity=entity,
                 current_state=existing_objects[entity.entity_id],
-                snowflake_dependencies=snowflake_dependencies,
+                # The packages of the entity are what the remote state is compared
+                # against, and for this entity they come from the requirements file.
+                snowflake_dependencies=(
+                    entity_requirements
+                    if entity_requirements is not None
+                    else snowflake_dependencies
+                ),
                 stage_artifact_files=entities_to_artifact_map[entity.entity_id],
             )
 
@@ -172,11 +199,38 @@ class SnowparkObjectManager(SqlExecutionMixin):
             entity=entity,
             artifact_files=entities_to_artifact_map[entity.entity_id],
             snowflake_dependencies=snowflake_dependencies,
+            artifact_repository_requirements=entity_requirements,
         )
         return {
             **state,
             "status": "created" if not object_exists else "definition updated",
         }
+
+
+def uses_project_requirements(entity: SnowparkEntityModel) -> bool:
+    """Tells whether packages of the entity come from the requirements of the project.
+
+    An entity that declares an artifact repository and no packages of its own has
+    nothing to send in the PACKAGES clause, so requirements.txt of the project is
+    used instead of duplicating dependencies in the project definition file.
+    """
+    return bool(entity.artifact_repository) and not (
+        entity.artifact_repository_packages or entity.packages
+    )
+
+
+def _warn_about_dropped_dependencies(
+    entity: SnowparkEntityModel, snowflake_dependencies: List[str], hint: str
+) -> None:
+    if not snowflake_dependencies:
+        return
+    cli_console.warning(
+        f"Packages resolved from the Anaconda channel are not sent for "
+        f"{sanitize_for_terminal(entity.entity_id)}: ARTIFACT_REPOSITORY applies to "
+        f"the whole PACKAGES clause, so everything the entity needs, "
+        f"snowflake-snowpark-python included, has to come from artifact repository "
+        f"{sanitize_for_terminal(entity.artifact_repository)}. {hint}"
+    )
 
 
 def _check_if_replace_is_required(

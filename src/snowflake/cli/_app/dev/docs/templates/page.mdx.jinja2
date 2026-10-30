@@ -4,6 +4,9 @@ title: snow{% for part in path %} {{ part }}{% endfor %}
 description: ''
 ---
 
+{% for include in page_imports -%}
+import {{ include.tag }} from '{{ include.path }}'
+{% endfor -%}
 import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
 
 # snow{% for part in path %} {{ part }}{% endfor %}
@@ -16,7 +19,11 @@ import Help from 'INCLUDE/snowcli/parameter-descriptions/help.mdx'
 </RelatedTopics>
 
 {% endif -%}
-{{ help | replace("\n", " ") }}
+{% if docs.banners -%}
+{{ docs.banners | render_blocks_mdx }}
+
+{% endif -%}
+{{ help | collapse_whitespace | mdx_escape }}
 
 ## Syntax
 
@@ -39,16 +46,16 @@ snow {% for part in path %}{{ part }}{{ " " if not loop.last }}{% endfor %}
 {%- for param in arguments %}
 <dt><code className="samp"><em>
     {%- if param.required -%}
-        {{ param.make_metavar().lower() }}
+        {{ param.make_metavar().lower() | mdx_escape }}
     {%- else -%}
-        {{ param.make_metavar().replace("[", "").replace("]", "").lower() }}
+        {{ param.make_metavar().replace("[", "").replace("]", "").lower() | mdx_escape }}
     {%- endif -%}
 </em></code></dt>
 <dd>
 
 *{{ "Required" if param.required else "Optional" }}*
 
-{% if param.help %}{{ param.help | replace("\n", " ") | mdx_escape }}{% if param.help[-1] != '.' %}.{% endif %}{% if param.default %} Default: {{ param.default | mdx_escape }}.{% endif %}{% else %}TBD{% endif %}
+{% set help_text = param.help | collapse_whitespace %}{% if help_text %}{{ help_text | mdx_escape }}{% if not help_text.endswith('.') %}.{% endif %}{% if param.default %} Default: {{ param.default | mdx_escape }}.{% endif %}{% else %}TBD{% endif %}
 
 </dd>
 {%- endfor %}
@@ -73,7 +80,7 @@ None
 
 ## Usage notes
 
-{{ docs.usage_notes | mdx_escape }}
+{{ docs.usage_notes | render_blocks_mdx }}
 {%- elif usage_notes_fallback %}
 
 ## Usage notes
@@ -83,16 +90,20 @@ None
 {%- if docs.examples %}
 
 ## Examples
-{%- for example in docs.examples %}
-
-- {% if example.description %}{{ example.description | mdx_escape }}
-  {% endif %}```snowcli
-  {{ example.command }}
+{%- for example in docs.examples -%}
+{% set description = (example.description | render_paragraph_mdx) if example.description else "" -%}
+{% if example.command -%}
+{{ "\n\n" }}- {% if description %}{{ description }}
+  ```snowcli{% else %}```snowcli{% endif %}
+{{ example.command | indent(2, first=True) }}
   ```
+{%- else -%}
+{{ "\n\n" }}- {{ description }}
+{%- endif %}
 {%- if example.output %}
 
   ```text
-  {{ example.output }}
+{{ example.output | indent(2, first=True) }}
   ```
 {%- endif %}
 {%- endfor %}

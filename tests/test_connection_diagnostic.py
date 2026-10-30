@@ -512,6 +512,7 @@ def test_probe_tls_passes_cafile_to_ssl_context(tmp_path, monkeypatch):
 
         _probe_tls(mock.MagicMock(), "x.com")
     create_default_context.assert_called_once_with(cafile=str(bundle))
+    assert fake_context.minimum_version == ssl.TLSVersion.TLSv1_3
 
 
 def test_run_diagnostic_does_not_submit_skipped_wildcards(monkeypatch):

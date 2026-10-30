@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import sys
+import threading
 from enum import Enum, unique
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import click
 import typer
@@ -31,6 +33,7 @@ from snowflake.cli.api.cli_global_context import (
 )
 from snowflake.cli.api.commands.execution_metadata import ExecutionMetadata
 from snowflake.cli.api.config import get_feature_flags_section
+from snowflake.cli.api.constants import TELEMETRY_PENDING_LIMIT
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
 from snowflake.cli.api.utils.tty import is_tty_interactive
@@ -68,6 +71,8 @@ class CLITelemetryField(Enum):
     COMMAND_AUTH_TYPE = "command_auth_type"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     COMMAND_AGENT_SESSION_ID = "command_agent_session_id"
+    COMMAND_CORTEX_CLIENT_SURFACE = "command_cortex_client_surface"
+    COMMAND_CORTEX_TERMINAL_LAUNCHER = "command_cortex_terminal_launcher"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
     CONFIG_PROVIDER_TYPE = "config_provider_type"
@@ -104,12 +109,23 @@ class CLITelemetryField(Enum):
     # the flow on the executing_command event should join on
     # COMMAND_EXECUTION_ID across the three events for an invocation.
     APP_FLOW = "app_flow"
+    # snow upgrade / auto-upgrade (spooled until a connection exists)
+    UPGRADE_TRIGGER = "upgrade_trigger"
+    UPGRADE_STATUS = "upgrade_status"
+    UPGRADE_SKIP_REASON = "upgrade_skip_reason"
+    UPGRADE_DURATION_MS = "upgrade_duration_ms"
+    UPGRADE_FROM = "upgrade_from"
+    UPGRADE_TO = "upgrade_to"
+    UPGRADE_ROLLOUT_BUCKET = "upgrade_rollout_bucket"
+    UPGRADE_ROLLOUT_SCORE = "upgrade_rollout_score"
 
 
 class TelemetryEvent(Enum):
     CMD_EXECUTION = "executing_command"
     CMD_EXECUTION_ERROR = "error_executing_command"
     CMD_EXECUTION_RESULT = "result_executing_command"
+    UPGRADE = "upgrade"
+    REPL_COMPLETION = "repl_completion"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -201,6 +217,22 @@ def _find_command_info() -> TelemetryDict:
         info[CLITelemetryField.APP_FLOW] = app_flow
 
     return info
+
+
+def _command_info_without_click() -> TelemetryDict:
+    """Command fields when Click's thread-local context is absent.
+
+    ``ThreadedCompleter`` runs completion on a worker. Click's context stack
+    does not follow that thread, and telemetry must still queue.
+    """
+    return {
+        CLITelemetryField.COMMAND: [],
+        CLITelemetryField.COMMAND_GROUP: "",
+        CLITelemetryField.COMMAND_FLAGS: {},
+        CLITelemetryField.COMMAND_OUTPUT_TYPE: OutputFormat.TABLE.value,
+        CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
+        CLITelemetryField.MODE: _get_cli_running_mode(),
+    }
 
 
 def _get_cli_running_mode() -> str:
@@ -441,9 +473,45 @@ def _telemetry_may_open_connection() -> bool:
         return False
 
 
+_CORTEX_CLIENT_SURFACE_ENV = "CORTEX_CODE_CLIENT_SURFACE"
+_CORTEX_TERMINAL_LAUNCHER_ENV = "CORTEX_TERMINAL_LAUNCHER_SOURCE"
+_CORTEX_TELEMETRY_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+_CORTEX_TELEMETRY_TOKEN_MAX_LEN = 64
+
+
+def _sanitize_cortex_telemetry_token(raw: str) -> str:
+    """Lowercase host-set tokens. Drop non-identifiers; cap length at 64."""
+    token = raw.strip().lower()
+    if not _CORTEX_TELEMETRY_TOKEN_RE.fullmatch(token):
+        return ""
+    return token[:_CORTEX_TELEMETRY_TOKEN_MAX_LEN]
+
+
+def _get_cortex_client_surface() -> str:
+    return _sanitize_cortex_telemetry_token(
+        os.environ.get(_CORTEX_CLIENT_SURFACE_ENV, "")
+    )
+
+
+def _get_cortex_terminal_launcher() -> str:
+    return _sanitize_cortex_telemetry_token(
+        os.environ.get(_CORTEX_TERMINAL_LAUNCHER_ENV, "")
+    )
+
+
+def _is_cortex_environment() -> bool:
+    if "CORTEX_SESSION_ID" in os.environ:
+        return True
+    if _get_cortex_client_surface():
+        return True
+    if _get_cortex_terminal_launcher():
+        return True
+    return _is_env_truthy("COCO_AGENT")
+
+
 def _detect_agent_environment() -> str:
     """Detect AI coding agent based on environment variables."""
-    if "CORTEX_SESSION_ID" in os.environ:
+    if _is_cortex_environment():
         return "CORTEX"
     if _is_env_truthy("CURSOR_AGENT"):
         return "CURSOR"
@@ -455,6 +523,8 @@ def _detect_agent_environment() -> str:
         return "OPENCODE"
     if "CODEX_API_KEY" in os.environ:
         return "CODEX"
+    if _is_env_truthy("COPILOT_CLI"):
+        return "COPILOT_CLI"
     return "UNKNOWN"
 
 
@@ -530,11 +600,12 @@ class CLITelemetryClient:
     # than a batch size: a single run emits at most three events (usage, error,
     # result), and the cap stays well under the connector's own
     # DEFAULT_FORCE_FLUSH_SIZE of 100, so a drain cannot force a larger upload
-    # than the channel already sends on its own.
-    _PENDING_LIMIT = 32
+    # than the channel already sends on its own. Shared with the upgrade spool.
+    _PENDING_LIMIT = TELEMETRY_PENDING_LIMIT
 
     def __init__(self):
         self._pending: List[Tuple[Dict[str, Any], int]] = []
+        self._lock = threading.Lock()
 
     @property
     def _ctx(self) -> _CliGlobalContextAccess:
@@ -543,7 +614,14 @@ class CLITelemetryClient:
     @staticmethod
     def generate_telemetry_data_dict(
         telemetry_payload: TelemetryDict,
+        command_info: TelemetryDict | None = None,
     ) -> Dict[str, Any]:
+        if command_info is None:
+            try:
+                command_info = _find_command_info()
+            except RuntimeError:
+                # Auto-upgrade records before Typer pushes a Click context.
+                command_info = _command_info_without_click()
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
             CLITelemetryField.INSTALLATION_SOURCE: __about__.INSTALLATION_SOURCE.value,
@@ -556,10 +634,12 @@ class CLITelemetryClient:
             CLITelemetryField.COMMAND_AUTH_TYPE: _get_auth_type(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.COMMAND_AGENT_SESSION_ID: _get_agent_session_id(),
+            CLITelemetryField.COMMAND_CORTEX_CLIENT_SURFACE: _get_cortex_client_surface(),
+            CLITelemetryField.COMMAND_CORTEX_TERMINAL_LAUNCHER: _get_cortex_terminal_launcher(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
-            **_find_command_info(),
+            **command_info,
             **_get_config_telemetry(),
             **telemetry_payload,
         }
@@ -587,17 +667,57 @@ class CLITelemetryClient:
             return None
         return connection._telemetry  # noqa
 
+    def _enqueue(self, message: Dict[str, Any], timestamp: int) -> None:
+        """Append one event, keeping only the newest ``_PENDING_LIMIT`` entries."""
+        with self._lock:
+            self._pending.append((message, timestamp))
+            # Keep the newest events if a run somehow never connects; the list
+            # holds two entries for a command that succeeds (usage + result)
+            # and three when it also reports an error. REPL completion events
+            # share the same cap, so they must be drained before they evict
+            # the command usage event.
+            del self._pending[: -self._PENDING_LIMIT]
+
     def send(self, payload: TelemetryDict):
         # Timestamp now, but keep the raw dict: _drain backfills the fields that
         # are only knowable once a connection exists.
-        self._pending.append(
-            (self.generate_telemetry_data_dict(payload), get_time_millis())
-        )
-        # Keep the newest events if a run somehow never connects; the list holds
-        # two entries for a command that succeeds (usage + result) and three when
-        # it also reports an error.
-        del self._pending[: -self._PENDING_LIMIT]
+        self._enqueue(self.generate_telemetry_data_dict(payload), get_time_millis())
         self._drain()
+
+    def log_repl_completion(self, payload: Dict[str, Any]) -> None:
+        """Queue a privacy-safe REPL completion event.
+
+        The worker only enqueues the allowlisted payload. Assembling the full
+        record reads the shared CLI context and config; doing that on the
+        completion thread races, and ``ignore_exceptions`` then drops the
+        event. ``_drain`` enriches it on the UI thread.
+        """
+        message = {
+            TelemetryField.KEY_TYPE.value: TelemetryEvent.REPL_COMPLETION.value,
+            **payload,
+        }
+        self._enqueue(message, get_time_millis())
+
+    def _enrich_repl_completion(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Add command and config fields. Keep ``message`` if assembly fails."""
+        try:
+            try:
+                command_info = _find_command_info()
+            except Exception:
+                command_info = _command_info_without_click()
+            return self.generate_telemetry_data_dict(
+                cast(TelemetryDict, message), command_info=command_info
+            )
+        except Exception:
+            return message
+
+    @staticmethod
+    def _is_bare_repl_completion(message: Dict[str, Any]) -> bool:
+        return (
+            message.get(TelemetryField.KEY_TYPE.value)
+            == TelemetryEvent.REPL_COMPLETION.value
+            and CLITelemetryField.SOURCE.value not in message
+        )
 
     def _drain(self):
         """Hand any buffered events to the channel, if there is one.
@@ -613,36 +733,109 @@ class CLITelemetryClient:
         telemetry = self._telemetry
         if telemetry is None:
             return
-        pending, self._pending = self._pending, []
+        with self._lock:
+            pending, self._pending = self._pending, []
         auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
-        for message, timestamp in pending:
-            # An event buffered before the connection opened could not resolve the
-            # authenticator yet; fill it in now that one is available, so the field
-            # is not lost on the pre-command event.
-            if not message.get(auth_type_field):
-                message[auth_type_field] = _get_auth_type()
-            telemetry.try_add_log_to_batch(
-                TelemetryData.from_telemetry_data_dict(
-                    from_dict=message, timestamp=timestamp
+        sent = 0
+        try:
+            for message, timestamp in pending:
+                if self._is_bare_repl_completion(message):
+                    message = self._enrich_repl_completion(message)
+                # An event buffered before the connection opened could not resolve the
+                # authenticator yet; fill it in now that one is available, so the field
+                # is not lost on the pre-command event.
+                if not message.get(auth_type_field):
+                    message[auth_type_field] = _get_auth_type()
+                telemetry.try_add_log_to_batch(
+                    TelemetryData.from_telemetry_data_dict(
+                        from_dict=message, timestamp=timestamp
+                    )
                 )
-            )
+                sent += 1
+        finally:
+            # A send that raises must not drop the tail. Put it back ahead of
+            # anything enqueued while this batch was in flight.
+            if sent < len(pending):
+                with self._lock:
+                    self._pending[0:0] = pending[sent:]
+
+    def _flush_upgrade_spool(
+        self, telemetry, auth_type_field: str
+    ) -> List[Tuple[Dict[str, Any], int]]:
+        """Copy upgrade spool events into the channel without deleting the file.
+
+        ``snow upgrade`` never opens a connection, and auto-upgrade may spawn a
+        child before this process connects. The JSONL spool survives both; we
+        only read it once a channel exists so we never dial a browser. The
+        caller deletes matching records after ``send_batch()`` succeeds.
+        """
+        try:
+            from snowflake.cli._plugins.upgrade.telemetry import read_spool_events
+
+            events = read_spool_events()
+            for message, timestamp in events:
+                payload = dict(message)
+                if not payload.get(auth_type_field):
+                    payload[auth_type_field] = _get_auth_type()
+                telemetry.try_add_log_to_batch(
+                    TelemetryData.from_telemetry_data_dict(
+                        from_dict=payload, timestamp=timestamp
+                    )
+                )
+            return events
+        except Exception:
+            # Fail-open: leave the spool on disk rather than breaking the
+            # command that opened the connection.
+            return []
 
     def flush(self):
+        staged = []
         try:
             self._drain()
             telemetry = self._telemetry
             if telemetry is not None:
+                auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
+                staged = self._flush_upgrade_spool(telemetry, auth_type_field)
                 telemetry.send_batch()
+                if staged:
+                    try:
+                        from snowflake.cli._plugins.upgrade.telemetry import (
+                            drop_spool_events,
+                        )
+
+                        drop_spool_events(staged)
+                    except Exception:
+                        pass
         finally:
             # The command is over, so anything still buffered belongs to a run
             # that never opened a connection and can never be sent. Drop it:
             # this client is a module-level singleton, and leaving events queued
             # would attribute them to whatever command runs next in the same
             # process.
-            self._pending.clear()
+            with self._lock:
+                self._pending.clear()
+
+    def drain_if_open(self) -> None:
+        """Hand queued events to an already-open connection.
+
+        Returns immediately when nothing is connected. Does not call
+        ``_telemetry_may_open_connection`` or ``connection``, so it cannot dial.
+        """
+        if self._ctx.connection_if_open is not None:
+            self._drain()
 
 
 _telemetry = CLITelemetryClient()
+
+
+@ignore_exceptions()
+def log_repl_completion(payload: Dict[str, Any]) -> None:
+    _telemetry.log_repl_completion(payload)
+
+
+@ignore_exceptions()
+def drain_repl_completions() -> None:
+    _telemetry.drain_if_open()
 
 
 @ignore_exceptions()

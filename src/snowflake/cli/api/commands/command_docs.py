@@ -15,18 +15,72 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from inspect import cleandoc
+from enum import Enum
 
 from click import Command
 
 DOCS_ATTRIBUTE = "__snowflake_cli_command_docs__"
 
+# Subset of ``sphinx/source/sfvariables.txt`` in snowflake-prod-docs. A new
+# ``Ref("name")`` needs a matching entry here for ``--help`` to expand it.
+REFERENCE_TEXT: dict[str, str] = {
+    "dcm": "DCM Projects",
+    "dcm-object": "DCM project",
+    "native-app": "Snowflake Native App",
+    "sf-cli": "Snowflake CLI",
+}
+
+
+class AdmonitionType(str, Enum):
+    """Matches ``AdmonitionType`` in snowflake-prod-docs."""
+
+    NOTE = "note"
+    WARNING = "warning"
+    TIP = "tip"
+    IMPORTANT = "important"
+    CAUTION = "caution"
+    ATTENTION = "attention"
+    DANGER = "danger"
+    HINT = "hint"
+    ERROR = "error"
+    SFEDITION = "sfedition"
+    PREVIEW = "preview"
+    NEW = "new"
+
 
 @dataclass(frozen=True)
-class Example:
-    command: str
-    description: str | None = None
-    output: str | None = None
+class Code:
+    """Inline code literal (MDX wraps ``value`` in backticks; do not add your own).
+
+    Angle brackets in ``value`` stay raw so placeholders like ``<key>`` survive.
+    Downstream call site: ``code("--target")``.
+    """
+
+    value: str
+
+    def __post_init__(self) -> None:
+        if "`" in self.value:
+            raise ValueError(
+                f"code value {self.value!r} must not contain backticks; "
+                "MDX wraps the literal in backticks for you"
+            )
+
+
+@dataclass(frozen=True)
+class Ref:
+    """Prod-docs substitution key (``sfvariables.txt`` ``|name|`` → MDX ``%name%``).
+
+    Not free text. Downstream call site: ``ref("dcm-object")``.
+    """
+
+    name: str
+
+    def __post_init__(self) -> None:
+        if self.name not in REFERENCE_TEXT:
+            raise ValueError(
+                f"unknown prod-docs reference {self.name!r}; "
+                "add a matching entry to REFERENCE_TEXT in command_docs.py"
+            )
 
 
 @dataclass(frozen=True)
@@ -35,22 +89,310 @@ class RelatedLink:
     title: str = ""
 
 
+Span = str | Code | Ref | RelatedLink
+
+
+@dataclass(frozen=True)
+class Paragraph:
+    """Inline ``parts`` concatenated with no separator and no ``cleandoc``.
+
+    Wrapping newlines inside a string are kept in both MDX and ``--help``.
+    A lone bullet is not a content block.
+    """
+
+    parts: tuple[Span, ...]
+
+
+@dataclass(frozen=True)
+class PlainText(Paragraph):
+    """A paragraph of inline spans. Used in usage notes and example descriptions."""
+
+    pass
+
+
+@dataclass(frozen=True)
+class Admonition(Paragraph):
+    """A ``ContentBlock`` admonition: a paragraph of spans (``Code`` / ``Ref``).
+
+    Downstream call sites: ``admonition(AdmonitionType.CAUTION, "Be careful.")`` /
+    ``note("The command prompts...", code("--force"), ...)``.
+    """
+
+    admonition_type: AdmonitionType = AdmonitionType.NOTE
+    title: str | None = None
+    title_suffix: str | None = None
+    title_href: str | None = None
+
+
+@dataclass(frozen=True)
+class Bullet(Paragraph):
+    """One list item: a paragraph of spans (``Code`` / ``Ref``), not a ``ContentBlock``.
+
+    Pass to ``bullet_list``; do not put a lone ``Bullet`` in ``usage_notes``.
+    Downstream call site: ``bullet("Exit code ", code("0"), " if all tests pass")``.
+    """
+
+    pass
+
+
+@dataclass(frozen=True)
+class BulletList:
+    """A ``ContentBlock`` of bullet items for usage notes."""
+
+    items: tuple[Bullet, ...]
+
+
+def plain_text(*parts: Span) -> PlainText:
+    return PlainText(parts=parts)
+
+
+def admonition(
+    admonition_type: AdmonitionType,
+    *parts: Span,
+    title: str | None = None,
+    title_suffix: str | None = None,
+    title_href: str | None = None,
+) -> Admonition:
+    return Admonition(
+        parts=parts,
+        admonition_type=admonition_type,
+        title=title,
+        title_suffix=title_suffix,
+        title_href=title_href,
+    )
+
+
+def note(*parts: Span) -> Admonition:
+    return admonition(AdmonitionType.NOTE, *parts)
+
+
+def bullet(*parts: Span) -> Bullet:
+    return Bullet(parts=parts)
+
+
+def bullet_list(*items: Bullet) -> BulletList:
+    return BulletList(items=items)
+
+
+def code(value: str) -> Code:
+    return Code(value=value)
+
+
+def ref(name: str) -> Ref:
+    return Ref(name=name)
+
+
+def link(href: str, title: str = "") -> RelatedLink:
+    return RelatedLink(href=href, title=title)
+
+
+@dataclass(frozen=True)
+class Example:
+    """A command example for docs pages and ``--help``.
+
+    ``description`` is a ``PlainText`` paragraph of spans (same ``Code`` / ``Ref``
+    as usage notes), not a bare string.
+    """
+
+    command: str
+    description: PlainText | None = None
+    output: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.description is not None and not isinstance(self.description, PlainText):
+            raise TypeError(
+                "description must be a PlainText paragraph, "
+                f"not {type(self.description).__name__}"
+            )
+
+
+@dataclass(frozen=True)
+class Include:
+    """Prod-docs MDX component imported from an ``INCLUDE/`` fragment.
+
+    Page MDX renders ``<tag />``; ``--help`` renders ``help_content`` when set.
+    """
+
+    tag: str
+    path: str
+    help_content: tuple[ContentBlock, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if self.help_content is None:
+            return
+        for block in self.help_content:
+            if isinstance(block, Include):
+                raise TypeError(
+                    "Include help_content cannot contain nested Include blocks"
+                )
+
+
+ContentBlock = PlainText | BulletList | Admonition | Include
+
+
+PUBLIC_PREVIEW = Include(
+    tag="PublicPreview",
+    path="INCLUDE/text/sidebars/basic/public-preview.mdx",
+)
+PUBLIC_PREVIEW_NO_GOV = Include(
+    tag="PublicPreviewNoGov",
+    path="INCLUDE/text/sidebars/basic/public-preview-no-gov.mdx",
+)
+DBT_DEPLOY_FORCE_WARNING = Include(
+    tag="DbtDeployForceWarning",
+    path="INCLUDE/text/dbt-deploy-force-warning.mdx",
+    help_content=(
+        admonition(
+            AdmonitionType.WARNING,
+            "Don't use ",
+            code("--force"),
+            " unless you intentionally want to recreate the dbt project object. In ",
+            code("snow dbt deploy"),
+            ", ",
+            code("--force"),
+            " runs ",
+            code("CREATE OR REPLACE DBT PROJECT"),
+            ", which may remove run history.",
+        ),
+    ),
+)
+REQ_CONTAINER_SERVICES = Include(
+    tag="ReqContainerServices",
+    path="INCLUDE/snow" + "cli/req-container-services.mdx",
+    help_content=(
+        note(
+            "You can use Snowpark Container Services from ",
+            ref("sf-cli"),
+            " only if you have the necessary permissions to use Snowpark Container "
+            "Services.",
+        ),
+    ),
+)
+DBT_LIVE_VERSION_REQUIRED = Include(
+    tag="DbtLiveVersionRequired",
+    path="INCLUDE/text/dbt-live-version-required.mdx",
+    help_content=(
+        note(
+            "Some features described on this page require a dbt project object that "
+            "uses the mutable ",
+            code("live"),
+            " version. To get a live-version object, opt in to the 2026_06 behavior "
+            "change bundle or ask your Snowflake account representative to enable the "
+            "separate single live version feature. Then create or replace the object, "
+            "or migrate an existing versioned object with ",
+            code("SYSTEM$MIGRATE_DBT_PROJECT"),
+            ".",
+        ),
+    ),
+)
+PYTHON_EXECUTE_VERSION_SUPPORT = Include(
+    tag="PythonExecuteVersionSupport",
+    path="INCLUDE/developer-guide/snowflake-cli/_include/python-execute-version-support.mdx",
+    help_content=(
+        note(
+            ref("sf-cli"),
+            " does not support executing Python files for Python versions 3.12 and above.",
+        ),
+    ),
+)
+
+
+def unique_includes(
+    includes: tuple[Include, ...],
+) -> tuple[Include, ...]:
+    """Returns ``includes`` with duplicate ``path`` values removed."""
+    seen: set[str] = set()
+    unique: list[Include] = []
+    for include in includes:
+        if include.path in seen:
+            continue
+        seen.add(include.path)
+        unique.append(include)
+    return tuple(unique)
+
+
+def collect_page_includes(docs: CommandDocs) -> tuple[Include, ...]:
+    """Collects banner and usage-note includes for deduped MDX import lines."""
+    includes: list[Include] = [
+        block for block in docs.banners if isinstance(block, Include)
+    ]
+    if docs.usage_notes is not None:
+        for block in docs.usage_notes:
+            if isinstance(block, Include):
+                includes.append(block)
+    return unique_includes(tuple(includes))
+
+
 @dataclass(frozen=True)
 class CommandDocs:
     """
     Command documentation declared through ``@app.command(docs=...)``.
 
-    All text fields are plain prose, not MDX. Docs pages escape them, so
-    markup written here is shown literally instead of being rendered.
+    Documentation content is structured so it can be rendered for both MDX
+    pages and terminal help.
     """
 
     related: tuple[RelatedLink, ...] = ()
-    usage_notes: str | None = None
+    banners: tuple[ContentBlock, ...] = ()
+    usage_notes: tuple[ContentBlock, ...] | None = None
     examples: tuple[Example, ...] | None = None
 
     def __post_init__(self) -> None:
-        if self.usage_notes is not None:
-            object.__setattr__(self, "usage_notes", cleandoc(self.usage_notes))
+        self._validate_banner_blocks(self.banners, "banners")
+        if self.usage_notes is None:
+            return
+        self._validate_content_blocks(self.usage_notes, "usage_notes")
+
+    def _validate_banner_blocks(
+        self, blocks: tuple[ContentBlock, ...], field_name: str
+    ) -> None:
+        if not isinstance(blocks, tuple):
+            raise TypeError(
+                f"{field_name} must be a tuple of content blocks, "
+                f"not {type(blocks).__name__}"
+            )
+        for block in blocks:
+            if not isinstance(block, ContentBlock):
+                raise TypeError(
+                    f"{field_name} entries must be content blocks, "
+                    f"not {type(block).__name__}"
+                )
+
+    def _validate_content_blocks(
+        self, blocks: tuple[ContentBlock, ...], field_name: str
+    ) -> None:
+        if not isinstance(blocks, tuple):
+            raise TypeError(
+                f"{field_name} must be a tuple of content blocks, "
+                f"not {type(blocks).__name__}"
+            )
+        for block in blocks:
+            if not isinstance(block, ContentBlock):
+                raise TypeError(
+                    f"{field_name} entries must be content blocks, "
+                    f"not {type(block).__name__}"
+                )
+            if isinstance(block, Include) and not block.help_content:
+                raise TypeError(
+                    f"{field_name} Include entries must set help_content for "
+                    "--help rendering"
+                )
+
+
+def _lookup_command_docs(command: Command) -> CommandDocs | None:
+    """Return ``CommandDocs`` from ``docs=`` on the callback chain, if declared."""
+    candidate = getattr(command, "callback", None)
+    while candidate is not None:
+        docs = getattr(candidate, DOCS_ATTRIBUTE, None)
+        if isinstance(docs, CommandDocs):
+            return docs
+        candidate = getattr(candidate, "__wrapped__", None)
+    return None
+
+
+def has_explicit_command_docs(command: Command) -> bool:
+    """Return whether ``docs=`` was passed to ``@app.command()``."""
+    return _lookup_command_docs(command) is not None
 
 
 def get_command_docs(command: Command) -> CommandDocs:
@@ -64,10 +406,4 @@ def get_command_docs(command: Command) -> CommandDocs:
     need sections (pages, ``--help``) should look at the fields, not at
     whether the object was declared.
     """
-    candidate = getattr(command, "callback", None)
-    while candidate is not None:
-        docs = getattr(candidate, DOCS_ATTRIBUTE, None)
-        if isinstance(docs, CommandDocs):
-            return docs
-        candidate = getattr(candidate, "__wrapped__", None)
-    return CommandDocs()
+    return _lookup_command_docs(command) or CommandDocs()

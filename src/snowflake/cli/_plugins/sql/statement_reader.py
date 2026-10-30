@@ -5,13 +5,14 @@ import urllib.error
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
-from urllib.request import urlopen
+from urllib.request import HTTPRedirectHandler, build_opener
 
 from jinja2 import UndefinedError
 from snowflake.cli._plugins.sql.repl_commands import (
     ReplCommand,
     UnknownCommandError,
     compile_repl_command,
+    is_registered_command,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
@@ -23,6 +24,25 @@ COMMAND_PATTERN = re.compile(
 URL_PATTERN = re.compile(r"^(\w+?):\/(\/.*)", flags=re.IGNORECASE)
 
 ASYNC_SUFFIX = ";>"
+
+
+class _PlaintextRedirectError(urllib.error.URLError):
+    """Raised when a redirect would request a non-https URL."""
+
+
+class _HttpsOnlyRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not str(newurl).lower().startswith("https://"):
+            raise _PlaintextRedirectError(
+                f"Plaintext http:// sources are not allowed: {newurl}. "
+                "Use https:// or a local file."
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def urlopen(url, timeout=10.0):
+    """Fetch *url*, refusing a redirect whose Location is not https://."""
+    return build_opener(_HttpsOnlyRedirectHandler()).open(url, timeout=timeout)
 
 
 # Regex that recognises SQL tokens whose contents must not be scanned for
@@ -199,13 +219,27 @@ class ParsedStatement:
     def from_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from URL."""
         stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
+        response = None
         try:
-            payload = urlopen(stripped_comments_path_part, timeout=10.0).read().decode()
+            response = urlopen(stripped_comments_path_part, timeout=10.0)
+            final_url = response.geturl()
+            if not final_url.lower().startswith("https://"):
+                error = (
+                    f"Plaintext http:// sources are not allowed: {final_url}. "
+                    "Use https:// or a local file."
+                )
+                return cls(path_part, StatementType.UNKNOWN, raw_source, error)
+            payload = response.read().decode()
             return cls(payload, StatementType.URL, stripped_comments_path_part)
 
+        except _PlaintextRedirectError as err:
+            return cls(path_part, StatementType.UNKNOWN, raw_source, str(err.reason))
         except urllib.error.HTTPError as err:
             error = f"Could not fetch {path_part}: {err}"
             return cls(path_part, StatementType.URL, raw_source, error)
+        finally:
+            if response is not None:
+                response.close()
 
     @classmethod
     def from_disabled_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
@@ -266,7 +300,16 @@ def parse_statement(
 
     match command.lower(), _path_match:
         # load content from an URL
-        case "source" | "load", ("", "http" | "https", *_):
+        case "source" | "load", ("", "http", *_):
+            return ParsedStatement(
+                statement,
+                StatementType.UNKNOWN,
+                command_args,
+                f"Plaintext http:// sources are not allowed: {command_args}. "
+                "Use https:// or a local file.",
+            )
+
+        case "source" | "load", ("", "https", *_):
             if disable_url_sources:
                 return ParsedStatement.from_disabled_url(command_args, statement)
             return ParsedStatement.from_url(command_args, statement)
@@ -283,11 +326,11 @@ def parse_statement(
                 f"Unknown source: {command_args}",
             )
 
-        case "queries" | "result" | "abort", (str(),):
-            return ParsedStatement(statement, StatementType.REPL_COMMAND, None)
-
         case "edit", (str(),):
             return ParsedStatement(statement, StatementType.REPL_COMMAND, command_args)
+
+        case cmd, (str(),) if is_registered_command(f"!{cmd}"):
+            return ParsedStatement(statement, StatementType.REPL_COMMAND, None)
 
         case _:
             error_msg = f"Unknown command: {command}"

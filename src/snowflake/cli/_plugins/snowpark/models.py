@@ -32,9 +32,14 @@ class Requirement(requirement.Requirement):
 
     @classmethod
     def parse_line(cls, line: str) -> Requirement:
+        declared_line = line
         if len(line_elements := line.split(";")) > 1:
             line = line_elements[0]
         result = super().parse_line(line)
+        # parse_line drops everything after `;`, including environment markers.
+        # Keep the line as written so callers that must not silently drop a
+        # marker (artifact-repository PACKAGES) can still see it.
+        result.declared_line = declared_line
 
         if len(line_elements) > 1:
             for element in line_elements[1:]:

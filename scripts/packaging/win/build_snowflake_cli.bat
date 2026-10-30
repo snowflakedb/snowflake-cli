@@ -4,11 +4,11 @@ set PATH=C:\Program Files\Python310\;c:\Program Files (x86)\Windows Kits\8.1\bin
 python.exe --version
 python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}')"
 
-python.exe -m pip install --upgrade pip uv click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
+python.exe -m pip install --upgrade pip click==8.2.1 hatch==1.15.1 virtualenv==20.39.1 -c scripts\packaging\uv.constraint
 
-curl -o rustup-init.exe https://win.rustup.rs/
-rustup-init.exe -y
-del rustup-init.exe
+REM cmd: "if errorlevel 1" is true when the previous exit code is >= 1, not exactly 1.
+python.exe scripts\packaging\install_verified_rust.py
+if errorlevel 1 exit /b 1
 set PATH=%PATH%;%USERPROFILE%\.cargo\bin\
 
 @echo off
@@ -28,4 +28,15 @@ mkdir dist\snow
 move dist\binary\snow-%CLI_VERSION%.exe dist\snow\snow.exe
 .\dist\snow\snow.exe --help
 
+if "%BUILD_SNOWFLAKE_MANAGED_TARBALL%"=="1" goto :managed
 tar -a -c -f snowflake-cli-%CLI_VERSION_WIN%.zip dist\snow
+goto :eof
+
+:managed
+echo Building snowflake-managed binary
+set SNOWFLAKE_CLI_INSTALLATION_SOURCE=SNOWFLAKE_MANAGED
+set SNOWFLAKE_CLI_PACK_MANAGED_TARBALL=0
+python.exe -m hatch -e packaging run build-isolated-binary
+mkdir dist\snowflake-managed
+move dist\binary\snow-%CLI_VERSION%.exe dist\snowflake-managed\snow.exe
+tar -a -c -f snowflake-cli-%CLI_VERSION_WIN%.zip dist\snow dist\snowflake-managed

@@ -48,8 +48,8 @@ from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticatio
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
-_CONNECTION_SECTION = "Connection configuration"
-_CLI_BEHAVIOUR = "Global configuration"
+CONNECTION_CONFIGURATION_PANEL = "Connection configuration"
+GLOBAL_CONFIGURATION_PANEL = "Global configuration"
 
 
 def _connection_callback(prop: str):
@@ -90,6 +90,40 @@ def _context_callback(prop: str):
     return callback
 
 
+def _coerce_output_format(value: object) -> OutputFormat:
+    if isinstance(value, OutputFormat):
+        return value
+    if hasattr(value, "unwrap"):
+        value = value.unwrap()
+    if isinstance(value, str):
+        try:
+            return OutputFormat.from_string(value)
+        except ValueError as exc:
+            raise CliArgumentError(str(exc)) from exc
+    raise CliArgumentError(
+        f"Invalid value for cli.output_format: {value!r}. "
+        f"Must be one of: {OutputFormat.allowed_values()}."
+    )
+
+
+def _output_format_callback(ctx: click.Context, param: click.Parameter, value):
+    """Honour --format; else cli.output_format / SNOWFLAKE_CLI_OUTPUT_FORMAT."""
+    try:
+        if ctx.resilient_parsing:
+            return
+    except RuntimeError:
+        pass
+
+    if ctx.get_parameter_source(param.name) != click.core.ParameterSource.COMMANDLINE:  # type: ignore[attr-defined]
+        configured = get_config_value("cli", key="output_format", default=None)
+        if configured is not None:
+            value = configured
+
+    value = _coerce_output_format(value)
+    get_cli_context_manager().output_format = value
+    return value
+
+
 ConnectionOption = typer.Option(
     None,
     "--connection",
@@ -98,7 +132,7 @@ ConnectionOption = typer.Option(
     help=f"Name of the connection, as defined in your `config.toml` file. Default: `default`.",
     callback=_connection_callback("connection_name"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
     shell_complete=lambda _, __, ___: list(get_all_connections()),
 )
 
@@ -109,7 +143,7 @@ TemporaryConnectionOption = typer.Option(
     help="Uses a connection defined with command-line parameters, instead of one defined in config",
     callback=_connection_callback("temporary_connection"),
     is_flag=True,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 HostOption = typer.Option(
@@ -118,7 +152,7 @@ HostOption = typer.Option(
     help="Host address for the connection. Overrides the value specified for the connection.",
     callback=_connection_callback("host"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 PortOption = typer.Option(
@@ -127,7 +161,7 @@ PortOption = typer.Option(
     help="Port for the connection. Overrides the value specified for the connection.",
     callback=_connection_callback("port"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 ProtocolOption = typer.Option(
@@ -136,7 +170,7 @@ ProtocolOption = typer.Option(
     help="Protocol to use for the connection, for example `https`. Overrides the value specified for the connection.",
     callback=_connection_callback("protocol"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 AccountOption = typer.Option(
@@ -146,7 +180,7 @@ AccountOption = typer.Option(
     help="Name assigned to your Snowflake account. Overrides the value specified for the connection.",
     callback=_connection_callback("account"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 UserOption = typer.Option(
@@ -156,7 +190,7 @@ UserOption = typer.Option(
     help="Username to connect to Snowflake. Overrides the value specified for the connection.",
     callback=_connection_callback("user"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 
@@ -192,7 +226,7 @@ PasswordOption = typer.Option(
     hide_input=True,
     callback=_password_callback,
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 AuthenticatorOption = typer.Option(
@@ -202,7 +236,7 @@ AuthenticatorOption = typer.Option(
     hide_input=True,
     callback=_connection_callback("authenticator"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 WorkloadIdentityProviderOption = typer.Option(
@@ -212,7 +246,7 @@ WorkloadIdentityProviderOption = typer.Option(
     hide_input=True,
     callback=_workload_identity_provider_callback,
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 PrivateKeyPathOption = typer.Option(
@@ -223,7 +257,7 @@ PrivateKeyPathOption = typer.Option(
     hide_input=True,
     callback=_connection_callback("private_key_file"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
     exists=True,
     file_okay=True,
     dir_okay=False,
@@ -236,7 +270,7 @@ SessionTokenOption = typer.Option(
     hide_input=True,
     callback=_connection_callback("session_token"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
     exists=True,
     file_okay=True,
     dir_okay=False,
@@ -250,7 +284,7 @@ MasterTokenOption = typer.Option(
     hide_input=True,
     callback=_connection_callback("master_token"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
     exists=True,
     file_okay=True,
     dir_okay=False,
@@ -264,7 +298,7 @@ TokenOption = typer.Option(
     help="OAuth token to use when connecting to Snowflake.",
     callback=_connection_callback("token"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 TokenFilePathOption = typer.Option(
@@ -273,7 +307,7 @@ TokenFilePathOption = typer.Option(
     help="Path to file with an OAuth token to use when connecting to Snowflake.",
     callback=_connection_callback("token_file_path"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
     exists=True,
     file_okay=True,
     dir_okay=False,
@@ -286,7 +320,7 @@ DatabaseOption = typer.Option(
     help="Database to use. Overrides the value specified for the connection.",
     callback=_connection_callback("database"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 SchemaOption = typer.Option(
@@ -296,7 +330,7 @@ SchemaOption = typer.Option(
     help="Database schema to use. Overrides the value specified for the connection.",
     callback=_connection_callback("schema"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 RoleOption = typer.Option(
@@ -306,7 +340,7 @@ RoleOption = typer.Option(
     help="Role to use. Overrides the value specified for the connection.",
     callback=_connection_callback("role"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 WarehouseOption = typer.Option(
@@ -315,7 +349,7 @@ WarehouseOption = typer.Option(
     help="Warehouse to use. Overrides the value specified for the connection.",
     callback=_connection_callback("warehouse"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 MfaPasscodeOption = typer.Option(
@@ -326,7 +360,7 @@ MfaPasscodeOption = typer.Option(
     prompt="MFA passcode",
     prompt_required=False,
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 
@@ -337,7 +371,7 @@ EnableDiagOption = typer.Option(
     callback=_connection_callback("enable_diag"),
     show_default=False,
     is_flag=True,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthClientIdOption = typer.Option(
@@ -346,7 +380,7 @@ OauthClientIdOption = typer.Option(
     help="Value of client id provided by the Identity Provider for Snowflake integration.",
     callback=_connection_callback("oauth_client_id"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthClientSecretOption = typer.Option(
@@ -354,7 +388,7 @@ OauthClientSecretOption = typer.Option(
     help="Value of the client secret provided by the Identity Provider for Snowflake integration.",
     callback=_connection_callback("oauth_client_secret"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthAuthorizationUrlOption = typer.Option(
@@ -363,7 +397,7 @@ OauthAuthorizationUrlOption = typer.Option(
     help="Identity Provider endpoint supplying the authorization code to the driver.",
     callback=_connection_callback("oauth_authorization_url"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthTokenRequestUrlOption = typer.Option(
@@ -372,7 +406,7 @@ OauthTokenRequestUrlOption = typer.Option(
     help="Identity Provider endpoint supplying the access tokens to the driver.",
     callback=_connection_callback("oauth_token_request_url"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthRedirectUriOption = typer.Option(
@@ -381,7 +415,7 @@ OauthRedirectUriOption = typer.Option(
     help="URI to use for authorization code redirection.",
     callback=_connection_callback("oauth_redirect_uri"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthScopeOption = typer.Option(
@@ -390,7 +424,7 @@ OauthScopeOption = typer.Option(
     help="Scope requested in the Identity Provider authorization request.",
     callback=_connection_callback("oauth_scope"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthDisablePkceOption = typer.Option(
@@ -400,7 +434,7 @@ OauthDisablePkceOption = typer.Option(
     callback=_connection_callback("oauth_disable_pkce"),
     show_default=False,
     is_flag=True,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthEnableRefreshTokensOption = typer.Option(
@@ -410,7 +444,7 @@ OauthEnableRefreshTokensOption = typer.Option(
     callback=_connection_callback("oauth_enable_refresh_tokens"),
     show_default=False,
     is_flag=True,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 OauthEnableSingleUseRefreshTokensOption = typer.Option(
@@ -420,7 +454,7 @@ OauthEnableSingleUseRefreshTokensOption = typer.Option(
     callback=_connection_callback("oauth_enable_single_use_refresh_tokens"),
     show_default=False,
     is_flag=True,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 ClientStoreTemporaryCredentialOption = typer.Option(
@@ -430,7 +464,7 @@ ClientStoreTemporaryCredentialOption = typer.Option(
     callback=_connection_callback("client_store_temporary_credential"),
     is_flag=True,
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 ServerSessionKeepAliveOption = typer.Option(
@@ -440,7 +474,7 @@ ServerSessionKeepAliveOption = typer.Option(
     callback=_connection_callback("server_session_keep_alive"),
     is_flag=True,
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 SecondaryRolesOption = typer.Option(
@@ -453,7 +487,7 @@ SecondaryRolesOption = typer.Option(
     ),
     callback=_connection_callback("secondary_roles"),
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
 )
 
 # Set default via callback to avoid including tempdir path in generated docs (snow --docs).
@@ -483,7 +517,7 @@ DiagLogPathOption: Path = typer.Option(
     help="Path for the generated report. Defaults to system temporary directory.",
     callback=_diag_log_path_callback,
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
     exists=True,
     writable=True,
 )
@@ -500,7 +534,7 @@ DiagAllowlistPathOption: Path = typer.Option(
     help="Path to a JSON file that contains allowlist parameters.",
     callback=_diag_log_allowlist_path_callback,
     show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
+    rich_help_panel=CONNECTION_CONFIGURATION_PANEL,
     exists=True,
     file_okay=True,
 )
@@ -508,10 +542,13 @@ DiagAllowlistPathOption: Path = typer.Option(
 OutputFormatOption = typer.Option(
     OutputFormat.TABLE.value,
     "--format",
-    help="Specifies the output format.",
+    help=(
+        "Specifies the output format. "
+        "[env var: SNOWFLAKE_CLI_OUTPUT_FORMAT | config: cli.output_format]"
+    ),
     case_sensitive=False,
-    callback=_context_callback("output_format"),
-    rich_help_panel=_CLI_BEHAVIOUR,
+    callback=_output_format_callback,
+    rich_help_panel=GLOBAL_CONFIGURATION_PANEL,
 )
 
 
@@ -521,7 +558,7 @@ SilentOption = typer.Option(
     help="Turns off intermediate output to console.",
     callback=_context_callback("silent"),
     is_flag=True,
-    rich_help_panel=_CLI_BEHAVIOUR,
+    rich_help_panel=GLOBAL_CONFIGURATION_PANEL,
     is_eager=True,
 )
 
@@ -532,7 +569,7 @@ VerboseOption = typer.Option(
     help="Displays log entries for log levels `info` and higher.",
     callback=_context_callback("verbose"),
     is_flag=True,
-    rich_help_panel=_CLI_BEHAVIOUR,
+    rich_help_panel=GLOBAL_CONFIGURATION_PANEL,
 )
 
 DebugOption = typer.Option(
@@ -541,7 +578,7 @@ DebugOption = typer.Option(
     help="Displays log entries for log levels `debug` and higher; debug logs contain additional information.",
     callback=_context_callback("enable_tracebacks"),
     is_flag=True,
-    rich_help_panel=_CLI_BEHAVIOUR,
+    rich_help_panel=GLOBAL_CONFIGURATION_PANEL,
 )
 
 EnhancedExitCodesOption = typer.Option(
@@ -550,7 +587,7 @@ EnhancedExitCodesOption = typer.Option(
     help="Differentiate exit error codes based on failure type.",
     callback=_context_callback("enhanced_exit_codes"),
     is_flag=True,
-    rich_help_panel=_CLI_BEHAVIOUR,
+    rich_help_panel=GLOBAL_CONFIGURATION_PANEL,
     is_eager=True,
     envvar="SNOWFLAKE_ENHANCED_EXIT_CODES",
 )
@@ -594,7 +631,28 @@ DecimalPrecisionOption = typer.Option(
     "--decimal-precision",
     help="Number of decimal places to display for decimal values. Uses Python's default precision if not specified. [env var: SNOWFLAKE_DECIMAL_PRECISION]",
     callback=_decimal_precision_callback,
-    rich_help_panel=_CLI_BEHAVIOUR,
+    rich_help_panel=GLOBAL_CONFIGURATION_PANEL,
+)
+
+
+def _show_all_help_callback(
+    ctx: click.Context,
+    param: click.Parameter,
+    value: bool,
+) -> None:
+    from snowflake.cli.api.commands.docs_help import handle_help_all_option
+
+    handle_help_all_option(ctx, param, value)
+
+
+ShowAllHelpOption = typer.Option(
+    False,
+    "--help-all",
+    hidden=True,
+    is_eager=True,
+    expose_value=False,
+    callback=_show_all_help_callback,
+    help="Show global and connection options in command help output.",
 )
 
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
@@ -713,7 +771,7 @@ def experimental_option(
         hidden=True,
         callback=_context_callback("experimental"),
         is_flag=True,
-        rich_help_panel=_CLI_BEHAVIOUR,
+        rich_help_panel=GLOBAL_CONFIGURATION_PANEL,
     )
 
 

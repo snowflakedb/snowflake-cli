@@ -19,19 +19,128 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.31.0
+## Backward incompatibility
+* Dropped support for Python 3.10. Snowflake CLI requires Python 3.11, 3.12, or 3.13.
+
+## Deprecations
+
+## New additions
+* Streamlit entities support `include_project_definition: true` to opt in to uploading the project-root `snowflake.yml` with `snow streamlit deploy`. When that file is uploaded, deploy emits a warning because stage readers can retrieve it.
+* `snow upgrade` is now generally available. It upgrades a direct install of Snowflake CLI and is listed in `snow --help` without a feature flag. Other install channels refuse and print the direct-install command.
+* `snow sql` accepts `!spool <file>` and `!spool off`. Subsequent query results are appended to the file and still printed on the terminal. Until `!spool off`, TABLE is a static pipe table on both the terminal and the file: no Live refresh and no wrapping to the window. Format follows `--format` / `!set output_format`.
+* `snow sql` accepts `!set output_format=<format>` (`plain`, `table`, `json`, `json_ext`, `csv`). `plain` prints query results without box drawing. `--format PLAIN` selects the same layout.
+* A Streamlit entity in `snowflake.yml` accepts five settings that Snowsight Workspaces writes, and `snow streamlit deploy` applies them. `execute_as` (`OWNER` or `RESTRICTED CALLER`) and `app_warehouse` apply to `SYSTEM$WAREHOUSE_RUNTIME`. A container runtime always uses `OWNER` and ignores `app_warehouse` with a warning. `artifact_repositories` and `schedules` apply to container runtimes. `idle_auto_shutdown_time_seconds` applies to each runtime. `schedules` (`cron_exprs`, maximum 5, and `timezone`, default UTC) makes one warm-up task for each expression, named `<app>__STREAMLIT_LIFECYCLE[_n]`. A deploy changes only the tasks that are different. An empty `cron_exprs` drops the tasks. An empty `artifact_repositories` removes the repositories. The tasks need CREATE TASK, EXECUTE TASK, and EXECUTE MANAGED TASK, and DROP STREAMLIT does not drop them. If `snowflake.yml` does not set a value, the live value does not change. A setting on the incorrect runtime, or on a `--legacy` deploy, stops the deploy before the first SQL. Earlier CLI versions do not accept these keys.
+
+## Fixes and improvements
+* `snow streamlit deploy --replace` now applies `main_file` changes to existing versioned apps in place, preserving the app, grants and version history. Files are uploaded before the entrypoint changes; `--prune` runs only after the change succeeds. Accounts that reject the update receive an actionable error.
+* Streamlit deploy now refuses to recreate an existing app with no live stage unless a legacy `ROOT_LOCATION` is known, and rejects `--prune` with an unset `main_file` when the active entrypoint is absent from the bundle.
+* Upgraded the Python interpreter embedded in Linux binaries from 3.10.22 to 3.12.15. macOS and Windows binaries now embed Python 3.12 as well.
+* Bumped lower bound of certifi to 2026.10.19.
+* The direct install script restricts `connections.toml` and `config.toml` to the current user when that user owns the file. `snow upgrade` does the same before it checks permissions, and again before it points at the new version, so a file left readable by other accounts no longer stops `snow upgrade` or the new `snow` from starting. Symlinks and files owned by someone else are left unchanged.
+* Upgraded pip from 26.2.1 to 26.2.2.
+
+
+# v3.30.0
+## Backward incompatibility
+* Re-running `snow helpers import-snowsql-connections` can save a different connection than an earlier import. Custom `--snowsql-config-file` paths are merged after the default SnowSQL files instead of replacing that list, and `/usr/lib64/snowflake/snowsql/config` is read last when it exists. Named connections are saved from `connections.<name>` alone and do not receive keys from the unnamed `[connections]` section. `login_timeout`, `client_session_keep_alive`, `ocsp_fail_open`, `insecure_mode`, and `client_store_temporary_credential` are copied from `[options]` when a connection omits them; a key set on the connection wins. Passwords and other text stay strings, including values that look like numbers. `login_timeout` and `client_prefetch_threads` are saved as integers, and `client_session_keep_alive`, `client_store_temporary_credential`, `ocsp_fail_open`, `insecure_mode`, `oauth_disable_pkce`, `oauth_enable_refresh_tokens`, `oauth_enable_single_use_refresh_tokens`, and `disable_request_pooling` are saved as booleans. `default_connection_name` is set only from the unnamed `[connections]` section, under the name it was actually saved with. When `WORKSPACE` is set, `.snowsql.cnf` and `.snowsql/config` are read from that directory instead of the home directory.
+* `snow streamlit deploy` no longer defaults `query_warehouse` to the identifier `streamlit` when the field is omitted from `snowflake.yml`. A new app uses the connection warehouse instead, and deploy fails if that is also unset. An existing app keeps its warehouse unless `snowflake.yml` sets `query_warehouse`.
+* `snow streamlit deploy --replace` now UNSETs Streamlit properties (title, comment, external access integrations, secrets, imports, compute_pool) that were cleared from `snowflake.yml`, and REVOKEs object grants that disappeared from `grants:` (OWNERSHIP is left alone). Omitting `grants:` still leaves live grants untouched. If the app's current grants cannot be listed, deploy fails rather than skip the revoke.
+
+## Deprecations
+
+## New additions
+* `snow feature` is now generally available. This command group manages declarative feature-store objects in Snowflake (`init`, `sync`, `plan`, `apply`, `list`, `describe`, `online-service` (`status`/`create`/`drop`), `ingest`, `query`). It is now visible by default and no longer requires the `ENABLE_FEATURE_STORE` feature flag. It requires the `snowflake-ml-python[feature_store]` library.
+* Air-gapped mode configures the CLI for isolated environments that cannot reach the public internet. Enable it with `cli.air_gapped` in `config.toml` or `SNOWFLAKE_CLI_AIR_GAPPED`. The environment variable is read at runtime and is not copied into a newly created `config.toml`. Commands that talk to external services may change or refuse to run, including PyPI and Homebrew version checks, `snow upgrade`, auto-upgrade, `snow init` against the public GitHub template default, and pip-backed flows such as `snow snowpark build`. Pip in those flows uses `--isolated` and only `--index-url` or `PIP_INDEX_URL`. When air-gapped mode is set, Snowsight no longer falls back to `app.snowflake.com`. Override remaining defaults with `cli.per_account_app_domain` in `config.toml` or `SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN`, and with `SNOWFLAKE_AUDIENCE` for GitHub OIDC.
+* Override the default `snow init` template repository with `cli.init_template_source` in `config.toml` or `SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE`. Air-gapped mode requires this override, a local `--template-source`, or an in-region git URL.
+* `snow dcm plan` and `snow dcm deploy` now accept `--deployment` to plan or deploy from an existing deployment, by name or alias, instead of uploading local files. The deployment is used as stored: the manifest target's configuration and environment variables are not applied again. `--variable` and `--env-file` cannot be combined with `--deployment`.
+
+## Fixes and improvements
+* Connection diagnostics and the per-account cert probe now require TLS 1.3. `snow init --template-source`, SQL `!source`/`!load`, and pip index URLs reject plaintext `http://`.
+* `snow app version drop` now reports that the drop is in progress and may take a few minutes, instead of saying it is already complete.
+* Upgraded setuptools from 80.8.0 to 84.0.0.
+* Comparing an `FQN` against a value that is not an `FQN` instance now returns `False` instead of raising `AttributeError`.
+* Upgraded keyring from 25.6.0 to 25.7.0.
+* Upgraded jaraco.context from 6.0.1 to 6.1.2.
+* `snow streamlit deploy` includes `environment.yml` and the pages directory (`pages_dir`, or `pages/` by default) when they exist on disk, even if a native v2 project lists only `main_file` in `artifacts`. Overlapping `pages/` and `pages/*.py` artifacts no longer fail the bundle.
+* `snow streamlit deploy` treats only Snowflake error 2003 from `DESCRIBE STREAMLIT` as "object does not exist". Other programming errors are no longer swallowed into a misleading `CREATE STREAMLIT IF NOT EXISTS`. Because 2003 also means "not authorized", `--replace` no longer turns it into `CREATE OR REPLACE`.
+* Improved sanitization of external access integration and secret values in generated Streamlit and Snowpark SQL, and of import and stage location values in generated Streamlit SQL. `imports`, `external_access_integrations`, `secrets`, `runtime_name`, and `compute_pool` in `snowflake.yml` no longer accept a backslash.
+* `snow streamlit get-url` and the URL printed after deploy now fail when the connection has no account or region, instead of opening `https://app.snowflake.com` with no app path.
+* `snow streamlit logs` accepts any `SYSTEM$ST_CONTAINER_RUNTIME*` runtime, matching deploy/restart. A newer container runtime such as `..._PY3_12` is also accepted in `snowflake.yml`.
+* Replacing a legacy `ROOT_LOCATION` Streamlit app with a versioned deploy copies files from the old stage onto the new versioned stage when possible.
+* `ALTER STREAMLIT ... ADD LIVE VERSION` quotes each database, schema, and name part so hyphenated or reserved identifiers parse.
+* `snow helpers import-snowsql-connections` reads SnowSQL files the way SnowSQL 1.5 does: quotes are removed, `#` starts a comment, and the file is decoded as UTF-8. A repeated collision while naming the unnamed `[connections]` section stops after three tries instead of prompting forever.
+* `snow helpers import-snowsql-connections` keeps a private-key passphrase from the SnowSQL file, adds `authenticator = "SNOWFLAKE_JWT"` when a private key is imported and authenticator is still absent after the files are merged, and preserves `region` and proxy settings for the connector. The short SnowSQL key wins over a long alias across files. A blank or whitespace short key is skipped, so the next alias is used. `private_key_path` wins over `private_key_file` when both are present. A blank value is omitted, so a later blank clears an earlier value. When the authenticator that survives the merge is present and is not `SNOWFLAKE_JWT`, the private key and passphrase are omitted. A SnowSQL file that exists but cannot be opened, cannot be decoded, or is not valid INI fails the import before anything is written. The message names the path and does not repeat the file contents. A section with no remaining values is not saved.
+* `snow helpers check-snowsql-env-vars` reports the SnowSQL variable that is actually set. `SNOWSQL_REGION` suggests putting the account identifier in `SNOWFLAKE_ACCOUNT`, not the region name. The deprecated proxy variables are suggested as the host, port, username, or password inside `HTTPS_PROXY` or `HTTP_PROXY`.
+* The direct install script updates the bash startup file the shell reads. It edits the first existing login profile (`~/.bash_profile`, `~/.bash_login`, or `~/.profile`) and an existing `~/.bashrc`, and does not create a bash login profile.
+* A configuration file with permissions that are too open now prints the `chmod` or `icacls` command on its own line. Copying that command no longer includes a line break or the error box border.
+* Upgraded GitPython from 3.1.62 to 3.2.0.
+
+
+# v3.29.0
+
+## Deprecations
+
+## New additions
+* Added `snow ai claude` and `snow ai opencode` to launch coding agents through the active connection's Snowflake AI Gateway, with PAT and OAuth authentication. Supported authorization-code OAuth connections renew credentials while the agent runs; pass native agent arguments after `--agent-args`.
+* `snow bundle` manages Snowflake code bundles, with `create`, `list`, `alter`, `delete`, `execute`, `status`, `cancel`, and `history` subcommands. A bundle is created from a stage path, a workspace path, or a local directory, and runs at a given entrypoint either synchronously or asynchronously.
+
+* `snow sql` custom REPL prompts now support hexadecimal foreground (`[#rrggbb]`) and background (`[bg:#rrggbb]`) colours. Each directive styles the prompt text that follows it.
+* Interactive `snow sql` completes SQL keywords, functions, and data types when you press Tab. Completions appear only on Tab, not while typing. Set `[cli] auto_completion = false` in `config.toml` to turn this off.
+* Per-command `--help` now includes **Usage notes**, **Examples**, and **Related topics** when those sections are defined for the command. Disable them with `enable_command_docs_in_help = false` under `[cli.features]` in `config.toml` or `SNOWFLAKE_CLI_FEATURES_ENABLE_COMMAND_DOCS_IN_HELP=false`.
+* Per-command `--help` now lists global and connection flags by name instead of full option panels. Use `--help-all` on a command for the previous full option list, or `snow --help` for descriptions. Disable condensed help with `enable_condensed_command_help = false` or `SNOWFLAKE_CLI_FEATURES_ENABLE_CONDENSED_COMMAND_HELP=false`.
+* Tab in `snow sql` also completes databases, schemas, tables, views, and columns visible to the current session. An empty prefix does not run an unbounded SHOW. `!rehash` clears the in-session object cache.
+## Fixes and improvements
+* Table cells in `snow sql` results no longer pass terminal control sequences through. ANSI color codes and other control characters are stripped before the table is drawn.
+* Large `snow sql` table results now stream with bounded memory instead of rendering the whole table at once.
+* `snow sql` no longer aborts a statement whose text contains Rich-markup-like tokens (for example `[/x]`). The statement is echoed and executed as written. The same applies to streamed SPCS image-build and remote-build log lines.
+* `snow --info` now reports `snowflake_connector_python_version`, the installed `snowflake-connector-python` version, so support and debugging can see which connector the CLI is running against.
+* Upgraded the Python interpreter embedded in Linux binaries from 3.10.21 to 3.10.22.
+* Files the CLI creates and files downloaded from a stage (`snow stage get`, `snow git copy`, `snow dcm --save-output`) are now restricted to the current user, including on Windows. Existing files in the download directory are left unchanged.
+* The `installation_source` value on `snow --info` for a curl|sh / irm|iex install is now `direct-install` (was `snowflake-managed`). `snow --version` is unchanged.
+
+
+# v3.28.0
+
+## Deprecations
+
+## New additions
+* `snow feature` is now available in preview. This command group manages declarative feature-store objects in Snowflake (`init`, `sync`, `plan`, `apply`, `list`, `describe`, `online-service` (`status`/`create`/`drop`), `ingest`, `query`). It is hidden by default; enable it with the `ENABLE_FEATURE_STORE` feature flag (`SNOWFLAKE_CLI_FEATURES_ENABLE_FEATURE_STORE=true` or `[cli.features] enable_feature_store = true` in `config.toml`). It requires the `snowflake-ml-python[feature_store]` library.
+* Environment variable support for dbt projects is now generally available. `snow dbt deploy` accepts `--env-file-dir`, which injects an `env.yml` from outside the project source into the deployed project root, and `--default-env` / `--unset-default-env`, which set or clear the environment block from `env.yml` that the project compiles and executes with by default. `snow dbt execute` accepts `--env` to select an environment at execution time (`NO_ENV` skips `env.yml` entirely), `--env-vars` to override individual variables with a YAML/JSON object of uppercase `DBT_*` keys and string values, and `--use-shell-env-vars` to forward exported `DBT_*` shell variables, which `--env-vars` overrides on collision. Variables passed either way appear in the query text and query history, so keep credentials in the `secrets:` block of `env.yml` instead.
+* Writeback and auto-compile settings for dbt projects are now generally available. `snow dbt deploy` accepts `--default-writeback` / `--no-default-writeback` and `--auto-compile` / `--no-auto-compile`, which set and persist on the project whether results are written back and whether it is compiled on deploy; omit them to leave the existing setting unchanged. `snow dbt execute` accepts `--writeback` / `--no-writeback` to override writeback for a single run (place it before the dbt command).
+* Stage imports for `snow dbt execute` are now generally available. The repeatable `--import` option adds an `IMPORTS` clause to the run; each value is a stage path (`@stage/s1`), a `snow://dbt` project URL, or one of the `SYSTEM$DBT_GET_LAST_RUN_TARGET`, `SYSTEM$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET`, `SYSTEM$DBT_GET_LAST_FAILED_RUN_TARGET`, or `SYSTEM$LOCATE_DBT_ARTIFACTS` functions, optionally aliased to a target folder with `as <folder>`.
+* The default output format is configurable via `cli.output_format` in `config.toml` or the `SNOWFLAKE_CLI_OUTPUT_FORMAT` environment variable (`TABLE`, `JSON`, `JSON_EXT`, or `CSV`). `--format` on the command still overrides it.
 * `snow spcs service remote-build`, `remote-build-status`, and `remote-build-history` are now generally available.
 * `snow dbt deploy` now also accepts `--git-url`, recording the repository URL in the project's `last_deployed_from` metadata alongside `--git-commit`/`--git-branch`. Like those flags, it is auto-detected from the GitHub Actions environment (`GITHUB_SERVER_URL`/`GITHUB_REPOSITORY`) when not explicitly specified.
 * `snow dbt execute` now accepts the `source`, `docs`, `clean`, `debug`, `ls`, and `deps_compile` commands (for example `snow dbt execute <project> source freshness` and `snow dbt execute <project> docs generate`), matching the set of commands the Snowflake backend already supports. These previously failed with a CLI "No such command" error even though the server accepted them.
 * `snow helpers clean-installer-path` cleans up the PATH entries that older macOS installers left behind in shell startup files, which can keep an outdated `snow` ahead of the current one. It reports what it would remove by default; `--apply` removes the entries and backs up every file it changes.
 * A `grants:` entry in `snowflake.yml` now accepts `user:` in place of `role:`, so `snow streamlit deploy` can grant an app to an individual user (UBAC) as well as to a role. Each entry needs exactly one of the two.
+* `snow sql` now reports `Time Elapsed: <seconds>s` after each synchronous SQL submission in the interactive REPL, including the time needed to display results.
+* For the `dcm` plugin, assets defined in the manifest file are uploaded. `assets:` is a mapping of names to either `path` (one file, directory, or glob) or `paths` (a list of them), all relative to the project root.
+* A Streamlit `grants:` entry gives USAGE to a `role:` or a `user:`, with an optional `with_grant_option: true`.
+* `snow streamlit share` accepts `--to-user`, sharing the app with an individual user (UBAC) rather than a role. Repeat the option to share with several users. The share is also recorded under the matching entity's `grants:` in `snowflake.yml`, so the next `snow streamlit deploy` keeps it. The role argument stays positional, so existing invocations are unaffected.
+* `snow streamlit share` accepts `--with-grant-option`, so the grantee can share the app onward.
+* `snow streamlit share` accepts `--grant-location-usage`, which also grants the grantee USAGE on the database and schema holding the app. A refusal is reported as a warning and the app grant stands, since it does not depend on those.
+* A `grants:` entry in `snowflake.yml` accepts `with_grant_option: true`, so a project file can record a share the grantee may pass on, and `snow streamlit deploy` issues it as `GRANT ... WITH GRANT OPTION`.
 
 ## Fixes and improvements
+* A failed Snowflake login is reported as a connection error, not as invalid connection configuration. Server-side messages such as a Duo lockout keep their original wording instead of being wrapped as a config problem.
 * Telemetry no longer opens a Snowflake connection on its own. Under `externalbrowser` or OAuth authorization-code authentication, commands that never touch Snowflake — such as `snow connection list`, `snow app bundle`, and `snow sql --help` — no longer open a browser tab, and no longer hang in headless or CI runs waiting for one that cannot appear.
 * Upgraded GitPython from 3.1.59 to 3.1.62.
 * The default upload-concurrency budget for recursive stage uploads (`cli.stage_upload_workers`) is now 32, up from 16. This speeds up every command that uploads a directory tree to a stage — `snow stage copy --recursive`, `snow dcm deploy`, `snow dcm plan`, `snow dbt deploy`, `snow spcs service build-image` — by roughly 16-28% on trees with many nested folders. Set `cli.stage_upload_workers` (or `SNOWFLAKE_CLI_STAGE_UPLOAD_WORKERS`) to restore the previous value.
 * Grantee names in `grants:` are quoted only where SQL requires it, so a role or user whose name is not a bare identifier — an email address, for instance — no longer produces a syntax error.
 * A `privilege:` in `grants:` is now validated: it must be a privilege name — one or more unquoted-identifier words, such as `USAGE` or `IMPORTED PRIVILEGES`. Anything else is rejected before the project file is used.
 * A whitespace-only `role:` or `user:` in `grants:` is now treated as absent and reported, rather than emitted as a quoted blank name.
+* Upgraded snowflake-connector-python from 4.7.3 to 4.7.5.
+* `snow --info` now reports `installation_source` (`pypi`, `binary`, or `snowflake-managed`) so support and agents can see how the CLI was installed. `snow --version` is unchanged.
+* The macOS `.pkg` installer no longer appends `export PATH=` to every user startup file on each upgrade. A machine-wide install (including Homebrew Cask) writes `/etc/paths.d/snowflake-cli` and an install under `/Users/<name>/` adds one marked PATH block to `.zprofile` for zsh or updates the first existing login profile (`.bash_profile`, `.bash_login`, or `.profile`) for bash. Duplicate lines from older installers stay until you remove them yourself.
+* OAuth connection failures now explain when silent refresh or credential caching is disabled, or when a raw token must be renewed by the application that supplied it. Authentication defaults and retry behavior are unchanged.
+* Leaving the `snow sql` REPL (and one-shot `snow sql` that only scheduled async queries) now completes as a successful command, so the upgrade banner may appear on exit, matching other `snow` commands.
+* Enter now submits a semicolon-terminated `snow sql` REPL buffer regardless of cursor position. Ctrl+J still inserts a newline.
 
 
 # v3.27.0
@@ -49,6 +158,8 @@
 * `snow snowpark build` now collects a project's dependencies from `pyproject.toml` when the project has no `requirements.txt`, so `snow snowpark deploy` picks them up as before. The `dependencies` key of the PEP 621 `[project]` table is read; optional dependencies (extras) are not. A project that has a `requirements.txt` still builds from it, and `pyproject.toml` is then ignored; the build says so when `pyproject.toml` also declares `[project]` dependencies. Dependencies declared as dynamic metadata (`dynamic = ["dependencies"]`) cannot be resolved and are reported as such.
 
 ## Fixes and improvements
+* `snow spcs service metrics` now reads both the legacy event-table metric schema and the next-gen event table schema (`record.name` and tagged `{"int_value"|"double_value"}` values). Previously the command failed with `Error processing metric row.` against accounts whose `EVENT_TABLE` had been migrated to `SNOWFLAKE.TELEMETRY.DATA`.
+* `snow spcs service metrics` now works against accounts whose event table has been migrated to the next-gen schema. Previously the command failed with `Error processing metric row.` on such accounts.
 * Upgraded tomlkit from 0.13.3 to 0.15.1, which fixes ~O(n^2) parsing of `config.toml`/`connections.toml`. Large config files were parsed in seconds and re-parsed several times per command, adding noticeable startup latency to every `snow` invocation; parsing is now effectively instant regardless of file size.
 * `snow streamlit deploy` now includes `runtime_name` from `snowflake.yml` in the generated `CREATE STREAMLIT` DDL; previously only `SYSTEM$ST_CONTAINER_RUNTIME_PY3_11` reached it and every other value was dropped without a warning. This matters now that BCR-2342 makes the container runtime the default, since an app requesting the warehouse runtime was created on the container runtime instead.
 * `snow streamlit deploy` matches a recognized `runtime_name` ignoring case and surrounding whitespace, then emits it in canonical form, so project-file formatting no longer reaches the DDL. `compute_pool` is trimmed the same way.

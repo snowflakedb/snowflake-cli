@@ -26,6 +26,7 @@ from typing import Any, Iterable, List, Optional
 import click
 import typer
 import yaml
+from configobj import ConfigObj, ConfigObjError
 from snowflake.cli._app.version_check import (
     get_version_info,
     record_version_check_displayed,
@@ -34,6 +35,16 @@ from snowflake.cli._app.version_check import (
 from snowflake.cli._plugins.helpers.installer_path import clean_installer_path_files
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    AdmonitionType,
+    CommandDocs,
+    Example,
+    admonition,
+    code,
+    link,
+    plain_text,
+    ref,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
     ConnectionConfig,
@@ -41,10 +52,12 @@ from snowflake.cli.api.config import (
     get_all_connections,
     get_encoding_diagnostics,
     get_file_io_encoding,
+    is_air_gapped,
     set_config_value,
 )
 from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -62,12 +75,22 @@ from snowflake.cli.api.project.schemas.project_definition import (
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils.types import try_cast_to_int
 
 log = logging.getLogger(__name__)
 
 app = SnowTyperFactory(
     name="helpers",
     help="Helper commands.",
+)
+
+_HELPERS_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link("/developer-guide/snowflake-cli/command-reference/helpers-commands/overview"),
 )
 
 
@@ -157,7 +180,89 @@ def clean_installer_path(
     return MessageResult(summary)
 
 
-@app.command()
+@app.command(
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                ref("sf-cli"),
+                " 3.0 introduced support for V2 project definition files. If you have "
+                "existing V1.x project definition files, you can use the ",
+                code("snow helpers v1-to-v2"),
+                " command to convert the files to the V2 version. The command preserves "
+                "the original version in a ",
+                code("snowflake_V1.yml"),
+                " file.",
+            ),
+            plain_text(
+                "You must run this command in the same directory as the ",
+                code("snowflake.yml"),
+                " file.",
+            ),
+            admonition(
+                AdmonitionType.ATTENTION,
+                "With the change in how ",
+                ref("sf-cli"),
+                " 3.0 handles project definition templates, Snowflake cannot guarantee "
+                "that project definition files using ",
+                link(
+                    "/developer-guide/snowflake-cli/project-definitions/create-templates",
+                    "templates",
+                ),
+                " will work correctly after conversion. By default, this command generates "
+                "an error if you try convert a 1.x file that contains templates. You can "
+                "force the command to convert these types of files by using the ",
+                code("--accept-templates"),
+                " option. Then you must manually update any templates to their V2 "
+                "equivalents.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Convert a version 1.x project definition file."
+                ),
+                command="cd <project-directory>\nsnow helpers v1-to-v2",
+                output="Project definition migrated to version 2.",
+            ),
+            Example(
+                description=plain_text("Convert a version 2 project definition file."),
+                command="cd <project-directory>\nsnow helpers v1-to-v2",
+                output="Project definition is already at version 2.",
+            ),
+            Example(
+                description=plain_text(
+                    "Convert a version 1 project definition that contains templates "
+                    "without the ",
+                    code("--accept-templates"),
+                    " option.",
+                ),
+                command="cd <project-directory>\nsnow helpers v1-to-v2",
+                output=(
+                    "+- Error---------------------------------------------------------------------+\n"
+                    "| Project definition contains templates. They may not be migrated correctly, |\n"
+                    "| and require manual migration.You can try again with --accept-templates     |\n"
+                    "| option, to attempt automatic migration.                                    |\n"
+                    "+----------------------------------------------------------------------------+"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Convert a version 1 project definition with the ",
+                    code("--accept-templates"),
+                    " option.",
+                ),
+                command="cd <project-directory>\nsnow helpers v1-to-v2",
+                output=(
+                    "WARNING  snowflake.cli._plugins.workspace.commands:commands.py:60 "
+                    "Your V1 definition contains templates. We cannot guarantee the "
+                    "correctness of the migration.\n"
+                    "Project definition migrated to version 2"
+                ),
+            ),
+        ),
+    ),
+)
 def v1_to_v2(
     accept_templates: bool = typer.Option(
         False, "-t", "--accept-templates", help="Allows the migration of templates."
@@ -216,12 +321,175 @@ def v1_to_v2(
     return MessageResult("Project definition migrated to version 2.")
 
 
-@app.command(name="import-snowsql-connections", requires_connection=False)
+@app.command(
+    name="import-snowsql-connections",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED
+        + (
+            link(
+                "/developer-guide/snowflake-cli/connecting/configure-connections#label-snow"
+                + "cli-import-connections-snowsql",
+                "Import connections from SnowSQL",
+            ),
+        ),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow helpers import-snowsql-connections"),
+                " command imports existing connection definitions from SnowSQL into your ",
+                code("config.toml"),
+                " configuration file.",
+            ),
+            plain_text(
+                "By default, the command reads the SnowSQL configuration files in the order "
+                "described in the ",
+                link(
+                    "/user-guide/snowsql-config#label-configuring-snowsql",
+                    "Configuring SnowSQL",
+                ),
+                " topic. If more than one of these configurations define the same connection, "
+                "a key in a later file replaces that key from an earlier file, and keys that "
+                "appear only in an earlier file are kept. To illustrate, assume the same ",
+                code("[connections.example]"),
+                " connection is defined with different parameters in ",
+                code("/etc/snowsql.cnf"),
+                " with ",
+                code("username=user1"),
+                ", and in ",
+                code("<HOME_DIR>/.snowsql/config"),
+                " with ",
+                code("username=user2"),
+                " and ",
+                code("password=<my-pwd>"),
+                ". After you run the command, your ",
+                ref("sf-cli"),
+                " ",
+                code("config.toml"),
+                " file contains the ",
+                code("[connections.example]"),
+                " definition from the file with the higher precedence (",
+                code("username=user2"),
+                " and ",
+                code("password=<my-pwd>"),
+                ").",
+            ),
+            plain_text(
+                "You can use the ",
+                code("--snowsql-config-file"),
+                " option to merge additional SnowSQL configuration files after the "
+                "default locations. This does not replace the default file list. "
+                "A key in a later file replaces that key from an "
+                "earlier file. ",
+                code("/usr/lib64/snowflake/snowsql/config"),
+                " is read last, when it exists, and overrides the same keys from the "
+                "default files and from ",
+                code("--snowsql-config-file"),
+                ". When ",
+                code("WORKSPACE"),
+                " is set, ",
+                code(".snowsql.cnf"),
+                " and ",
+                code(".snowsql/config"),
+                " are read from that directory instead of the home directory. "
+                "An empty or whitespace-only value is treated as unset.",
+            ),
+            plain_text(
+                "The ",
+                code("snow helpers import-snowsql-connections"),
+                " command also imports the default connection from SnowSQL, which is not a "
+                "named connection. It is defined directly in the ",
+                code("[connections]"),
+                " section. Because ",
+                ref("sf-cli"),
+                " requires all connections to be named, that section is saved under ",
+                code("--default-connection-name"),
+                " (by default, ",
+                code("default"),
+                ") and that saved name becomes ",
+                code("default_connection_name"),
+                ". A section that is only ",
+                code("[connections.default]"),
+                " is imported as a named connection and does not change ",
+                code("default_connection_name"),
+                ". A named connection is read from its ",
+                code("connections.<name>"),
+                " section alone. Keys from the unnamed ",
+                code("[connections]"),
+                " section are not copied onto it. ",
+                code("login_timeout"),
+                ", ",
+                code("client_session_keep_alive"),
+                ", ",
+                code("ocsp_fail_open"),
+                ", ",
+                code("insecure_mode"),
+                ", and ",
+                code("client_store_temporary_credential"),
+                " are copied from ",
+                code("[options]"),
+                " when a connection omits them. A key set on the connection wins. "
+                "A blank value is left unset, so a later blank clears an "
+                "earlier value and ",
+                ref("sf-cli"),
+                " can prompt or use an environment variable. A section with no remaining "
+                "values is not saved. When the authenticator that "
+                "survives the merge is present and is not ",
+                code("SNOWFLAKE_JWT"),
+                ", the private key and passphrase are omitted so that authenticator can be used.",
+            ),
+            plain_text(
+                "If a SnowSQL connection matches the name of an existing ",
+                ref("sf-cli"),
+                " connection, the command prompt asks whether you want to overwrite the "
+                "existing connection or skip importing that SnowSQL connection.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example imports SnowSQL connections from the standard "
+                    "configuration file locations. As the command processes the SnowSQL "
+                    "configuration files, it shows the progress and prompts for "
+                    "confirmation when a connection with the same name is already defined "
+                    "in the ",
+                    ref("sf-cli"),
+                    " ",
+                    code("config.toml"),
+                    " file.",
+                ),
+                command="snow helpers import-snowsql-connections",
+                output=(
+                    "SnowSQL config file [/etc/snowsql.cnf] does not exist. Skipping.\n"
+                    "SnowSQL config file [/etc/snowflake/snowsql.cnf] does not exist. Skipping.\n"
+                    "SnowSQL config file [/usr/local/etc/snowsql.cnf] does not exist. Skipping.\n"
+                    "Trying to read connections from [/Users/<user>/.snowsql.cnf].\n"
+                    "Reading SnowSQL's connection configuration [connections.connection1] from [/Users/<user>/.snowsql.cnf]\n"
+                    "Trying to read connections from [/Users/<user>/.snowsql/config].\n"
+                    "Reading SnowSQL's default connection configuration from [/Users/<user>/.snowsql/config]\n"
+                    "Reading SnowSQL's connection configuration [connections.connection1] from [/Users/<user>/.snowsql/config]\n"
+                    "Reading SnowSQL's connection configuration [connections.connection2] from [/Users/<user>/.snowsql/config]\n"
+                    "SnowSQL config file [/usr/lib64/snowflake/snowsql/config] does not exist. Skipping.\n"
+                    "Connection 'connection1' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI? [y/N]: Y\n"
+                    "Connection 'connection2' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI? [y/N]: n\n"
+                    "Connection 'default' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI? [y/N]: n\n"
+                    "Saving [connection1] connection in Snowflake CLI's config.\n"
+                    "Connections successfully imported from SnowSQL to Snowflake CLI."
+                ),
+            ),
+        ),
+    ),
+)
 def import_snowsql_connections(
     custom_snowsql_config_files: Optional[List[Path]] = typer.Option(
         None,
         "--snowsql-config-file",
-        help="Specifies file paths to custom SnowSQL configuration. The option can be used multiple times to specify more than 1 file.",
+        help=(
+            "SnowSQL configuration file to merge after the default locations. "
+            "This does not replace the default file list. "
+            "Repeat to merge several files. "
+            "/usr/lib64/snowflake/snowsql/config is still read last."
+        ),
         dir_okay=False,
         exists=True,
     ),
@@ -234,151 +502,445 @@ def import_snowsql_connections(
 ) -> CommandResult:
     """Import your existing connections from your SnowSQL configuration."""
 
-    snowsql_config_files: list[Path] = custom_snowsql_config_files or [
-        Path("/etc/snowsql.cnf"),
-        Path("/etc/snowflake/snowsql.cnf"),
-        Path("/usr/local/etc/snowsql.cnf"),
-        Path.home() / Path(".snowsql.cnf"),
-        Path.home() / Path(".snowsql/config"),
-    ]
     snowsql_config_secure_paths: list[SecurePath] = [
-        SecurePath(p) for p in snowsql_config_files
+        SecurePath(p) for p in _snowsql_config_files(custom_snowsql_config_files)
     ]
 
-    all_imported_connections = _read_all_connections_from_snowsql(
+    (
+        all_imported_connections,
+        unnamed_connection_name,
+    ) = _read_all_connections_from_snowsql(
         default_cli_connection_name, snowsql_config_secure_paths
     )
     _validate_and_save_connections_imported_from_snowsql(
-        default_cli_connection_name, all_imported_connections
+        unnamed_connection_name, all_imported_connections
     )
     return MessageResult(
         "Connections successfully imported from SnowSQL to Snowflake CLI."
     )
 
 
+_USER_SNOWSQL_CONFIG_FILES = (
+    Path("/etc/snowsql.cnf"),
+    Path("/etc/snowflake/snowsql.cnf"),
+    Path("/usr/local/etc/snowsql.cnf"),
+)
+# SnowSQL reads this RPM file after the user files and after --config.
+_RPM_SNOWSQL_CONFIG_FILE = Path("/usr/lib64/snowflake/snowsql/config")
+
+# SnowSQL key wins over the following long aliases, regardless of line order.
+# A blank or whitespace value is skipped, so the next alias is used.
+# databasename is not a SnowSQL key; it is a last-resort alias.
+_SNOWSQL_KEY_PRECEDENCE: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("account", ("account", "accountname")),
+    ("user", ("user", "username")),
+    ("database", ("database", "dbname", "databasename")),
+    ("schema", ("schema", "schemaname")),
+    ("warehouse", ("warehouse", "warehousename")),
+    ("role", ("role", "rolename")),
+    ("password", ("password", "pwd")),
+    # ``private_key_path`` is the SnowSQL spelling and wins when both are present.
+    ("private_key_file", ("private_key_path", "private_key_file")),
+    # Neither name is a documented SnowSQL key. The connector accepts
+    # ``private_key_file_pwd``; the CLI stores ``private_key_passphrase``.
+    ("private_key_passphrase", ("private_key_passphrase", "private_key_file_pwd")),
+    ("proxy_password", ("proxy_password", "proxy_pwd")),
+)
+
+# Typed settings from the SnowSQL config, plus the connector value that raises
+# ``TypeError`` when left as text. Passwords and other free text stay strings.
+# ``port`` and ``proxy_port`` stay strings because the connector accepts them.
+_INTEGER_CONNECTION_KEYS = frozenset(
+    {
+        "login_timeout",
+        "client_prefetch_threads",
+    }
+)
+_BOOLEAN_CONNECTION_KEYS = frozenset(
+    {
+        "client_session_keep_alive",
+        "client_store_temporary_credential",
+        "insecure_mode",
+        "ocsp_fail_open",
+        # The connector treats a non-empty string as true for these.
+        "oauth_disable_pkce",
+        "oauth_enable_refresh_tokens",
+        "oauth_enable_single_use_refresh_tokens",
+        "disable_request_pooling",
+    }
+)
+# SnowSQL applies these from ``[options]`` when the connection section omits them.
+_OPTIONS_CONNECTION_KEYS = (
+    "login_timeout",
+    "client_session_keep_alive",
+    "ocsp_fail_open",
+    "insecure_mode",
+    "client_store_temporary_credential",
+)
+_MAX_DEFAULT_CONNECTION_NAME_PROMPTS = 3
+# SnowSQL accepts these words for a boolean setting. A leftover string is what
+# the connector rejects for ``insecure_mode``.
+_SNOWSQL_BOOLEAN_WORDS = {
+    "1": True,
+    "0": False,
+    "true": True,
+    "false": False,
+    "yes": True,
+    "no": False,
+    "on": True,
+    "off": False,
+}
+
+
+def _snowsql_user_home() -> Path:
+    """Directory SnowSQL uses for ``.snowsql.cnf`` and ``.snowsql/config``.
+
+    ``WORKSPACE`` replaces the home directory for those two paths only.
+    """
+    workspace = os.environ.get("WORKSPACE")
+    if workspace and workspace.strip():
+        return Path(workspace)
+    return Path.home()
+
+
+def _snowsql_config_files(
+    custom_snowsql_config_files: Optional[List[Path]],
+) -> list[Path]:
+    """Default SnowSQL paths, then custom files, then the RPM file.
+
+    A missing path is skipped by the reader. The bundled ``{package}/snowsql.cnf``
+    template is not on this list.
+    """
+    user_home = _snowsql_user_home()
+    return [
+        *_USER_SNOWSQL_CONFIG_FILES,
+        user_home / ".snowsql.cnf",
+        user_home / ".snowsql" / "config",
+        *(custom_snowsql_config_files or []),
+        _RPM_SNOWSQL_CONFIG_FILE,
+    ]
+
+
 def _read_all_connections_from_snowsql(
     default_cli_connection_name: str, snowsql_config_files: List[SecurePath]
-) -> dict[str, dict]:
-    import configparser
-
-    imported_default_connection: dict[str, Any] = {}
-    imported_named_connections: dict[str, dict] = {}
+) -> tuple[dict[str, dict], Optional[str]]:
+    imported_default_raw: dict[str, str] = {}
+    imported_named_raw: dict[str, dict[str, str]] = {}
+    imported_options_raw: dict[str, str] = {}
 
     for file in snowsql_config_files:
+        shown_path = _name_for_prompt(str(file.path))
         if not file.exists():
             cli_console.step(
-                f"SnowSQL config file [{str(file.path)}] does not exist. Skipping."
+                f"SnowSQL config file [{shown_path}] does not exist. Skipping."
             )
             continue
 
-        cli_console.step(f"Trying to read connections from [{str(file.path)}].")
-        snowsql_config = configparser.ConfigParser()
-        snowsql_config.read(file.path)
+        cli_console.step(f"Trying to read connections from [{shown_path}].")
+        snowsql_config = _load_snowsql_config(file)
 
-        if "connections" in snowsql_config and snowsql_config.items("connections"):
+        default_items = _snowsql_section_items(snowsql_config, "connections")
+        if default_items:
             cli_console.step(
-                f"Reading SnowSQL's default connection configuration from [{str(file.path)}]"
+                f"Reading SnowSQL's default connection configuration from [{shown_path}]"
             )
-            snowsql_default_connection = snowsql_config.items("connections")
-            imported_default_connection.update(
-                _convert_connection_from_snowsql_config_section(
-                    snowsql_default_connection
-                )
-            )
+            _merge_snowsql_raw_keys(imported_default_raw, default_items)
+
+        option_items = _snowsql_section_items(snowsql_config, "options")
+        if option_items:
+            _merge_snowsql_raw_keys(imported_options_raw, option_items)
 
         other_snowsql_connection_section_names = [
             section_name
-            for section_name in snowsql_config.sections()
+            for section_name in snowsql_config.sections
             if section_name.startswith("connections.")
         ]
         for snowsql_connection_section_name in other_snowsql_connection_section_names:
+            shown_section = _name_for_prompt(snowsql_connection_section_name)
             cli_console.step(
-                f"Reading SnowSQL's connection configuration [{snowsql_connection_section_name}] from [{str(file.path)}]"
+                f"Reading SnowSQL's connection configuration [{shown_section}] from [{shown_path}]"
             )
-            snowsql_named_connection = snowsql_config.items(
-                snowsql_connection_section_name
+            snowsql_named_connection = _snowsql_section_items(
+                snowsql_config, snowsql_connection_section_name
             )
             if not snowsql_named_connection:
                 cli_console.step(
-                    f"Empty connection configuration [{snowsql_connection_section_name}] in [{str(file.path)}]. Skipping."
+                    f"Empty connection configuration [{shown_section}] in [{shown_path}]. Skipping."
                 )
                 continue
 
             connection_name = snowsql_connection_section_name.removeprefix(
                 "connections."
             )
-            imported_named_conenction = _convert_connection_from_snowsql_config_section(
-                snowsql_named_connection
-            )
-            if connection_name in imported_named_connections:
-                imported_named_connections[connection_name].update(
-                    imported_named_conenction
-                )
-            else:
-                imported_named_connections[connection_name] = imported_named_conenction
+            named_raw = imported_named_raw.setdefault(connection_name, {})
+            _merge_snowsql_raw_keys(named_raw, snowsql_named_connection)
 
-    def imported_default_connection_as_named_connection():
-        name = _validate_imported_default_connection_name(
-            default_cli_connection_name, imported_named_connections
+    imported_default_connection = (
+        _convert_connection_from_snowsql_config_section(
+            list(imported_default_raw.items())
         )
-        return {name: imported_default_connection}
-
-    named_default_connection = (
-        imported_default_connection_as_named_connection()
-        if imported_default_connection
+        if imported_default_raw
         else {}
     )
+    imported_named_connections = {
+        name: _convert_connection_from_snowsql_config_section(list(raw.items()))
+        for name, raw in imported_named_raw.items()
+    }
+    _drop_blank_connection_values(imported_default_connection)
+    for connection in imported_named_connections.values():
+        _drop_blank_connection_values(connection)
+    option_settings = _connection_settings_from_options(imported_options_raw)
+    _copy_missing_option_settings(imported_default_connection, option_settings)
+    for connection in imported_named_connections.values():
+        _copy_missing_option_settings(connection, option_settings)
+    for name in list(imported_named_connections):
+        if imported_named_connections[name]:
+            continue
+        cli_console.step(
+            "Empty connection configuration "
+            f"[connections.{_name_for_prompt(name)}] after merging. Skipping."
+        )
+        del imported_named_connections[name]
+    for name, connection in imported_named_connections.items():
+        _use_private_key_only_with_jwt(connection, name)
 
-    return imported_named_connections | named_default_connection
+    unnamed_connection_name = None
+    named_default_connection: dict[str, dict] = {}
+    if imported_default_connection:
+        unnamed_connection_name = _validate_imported_default_connection_name(
+            default_cli_connection_name, imported_named_connections
+        )
+        _use_private_key_only_with_jwt(
+            imported_default_connection, unnamed_connection_name
+        )
+        named_default_connection = {
+            unnamed_connection_name: imported_default_connection
+        }
+
+    return (
+        imported_named_connections | named_default_connection,
+        unnamed_connection_name,
+    )
 
 
 def _validate_imported_default_connection_name(
     name_candidate: str, other_snowsql_connections: dict[str, dict]
 ) -> str:
-    if name_candidate in other_snowsql_connections:
-        new_name_candidate = typer.prompt(
-            f"Chosen default connection name '{name_candidate}' is already taken by other connection being imported from SnowSQL. Please choose a different name for your default connection"
+    candidate = name_candidate
+    prompts_left = _MAX_DEFAULT_CONNECTION_NAME_PROMPTS
+    while True:
+        if candidate.strip() and candidate not in other_snowsql_connections:
+            return candidate
+        if prompts_left == 0:
+            raise CliError(
+                "Could not choose a name for the SnowSQL default connection."
+            )
+        prompts_left -= 1
+        if not candidate.strip():
+            prompt = (
+                "Default connection name cannot be blank. Choose a different name "
+                "for the SnowSQL default connection"
+            )
+        else:
+            # Drop carriage returns and other controls. They rewrite the prompt line.
+            shown = _name_for_prompt(candidate)
+            prompt = (
+                f"Chosen default connection name '{shown}' is already taken by "
+                "other connection being imported from SnowSQL. Please choose a "
+                "different name for your default connection"
+            )
+        # ``default=""`` makes Enter return an empty string. Without it, Click
+        # stays in its own loop and a blank line never uses a prompt.
+        candidate = typer.prompt(prompt, default="", show_default=False)
+
+
+def _merge_snowsql_raw_keys(
+    target: dict[str, str], items: list[tuple[str, str]]
+) -> None:
+    """Later file replaces the same raw key and keeps keys only the earlier file set."""
+    for key, value in items:
+        target[key] = _snowsql_config_value(value)
+
+
+def _snowsql_text_is_blank(value: str) -> bool:
+    """A blank or whitespace-only SnowSQL value is unset."""
+    return not value.strip()
+
+
+def _drop_blank_connection_values(connection: dict[str, Any]) -> None:
+    """A blank final value is unset, so the CLI can prompt or use an environment variable.
+
+    ``False`` and ``0`` stay. A blank is removed before ``[options]`` fills a
+    missing key, so an empty connection value does not block that setting.
+    """
+    for key, value in list(connection.items()):
+        if isinstance(value, str) and _snowsql_text_is_blank(value):
+            del connection[key]
+
+
+def _use_private_key_only_with_jwt(
+    connection: dict[str, Any], connection_name: str
+) -> None:
+    """Keep a private key only when the merged authenticator is JWT or absent.
+
+    The CLI rejects any other combination in ``_load_private_key`` before the
+    connector runs. An absent authenticator becomes ``SNOWFLAKE_JWT``. A
+    surviving non-JWT authenticator is kept, and the key and passphrase are
+    omitted so that authenticator can be used.
+    """
+    if not connection.get("private_key_file"):
+        return
+    authenticator = connection.get("authenticator")
+    if not authenticator:
+        connection["authenticator"] = "SNOWFLAKE_JWT"
+        return
+    if str(authenticator).upper() == "SNOWFLAKE_JWT":
+        return
+    connection.pop("private_key_file", None)
+    connection.pop("private_key_passphrase", None)
+    cli_console.step(
+        f"Connection [{_name_for_prompt(connection_name)}] keeps authenticator "
+        f"'{_name_for_prompt(str(authenticator))}' "
+        "and omits the private key. The CLI can open that authenticator only "
+        "without a private key."
+    )
+
+
+def _name_for_prompt(name: str) -> str:
+    """Name safe to print in a prompt. Drops ANSI and other control characters."""
+    cleaned = sanitize_for_terminal(name) or ""
+    return "".join(character for character in cleaned if character.isprintable())
+
+
+def _load_snowsql_config(file: SecurePath):
+    """Read one SnowSQL file the way SnowSQL 1.5 does.
+
+    SnowSQL uses ``ConfigObj`` with interpolation off. ``#`` starts a comment.
+    ``list_values=False`` keeps ``a, b`` as one string, including the space.
+    Quotes stay in the value until ``_snowsql_config_value`` strips one pair.
+    The file is decoded as UTF-8.
+    """
+    try:
+        with file.open(
+            "r",
+            encoding="utf-8-sig",
+            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB,
+        ) as config_handle:
+            text = config_handle.read()
+    except (OSError, UnicodeDecodeError) as error:
+        if isinstance(error, OSError) and error.strerror:
+            reason = error.strerror
+        else:
+            reason = "the file could not be read"
+        raise CliError(
+            "Could not read SnowSQL config file "
+            f"[{_name_for_prompt(str(file.path))}]: {reason}."
+        ) from error
+
+    try:
+        # ``raise_errors`` stops on a broken line instead of keeping a partial
+        # parse. The message names the path and does not repeat the line.
+        return ConfigObj(
+            text.splitlines(),
+            interpolation=False,
+            list_values=False,
+            raise_errors=True,
         )
-        return _validate_imported_default_connection_name(
-            new_name_candidate, other_snowsql_connections
-        )
-    else:
-        return name_candidate
+    except ConfigObjError as error:
+        raise CliError(
+            "Could not read SnowSQL config file "
+            f"[{_name_for_prompt(str(file.path))}]: the file could not be parsed."
+        ) from error
+
+
+def _snowsql_section_items(parsed, section_name: str) -> list[tuple[str, str]]:
+    """Key/value pairs in one section. Nested sections are not connection keys."""
+    section = parsed.get(section_name)
+    if not isinstance(section, dict):
+        return []
+    items: list[tuple[str, str]] = []
+    for key, value in section.items():
+        if isinstance(value, dict):
+            continue
+        items.append((str(key).lower(), _snowsql_config_value(value)))
+    return items
+
+
+def _snowsql_config_value(value: Any) -> str:
+    """Keep a SnowSQL value as one string.
+
+    ``list_values=False`` leaves one matching pair of quotes in place. Strip
+    that pair so ``accountname = "acct"`` imports as ``acct``. Do not interpret
+    the text as a Python literal: ``password = 123456`` stays a string, and
+    ``token = a, b`` keeps the space.
+    """
+    if value is None:
+        return ""
+    text = str(value)
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        return text[1:-1]
+    return text
+
+
+def _connection_settings_from_options(raw: dict[str, str]) -> dict[str, Any]:
+    """Connection settings present in the merged ``[options]`` section."""
+    settings: dict[str, Any] = {}
+    for key in _OPTIONS_CONNECTION_KEYS:
+        if key not in raw:
+            continue
+        value = raw[key]
+        if isinstance(value, str) and _snowsql_text_is_blank(value):
+            continue
+        settings[key] = _coerce_imported_value(key, value)
+    return settings
+
+
+def _copy_missing_option_settings(
+    connection: dict[str, Any], option_settings: dict[str, Any]
+) -> None:
+    """Fill connection settings the section omitted from ``[options]``."""
+    if not connection or not option_settings:
+        return
+    for key, value in option_settings.items():
+        connection.setdefault(key, value)
+
+
+def _coerce_imported_value(key: str, value: str) -> Any:
+    """Coerce connector int and bool settings. Leave every other value as text."""
+    if key in _INTEGER_CONNECTION_KEYS:
+        try:
+            return try_cast_to_int(value)
+        except ValueError:
+            return value
+    if key in _BOOLEAN_CONNECTION_KEYS:
+        coerced = _SNOWSQL_BOOLEAN_WORDS.get(value.strip().lower())
+        if coerced is not None:
+            return coerced
+        return value
+    return value
 
 
 def _convert_connection_from_snowsql_config_section(
-    snowsql_connection: list[tuple[str, Any]],
+    snowsql_connection: list[tuple[str, str]],
 ) -> dict[str, Any]:
-    from ast import literal_eval
-
-    key_names_replacements = {
-        "accountname": "account",
-        "username": "user",
-        "databasename": "database",
-        "dbname": "database",
-        "schemaname": "schema",
-        "warehousename": "warehouse",
-        "rolename": "role",
-        "private_key_path": "private_key_file",
-    }
-
-    def parse_value(value: Any):
-        try:
-            parsed_value = literal_eval(value)
-        except Exception:
-            parsed_value = value
-        return parsed_value
-
+    raw = dict(snowsql_connection)
+    consumed: set[str] = set()
     cli_connection: dict[str, Any] = {}
-    for key, value in snowsql_connection:
-        cli_key = key_names_replacements.get(key, key)
-        cli_value = parse_value(value)
-        cli_connection[cli_key] = cli_value
+    for cli_key, source_keys in _SNOWSQL_KEY_PRECEDENCE:
+        consumed.update(source for source in source_keys if source in raw)
+        for source in source_keys:
+            if source not in raw or _snowsql_text_is_blank(raw[source]):
+                continue
+            cli_connection[cli_key] = _coerce_imported_value(cli_key, raw[source])
+            break
+    for key, value in raw.items():
+        if key not in consumed:
+            cli_connection[key] = _coerce_imported_value(key, value)
     return cli_connection
 
 
 def _validate_and_save_connections_imported_from_snowsql(
-    default_cli_connection_name: str, all_imported_connections: dict[str, Any]
+    unnamed_connection_name: Optional[str], all_imported_connections: dict[str, Any]
 ):
     existing_cli_connection_names: set[str] = set(get_all_connections().keys())
     imported_connections_to_save: dict[str, Any] = {}
@@ -387,28 +949,89 @@ def _validate_and_save_connections_imported_from_snowsql(
         imported_connection,
     ) in all_imported_connections.items():
         if imported_connection_name in existing_cli_connection_names:
+            shown_name = _name_for_prompt(imported_connection_name)
             override_cli_connection = typer.confirm(
-                f"Connection '{imported_connection_name}' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI?"
+                f"Connection '{shown_name}' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI?"
             )
             if not override_cli_connection:
                 continue
         imported_connections_to_save[imported_connection_name] = imported_connection
 
     for name, connection in imported_connections_to_save.items():
-        cli_console.step(f"Saving [{name}] connection in Snowflake CLI's config.")
+        cli_console.step(
+            f"Saving [{_name_for_prompt(name)}] connection in Snowflake CLI's config."
+        )
         add_connection_to_proper_file(name, ConnectionConfig.from_dict(connection))
 
-    if default_cli_connection_name in imported_connections_to_save:
+    if (
+        unnamed_connection_name
+        and unnamed_connection_name in imported_connections_to_save
+    ):
         cli_console.step(
-            f"Setting [{default_cli_connection_name}] connection as Snowflake CLI's default connection."
+            "Setting "
+            f"[{_name_for_prompt(unnamed_connection_name)}] connection as "
+            "Snowflake CLI's default connection."
         )
         set_config_value(
             path=["default_connection_name"],
-            value=default_cli_connection_name,
+            value=unnamed_connection_name,
         )
 
 
-@app.command(name="check-snowsql-env-vars", requires_connection=False)
+@app.command(
+    name="check-snowsql-env-vars",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                "This command helps you migrate from SnowSQL to ",
+                ref("sf-cli"),
+                " by identifying your SnowSQL environment variables and mapping them to "
+                "the corresponding ",
+                ref("sf-cli"),
+                " environment variables. It displays information with suggested changes "
+                "and links to documentation.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "This example assumes a user has defined the following environment "
+                    "variables:\n\n"
+                    "- ",
+                    code("SNOWSQL_USER"),
+                    ": Username for the connection.\n" "- ",
+                    code("SNOWSQL_ROLE"),
+                    ": Role for the connection.\n" "- ",
+                    code("SNOWSQL_UNUSED"),
+                    ": Variable not used in ",
+                    ref("sf-cli"),
+                    ".",
+                ),
+                command="snow helpers check-snowsql-env-vars",
+                output=(
+                    "+--------------------------------------------------------------------------------------------------------------------------------------------+\n"
+                    "| Found        | Suggested      | Additional info                                                                                            |\n"
+                    "|--------------+----------------+------------------------------------------------------------------------------------------------------------|\n"
+                    "| SNOWSQL_USER | SNOWFLAKE_USER | https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environme |\n"
+                    "|              |                | nt-variables-for-snowflake-credentials                                                                     |\n"
+                    "| SNOWSQL_ROLE | SNOWFLAKE_ROLE | https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environme |\n"
+                    "|              |                | nt-variables-for-snowflake-credentials                                                                     |\n"
+                    "+--------------------------------------------------------------------------------------------------------------------------------------------+\n"
+                    "\n"
+                    "+----------------------------------------------+\n"
+                    "| Found          | Suggested | Additional info |\n"
+                    "|----------------+-----------+-----------------|\n"
+                    "| SNOWSQL_UNUSED | n/a       | Unused variable |\n"
+                    "+----------------------------------------------+\n"
+                    "\n"
+                    "Found 3 SnowSQL environment variables, 2 with replacements, 1 unused."
+                ),
+            ),
+        ),
+    ),
+)
 def check_snowsql_env_vars(**options):
     """Check if there are any SnowSQL environment variables set."""
 
@@ -521,7 +1144,67 @@ def _build_project_definition_schema(version: str) -> dict[str, Any]:
     return schema
 
 
-@app.command(name="generate-project-schema", requires_connection=False)
+@app.command(
+    name="generate-project-schema",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                "The generated schema describes the structure of the ",
+                code("snowflake.yml"),
+                " project definition file for the selected definition version. Use the ",
+                code("--definition-version"),
+                " option to choose the version (",
+                code("1"),
+                ", ",
+                code("1.1"),
+                ", or ",
+                code("2"),
+                "; the default is ",
+                code("2"),
+                "), and the ",
+                code("--output-file"),
+                " (or ",
+                code("-o"),
+                ") option to write the schema to a file instead of printing it to "
+                "standard output.",
+            ),
+            plain_text(
+                "Because the schema is derived from the CLI's own models, it validates "
+                "the structure of the file, for example unknown keys, incorrect types, "
+                "and missing required fields. Some cross-field and semantic checks are "
+                "applied only when the project is loaded or deployed, so a file that "
+                "matches the schema can still fail at deploy time.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Print the schema for the default (version 2) project definition to "
+                    "standard output:"
+                ),
+                command="snow helpers generate-project-schema",
+            ),
+            Example(
+                description=plain_text(
+                    "Write the schema to a file that your editor or CI pipeline can "
+                    "reference:"
+                ),
+                command=(
+                    "snow helpers generate-project-schema --output-file "
+                    "snowflake-schema.json"
+                ),
+            ),
+            Example(
+                description=plain_text(
+                    "Generate the schema for a version 1.1 project definition:"
+                ),
+                command="snow helpers generate-project-schema --definition-version 1.1",
+            ),
+        ),
+    ),
+)
 def generate_project_schema(
     version: ProjectDefinitionVersion = typer.Option(  # type: ignore[valid-type]
         _DEFAULT_DEFINITION_VERSION,
@@ -538,16 +1221,7 @@ def generate_project_schema(
     ),
     **options,
 ) -> CommandResult:
-    """
-    Generate a JSON Schema for the Snowflake CLI project definition file (snowflake.yml).
-
-    Save the output and reference it from your editor (for example the YAML VS Code
-    extension, via a `# yaml-language-server: $schema=...` modeline or the extension's
-    schema mapping) or a CI pipeline to get completion and to catch typos and type
-    errors in snowflake.yml before a deploy. The schema is generated from the CLI's
-    own pydantic models, so it stays in sync with the structural rules the CLI
-    enforces; some cross-field/semantic checks are only applied at load/deploy time.
-    """
+    """Generate a JSON Schema for the Snowflake CLI project definition file (snowflake.yml)."""
     schema = _build_project_definition_schema(version.value)
 
     if output_file is not None:
@@ -568,7 +1242,40 @@ def generate_project_schema(
     return MessageResult(json.dumps(schema, indent=2, sort_keys=True))
 
 
-@app.command(name="check-version", requires_connection=False)
+@app.command(
+    name="check-version",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                code("snow helpers check-version"),
+                " doesn't require a Snowflake connection. It checks locally cached "
+                "version information by default. Use ",
+                code("--refresh"),
+                " to query PyPI and Homebrew directly, bypassing the cache. " "When ",
+                code("cli.air_gapped"),
+                " / ",
+                code("SNOWFLAKE_CLI_AIR_GAPPED"),
+                " is set, the command exits with an error and does not query any repository.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Check whether a newer version is available using the local cache:"
+                ),
+                command="snow helpers check-version",
+            ),
+            Example(
+                description=plain_text(
+                    "Query PyPI and Homebrew directly for the latest version:"
+                ),
+                command="snow helpers check-version --refresh",
+            ),
+        ),
+    ),
+)
 def check_version(
     refresh: bool = typer.Option(
         False,
@@ -577,17 +1284,12 @@ def check_version(
     ),
     **options,
 ) -> CommandResult:
-    """
-    Check whether a newer version of the Snowflake CLI is available.
-
-    Reports the installed version alongside the latest published version and
-    whether an upgrade is available. This is the on-demand equivalent of the
-    upgrade banner shown automatically after commands, and always reports its
-    result regardless of the ``ignore_new_version_warning`` setting.
-    """
+    """Check whether a newer version of the Snowflake CLI is available."""
     # This command is the explicit, on-demand version check, so mute the passive
     # upgrade banner for this run to avoid duplicating its own output.
     suppress_new_version_banner()
+    if is_air_gapped():
+        raise CliError("Version checks are disabled because cli.air_gapped is set.")
     info = get_version_info(force_refresh=refresh)
     if info.latest_version is None:
         raise CliError(
@@ -599,14 +1301,51 @@ def check_version(
     return ObjectResult(asdict(info))
 
 
-@app.command(name="detect-encoding", requires_connection=False)
+@app.command(
+    name="detect-encoding",
+    requires_connection=False,
+    docs=CommandDocs(
+        related=_HELPERS_RELATED,
+        usage_notes=(
+            plain_text(
+                "Use ",
+                code("snow helpers detect-encoding"),
+                " to inspect the text encoding ",
+                ref("sf-cli"),
+                " uses in the current environment and to diagnose encoding warnings. "
+                "The command reports the encodings applied to reading and writing project "
+                "files, decoding subprocess output, and writing output to standard output, "
+                "and it highlights settings that can corrupt files when projects are shared "
+                "across platforms, for example between Windows and macOS or Linux.",
+            ),
+            plain_text(
+                "To change these encodings, configure the ",
+                code("[cli.encoding]"),
+                " section of ",
+                code("config.toml"),
+                " or set the corresponding ",
+                code("SNOWFLAKE_CLI_ENCODING_*"),
+                " environment variables. For more information, see ",
+                link("/developer-guide/snowflake-cli/connecting/configure-cli"),
+                ".",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Show the encoding configuration for the current environment:"
+                ),
+                command="snow helpers detect-encoding",
+            ),
+            Example(
+                description=plain_text(
+                    "Emit the encoding details as JSON for scripting:"
+                ),
+                command="snow helpers detect-encoding --format json",
+            ),
+        ),
+    ),
+)
 def detect_encoding(**options) -> CommandResult:
-    """
-    Show the encoding configuration for the current environment.
-
-    Displays the platform encoding settings and flags any discrepancies that
-    could cause file corruption when sharing projects across platforms.
-    Run this command after seeing an encoding warning to get the full details
-    and recommended remediation steps.
-    """
+    """Show the encoding configuration for the current environment."""
     return MessageResult(get_encoding_diagnostics())

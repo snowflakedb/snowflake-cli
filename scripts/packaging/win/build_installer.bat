@@ -5,17 +5,32 @@ set PATH=C:\Program Files\7-Zip;C:\Users\jenkins\AppData\Local\Programs\Python\P
 python.exe --version
 python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}')"
 
-python.exe -m pip install click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
-FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
+REM hatch==1.15.1 pulls uv; Artifactory 403 on unpinned latest leaves hatch off
+REM PATH (Win installer #597-#599, MacArm64 #945). Pin uv in uv.constraint.
+REM tomlkit is enough for --pack-tarball. Versions come from __about__.py so a
+REM hatch miss cannot stamp snowflake-cli-.zip.
+python.exe -m pip install click==8.2.1 virtualenv==20.39.1 tomlkit || goto :error
+python.exe -m pip install hatch==1.15.1 -c scripts\packaging\uv.constraint
+set PYTHONPATH=%CD%\src
+REM WiX ProductVersion is 4 integers only (3.29.0.dev0 -> 3.29.0.0). The unsigned
+REM zip uses that too. Releng copy is {RELEASE_VERSION}.0-x86_64.msi, so the
+REM staged MSI filename must be hatch version + ".0" (3.29.0.dev0.0 / 3.29.0.0).
+REM Managed tarball/fragment stay on hatch version so Assemble matches Linux/Mac.
+FOR /F "delims=" %%I IN ('python.exe scripts\packaging\win\build_version.py') DO SET CLI_VERSION_WIN=%%I
+FOR /F "delims=" %%I IN ('python.exe -c "from snowflake.cli.__about__ import VERSION; print(VERSION)"') DO SET CLI_VERSION=%%I
 FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
 FOR /F "delims=" %%I IN ('echo %releaseType%') DO SET RELEASE_TYPE=%%I
 
+if "%CLI_VERSION%"=="" goto :error
+if "%CLI_VERSION_WIN%"=="" goto :error
+
 echo CLI_VERSION = `%CLI_VERSION%`
+echo CLI_VERSION_WIN = `%CLI_VERSION_WIN%`
 echo REVISION = `%REVISION%`
 echo RELEASE_TYPE = %RELEASE_TYPE%`
 
-set CLI_ZIP=snowflake-cli-%CLI_VERSION%.zip
-set CLI_MSI=snowflake-cli-%CLI_VERSION%-x86_64.msi
+set CLI_ZIP=snowflake-cli-%CLI_VERSION_WIN%.zip
+set CLI_MSI=snowflake-cli-%CLI_VERSION%.0-x86_64.msi
 set STAGE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/staging/%RELEASE_TYPE%/windows_x86_64/%REVISION%
 set RELEASE_URL=s3://sfc-eng-jenkins/repository/snowflake-cli/%RELEASE_TYPE%/windows_x86_64/%REVISION%
 
@@ -33,9 +48,15 @@ smctl windows certsync || goto :error
 smctl sign --keypair-alias %digicert_key_name% --input dist\snow\snow.exe || goto :error
 signtool verify /v /pa dist\snow\snow.exe || goto :error
 
+if exist dist\snowflake-managed\snow.exe (
+  smctl sign --keypair-alias %digicert_key_name% --input dist\snowflake-managed\snow.exe || goto :error
+  signtool verify /v /pa dist\snowflake-managed\snow.exe || goto :error
+  python.exe scripts\packaging\build_isolated_binary_with_hatch.py --pack-tarball dist\snowflake-managed\snow.exe --version %CLI_VERSION% --os-name windows --arch amd64 || goto :error
+)
+
 candle.exe ^
   -arch x64 ^
-  -dSnowflakeCLIVersion=%CLI_VERSION% ^
+  -dSnowflakeCLIVersion=%CLI_VERSION_WIN% ^
   scripts\packaging\win\snowflake_cli.wxs ^
   scripts\packaging\win\snowflake_cli_exitdlg.wxs || goto :error
 
@@ -53,6 +74,10 @@ signtool verify /v /pa %CLI_MSI% || goto :error
 
 echo "[INFO] uploading artifacts"
 cmd /c aws s3 cp %CLI_MSI% %RELEASE_URL%/%CLI_MSI% || goto :error
+if exist dist\snowflake-cli-%CLI_VERSION%-windows-amd64.tar.gz (
+  cmd /c aws s3 cp dist\snowflake-cli-%CLI_VERSION%-windows-amd64.tar.gz %RELEASE_URL%/snowflake-cli-%CLI_VERSION%-windows-amd64.tar.gz || goto :error
+  cmd /c aws s3 cp dist\manifest-windows-amd64.json %RELEASE_URL%/manifest-windows-amd64.json || goto :error
+)
 
 REM FINISH SCRIPT EXECUTION HERE
 GOTO :EOF

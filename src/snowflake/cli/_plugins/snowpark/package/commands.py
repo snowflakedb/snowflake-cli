@@ -41,6 +41,15 @@ from snowflake.cli._plugins.snowpark.snowpark_shared import (
     SkipVersionCheckOption,
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
+from snowflake.cli.api.commands.command_docs import (
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.secure_path import SecurePath
@@ -51,8 +60,65 @@ app = SnowTyperFactory(
 )
 log = logging.getLogger(__name__)
 
+_PACKAGE_COMMANDS = "/developer-guide/snowflake-cli/command-reference/snowpark-commands/package-commands"
 
-@app.command("lookup", requires_connection=True)
+_PACKAGE_CREATE_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/overview"),
+    link(f"{_PACKAGE_COMMANDS}/overview", "Package command reference"),
+    link(f"{_PACKAGE_COMMANDS}/lookup"),
+    link(f"{_PACKAGE_COMMANDS}/upload"),
+)
+
+_PACKAGE_LOOKUP_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/overview"),
+    link(f"{_PACKAGE_COMMANDS}/overview", "Package command reference"),
+    link(f"{_PACKAGE_COMMANDS}/create"),
+    link(f"{_PACKAGE_COMMANDS}/upload"),
+)
+
+_PACKAGE_UPLOAD_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/overview"),
+    link(f"{_PACKAGE_COMMANDS}/overview", "Package command reference"),
+    link(f"{_PACKAGE_COMMANDS}/create"),
+    link(f"{_PACKAGE_COMMANDS}/lookup"),
+)
+
+_PACKAGE_LOOKUP_DOCS = CommandDocs(
+    related=_PACKAGE_LOOKUP_RELATED,
+    usage_notes=(
+        plain_text(
+            "The ",
+            code("snow snowpark lookup"),
+            " command checks to see whether a package is available on the Snowflake Anaconda channel.",
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "The following example illustrates looking up a package that is already available on the Snowflake Anaconda channel:"
+            ),
+            command="snow snowpark package lookup numpy",
+            output="Package `numpy` is available in Anaconda. Latest available version: 1.26.4.",
+        ),
+        Example(
+            description=plain_text(
+                "If a package is not available on the Snowflake Anaconda channel, you can get a message similar to the following:"
+            ),
+            command="snow snowpark package lookup july",
+            output=(
+                "Package `july` is not available in Anaconda. To prepare Snowpark compatible package run:\n"
+                "\n"
+                "  snow snowpark package create july"
+            ),
+        ),
+    ),
+)
+
+
+@app.command("lookup", requires_connection=True, docs=_PACKAGE_LOOKUP_DOCS)
 def package_lookup(
     package_name: str = typer.Argument(
         ..., help="Name of the package.", show_default=False
@@ -86,7 +152,33 @@ def package_lookup(
     )
 
 
-@app.command("upload", requires_connection=True)
+_PACKAGE_UPLOAD_DOCS = CommandDocs(
+    related=_PACKAGE_UPLOAD_RELATED,
+    usage_notes=(
+        plain_text(
+            "If you specify a stage that does not exist, the command creates it automatically."
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text("Upload a package to a stage:"),
+            command="snow snowpark package upload -f my_package.zip -s deployments",
+            output="Package my_package.zip UPLOADED to Snowflake @deployments/my_package.zip.",
+        ),
+        Example(
+            description=plain_text(
+                "Upload a package to a stage that already contains a package with that name:"
+            ),
+            command="snow snowpark package upload -f my_package.zip -s deployments",
+            output=(
+                "Package already exists on stage. Consider using --overwrite to overwrite the file."
+            ),
+        ),
+    ),
+)
+
+
+@app.command("upload", requires_connection=True, docs=_PACKAGE_UPLOAD_DOCS)
 def package_upload(
     file: Path = typer.Option(
         ...,
@@ -117,7 +209,101 @@ def package_upload(
     return MessageResult(upload(file=file, stage=stage, overwrite=overwrite))
 
 
-@app.command("create", requires_connection=True)
+_PACKAGE_CREATE_DOCS = CommandDocs(
+    related=_PACKAGE_CREATE_RELATED,
+    usage_notes=(
+        plain_text(
+            "The ", code("snowpark package create"), " command does the following:"
+        ),
+        bullet_list(
+            bullet("Creates an artifact ready to upload to a stage."),
+            bullet(
+                "Checks for native libraries and asks if you want to continue. If the native libraries are present in the downloaded packages, this command works the same as the ",
+                code("snowpark package build"),
+                " command.",
+            ),
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                'This example creates a Python package as a zip file that can be uploaded to a stage and later imported by a Snowpark Python app. Dependencies for the "july" package are found on the Anaconda channel, so they were excluded from the ',
+                code(".zip"),
+                " file. The command displays the packages you would need to include in *requirements.txt* of your Snowpark project.",
+            ),
+            command="snow snowpark package create july==0.1",
+            output=(
+                "Package july.zip created. You can now upload it to a stage using\n"
+                "snow snowpark package upload -f july.zip -s <stage-name>`\n"
+                "and reference it in your procedure or function.\n"
+                "Remember to add it to imports in the procedure or function definition.\n"
+                "\n"
+                "The package july is successfully created, but depends on the following\n"
+                "Anaconda libraries. They need to be included in project requirements,\n"
+                "as their are not included in .zip.\n"
+                "matplotlib\n"
+                "contourpy >=1.0.1\n"
+                "numpy>=1.20\n"
+                "bokeh\n"
+                "selenium\n"
+                "mypy==1.8.0\n"
+                "Pillow\n"
+                "pytest-xdist\n"
+                "wurlitzer\n"
+                "cycler >=0.10\n"
+                "fonttools >=4.22.0\n"
+                "kiwisolver >=1.3.1\n"
+                "pyparsing >=2.3.1\n"
+                "jinja2\n"
+                "python-dateutil >=2.7\n"
+                "six >=1.5\n"
+                "importlib-resources >=3.2.0"
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "This example creates the ",
+                code("july.zip"),
+                " package that you can use in your Snowpark project without needing to add any dependencies to the ",
+                code("requirements.txt"),
+                " file. The error messages indicate that some packages contain shared libraries, which might not work, such as when creating a package using Windows.",
+            ),
+            command=(
+                "snow snowpark package create july==0.1 "
+                "--ignore-anaconda --allow-shared-libraries"
+            ),
+            output=(
+                "2024-04-11 16:24:56 ERROR Following dependencies utilise shared libraries, not supported by Conda:\n"
+                "2024-04-11 16:24:56 ERROR numpy\n"
+                "contourpy\n"
+                "fonttools\n"
+                "kiwisolver\n"
+                "matplotlib\n"
+                "pillow\n"
+                "2024-04-11 16:24:56 ERROR You may still try to create your package with --allow-shared-libraries, but the might not work.\n"
+                "2024-04-11 16:24:56 ERROR You may also request adding the package to Snowflake Conda channel\n"
+                "2024-04-11 16:24:56 ERROR at https://support.anaconda.com/\n"
+                "\n"
+                "Package july.zip created. You can now upload it to a stage using\n"
+                "snow snowpark package upload -f july.zip -s <stage-name>`\n"
+                "and reference it in your procedure or function.\n"
+                "Remember to add it to imports in the procedure or function definition."
+            ),
+        ),
+        Example(
+            description=plain_text(
+                "This example fails to create the package because it already exists. You can still forcibly create the package by using the ",
+                code("--ignore-anaconda"),
+                " option.",
+            ),
+            command="snow snowpark package create matplotlib",
+            output="Package matplotlib is already available in Snowflake Anaconda Channel.",
+        ),
+    ),
+)
+
+
+@app.command("create", requires_connection=True, docs=_PACKAGE_CREATE_DOCS)
 def package_create(
     name: str = typer.Argument(
         ...,

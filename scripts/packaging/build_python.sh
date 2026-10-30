@@ -4,7 +4,7 @@ set -e
 # Build Python with conservative CPU flags for maximum compatibility
 # This script is designed to be run in a Docker container
 
-PYTHON_VERSION=3.10.21
+PYTHON_VERSION=3.12.15
 PYTHON_PREFIX=/usr/local
 
 echo "=== Starting Python build process ==="
@@ -43,15 +43,15 @@ echo "CFLAGS: $CFLAGS"
 echo "CXXFLAGS: $CXXFLAGS"
 echo "LDFLAGS: $LDFLAGS"
 
+# 3.12 detects libffi with pkg-config, so --with-system-ffi is gone.
+# The default build is not a debug build; --without-debug-build is not a configure option.
 ./configure \
     --prefix=${PYTHON_PREFIX} \
     --disable-shared \
-    --with-system-ffi \
     --with-computed-gotos \
     --with-ensurepip=install \
     --without-doc-strings \
     --disable-test-modules \
-    --without-debug-build \
     --disable-ipv6 \
     --without-pymalloc
 
@@ -71,16 +71,16 @@ echo "=== Starting size optimization ==="
 
 # Remove unnecessary files and directories
 echo "Removing test modules and cache files..."
-rm -rf ${PYTHON_PREFIX}/lib/python3.10/test
-rm -rf ${PYTHON_PREFIX}/lib/python3.10/*/test*
-rm -rf ${PYTHON_PREFIX}/lib/python3.10/__pycache__
-find ${PYTHON_PREFIX}/lib/python3.10 -name "*.pyc" -delete
-find ${PYTHON_PREFIX}/lib/python3.10 -name "*.pyo" -delete
-find ${PYTHON_PREFIX}/lib/python3.10 -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+rm -rf ${PYTHON_PREFIX}/lib/python3.12/test
+rm -rf ${PYTHON_PREFIX}/lib/python3.12/*/test*
+rm -rf ${PYTHON_PREFIX}/lib/python3.12/__pycache__
+find ${PYTHON_PREFIX}/lib/python3.12 -name "*.pyc" -delete
+find ${PYTHON_PREFIX}/lib/python3.12 -name "*.pyo" -delete
+find ${PYTHON_PREFIX}/lib/python3.12 -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Remove unused standard library modules that are confirmed not used by snowflake-cli
 echo "Removing unused standard library modules..."
-cd ${PYTHON_PREFIX}/lib/python3.10
+cd ${PYTHON_PREFIX}/lib/python3.12
 rm -rf \
     tkinter \
     turtle* \
@@ -100,14 +100,14 @@ rm -rf ${PYTHON_PREFIX}/lib/pkgconfig  # Remove pkg-config files
 # Strip debug symbols to reduce size
 echo "Stripping debug symbols..."
 find ${PYTHON_PREFIX} -name "*.so" -exec strip {} \; 2>/dev/null || true
-strip ${PYTHON_PREFIX}/bin/python3.10 2>/dev/null || true
+strip ${PYTHON_PREFIX}/bin/python3.12 2>/dev/null || true
 
 # Create symlinks for python and pip
 echo "Creating symlinks..."
-ln -sf ${PYTHON_PREFIX}/bin/python3.10 ${PYTHON_PREFIX}/bin/python
-ln -sf ${PYTHON_PREFIX}/bin/python3.10 ${PYTHON_PREFIX}/bin/python3
-ln -sf ${PYTHON_PREFIX}/bin/pip3.10 ${PYTHON_PREFIX}/bin/pip
-ln -sf ${PYTHON_PREFIX}/bin/pip3.10 ${PYTHON_PREFIX}/bin/pip3
+ln -sf ${PYTHON_PREFIX}/bin/python3.12 ${PYTHON_PREFIX}/bin/python
+ln -sf ${PYTHON_PREFIX}/bin/python3.12 ${PYTHON_PREFIX}/bin/python3
+ln -sf ${PYTHON_PREFIX}/bin/pip3.12 ${PYTHON_PREFIX}/bin/pip
+ln -sf ${PYTHON_PREFIX}/bin/pip3.12 ${PYTHON_PREFIX}/bin/pip3
 
 # Update library path for shared libraries
 echo "Updating library configuration..."
@@ -119,8 +119,8 @@ echo "=== Build completed successfully ==="
 echo "Python installation size:"
 du -sh ${PYTHON_PREFIX}
 echo "Python binary size:"
-ls -lh ${PYTHON_PREFIX}/bin/python3.10
+ls -lh ${PYTHON_PREFIX}/bin/python3.12
 echo "Python version check:"
-${PYTHON_PREFIX}/bin/python3.10 --version
+${PYTHON_PREFIX}/bin/python3.12 --version
 
 echo "=== Python build process completed ==="

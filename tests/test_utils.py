@@ -25,8 +25,10 @@ from snowflake.cli._plugins.connection.util import (
     LOCAL_DEPLOYMENT_REGION,
     UIParameter,
     get_context,
+    get_host_apex,
     get_host_region,
     get_region,
+    get_snowsight_host,
     get_ui_parameter,
     get_ui_parameters,
     guess_regioned_host_from_allowlist,
@@ -34,7 +36,7 @@ from snowflake.cli._plugins.connection.util import (
 )
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.exceptions import CliArgumentError, FileTooLargeError
+from snowflake.cli.api.exceptions import CliArgumentError, CliError, FileTooLargeError
 from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
 from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
@@ -144,6 +146,78 @@ def test_get_package_name_from_pip_wheel_uses_safe_fallback(package, expected):
     assert result == expected
 
 
+def test_pip_wheel_requires_index_when_air_gapped(tmp_path, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.delenv("PIP_INDEX_URL", raising=False)
+    with pytest.raises(CliError, match="No package index is configured"):
+        package_utils.pip_wheel(
+            requirements_file=None,
+            package_name="pytest",
+            download_dir=tmp_path,
+            index_url=None,
+        )
+
+
+def test_pip_wheel_uses_index_when_air_gapped(tmp_path, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    with patch.object(package_utils.subprocess, "run") as mock_run:
+        mock_run.return_value = mock.Mock(returncode=0, stdout="", stderr="")
+        package_utils.pip_wheel(
+            requirements_file=None,
+            package_name="pytest",
+            download_dir=tmp_path,
+            index_url="https://pypi.internal/simple",
+        )
+    command = mock_run.call_args.args[0]
+    assert "--isolated" in command
+    assert "-i" in command
+    assert "https://pypi.internal/simple" in command
+
+
+def test_pip_wheel_uses_pip_index_url_env_when_air_gapped(tmp_path, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    monkeypatch.setenv("PIP_INDEX_URL", "https://pypi.internal/simple")
+    with patch.object(package_utils.subprocess, "run") as mock_run:
+        mock_run.return_value = mock.Mock(returncode=0, stdout="", stderr="")
+        package_utils.pip_wheel(
+            requirements_file=None,
+            package_name="pytest",
+            download_dir=tmp_path,
+            index_url=None,
+        )
+    command = mock_run.call_args.args[0]
+    assert "--isolated" in command
+    assert "-i" in command
+    assert "https://pypi.internal/simple" in command
+
+
+def test_pip_wheel_rejects_http_index(tmp_path, monkeypatch):
+    monkeypatch.delenv("SNOWFLAKE_CLI_AIR_GAPPED", raising=False)
+    with pytest.raises(CliError, match="Plaintext http://"):
+        package_utils.pip_wheel(
+            requirements_file=None,
+            package_name="pytest",
+            download_dir=tmp_path,
+            index_url="http://pypi.internal/simple",
+        )
+
+
+def test_pip_wheel_runs_without_index_when_not_air_gapped(tmp_path, monkeypatch):
+    monkeypatch.delenv("SNOWFLAKE_CLI_AIR_GAPPED", raising=False)
+    monkeypatch.delenv("PIP_INDEX_URL", raising=False)
+    with patch.object(package_utils.subprocess, "run") as mock_run:
+        mock_run.return_value = mock.Mock(returncode=0, stdout="", stderr="")
+        package_utils.pip_wheel(
+            requirements_file=None,
+            package_name="pytest",
+            download_dir=tmp_path,
+            index_url=None,
+        )
+    command = mock_run.call_args.args[0]
+    assert "-i" not in command
+    assert "--isolated" not in command
+
+
 @pytest.mark.parametrize(
     "contents, expected",
     [
@@ -158,6 +232,16 @@ def test_get_package_name_from_pip_wheel_uses_safe_fallback(package, expected):
         (
             """pytest==1.0\n# comment\nawesome_lib==3.3.3""",
             ["pytest==1.0", "awesome_lib==3.3.3"],
+        ),
+        (
+            "pandas==2.2.0 --hash=sha256:"
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            ["pandas==2.2.0"],
+        ),
+        (
+            "scikit-learn (>=1.4) \\\n    --hash=sha256:"
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            ["scikit_learn>=1.4"],
         ),
     ],
 )
@@ -738,10 +822,64 @@ def test_get_context_local_non_regionless_gets_local_region(
         # Non-Snowsight hosts (internal/legacy zones) return None so callers fall back.
         ("test_account.az.int.snowflakecomputing.com", None),
         ("frozenweb.prod3.external-zone.snowflakecomputing.com", None),
+        # Custom DNS is ignored unless air-gapped.
+        ("acct.us-east-1.custom.tld", None),
     ],
 )
 def test_get_host_region(host, expected):
     assert get_host_region(host) == expected
+
+
+@pytest.mark.parametrize(
+    "host, expected",
+    [
+        ("acct.us-east-1.custom.tld", "us-east-1"),
+        ("acct.eu-central-1.aws.custom.tld", "eu-central-1.aws"),
+        ("acct.x.us-west-2.aws.custom.tld", "x.us-west-2.aws"),
+    ],
+)
+def test_get_host_region_custom_dns_when_air_gapped(host, expected, monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    assert get_host_region(host) == expected
+
+
+@pytest.mark.parametrize(
+    "host, expected",
+    [
+        ("acct.us-east-1.snowflakecomputing.com", "snowflakecomputing.com"),
+        ("acct.us-east-1.aws.custom.tld", None),
+        ("some.dns.local", "local"),
+        (None, None),
+        ("single", None),
+        ("10.1.2.3", None),
+        ("acct.us-east-1.snowflakecomputing.com:443", "snowflakecomputing.com"),
+    ],
+)
+def test_get_host_apex(host, expected):
+    assert get_host_apex(host) == expected
+
+
+def test_get_host_apex_custom_dns_when_air_gapped(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    assert get_host_apex("acct.us-east-1.aws.custom.tld") == "custom.tld"
+
+
+def test_get_snowsight_host_falls_back_when_not_air_gapped():
+    mock_conn = MagicMock()
+    mock_conn.host = "acct.us-east-1.snowflakecomputing.com"
+    mock_conn.execute_string.side_effect = RuntimeError("no snowsight")
+    assert get_snowsight_host(mock_conn) == "https://app.snowflake.com"
+
+
+def test_get_snowsight_host_raises_when_air_gapped_and_system_function_fails(
+    monkeypatch,
+):
+    monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+    mock_conn = MagicMock()
+    mock_conn.host = "acct.us-east-1.custom.tld"
+    mock_conn.execute_string.side_effect = RuntimeError("no snowsight")
+    with pytest.raises(CliError, match="SYSTEM\\$GET_SNOWSIGHT_HOST"):
+        get_snowsight_host(mock_conn)
 
 
 expected_ui_params_query = "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
@@ -893,6 +1031,36 @@ def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
     assert (
         get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "any")
         == "any"
+    )
+
+
+def test_get_ui_parameter_reads_serverless_feature_parameter(mock_cursor):
+    connection = MagicMock()
+    connection.execute_string.return_value = (
+        None,
+        mock_cursor(
+            [
+                (
+                    """\
+                    {
+                        "clientParamsInfo": [{
+                            "name": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+                            "value": "ENABLED"
+                        }]
+                    }
+                    """,
+                )
+            ],
+            [],
+        ),
+    )
+    assert (
+        get_ui_parameter(
+            connection,
+            UIParameter.FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS,
+            "DISABLED",
+        )
+        == "ENABLED"
     )
 
 

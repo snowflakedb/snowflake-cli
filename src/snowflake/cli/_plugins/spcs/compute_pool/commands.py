@@ -27,6 +27,16 @@ from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
     ComputePoolEntityModel,
 )
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
+from snowflake.cli.api.commands.command_docs import (
+    REQ_CONTAINER_SERVICES,
+    CommandDocs,
+    Example,
+    bullet,
+    bullet_list,
+    code,
+    link,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
@@ -46,6 +56,44 @@ from snowflake.cli.api.project.definition_helper import (
     get_entity_from_project_definition,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
+
+_COMPUTE_POOL_BASE_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/command-reference/overview"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/spcs-commands/overview",
+        "spcs command reference",
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/overview",
+        "compute-pool commands reference",
+    ),
+)
+
+
+def _compute_pool_related(*extra):
+    return _COMPUTE_POOL_BASE_RELATED + extra
+
+
+_STOP_ALL_RELATED = _compute_pool_related(
+    link(
+        "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/stop-all"
+    ),
+)
+
+_SUCCESS_OUTPUT = (
+    "+-------------------------------------------+\n"
+    "| key    | value                            |\n"
+    "|--------+----------------------------------|\n"
+    "| status | Statement executed successfully. |\n"
+    "+-------------------------------------------+"
+)
+
+_CREATE_EXAMPLE_DESCRIPTION = plain_text(
+    'The following example creates a compute pool named "pool_1" using the minimal CPU_X64_XS family, which comprises two ',
+    "CPUs with 4GB of memory.",
+)
+_CREATE_EXAMPLE_COMMAND = 'snow spcs compute-pool create "pool_1" --min-nodes 2 --max-nodes 2 --family "CPU_X64_XS"'
 
 app = SnowTyperFactory(
     name="compute-pool",
@@ -119,10 +167,52 @@ add_object_command_aliases(
         help_example='`list --like "my%"` lists all compute pools that begin with “my”.'
     ),
     scope_option=None,
+    list_docs=CommandDocs(
+        related=_STOP_ALL_RELATED,
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+    ),
+    describe_docs=CommandDocs(
+        related=_STOP_ALL_RELATED,
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=_CREATE_EXAMPLE_DESCRIPTION,
+                command=_CREATE_EXAMPLE_COMMAND,
+            ),
+        ),
+    ),
+    drop_docs=CommandDocs(
+        related=_compute_pool_related(link("/sql-reference/sql/drop-compute-pool")),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    'The following example drops a compute pool named "pool_1".'
+                ),
+                command='snow spcs compute-pool drop "pool_1"',
+            ),
+        ),
+    ),
 )
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_STOP_ALL_RELATED,
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=_CREATE_EXAMPLE_DESCRIPTION,
+                command=_CREATE_EXAMPLE_COMMAND,
+            ),
+        ),
+    ),
+)
 def create(
     name: FQN = ComputePoolNameArgument,
     instance_family: str = typer.Option(
@@ -166,7 +256,61 @@ def create(
     return SingleQueryResult(cursor)
 
 
-@app.command("deploy", requires_connection=True)
+@app.command(
+    "deploy",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_STOP_ALL_RELATED,
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow spcs compute pool deploy"),
+                " command reads a ",
+                code("snowflake.yml"),
+                " project definition file that defines a compute pool. ",
+                "If your project definition has precisely one compute pool entity, you can omit the ",
+                code("<entity_id>"),
+                " argument. However, if your project definition has multiple compute pool entities, you must specify the compute pool name in the ",
+                code("<entity_id>"),
+                " argument. ",
+                "For more information, see ",
+                link("#label-sfcli-pool-pdf", "Compute pools project definition"),
+                ".",
+            ),
+            plain_text(
+                "The ",
+                code("--upgrade"),
+                " option updates an existing service. You can update only the following project definition parameters:",
+            ),
+            bullet_list(
+                bullet(code("min_instances")),
+                bullet(code("max_instances")),
+                bullet(code("query_warehouse")),
+                bullet(code("auto_resume")),
+                bullet(code("external_access_integrations")),
+                bullet(code("comment")),
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "The following example creates and deploys a compute pool defined in the ",
+                    code("snowflake.yml"),
+                    " file in the current directory.",
+                ),
+                command="snow spcs compute-pool deploy",
+                output=(
+                    "+---------------------------------------------------------------------+\n"
+                    "| key    | value                                                      |\n"
+                    "|--------+------------------------------------------------------------|\n"
+                    "| status | Compute pool MY_COMPUTE_POOL successfully created.         |\n"
+                    "+---------------------------------------------------------------------+"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 def deploy(
     entity_id: str = entity_argument("compute-pool"),
@@ -203,7 +347,27 @@ def deploy(
     return SingleQueryResult(cursor)
 
 
-@app.command("stop-all", requires_connection=True)
+@app.command(
+    "stop-all",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_compute_pool_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/create"
+            ),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+        examples=(
+            Example(
+                description=plain_text(
+                    'The following example stops a compute pool named "pool1" and deletes all services running on it:'
+                ),
+                command='snow spcs compute-pool stop-all "pool1"',
+            ),
+        ),
+    ),
+)
 def stop_all(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Deletes all services running on the compute pool.
@@ -212,7 +376,31 @@ def stop_all(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     return SingleQueryResult(cursor)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_compute_pool_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/resume"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/stop-all"
+            ),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have OPERATE privilege on the compute pool to suspend it."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs compute-pool suspend tutorial_compute_pool",
+                output=_SUCCESS_OUTPUT,
+            ),
+        ),
+    ),
+)
 def suspend(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Suspends the compute pool by suspending all currently running services and then releasing compute pool nodes.
@@ -220,7 +408,31 @@ def suspend(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     return SingleQueryResult(ComputePoolManager().suspend(name.identifier))
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_compute_pool_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/suspend"
+            ),
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/stop-all"
+            ),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have OPERATE privilege on the compute pool to resume it."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs compute-pool resume tutorial_compute_pool",
+                output=_SUCCESS_OUTPUT,
+            ),
+        ),
+    ),
+)
 def resume(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Resumes the compute pool from a SUSPENDED state.
@@ -228,7 +440,29 @@ def resume(name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     return SingleQueryResult(ComputePoolManager().resume(name.identifier))
 
 
-@app.command("set", requires_connection=True)
+@app.command(
+    "set",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_compute_pool_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/unset"
+            ),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have MODIFY privilege on the compute pool to set properties."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs compute-pool set tutorial_compute_pool --min-nodes 2 --max-nodes 4",
+                output=_SUCCESS_OUTPUT,
+            ),
+        ),
+    ),
+)
 def set_property(
     name: FQN = ComputePoolNameArgument,
     min_nodes: Optional[int] = MinNodesOption(default=None, show_default=False),
@@ -258,7 +492,29 @@ def set_property(
     return SingleQueryResult(cursor)
 
 
-@app.command("unset", requires_connection=True)
+@app.command(
+    "unset",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_compute_pool_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/spcs-commands/compute-pool-commands/set"
+            ),
+        ),
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(
+            plain_text(
+                "The current role must have MODIFY privilege on the compute pool to reset properties."
+            ),
+        ),
+        examples=(
+            Example(
+                command="snow spcs compute-pool unset tutorial_compute_pool --auto-resume",
+                output=_SUCCESS_OUTPUT,
+            ),
+        ),
+    ),
+)
 def unset_property(
     name: FQN = ComputePoolNameArgument,
     auto_resume: bool = AutoResumeOption(
@@ -292,7 +548,14 @@ def unset_property(
     return SingleQueryResult(cursor)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_STOP_ALL_RELATED,
+        banners=(REQ_CONTAINER_SERVICES,),
+        usage_notes=(plain_text("None."),),
+    ),
+)
 def status(pool_name: FQN = ComputePoolNameArgument, **options) -> CommandResult:
     """
     Retrieves the status of a compute pool along with a relevant message, if one exists.

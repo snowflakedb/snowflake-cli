@@ -1,3 +1,4 @@
+import logging
 from unittest import mock
 
 import pytest
@@ -5,11 +6,22 @@ from snowflake.cli._plugins.sql.repl_commands import (
     AbortCommand,
     CompileCommandResult,
     QueriesCommand,
+    RehashCommand,
     ReplCommand,
     ResultCommand,
+    SetCommand,
+    SpoolCommand,
     UnknownCommandError,
     compile_repl_command,
 )
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
+from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.output.formats import OutputFormat
+
+from tests_common import IS_WINDOWS
 
 _FAKE_QID = "00000000-0000-0000-0000-000000000000"
 
@@ -199,6 +211,12 @@ def test_queries_from_args():
             error_message="'end_date' filter cannot be used with 'end' filter"
         )
     )
+    assert QueriesCommand.from_args("Amount=3") == CompileCommandResult(
+        command=QueriesCommand(amount=3, from_current_session=False)
+    )
+    assert QueriesCommand.from_args("amount=1 Amount=2") == CompileCommandResult(
+        error_message="Duplicated argument 'amount'"
+    )
 
 
 @pytest.mark.parametrize(
@@ -285,6 +303,19 @@ def test_queries_execute_help(mock_print, mock_ctx):
         ("!result", [_FAKE_QID], ResultCommand(_FAKE_QID)),
         ("!abort", [_FAKE_QID], AbortCommand(_FAKE_QID)),
         ("!queries", ["amount=3", "user=jdoe"], QueriesCommand(amount=3, user="jdoe")),
+        ("!rehash", [], RehashCommand()),
+        (
+            "!set",
+            ["output_format=plain"],
+            SetCommand(option="output_format", value="plain"),
+        ),
+        ("!spool", ["out.txt"], SpoolCommand(path="out.txt")),
+        ("!spool", ["off"], SpoolCommand(path=None)),
+        (
+            "!spool",
+            [],
+            "No arguments passed to 'spool' command. Usage: `!spool <file>` | `!spool off`",
+        ),
         ("!QuERies", ["session"], QueriesCommand(from_current_session=True)),
         (
             "!ResUlT",
@@ -318,3 +349,355 @@ def test_compile_commands(command, args, expected):
         assert str(exc_info.value) == expected
     else:
         assert compile_repl_command(full_command) == expected_result
+
+
+def test_rehash_from_args():
+    assert RehashCommand.from_args("", {}) == CompileCommandResult(
+        command=RehashCommand()
+    )
+
+
+def test_set_from_args():
+    assert SetCommand.from_args([], {}) == CompileCommandResult(
+        error_message="No arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+    )
+    assert SetCommand.from_args("", {}) == CompileCommandResult(
+        error_message="No arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+    )
+    assert SetCommand.from_args(["output_format", "plain"], {}) == CompileCommandResult(
+        error_message="Too many arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+    )
+    assert SetCommand.from_args([], {"header": "false"}) == CompileCommandResult(
+        error_message="Unknown option passed to 'set' command: 'header'. Only output_format is supported."
+    )
+    assert SetCommand.from_args(
+        [], {"output_format": "plain", "header": "false"}
+    ) == CompileCommandResult(
+        error_message="Unknown option passed to 'set' command: 'header'. Only output_format is supported."
+    )
+    assert SetCommand.from_args(
+        [], {"header": "false", "timing": "on"}
+    ) == CompileCommandResult(
+        error_message="Unknown option passed to 'set' command: 'header', 'timing'. Only output_format is supported."
+    )
+    csi_key = "\x1b[31mred"
+    result = SetCommand.from_args([], {csi_key: "1"})
+    assert result == CompileCommandResult(
+        error_message=(
+            f"Unknown option passed to 'set' command: {csi_key!r}. "
+            "Only output_format is supported."
+        )
+    )
+    assert "\x1b[31m" not in (result.error_message or "")
+    assert SetCommand.from_args([], {"output_format": ""}) == CompileCommandResult(
+        error_message="Invalid output format: ''. Must be one of: TABLE, JSON, JSON_EXT, CSV, PLAIN."
+    )
+    assert SetCommand.from_args([], {"output_format": "html"}) == CompileCommandResult(
+        error_message="Invalid output format: 'html'. Must be one of: TABLE, JSON, JSON_EXT, CSV, PLAIN."
+    )
+    assert SetCommand.from_args([], {"output_format": "plain"}) == CompileCommandResult(
+        command=SetCommand(option="output_format", value="plain")
+    )
+    assert SetCommand.from_args([], {"OUTPUT_FORMAT": "TABLE"}) == CompileCommandResult(
+        command=SetCommand(option="output_format", value="TABLE")
+    )
+    assert SetCommand.from_args("output_format=json") == CompileCommandResult(
+        command=SetCommand(option="output_format", value="json")
+    )
+    assert SetCommand.from_args("OUTPUT_FORMAT=plain") == CompileCommandResult(
+        command=SetCommand(option="output_format", value="plain")
+    )
+    assert SetCommand.from_args(
+        "output_format=plain OUTPUT_FORMAT=json"
+    ) == CompileCommandResult(error_message="Duplicated argument 'output_format'")
+    assert SetCommand.from_args(
+        "output_format=plain output_format=json"
+    ) == CompileCommandResult(error_message="Duplicated argument 'output_format'")
+    assert SetCommand.from_args(
+        [], {"output_format": "plain", "OUTPUT_FORMAT": "json"}
+    ) == CompileCommandResult(
+        error_message="Duplicated argument 'output_format', 'OUTPUT_FORMAT'"
+    )
+
+
+def test_set_execute_sets_output_format():
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        SetCommand(option="output_format", value="plain").execute(mock.Mock())
+        assert get_cli_context().output_format is OutputFormat.PLAIN
+        SetCommand(option="output_format", value="table").execute(mock.Mock())
+        assert get_cli_context().output_format is OutputFormat.TABLE
+    finally:
+        manager.output_format = previous
+
+
+def test_spool_from_args():
+    usage = (
+        "No arguments passed to 'spool' command. "
+        "Usage: `!spool <file>` | `!spool off`"
+    )
+    assert SpoolCommand.from_args([], {}) == CompileCommandResult(error_message=usage)
+    assert SpoolCommand.from_args("", {}) == CompileCommandResult(error_message=usage)
+    assert SpoolCommand.from_args('""') == CompileCommandResult(error_message=usage)
+    assert SpoolCommand.from_args("off") == CompileCommandResult(
+        command=SpoolCommand(path=None)
+    )
+    assert SpoolCommand.from_args("OFF") == CompileCommandResult(
+        command=SpoolCommand(path=None)
+    )
+    assert SpoolCommand.from_args("out.txt") == CompileCommandResult(
+        command=SpoolCommand(path="out.txt")
+    )
+    assert SpoolCommand.from_args('"my file.txt"') == CompileCommandResult(
+        command=SpoolCommand(path="my file.txt")
+    )
+    assert SpoolCommand.from_args("'my file.txt'") == CompileCommandResult(
+        command=SpoolCommand(path="my file.txt")
+    )
+    assert SpoolCommand.from_args("dir/with spaces/out.txt") == CompileCommandResult(
+        command=SpoolCommand(path="dir/with spaces/out.txt")
+    )
+    assert SpoolCommand.from_args("off.txt") == CompileCommandResult(
+        command=SpoolCommand(path="off.txt")
+    )
+    assert SpoolCommand.from_args("foo=bar.txt") == CompileCommandResult(
+        command=SpoolCommand(path="foo=bar.txt")
+    )
+
+
+def test_spool_execute_appends_and_switches(tmp_path):
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    first.write_text("existing\n", encoding="utf-8")
+    manager = get_cli_context_manager()
+    try:
+        SpoolCommand(path=str(first)).execute(mock.Mock())
+        assert get_cli_context().spool_path == first
+        assert get_cli_context().spool_stream is not None
+        get_cli_context().spool_stream.write("one\n")
+        get_cli_context().spool_stream.flush()
+
+        SpoolCommand(path=str(second)).execute(mock.Mock())
+        assert get_cli_context().spool_path == second
+        get_cli_context().spool_stream.write("two\n")
+        get_cli_context().spool_stream.flush()
+
+        SpoolCommand(path=None).execute(mock.Mock())
+        assert get_cli_context().spool_stream is None
+        SpoolCommand(path=None).execute(mock.Mock())
+        assert get_cli_context().spool_stream is None
+    finally:
+        manager.close_spool()
+
+    assert first.read_text(encoding="utf-8") == "existing\none\n"
+    assert second.read_text(encoding="utf-8") == "two\n"
+
+
+def test_spool_execute_expands_user_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    manager = get_cli_context_manager()
+    try:
+        SpoolCommand(path="~/spool.txt").execute(mock.Mock())
+        expected = tmp_path / "spool.txt"
+        assert get_cli_context().spool_path == expected
+        assert expected.exists()
+    finally:
+        manager.close_spool()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX mode bits")
+def test_spool_execute_creates_file_with_owner_only_permissions(tmp_path):
+    dest = tmp_path / "spool.txt"
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch("snowflake.cli.api.console.cli_console.warning") as warn:
+            SpoolCommand(path=str(dest)).execute(mock.Mock())
+        warn.assert_not_called()
+        assert dest.exists()
+        assert dest.stat().st_mode & 0o777 == 0o600
+    finally:
+        manager.close_spool()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX mode bits")
+@pytest.mark.parametrize(
+    "mode,detail",
+    [
+        (0o644, "can read query results written to this file."),
+        (0o640, "can read query results written to this file."),
+        (
+            0o666,
+            "can read query results written to this file, and can write to it.",
+        ),
+        (0o622, "can write to this file."),
+    ],
+)
+def test_spool_execute_warns_when_existing_file_is_broader_than_owner_only(
+    tmp_path, mode, detail
+):
+    dest = tmp_path / "spool.txt"
+    dest.write_text("existing\n", encoding="utf-8")
+    dest.chmod(mode)
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch("snowflake.cli.api.console.cli_console.warning") as warn:
+            SpoolCommand(path=str(dest)).execute(mock.Mock())
+        warn.assert_called_once()
+        message = warn.call_args.args[0]
+        assert str(dest) in message
+        assert "broader than owner-only" in message
+        assert detail in message
+        assert dest.stat().st_mode & 0o777 == mode
+        get_cli_context().spool_stream.write("appended\n")
+        get_cli_context().spool_stream.flush()
+    finally:
+        manager.close_spool()
+    assert dest.read_text(encoding="utf-8") == "existing\nappended\n"
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX mode bits")
+def test_spool_execute_does_not_warn_when_existing_file_is_owner_only(tmp_path):
+    dest = tmp_path / "spool.txt"
+    dest.write_text("existing\n", encoding="utf-8")
+    dest.chmod(0o600)
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch("snowflake.cli.api.console.cli_console.warning") as warn:
+            SpoolCommand(path=str(dest)).execute(mock.Mock())
+        warn.assert_not_called()
+        assert dest.stat().st_mode & 0o777 == 0o600
+    finally:
+        manager.close_spool()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX mode bits")
+def test_spool_execute_warns_when_existing_empty_file_is_broader_than_owner_only(
+    tmp_path,
+):
+    dest = tmp_path / "spool.txt"
+    dest.write_text("", encoding="utf-8")
+    dest.chmod(0o644)
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch("snowflake.cli.api.console.cli_console.warning") as warn:
+            SpoolCommand(path=str(dest)).execute(mock.Mock())
+        warn.assert_called_once()
+        assert dest.stat().st_mode & 0o777 == 0o644
+    finally:
+        manager.close_spool()
+
+
+@pytest.mark.parametrize("strict", [False, True])
+def test_spool_execute_windows_owner_only_warning(tmp_path, monkeypatch, strict):
+    dest = tmp_path / "spool.txt"
+    dest.write_text("existing\n", encoding="utf-8")
+    monkeypatch.setattr("snowflake.cli.api.cli_global_context.IS_WINDOWS", True)
+    monkeypatch.setattr(
+        "snowflake.cli.api.secure_utils.file_permissions_are_strict",
+        lambda _: strict,
+    )
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch("snowflake.cli.api.console.cli_console.warning") as warn:
+            SpoolCommand(path=str(dest)).execute(mock.Mock())
+        if strict:
+            warn.assert_not_called()
+        else:
+            warn.assert_called_once()
+            message = warn.call_args.args[0]
+            assert str(dest) in message
+            assert "broader than owner-only" in message
+            assert "can potentially" in message
+            assert "or can write to it" in message
+            assert "configuration file" not in message
+        get_cli_context().spool_stream.write("appended\n")
+        get_cli_context().spool_stream.flush()
+    finally:
+        manager.close_spool()
+    assert dest.read_text(encoding="utf-8") == "existing\nappended\n"
+
+
+def test_spool_execute_does_not_abort_when_windows_permission_check_raises(
+    tmp_path, monkeypatch, caplog
+):
+    dest = tmp_path / "spool.txt"
+    dest.write_text("existing\n", encoding="utf-8")
+    monkeypatch.setattr("snowflake.cli.api.cli_global_context.IS_WINDOWS", True)
+
+    def _raise(_path):
+        raise CliError(
+            "whoami.exe not found. "
+            "Config file permission checks require whoami.exe to be available."
+        )
+
+    monkeypatch.setattr(
+        "snowflake.cli.api.secure_utils.file_permissions_are_strict",
+        _raise,
+    )
+    caplog.set_level(logging.DEBUG, logger="snowflake.cli.api.cli_global_context")
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch("snowflake.cli.api.console.cli_console.warning") as warn:
+            SpoolCommand(path=str(dest)).execute(mock.Mock())
+        warn.assert_not_called()
+        assert get_cli_context().spool_stream is not None
+        get_cli_context().spool_stream.write("appended\n")
+        get_cli_context().spool_stream.flush()
+    finally:
+        manager.close_spool()
+    assert dest.read_text(encoding="utf-8") == "existing\nappended\n"
+    assert "Windows ACL lookup failed for spool file" in caplog.text
+    assert str(dest) in caplog.text
+    assert "whoami.exe not found" in caplog.text
+
+
+def test_spool_execute_unwritable_path(tmp_path):
+    missing = tmp_path / "no-such-dir" / "out.txt"
+    with pytest.raises(CliError, match="Cannot write spool file") as exc_info:
+        SpoolCommand(path=str(missing)).execute(mock.Mock())
+    assert str(missing) in str(exc_info.value)
+    assert get_cli_context().spool_stream is None
+
+
+def test_spool_execute_unwritable_path_strips_ansi(tmp_path):
+    ansi = "\033[31m"
+    missing = tmp_path / "no-such-dir" / f"{ansi}out.txt"
+    with pytest.raises(CliError, match="Cannot write spool file") as exc_info:
+        SpoolCommand(path=str(missing)).execute(mock.Mock())
+    message = str(exc_info.value)
+    assert ansi not in message
+    assert "out.txt" in message
+    assert get_cli_context().spool_stream is None
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="POSIX mode bits")
+def test_spool_execute_warning_strips_ansi_from_path(tmp_path):
+    ansi = "\033[31m"
+    dest = tmp_path / f"{ansi}spool.txt"
+    dest.write_text("existing\n", encoding="utf-8")
+    dest.chmod(0o644)
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch("snowflake.cli.api.console.cli_console.warning") as warn:
+            SpoolCommand(path=str(dest)).execute(mock.Mock())
+        warn.assert_called_once()
+        message = warn.call_args.args[0]
+        assert ansi not in message
+        assert "spool.txt" in message
+        assert "broader than owner-only" in message
+    finally:
+        manager.close_spool()
+
+
+def test_rehash_execute_calls_refresh():
+    repl = mock.Mock()
+    ctx = mock.Mock()
+    ctx.repl = repl
+    with mock.patch(
+        "snowflake.cli._plugins.sql.repl_commands.get_cli_context",
+        return_value=ctx,
+    ):
+        RehashCommand().execute(mock.Mock())
+    repl.refresh_completion_catalog.assert_called_once()

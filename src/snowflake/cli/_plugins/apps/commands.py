@@ -62,6 +62,7 @@ from snowflake.cli._plugins.apps.generate import _generate_app_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
+    MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
     SERVERLESS_COMPUTE_RESOURCE,
     PerAccountCertStatus,
@@ -88,8 +89,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES
-from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -98,7 +98,7 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
-from snowflake.cli.api.project.util import identifier_for_url
+from snowflake.cli.api.project.util import identifier_for_url, unquote_identifier
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector.errors import OperationalError, ProgrammingError
 
@@ -254,6 +254,43 @@ class _CodeStorageRef(NamedTuple):
     database: Optional[str]
     schema_: Optional[str]
     encryption_type: Optional[str] = None
+
+
+def _ensure_app_derived_schema(
+    manager: SnowflakeAppManager,
+    *,
+    database: Optional[str],
+    schema: Optional[str],
+    app_name: str,
+) -> None:
+    """Create a missing schema when its name was derived from the app name.
+
+    App Space defaults give the CLI a database and derive one schema per app.
+    Other schema names remain user-managed, preserving their existing behavior.
+    """
+    if (
+        not database
+        or not schema
+        or unquote_identifier(schema) != unquote_identifier(app_name)
+    ):
+        return
+
+    cli_console.step(
+        "Creating app schema "
+        f"{sanitize_for_terminal(database)}.{sanitize_for_terminal(schema)} "
+        "if it does not exist"
+    )
+    try:
+        manager.create_schema_if_not_exists(database, schema)
+    except ProgrammingError as e:
+        raise CliError(
+            "Could not create app-derived schema "
+            f"'{sanitize_for_terminal(database)}."
+            f"{sanitize_for_terminal(schema)}': {e}. "
+            f"Grant CREATE SCHEMA on database "
+            f"'{sanitize_for_terminal(database)}' to the active role, "
+            "or create the schema manually."
+        ) from e
 
 
 def _resolve_code_storage(
@@ -1058,6 +1095,7 @@ def snowflake_app_setup(
     dry_run: bool,
     compute_pool: Optional[str],
     build_eai: Optional[str],
+    capabilities: bool = False,
 ) -> CommandResult:
     """Initialize a Snowflake App Runtime project manifest.
 
@@ -1066,7 +1104,13 @@ def snowflake_app_setup(
     An already-initialized project is left untouched: initialization is skipped
     when either manifest is present. See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
+
+    With *capabilities*, nothing is written; see
+    :func:`_report_account_capabilities`.
     """
+    if capabilities:
+        return _report_account_capabilities(app_name, dry_run, compute_pool, build_eai)
+
     ctx = get_cli_context()
     metrics = ctx.metrics
 
@@ -1119,16 +1163,7 @@ def snowflake_app_setup(
 
             manager = SnowflakeAppManager()
             with metrics.span("snowflake_app.setup.resolve_defaults"):
-                # ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` resolves the
-                # ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and drops any
-                # account-configured destination the current role cannot access
-                # server-side. On accounts where that function is not yet
-                # available, ``fetch_app_service_defaults`` transparently falls
-                # back to the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES``
-                # flow, so the resolution below is unaffected either way. The
-                # fetch span nests under this ``resolve_defaults`` span, which it
-                # reads from the metrics span stack.
-                params = manager.fetch_app_service_defaults()
+                params = manager.fetch_app_service_defaults(resolved_app_name)
 
             def _resolve(
                 user_input=None,
@@ -1186,8 +1221,6 @@ def snowflake_app_setup(
                     default_value=personal_db,
                     current_session=session_db,
                 ),
-                # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
-                # a single shared schema for all apps.
                 "schema": _resolve(
                     user_input=cli_schema,
                     account_param=params.get("schema"),
@@ -1290,6 +1323,36 @@ def snowflake_app_setup(
         if dry_run:
             exc.exit_code = 0
         raise
+
+
+def _report_account_capabilities(
+    app_name: Optional[str],
+    dry_run: bool,
+    compute_pool: Optional[str],
+    build_eai: Optional[str],
+) -> CommandResult:
+    """Report whether the account supports each Snowflake App Runtime capability.
+
+    Backs ``snow app setup --capabilities``. It writes no ``app.yml``, so the
+    setup options that only shape that file are rejected.
+    """
+    metrics = get_cli_context().metrics
+    with metrics.span("snowflake_app.setup"):
+        setup_options = {
+            "--app-name": app_name,
+            "--dry-run": True if dry_run else None,
+            "--compute-pool": compute_pool,
+            "--build-eai": build_eai,
+        }
+        set_options = [
+            name for name, value in setup_options.items() if value is not None
+        ]
+        if set_options:
+            raise IncompatibleParametersError(["--capabilities", *set_options])
+
+        with metrics.span("snowflake_app.setup.fetch_capabilities"):
+            capabilities = SnowflakeAppManager().fetch_account_capabilities()
+        return ObjectResult(capabilities)
 
 
 @_utf8_output
@@ -1707,20 +1770,57 @@ def _log_service_logs(manager: SnowflakeAppManager, service_fqn: FQN) -> None:
 
 
 def _is_cng_compute_resource(compute_resource: Optional[str]) -> bool:
-    """Return ``True`` for the CNG (serverless) app-service backend."""
+    """Return ``True`` for the serverless app-service backend."""
     return (compute_resource or "").upper() == SERVERLESS_COMPUTE_RESOURCE
 
 
-def _honoured_compute_resource(compute_resource: Optional[str]) -> Optional[str]:
-    """Return *compute_resource* when the CNG feature flag is on.
+def _effective_compute_resource(
+    manager: SnowflakeAppManager,
+    compute_resource: Optional[str],
+    *,
+    required: bool,
+) -> Optional[str]:
+    """Return *compute_resource*, dropping ``SERVERLESS`` when the account disallows it.
 
-    CNG is not ready yet, so ``SERVERLESS`` is only honoured while the flag
-    is on. When the flag is off this returns ``None`` and the server uses
-    the default backend.
+    ``required`` raises when ``SERVERLESS`` was requested but the account
+    feature parameter is not enabled. Callers that only observe an existing
+    service pass ``required=False`` and treat that request as unset.
     """
-    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
-        return None
-    return compute_resource
+    if not _is_cng_compute_resource(compute_resource):
+        return compute_resource
+    if manager.serverless_account_parameters_enabled():
+        return compute_resource
+    if required:
+        raise CliError("compute_resource SERVERLESS is not enabled for this account.")
+    log.debug(
+        "Ignoring compute_resource SERVERLESS; "
+        "the account feature parameter is not enabled."
+    )
+    return None
+
+
+def _ensure_python_runtime_enabled(
+    manager: SnowflakeAppManager,
+    app_def: AppYmlDefinition,
+    compute_resource: Optional[str],
+) -> None:
+    """Raise when *app_def* uses the Python runtime on a compute resource the account does not allow.
+
+    An unset *compute_resource* is checked as ``MANAGED_COMPUTE_POOL``, the
+    backend the server uses by default.
+    """
+    if not app_def.is_python_runtime:
+        return
+    effective = compute_resource or MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE
+    if manager.python_runtime_enabled(effective):
+        return
+    raise CliError(
+        f"The Python runtime is not enabled for compute_resource {effective} in "
+        f"this account. This app uses it because an install, build, run, or dev "
+        f"command in {APP_YML_FILENAME} runs pip, python, or uv. Deploy to a "
+        f"compute_resource that allows the Python runtime, or contact Snowflake "
+        f"support to enable it."
+    )
 
 
 def _requests_event_table_health_monitoring(
@@ -1739,26 +1839,34 @@ def _requests_event_table_health_monitoring(
 
 
 def _ensure_cng_url_cert_ready(
-    manager: SnowflakeAppManager, *, provision: bool, required: bool
+    manager: SnowflakeAppManager, *, skip: bool, required: bool
 ) -> None:
-    """Pre-check that the account's per-account URL certificate is in place.
+    """Ensure the account's per-account URL certificate is being provisioned.
 
     CNG (serverless) apps serve from per-account URLs backed by a per-account
     TLS certificate whose issuance can take up to ~3 hours — far too long to
     happen inside ``CREATE APPLICATION SERVICE`` — so this probes for it up front
-    (never polling) via a client-side TLS probe.
+    (never polling) via a client-side TLS probe. When the certificate is absent,
+    issuance is started automatically and a full deploy stops so it can be
+    re-run once provisioning completes.
 
-    The caller gates this on the app being CNG, which also implies the feature
-    flag is on (``compute_resource`` stays ``None`` while it is off), so the flag
-    is not re-checked here.
+    The caller gates this on the app being CNG.
+
+    ``skip`` (``--skip-certs-check``) opts out: no probe and no issuance, and
+    the deploy continues.
 
     ``required`` says whether a missing certificate is fatal for the current
     phase: only the deploy phase creates the service, so only it passes
-    ``required=True``. ``--upload-only`` / ``--build-only`` still probe (early,
-    cheap diagnosis) but only warn, so the user can upload/build now and promote
-    once issuance completes. An inconclusive probe (``UNKNOWN``) or an
-    underivable host never blocks — a false negative must not prevent a deploy.
+    ``required=True``. ``--upload-only`` / ``--build-only`` still start issuance
+    but only warn, so the user can upload/build now and promote once issuance
+    completes. An inconclusive probe (``UNKNOWN``) or an underivable host never
+    blocks and does not start issuance — a false negative must not prevent a
+    deploy or kick off provisioning for a certificate that may already exist.
     """
+    if skip:
+        log.debug("Skipping per-account URL certificate check (--skip-certs-check).")
+        return
+
     probe_host = manager.per_account_cert_probe_host()
     if probe_host is None:
         log.debug(
@@ -1782,25 +1890,16 @@ def _ensure_cng_url_cert_ready(
         )
         return
 
-    # NOT_PROVISIONED.
-    if provision:
-        cli_console.step("Starting per-account URL certificate provisioning...")
-        manager.issue_per_account_url_cert()
-        message = (
-            "This account does not yet have a per-account URL certificate, "
-            "which serverless apps require. Provisioning has been started "
-            f"for you via {PER_ACCOUNT_CERT_ISSUE_FUNCTION}(). This can take up "
-            "to 3 hours. Re-run 'snow app deploy' once provisioning completes."
-        )
-    else:
-        message = (
-            "This account does not yet have a per-account URL certificate, which "
-            "serverless apps require. Start provisioning by running:\n"
-            f"  SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}();\n"
-            "Provisioning can take up to 3 hours. Re-run 'snow app deploy' once "
-            "it completes, or re-run with '--provision-certs' to start it "
-            "automatically."
-        )
+    # NOT_PROVISIONED: start issuance. A full deploy cannot create the service
+    # until the certificate is being served.
+    cli_console.step("Starting per-account URL certificate provisioning...")
+    manager.issue_per_account_url_cert()
+    message = (
+        "This account does not yet have a per-account URL certificate, "
+        "which serverless apps require. Provisioning has been started "
+        f"for you via {PER_ACCOUNT_CERT_ISSUE_FUNCTION}(). This can take up "
+        "to 3 hours. Re-run 'snow app deploy' once provisioning completes."
+    )
 
     if required:
         raise CliError(message)
@@ -1817,14 +1916,11 @@ def _warn_if_cng_url_cert_missing(manager: SnowflakeAppManager, url: str) -> Non
     probes the resolved *url*'s host directly (the exact certificate the browser
     would see). Unlike the deploy pre-check — which knows the app is CNG from its
     resolved ``compute_resource`` — ``open`` does not resolve the entity, so it
-    gates on the CNG feature flag (no CNG app can exist while it is off) and
     leans on ``per_account_cert_status_for_url`` returning ``UNKNOWN`` for
     non-per-account hosts (e.g. SPCS ``snowflakecomputing.app``), so an SPCS
     app's TLS state is never misattributed to a per-account cert. Any probe error
     is swallowed so ``open`` never breaks on this advisory.
     """
-    if not FeatureFlag.ENABLE_APP_SERVICE_COMPUTE_RESOURCE.is_enabled():
-        return
     try:
         status = manager.per_account_cert_status_for_url(url)
     except Exception:
@@ -2039,9 +2135,9 @@ class _ResolvedService(NamedTuple):
     (the ``--target`` target) or the ``snowflake.yml`` entity, so ``open`` and
     ``events`` share one resolution path instead of each re-deriving it.
 
-    ``compute_resource`` is the honoured backend (``SERVERLESS`` or
+    ``compute_resource`` is the backend (``SERVERLESS`` or
     ``MANAGED_COMPUTE_POOL``) from the ``app.yml`` target, or ``None`` when
-    the CNG feature flag is off or the project uses ``snowflake.yml``.
+    the project uses ``snowflake.yml``.
     """
 
     manager: SnowflakeAppManager
@@ -2061,9 +2157,8 @@ def _resolve_command_service(
 
     Prefers ``app.yml`` (selecting the ``--target`` target); otherwise falls
     back to the ``snowflake.yml`` entity, in which case ``--target`` is not
-    valid. Deploy and teardown need the fuller deploy-defaults resolution
-    (compute pools, artifact repo, code storage) and resolve their target
-    separately.
+    valid. Missing ``snowflake.yml`` location values use the same App Space
+    defaults as deploy.
     """
     manager = SnowflakeAppManager()
     app_def = _load_app_yml_for_command(target)
@@ -2075,7 +2170,9 @@ def _resolve_command_service(
             dep.database,
             dep.schema,
             dep.service_name,
-            _honoured_compute_resource(dep.target.compute_resource),
+            _effective_compute_resource(
+                manager, dep.target.compute_resource, required=False
+            ),
         )
 
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -2087,6 +2184,10 @@ def _resolve_command_service(
     conn = get_cli_context().connection_context
     database = fqn.database or conn.database
     schema = fqn.schema or conn.schema
+    if not database or not schema:
+        defaults = manager.fetch_app_service_defaults(fqn.name)
+        database = database or defaults.get("database")
+        schema = schema or defaults.get("schema")
     # Rebuild to a 3-part name; entity FQN may carry extra fields (e.g. prefix).
     service_fqn = app_fqn(database=database, schema=schema, name=fqn.name)
     return _ResolvedService(manager, service_fqn, database, schema, fqn.name)
@@ -2234,11 +2335,7 @@ def _resolve_teardown_target(
 
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
-    # Resolve db/schema from the active connection in place on the shared
-    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
-    # entity.fqn intentionally see the resolved value.
     fqn = entity.fqn
-    fqn.using_context()
     metrics = get_cli_context().metrics
     with metrics.span("snowflake_app.teardown.resolve_defaults"):
         defaults = _resolve_deploy_defaults(entity, manager, app_name=fqn.name)
@@ -2324,7 +2421,7 @@ def _deploy_from_app_yml(
     build_only: bool,
     promote_only: bool,
     interactive: Optional[bool],
-    provision_certs: bool = False,
+    skip_certs_check: bool = False,
 ) -> CommandResult:
     """Deploy a single ``app.yml`` target through upload, build, and deploy.
 
@@ -2360,24 +2457,36 @@ def _deploy_from_app_yml(
     else:
         cli_console.step(f"Deploying application service {service_label}.")
 
+    _ensure_python_runtime_enabled(manager, app_def, tgt.compute_resource)
+
+    _ensure_app_derived_schema(
+        manager,
+        database=database,
+        schema=schema,
+        app_name=dep.service_name,
+    )
+
     if promote_only:
         cli_console.step(
             "Promoting the latest built package (skipping upload and build)."
         )
 
-    # ``compute_resource`` selects the CNG (serverless) or SPCS backend and is
-    # write-once. CNG is not ready yet, so it is only honoured while the feature
-    # flag is on; when off it is ignored and the server defaults the backend.
-    compute_resource = _honoured_compute_resource(tgt.compute_resource)
+    # ``compute_resource`` selects the serverless or SPCS backend and is
+    # write-once. ``SERVERLESS`` is applied only when the account feature
+    # parameter allows it. When it is unset the server defaults the backend.
+    compute_resource = _effective_compute_resource(
+        manager, tgt.compute_resource, required=True
+    )
 
     # Probe for the per-account URL certificate up front (see
     # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
     # far too slow to happen inside CREATE OR ALTER APPLICATION SERVICE.
+    # A missing certificate starts provisioning unless --skip-certs-check.
     if _is_cng_compute_resource(compute_resource):
         with metrics.span("snowflake_app.deploy.cng_cert_precheck"):
             _ensure_cng_url_cert_ready(
                 manager,
-                provision=provision_certs,
+                skip=skip_certs_check,
                 required=not upload_only and not build_only,
             )
 
@@ -2421,9 +2530,8 @@ def _deploy_from_app_yml(
         return result
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
-    # ``url_prefix`` and ``health_check`` are CNG-only fields, so they are only
-    # emitted on the CNG (serverless) path, which already requires the feature
-    # flag (compute_resource stays None while it is off).
+    # ``url_prefix`` and ``health_check`` are serverless-only fields, so they
+    # are only emitted when ``compute_resource`` is ``SERVERLESS``.
     is_cng = _is_cng_compute_resource(compute_resource)
     specification = manager.build_service_specification(
         tgt,
@@ -2466,7 +2574,7 @@ def snowflake_app_deploy(
     build_only: bool,
     promote_only: bool,
     interactive: Optional[bool] = None,
-    provision_certs: bool = False,
+    skip_certs_check: bool = False,
     target: Optional[str] = None,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases.
@@ -2494,7 +2602,7 @@ def snowflake_app_deploy(
             build_only=build_only,
             promote_only=promote_only,
             interactive=interactive,
-            provision_certs=provision_certs,
+            skip_certs_check=skip_certs_check,
         )
 
     run_upload = not build_only and not promote_only
@@ -2503,20 +2611,11 @@ def snowflake_app_deploy(
     entity = _get_entity(resolved_entity_id)
 
     # ── Extract entity configuration ──────────────────────────────────
-    # Resolve db/schema from the active connection in place on the shared
-    # entity.fqn (also expands USER$ → USER$<user>); downstream re-reads of
-    # entity.fqn (e.g. perform_bundle) intentionally see the resolved value.
     fqn = entity.fqn
-    fqn.using_context()
     app_name = fqn.name
 
     ctx = get_cli_context()
     metrics = ctx.metrics
-    conn = ctx.connection_context
-    database = fqn.database or conn.database
-    schema = fqn.schema or conn.schema
-
-    query_warehouse = entity.query_warehouse
 
     app_title = entity.meta.title if entity.meta else None
     app_description = entity.meta.description if entity.meta else None
@@ -2529,6 +2628,12 @@ def snowflake_app_deploy(
 
     database = defaults["database"]
     schema = defaults["schema"]
+    _ensure_app_derived_schema(
+        manager,
+        database=database,
+        schema=schema,
+        app_name=app_name,
+    )
     build_compute_pool = defaults["build_compute_pool"]
     service_compute_pool = defaults["service_compute_pool"]
     query_warehouse = defaults["query_warehouse"]

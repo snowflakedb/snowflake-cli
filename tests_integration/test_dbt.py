@@ -250,7 +250,6 @@ def test_deploy_and_execute(
         assert result.json[0]["COUNT"] == 1, result.json[0]
 
 
-@pytest.mark.qa_only
 @pytest.mark.integration
 def test_deploy_writeback_and_auto_compile(
     runner,
@@ -260,9 +259,6 @@ def test_deploy_writeback_and_auto_compile(
 ):
     """Deploy sets DEFAULT_WRITEBACK / AUTO_COMPILE on CREATE, then flips them via
     ALTER ... SET on redeploy; the values are read back through `dbt list`.
-
-    Marked qa_only because writeback and auto-compile must be enabled on the test
-    account. Remove the qa_only marker once the feature is GA.
     """
     with project_directory("dbt_project") as root_dir:
         ts = int(datetime.datetime.now().timestamp())
@@ -288,7 +284,6 @@ def test_deploy_writeback_and_auto_compile(
         assert try_cast_to_bool(obj["auto_compile"]) is False, obj
 
 
-@pytest.mark.qa_only
 @pytest.mark.integration
 def test_execute_with_writeback(
     runner,
@@ -299,9 +294,6 @@ def test_execute_with_writeback(
     """Per-run --writeback emits the WRITEBACK clause on EXECUTE DBT PROJECT and the
     run completes. (The writeback effect itself is applied server-side and is not
     asserted here.)
-
-    Marked qa_only because writeback must be enabled on the test account. Remove the
-    qa_only marker once the feature is GA.
     """
     with project_directory("dbt_project") as root_dir:
         ts = int(datetime.datetime.now().timestamp())
@@ -320,7 +312,6 @@ def test_execute_with_writeback(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_execute_with_imports(
     runner,
     snowflake_session,
@@ -333,8 +324,8 @@ def test_execute_with_imports(
     accepted end-to-end across all supported shapes: a bare stage path, a stage
     path aliased to a target folder, a SYSTEM$ function (bare and aliased), and a
     snow://dbt URL — the SYSTEM$ and snow:// grammars being the parts unit tests
-    can't confirm against the server. qa_only because it depends on the backend
-    IMPORTS support being enabled on the account.
+    can't confirm against the server. Requires backend IMPORTS support enabled on
+    the account.
     """
     with project_directory("dbt_project") as root_dir:
         ts = int(datetime.datetime.now().timestamp())
@@ -547,7 +538,6 @@ def test_deploy_with_default_target(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_deploy_with_default_environment(
     runner,
     snowflake_session,
@@ -597,7 +587,6 @@ def test_deploy_with_default_environment(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_deploy_with_env_file_dir(
     runner,
     snowflake_session,
@@ -640,7 +629,6 @@ def test_deploy_with_env_file_dir(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_deploy_preserves_yaml_key_order(
     runner,
     snowflake_session,
@@ -692,7 +680,7 @@ def test_deploy_preserves_yaml_key_order(
 
         db = snowflake_session.database
         schema = snowflake_session.schema
-        stage_base = f"snow://dbt/{db}.{schema}.{name}/versions/version$1"
+        stage_base = f"snow://dbt/{db}.{schema}.{name}/versions/live"
 
         # Download staged profiles.yml and verify key order
         result = runner.invoke_with_connection(
@@ -807,10 +795,10 @@ def test_dbt_deploy_with_external_access_integrations(
         # Given a local dbt project with external dependencies
         ts = int(datetime.datetime.now().timestamp())
         name = f"dbt_external_deps_{ts}"
-        ext_access_integration = f"DBT_HUB_ACCESS_INTEGRATION"
-
-        # Setup external access integration for dbt hub access
-        _setup_external_access_integration(runner, ext_access_integration)
+        # Account-level EAIs from integration_account_setup.sql. Creating
+        # integrations requires CREATE INTEGRATION, which Jenkins INTEGRATION_TESTS
+        # may not have until ACCOUNTADMIN re-runs that script.
+        ext_access_integration = "DBT_HUB_ACCESS_INTEGRATION"
 
         _setup_dbt_profile(root_dir, snowflake_session)
 
@@ -836,10 +824,7 @@ def test_dbt_deploy_with_external_access_integrations(
         assert result.exit_code == 0, result.output
 
         # Deploy dbt project once again to confirm that altering works
-        second_access_integration = f"SECOND_ACCESS_INTEGRATION"
-
-        # Setup external access integration for dbt hub access
-        _setup_external_access_integration(runner, second_access_integration)
+        second_access_integration = "DBT_HUB_ACCESS_INTEGRATION_2"
 
         result = runner.invoke_with_connection_json(
             [
@@ -860,9 +845,7 @@ def test_dbt_deploy_with_external_access_integrations(
             second_access_integration in result.json[0]["external_access_integrations"]
         )
 
-        # Cleanup: Remove external access integration and network rule
-        _cleanup_external_access_integration(runner, ext_access_integration)
-        _cleanup_external_access_integration(runner, second_access_integration)
+        # Do not drop account-setup EAIs.
 
 
 @pytest.mark.integration
@@ -1019,6 +1002,9 @@ def test_deploy_with_dbt_version(
 
 @pytest.mark.integration
 @pytest.mark.qa_only
+@pytest.mark.skip(
+    reason="qa6 DESCRIBE dbt does not populate last_deployed_from (Jenkins #881); not an account-setup issue"
+)
 def test_deploy_with_git_commit_and_branch(
     runner,
     snowflake_session,
@@ -1062,6 +1048,9 @@ def test_deploy_with_git_commit_and_branch(
 
 @pytest.mark.integration
 @pytest.mark.qa_only
+@pytest.mark.skip(
+    reason="qa6 DESCRIBE dbt does not populate last_deployed_from (Jenkins #881); not an account-setup issue"
+)
 def test_deploy_auto_detects_git_metadata_in_github_actions(
     runner,
     snowflake_session,
@@ -1124,7 +1113,6 @@ def test_execute_with_dbt_version(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_execute_with_env_and_env_vars(
     runner,
     snowflake_session,
@@ -1194,7 +1182,6 @@ def test_execute_with_env_and_env_vars(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_execute_with_use_shell_env_vars(
     runner,
     snowflake_session,

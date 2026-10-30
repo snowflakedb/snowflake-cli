@@ -14,19 +14,23 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+import logging
+from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING, Iterator, TextIO
 
 import tomlkit
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
-from snowflake.cli.api.exceptions import MissingConfigurationError
+from snowflake.cli.api.constants import IS_WINDOWS
+from snowflake.cli.api.exceptions import CliError, MissingConfigurationError
 from snowflake.cli.api.metrics import CLIMetrics
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.config_manager import (
     ConfigManager,
@@ -40,7 +44,55 @@ if TYPE_CHECKING:
     from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
 
+log = logging.getLogger(__name__)
 _CONNECTION_CACHE = OpenConnectionCache()
+
+
+def _warn_if_spool_broader_than_owner_only(path: Path) -> None:
+    from snowflake.cli.api.console import cli_console
+    from snowflake.cli.api.secure_utils import (
+        file_is_readable_by_others,
+        file_is_writable_by_others,
+        file_permissions_are_strict,
+    )
+
+    safe_path = sanitize_for_terminal(str(path)) or ""
+
+    if IS_WINDOWS:
+        try:
+            if file_permissions_are_strict(path):
+                return
+        except CliError:
+            log.debug(
+                "Windows ACL lookup failed for spool file %s", path, exc_info=True
+            )
+            return
+        cli_console.warning(
+            f"Spool file '{safe_path}' is broader than owner-only. "
+            "Other users on this machine can potentially read query results "
+            "written to this file, or can write to it."
+        )
+        return
+
+    readable = file_is_readable_by_others(path)
+    writable = file_is_writable_by_others(path)
+
+    if readable and writable:
+        detail = (
+            "Other users on this machine can read query results written to this file, "
+            "and can write to it."
+        )
+    elif readable:
+        detail = (
+            "Other users on this machine can read query results written to this file."
+        )
+    elif writable:
+        detail = "Other users on this machine can write to this file."
+    else:
+        return
+    cli_console.warning(
+        f"Spool file '{safe_path}' is broader than owner-only. {detail}"
+    )
 
 
 @dataclass
@@ -51,6 +103,9 @@ class _CliGlobalContextManager:
     )
 
     output_format: OutputFormat = OutputFormat.TABLE
+    spool_path: Path | None = None
+    spool_stream: TextIO | None = None
+    _spool_stack: ExitStack | None = field(default=None, repr=False, compare=False)
     silent: bool = False
     verbose: bool = False
     experimental: bool = False
@@ -102,7 +157,36 @@ class _CliGlobalContextManager:
     CONFIG_MANAGER_DEPENDENCIES = ["config_file_override", "connections_file_override"]
 
     def reset(self):
+        self.close_spool()
         self.__init__()
+
+    def open_spool(self, path: str | Path) -> None:
+        """Open *path* for append (UTF-8). Closes a previously open spool first."""
+        self.close_spool()
+        spool = SecurePath(path)
+        existed = spool.path.exists()
+        stack = ExitStack()
+        try:
+            stream = stack.enter_context(spool.open("a", encoding="utf-8"))
+        except OSError as exc:
+            stack.close()
+            detail = exc.strerror or str(exc)
+            safe_path = sanitize_for_terminal(str(spool.path)) or ""
+            raise CliError(f"Cannot write spool file '{safe_path}': {detail}") from exc
+        if existed:
+            _warn_if_spool_broader_than_owner_only(spool.path)
+        self.spool_path = spool.path
+        self.spool_stream = stream
+        self._spool_stack = stack
+
+    def close_spool(self) -> None:
+        """Close the spool file if one is open. No-op when already off."""
+        stack = self._spool_stack
+        self._spool_stack = None
+        self.spool_stream = None
+        self.spool_path = None
+        if stack is not None:
+            stack.close()
 
     def clone(self) -> _CliGlobalContextManager:
         return replace(
@@ -279,6 +363,14 @@ class _CliGlobalContextAccess:
     @property
     def output_format(self) -> OutputFormat:
         return self._manager.output_format
+
+    @property
+    def spool_path(self) -> Path | None:
+        return self._manager.spool_path
+
+    @property
+    def spool_stream(self) -> TextIO | None:
+        return self._manager.spool_stream
 
     @property
     def verbose(self) -> bool:

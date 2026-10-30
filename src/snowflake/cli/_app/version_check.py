@@ -8,7 +8,8 @@ from dataclasses import dataclass
 
 import requests
 from packaging.version import Version
-from snowflake.cli.__about__ import VERSION
+from snowflake.cli import __about__
+from snowflake.cli.__about__ import VERSION, CLIInstallationSource
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
     CLI_SECTION,
@@ -16,6 +17,7 @@ from snowflake.cli.api.config import (
     get_config_bool_value,
     get_config_manager,
     get_file_io_encoding,
+    is_air_gapped,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -45,9 +47,30 @@ _refresh_thread: threading.Thread | None = None
 
 
 def should_ignore_new_version_warning() -> bool:
-    return get_config_bool_value(
+    # Existing installs already have ignore_new_version_warning seeded to False,
+    # so air-gapped mode is a separate, positively-gated switch.
+    return is_air_gapped() or get_config_bool_value(
         CLI_SECTION, key=IGNORE_NEW_VERSION_WARNING_KEY, default=False
     )
+
+
+def should_hide_new_version_banner_for_auto_upgrade() -> bool:
+    """True when this install is on the auto-upgrade path.
+
+    Direct-install (``SNOWFLAKE_MANAGED``) plus product opt-in
+    (``is_auto_upgrade_enabled()``). Homebrew / pip / other stamps still see
+    the PyPI/Homebrew banner. ``SNOWFLAKE_CLI_AUTO_UPGRADE_DONE`` is not read:
+    the spawned child is still on this path and still hides the banner.
+    Does not set ``cli.ignore_new_version_warning``. ``--no-auto-upgrade`` is
+    a one-run download skip and does not affect this (the opt-in still holds).
+    ``snow helpers check-version`` still reports via ``get_version_info``.
+    """
+    if __about__.INSTALLATION_SOURCE is not CLIInstallationSource.SNOWFLAKE_MANAGED:
+        return False
+    # Lazy: ``_app`` must not import the upgrade plugin at module load.
+    from snowflake.cli._plugins.upgrade.controls import is_auto_upgrade_enabled
+
+    return is_auto_upgrade_enabled()
 
 
 def was_warning_shown_recently(last_time_shown: float | int | None) -> bool:
@@ -63,7 +86,10 @@ def was_warning_shown_recently(last_time_shown: float | int | None) -> bool:
 
 def start_background_refresh() -> None:
     """Start a daemon thread to refresh the version cache if needed."""
-    if should_ignore_new_version_warning():
+    if (
+        should_ignore_new_version_warning()
+        or should_hide_new_version_banner_for_auto_upgrade()
+    ):
         return
     _VersionCache().schedule_background_refresh()
 
@@ -84,7 +110,10 @@ def reset_background_refresh_thread() -> None:
 
 def get_new_version_msg() -> str | None:
     try:
-        if should_ignore_new_version_warning():
+        if (
+            should_ignore_new_version_warning()
+            or should_hide_new_version_banner_for_auto_upgrade()
+        ):
             return None
         wait_for_refresh()
         cache = _VersionCache()
@@ -120,10 +149,18 @@ def get_version_info(*, force_refresh: bool = False) -> CliVersionInfo:
     """Resolve the current and latest available Snowflake CLI versions.
 
     Unlike the passive upgrade banner, this always reports the result: it
-    ignores the ``ignore_new_version_warning`` config and the "shown recently"
-    throttle so an explicit check is never silenced. ``force_refresh`` bypasses
-    the on-disk cache and queries the package repositories directly.
+    ignores the ``ignore_new_version_warning`` config, the auto-upgrade-path
+    hide, and the "shown recently" throttle so an explicit check is never
+    silenced. Air-gapped mode is the exception: no repository is queried.
+    ``force_refresh`` bypasses the on-disk cache and queries the package
+    repositories directly.
     """
+    if is_air_gapped():
+        return CliVersionInfo(
+            current_version=VERSION,
+            latest_version=None,
+            update_available=False,
+        )
     latest_version = _VersionCache().get_last_version(force_refresh=force_refresh)
     update_available = bool(latest_version and latest_version > Version(VERSION))
     return CliVersionInfo(

@@ -23,6 +23,17 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.command_docs import (
+    PUBLIC_PREVIEW_NO_GOV,
+    CommandDocs,
+    Example,
+    Include,
+    RelatedLink,
+    code,
+    link,
+    note,
+    plain_text,
+)
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.utils import EntityActions
@@ -39,8 +50,77 @@ app = SnowTyperFactory(
 
 log = logging.getLogger(__name__)
 
+_NATIVE_APP_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link("/developer-guide/snowflake-cli/native-apps/overview"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/native-apps-commands/overview"
+    ),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/native-apps-commands/publish-app"
+    ),
+)
 
-@app.command("list", requires_connection=True)
+
+def _release_channel_related(*extra: RelatedLink) -> tuple[RelatedLink, ...]:
+    return (
+        _NATIVE_APP_RELATED
+        + (
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-directive/overview"
+            ),
+        )
+        + extra
+    )
+
+
+_TEXT_SNOWCLI_RELEASE_CHANNELS_NOTE = Include(
+    tag="TextSnowcliReleaseChannelsNote",
+    path="INCLUDE/text/text-snow" + "cli-release-channels-note.mdx",
+    help_content=(
+        note(
+            "The release channels feature might not be available in all regions. "
+            "Please contact Snowflake Support for more information.",
+        ),
+    ),
+)
+
+
+@app.command(
+    "list",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_channel_related(),
+        banners=(PUBLIC_PREVIEW_NO_GOV,),
+        usage_notes=(
+            _TEXT_SNOWCLI_RELEASE_CHANNELS_NOTE,
+            plain_text(
+                "The ",
+                code("snow app release-channel list"),
+                " lists all the release channels available in the current application package.\n",
+                "If release channels are not enabled in the application package, this command returns no results.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("List all the release channels:"),
+                command="snow app release-channel list",
+            ),
+            Example(
+                description=plain_text(
+                    "To display the results in JSON format, add the ",
+                    code("--format=json"),
+                    " option:",
+                ),
+                command="snow app release-channel list --format=json",
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_channel_list(
@@ -71,7 +151,43 @@ def release_channel_list(
         return CollectionResult(channels)
 
 
-@app.command("add-accounts", requires_connection=True)
+@app.command(
+    "add-accounts",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_channel_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list"
+            ),
+        ),
+        banners=(PUBLIC_PREVIEW_NO_GOV,),
+        usage_notes=(
+            _TEXT_SNOWCLI_RELEASE_CHANNELS_NOTE,
+            plain_text(
+                "The ",
+                code("snow app release-channel add-accounts"),
+                " command adds a list of accounts to an existing release channel for an application package.\n",
+                "The release channel must already exist, and release channels must be enabled for the application package. Only non-default release channels can have accounts associated with them.\n",
+                "To view the available release channels for the application package, use the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list",
+                    "snow app release-channel list",
+                ),
+                " command.\n",
+                "The specified accounts are provided in the format of ORGANIZATION_NAME.ACCOUNT_NAME and separated by comma.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Add accounts to the ALPHA release channel:"),
+                command=(
+                    "snow app release-channel add-accounts ALPHA "
+                    "--target-accounts ORG1.ACCT1,ORG2.ACCT2"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_channel_add_accounts(
@@ -105,7 +221,45 @@ def release_channel_add_accounts(
     return MessageResult("Successfully added accounts to the release channel.")
 
 
-@app.command("remove-accounts", requires_connection=True)
+@app.command(
+    "remove-accounts",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_channel_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list"
+            ),
+        ),
+        banners=(PUBLIC_PREVIEW_NO_GOV,),
+        usage_notes=(
+            _TEXT_SNOWCLI_RELEASE_CHANNELS_NOTE,
+            plain_text(
+                "The ",
+                code("snow app release-channel remove-accounts"),
+                " command removes a list of accounts from an existing release channel for an application package.\n",
+                "The release channel must already exist, and release channels must be enabled for the application package. Only non-default release channels can have accounts associated with them.\n",
+                "To view the available release channels for the application package, use the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list",
+                    "snow app release-channel list",
+                ),
+                " command.\n",
+                "The specified accounts are provided in the format of ORGANIZATION_NAME.ACCOUNT_NAME and separated by comma.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Remove accounts from the ALPHA release channel:"
+                ),
+                command=(
+                    "snow app release-channel remove-accounts ALPHA "
+                    "--target-accounts ORG1.ACCT1,ORG2.ACCT2"
+                ),
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_channel_remove_accounts(
@@ -140,7 +294,43 @@ def release_channel_remove_accounts(
 
 
 @with_project_definition()
-@app.command("set-accounts", requires_connection=True)
+@app.command(
+    "set-accounts",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_channel_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list"
+            ),
+        ),
+        banners=(PUBLIC_PREVIEW_NO_GOV,),
+        usage_notes=(
+            _TEXT_SNOWCLI_RELEASE_CHANNELS_NOTE,
+            plain_text(
+                "The ",
+                code("snow app release-channel set-accounts"),
+                " command assigns a list of accounts to an existing release channel of an application package.\n",
+                "The release channel must already exist, and release channels must be enabled for the application package. Only non-default release channels can have accounts associated with them.\n\n",
+                "To specify the accounts, provide comma-separated ORGANIZATION_NAME.ACCOUNT_NAME values.\n\n",
+                "To view the available release channels for the application package, use the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list",
+                    "snow app release-channel list",
+                ),
+                " command.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("Set accounts for the ALPHA release channel:"),
+                command=(
+                    "snow app release-channel set-accounts ALPHA "
+                    "--target-accounts ORG1.ACCT1,ORG2.ACCT2"
+                ),
+            ),
+        ),
+    ),
+)
 @force_project_definition_v2()
 def release_channel_set_accounts(
     channel: str = typer.Argument(
@@ -173,7 +363,49 @@ def release_channel_set_accounts(
     return MessageResult("Successfully set accounts for the release channel.")
 
 
-@app.command("add-version", requires_connection=True)
+@app.command(
+    "add-version",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_channel_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list"
+            ),
+        ),
+        banners=(PUBLIC_PREVIEW_NO_GOV,),
+        usage_notes=(
+            _TEXT_SNOWCLI_RELEASE_CHANNELS_NOTE,
+            plain_text(
+                "The ",
+                code("snow app release-channel add-version"),
+                " command adds a version to an existing release channel for an application package.\n",
+                "The release channel must already exist, and release channels must be enabled for the application package.\n",
+                "To view the available release channels for the application package, use the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list",
+                    "snow app release-channel list",
+                ),
+                " command.\n",
+                "The specified version must already exist in the application package, and the version must not already be associated with the release channel.\n",
+                "If the maximum number of versions is already associated with the release channel, the command fails.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Add version v1 to the default release channel:"
+                ),
+                command="snow app release-channel add-version --version v1 DEFAULT",
+            ),
+            Example(
+                description=plain_text(
+                    "Add version v1 to a non-default release channel:"
+                ),
+                command="snow app release-channel add-version --version v1 ALPHA",
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_channel_add_version(
@@ -209,7 +441,48 @@ def release_channel_add_version(
     )
 
 
-@app.command("remove-version", requires_connection=True)
+@app.command(
+    "remove-version",
+    requires_connection=True,
+    docs=CommandDocs(
+        related=_release_channel_related(
+            link(
+                "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list"
+            ),
+        ),
+        banners=(PUBLIC_PREVIEW_NO_GOV,),
+        usage_notes=(
+            _TEXT_SNOWCLI_RELEASE_CHANNELS_NOTE,
+            plain_text(
+                "The ",
+                code("snow app release-channel remove-version"),
+                " command removes a version from an existing release channel for an application package.\n",
+                "The release channel must already exist, and release channels must be enabled for the application package.\n",
+                "To view the available release channels for the application package, use the ",
+                link(
+                    "/developer-guide/snowflake-cli/command-reference/native-apps-commands/release-channel/list",
+                    "snow app release-channel list",
+                ),
+                " command.\n",
+                "The specified version must already exist in the application package, and the version must already be associated with the release channel.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Remove version v1 from the default release channel:"
+                ),
+                command="snow app release-channel remove-version --version v1 DEFAULT",
+            ),
+            Example(
+                description=plain_text(
+                    "Remove version v1 from a non-default release channel:"
+                ),
+                command="snow app release-channel remove-version --version v1 ALPHA",
+            ),
+        ),
+    ),
+)
 @with_project_definition()
 @force_project_definition_v2()
 def release_channel_remove_version(

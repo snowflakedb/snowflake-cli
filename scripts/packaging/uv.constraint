@@ -1,0 +1,5 @@
+# hatch==1.15.1 depends on uv>=0.5.23. Unpinned pip resolves the newest uv
+# (0.12.23 as of 2026-10-07) which Artifactory 403s on the platform wheels
+# (MacArm64 #945, Win installer #597/#598). 0.12.22 served the same morning
+# (MacArm64 #944). Pin so Releng packaging does not follow uv's latest.
+uv==0.12.22

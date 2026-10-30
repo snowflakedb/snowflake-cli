@@ -37,9 +37,27 @@ Feel free to file an issue or submit a PR here for general cases. For official s
 
 ## Install Snowflake CLI
 
+### Direct install (recommended)
+
+The direct installer downloads a signed platform binary from the Snowflake CLI repository and unpacks a versioned `snow` into your home directory.
+
+macOS / Linux / WSL:
+
+```bash
+curl -LsS https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
+```
+
+Upgrade later with `snow upgrade` (public preview, same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
+
 ### Install with uv (PyPi)
 
-We recommend installing Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.10
+Install Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.11. `snow upgrade` refuses on this channel.
 
 ```bash
 uv tool install snowflake-cli
@@ -82,7 +100,7 @@ Once trusted, future upgrades work normally: `brew upgrade --cask snowflake-cli`
 
 ### Install from source
 
-Requires Python >= 3.10 and git
+Requires Python >= 3.11 and git
 
 ```bash
 git clone https://github.com/snowflakedb/snowflake-cli
@@ -110,10 +128,37 @@ snow sql --prompt-format "[user]#[warehouse]@[database].[schema]> "
 
 Missing values render as `(no user)`, `(no database)`, and so on.
 `\n` is a newline; `\[`, `\]`, and `\\` are literal `[`, `]`, and `\`.
+Use `[#rrggbb]` for a foreground colour and `[bg:#rrggbb]` for a background
+colour. A colour applies to the prompt text that follows it; it does not colour
+SQL input. Quote the value because `#` starts a TOML comment. For example:
+
+```toml
+[cli]
+prompt_format = """┌──[#bca81f][user]@[account].[role].[warehouse].[database].[schema]
+[#ffff00]└─$"""
+```
+
+SnowSQL often puts a colour after the marker (`└─$[#ffff00]`). Here that
+trailing token is a no-op: it does not colour typed SQL. Place `[#ffff00]`
+before `└─$` if you want the marker itself yellow.
+
 Unknown bracketed tokens are dropped from the prompt and reported with a
-warning when the REPL starts, which reserves the `[...]` namespace for later
-extensions. Colour directives (`[#rrggbb]`, `[bg:#rrggbb]`) are part of that
-namespace, so they are dropped rather than rendered in this version.
+warning when the REPL starts. Prefix a colour directive with `\[` to display
+it literally.
+
+## Default output format
+
+Commands print a table unless you pass `--format`. To change that default, set
+`output_format` in the `[cli]` section of `config.toml` or the
+`SNOWFLAKE_CLI_OUTPUT_FORMAT` environment variable. Allowed values are `TABLE`,
+`JSON`, `JSON_EXT`, `CSV`, and `PLAIN`. `--format` on the command line still wins.
+In `snow sql`, `!set output_format=<format>` changes the format for later
+statements in that session.
+
+```toml
+[cli]
+output_format = "JSON"
+```
 
 ## Get involved
 

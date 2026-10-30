@@ -15,9 +15,15 @@
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.sql_execution import BaseSqlExecutor, SqlExecutor
+from snowflake.cli.api.sql_execution import (
+    BaseSqlExecutor,
+    SqlExecutor,
+    VerboseCursor,
+)
+from snowflake.connector.cursor import SnowflakeCursor
 
 EXECUTE_QUERY = f"snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
 
@@ -237,3 +243,36 @@ def test_connection_returns_injected_connection():
     mock_connection = mock.MagicMock()
     executor = BaseSqlExecutor(connection=mock_connection)
     assert executor.connection is mock_connection
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "SELECT '[/x]' AS VAL;",
+        "SELECT REGEXP_SUBSTR(c, '[a-z]+');",
+        "SELECT '[bold]' AS VAL;",
+    ],
+)
+def test_verbose_cursor_echoes_markup_like_sql_and_still_executes(command, capsys):
+    """SQL echo must not parse the statement as Rich markup (SNOW-4191000)."""
+    cursor = VerboseCursor(mock.Mock())
+    with mock.patch.object(SnowflakeCursor, "execute") as mock_execute:
+        cursor.execute(command)
+
+    mock_execute.assert_called_once()
+    assert mock_execute.call_args.args[0] == command
+    out, _ = capsys.readouterr()
+    assert out == f"{command}\n"
+
+
+def test_verbose_cursor_echo_is_muted_when_silent(capsys):
+    cursor = VerboseCursor(mock.Mock())
+    with mock.patch.object(
+        type(cli_console), "is_silent", new_callable=mock.PropertyMock
+    ) as silent:
+        silent.return_value = True
+        with mock.patch.object(SnowflakeCursor, "execute") as mock_execute:
+            cursor.execute("SELECT '[/x]' AS VAL;")
+            mock_execute.assert_called_once()
+    out, _ = capsys.readouterr()
+    assert out == ""

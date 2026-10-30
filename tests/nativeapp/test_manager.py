@@ -241,18 +241,21 @@ def test_sync_deploy_root_with_stage_subdir(
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.sync_local_diff_with_stage")
 @mock.patch(f"{ENTITIES_UTILS_MODULE}.compute_stage_diff")
 @pytest.mark.parametrize(
-    "prune,only_on_stage_files,expected_warn",
+    "prune,only_on_stage_files,warn_on_preserved_files,expected_warn",
     [
         [
             True,
             [StagePathType("only-stage.txt")],
+            None,
             False,
         ],
         [
             False,
             [StagePathType("only-stage-1.txt"), StagePathType("only-stage-2.txt")],
+            None,
             True,
         ],
+        [False, [StagePathType("old-entrypoint.py")], False, False],
     ],
 )
 def test_sync_deploy_root_with_stage_prune(
@@ -262,6 +265,7 @@ def test_sync_deploy_root_with_stage_prune(
     mock_stage_exists,
     prune,
     only_on_stage_files,
+    warn_on_preserved_files,
     expected_warn,
     temporary_directory,
 ):
@@ -279,6 +283,11 @@ def test_sync_deploy_root_with_stage_prune(
     package_name = pkg_model.fqn.name
     stage_fqn = f"{package_name}.{pkg_model.stage}"
     mock_console = mock.MagicMock()
+    warning_options = (
+        {}
+        if warn_on_preserved_files is None
+        else {"warn_on_preserved_files": warn_on_preserved_files}
+    )
     sync_deploy_root_with_stage(
         console=mock_console,
         deploy_root=dm.project_root / pkg_model.deploy_root,
@@ -288,7 +297,11 @@ def test_sync_deploy_root_with_stage_prune(
         prune=prune,
         recursive=True,
         stage_path_parts=DefaultStagePathParts.from_fqn(stage_fqn),
+        **warning_options,
     )
+
+    if not prune:
+        assert mock_compute_stage_diff.return_value.only_on_stage == []
 
     if expected_warn:
         files_str = "\n".join([str(f) for f in only_on_stage_files])

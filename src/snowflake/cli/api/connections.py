@@ -401,8 +401,7 @@ class OpenConnectionCache:
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
-            # Python 3.11+ will throw when no event loop;
-            # Python 3.10 will issue a DeprecationWarning and return None
+            # This thread has no event loop the cleanup can be scheduled on.
             pass
 
         if not loop:

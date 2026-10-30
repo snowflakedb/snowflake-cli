@@ -190,16 +190,8 @@ class AnacondaPackages:
 
 
 class AnacondaPackagesManager(SqlExecutionMixin):
-    _snowflake_channel_url: str = (
-        "https://repo.anaconda.com/pkgs/snowflake/channeldata.json"
-    )
-
     def find_packages_available_in_snowflake_anaconda(self) -> AnacondaPackages:
-        """
-        Finds Python packages available in Snowflake to use in functions and stored procedures.
-        It tries to get the list of packages using SQL query
-        but if the try fails then the fallback is to parse JSON containing info about Snowflake's Anaconda channel.
-        """
+        """Return Python packages available in Snowflake for functions and procedures."""
         packages = self._query_snowflake_for_available_packages()
         return AnacondaPackages(packages)
 
