@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from typing import Any, NamedTuple
 
 import snowflake.connector
 from packaging.version import Version
@@ -80,6 +81,18 @@ class SessionUser:
         return session_user_cache_key(self.value) == session_user_cache_key(other.value)
 
 
+class SignedIn(NamedTuple):
+    """A finished sign-in whose caching connection is still open.
+
+    The caller closes ``connection``, or hands it to telemetry, which closes
+    it after the command's events are sent.
+    """
+
+    user: str
+    connection: Any
+    parameters: dict[str, Any]
+
+
 def sign_in(
     *,
     target: SignInTarget,
@@ -89,12 +102,12 @@ def sign_in(
     database: str | None = None,
     schema: str | None = None,
     caching_session: Callable[[str], tuple[SignInTarget, str | None]] | None = None,
-) -> str:
+) -> SignedIn:
     """Open the connector's browser or paste path and return the session user.
 
-    The returned string is the user a later ``connect()`` must pass. The first
-    attempt is not cached. A machine with no browser still finishes here: the
-    connector asks for the redirect, and this function does not ask for a user.
+    ``user`` is the user a later ``connect()`` must pass. The first attempt is
+    not cached. A machine with no browser still finishes here: the connector
+    asks for the redirect, and this function does not ask for a user.
 
     ``role`` is the role for the first connect. Each connect sends
     ``local_oauth_scope`` for the role that connect receives.
@@ -102,6 +115,9 @@ def sign_in(
     the target and role for the connect that caches. A role, warehouse,
     database, or schema is checked on the login request that names it.
     Snowflake rejects one that does not exist or that this user cannot use.
+
+    The caching connection stays open. The discovery connection is closed
+    here.
     """
     discovered = SessionUser(
         _open_session(
@@ -119,28 +135,31 @@ def sign_in(
     cache_role = role
     if caching_session is not None:
         cache_target, cache_role = caching_session(discovered.value)
-    confirmed = SessionUser(
-        _open_session(
-            cache_target,
-            user=discovered.value,
-            application=application,
-            store=True,
-            role=cache_role,
-            warehouse=warehouse,
-            database=database,
-            schema=schema,
-        )
+    connection, parameters = _connect_for_session(
+        cache_target,
+        user=discovered.value,
+        application=application,
+        store=True,
+        role=cache_role,
+        warehouse=warehouse,
+        database=database,
+        schema=schema,
     )
-    if not discovered.shares_cache_key_with(confirmed):
-        raise CliConnectionError(
-            f"Signed in as {confirmed.value}. "
-            f"The first sign-in was {discovered.value}. "
-            "Sign in as the same user and try again."
-        )
-    return discovered.value
+    try:
+        confirmed = SessionUser(_read_session_user(cache_target, connection))
+        if not discovered.shares_cache_key_with(confirmed):
+            raise CliConnectionError(
+                f"Signed in as {confirmed.value}. "
+                f"The first sign-in was {discovered.value}. "
+                "Sign in as the same user and try again."
+            )
+        return SignedIn(discovered.value, connection, parameters)
+    except Exception:
+        _close_quietly(connection)
+        raise
 
 
-def _open_session(
+def _session_kwargs(
     target: SignInTarget,
     *,
     user: str | None,
@@ -150,8 +169,8 @@ def _open_session(
     warehouse: str | None = None,
     database: str | None = None,
     schema: str | None = None,
-) -> str:
-    kwargs: dict[str, str | bool] = {
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
         "account": target.account,
         "authenticator": AUTHENTICATOR,
         "application": application,
@@ -179,15 +198,12 @@ def _open_session(
         named_context = True
     if named_context:
         kwargs["validate_default_parameters"] = True
-    log.debug(
-        "Signing in to account %s as %s (store=%s)",
-        target.account,
-        user or "",
-        store,
-    )
+    return kwargs
+
+
+def _connect_or_raise(target: SignInTarget, kwargs: dict[str, Any]):
     try:
-        with snowflake.connector.connect(**kwargs) as connection:
-            return _session_user(connection)
+        return snowflake.connector.connect(**kwargs)
     except CliConnectionError:
         raise
     except SnowflakeError as error:
@@ -196,6 +212,83 @@ def _open_session(
         raise CliConnectionError(
             f"Sign-in failed: {detail}. Check the account and try again."
         ) from error
+
+
+def _close_quietly(connection: Any) -> None:
+    try:
+        connection.close()
+    except Exception:
+        log.debug("Failed to close sign-in connection", exc_info=True)
+
+
+def _connect_for_session(
+    target: SignInTarget,
+    *,
+    user: str | None,
+    application: str,
+    store: bool,
+    role: str | None = None,
+    warehouse: str | None = None,
+    database: str | None = None,
+    schema: str | None = None,
+) -> tuple[Any, dict[str, Any]]:
+    kwargs = _session_kwargs(
+        target,
+        user=user,
+        application=application,
+        store=store,
+        role=role,
+        warehouse=warehouse,
+        database=database,
+        schema=schema,
+    )
+    log.debug(
+        "Signing in to account %s as %s (store=%s)",
+        target.account,
+        user or "",
+        store,
+    )
+    return _connect_or_raise(target, kwargs), kwargs
+
+
+def _read_session_user(target: SignInTarget, connection: Any) -> str:
+    try:
+        return _session_user(connection)
+    except CliConnectionError:
+        raise
+    except SnowflakeError as error:
+        log.debug("Sign-in failed for account %s", target.account, exc_info=error)
+        detail = str(error).strip().rstrip(".")
+        raise CliConnectionError(
+            f"Sign-in failed: {detail}. Check the account and try again."
+        ) from error
+
+
+def _open_session(
+    target: SignInTarget,
+    *,
+    user: str | None,
+    application: str,
+    store: bool,
+    role: str | None = None,
+    warehouse: str | None = None,
+    database: str | None = None,
+    schema: str | None = None,
+) -> str:
+    connection, _parameters = _connect_for_session(
+        target,
+        user=user,
+        application=application,
+        store=store,
+        role=role,
+        warehouse=warehouse,
+        database=database,
+        schema=schema,
+    )
+    try:
+        return _read_session_user(target, connection)
+    finally:
+        _close_quietly(connection)
 
 
 def _session_user(connection) -> str:

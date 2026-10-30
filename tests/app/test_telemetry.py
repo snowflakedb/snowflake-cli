@@ -25,7 +25,7 @@ from snowflake.cli.api.config_provider import (
 )
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
-from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
+from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlag, FeatureFlagMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.version import VERSION as DRIVER_VERSION
 
@@ -62,12 +62,9 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
         assert result.exit_code == 0, result.output
         # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+        telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
         usage_command_event = (
-            mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-                0
-            ]
-            .args[0]
-            .to_dict()
+            telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
         )
 
         del usage_command_event["message"][
@@ -147,12 +144,9 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
         assert result.exit_code == 0, result.output
 
         # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+        telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
         usage_command_event = (
-            mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-                0
-            ]
-            .args[0]
-            .to_dict()
+            telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
         )
 
         del usage_command_event["message"][
@@ -233,12 +227,9 @@ def test_executing_command_sends_ci_usage_data(_, mock_conn, runner, env_var, ci
 
     assert result.exit_code == 0, result.output
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_ci_environment"] == ci_type
@@ -256,12 +247,9 @@ def test_generic_ci_env_variable_returns_unknown_ci(_, mock_conn, runner, ci_val
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_ci_environment"] == "UNKNOWN_CI"
@@ -374,12 +362,9 @@ def test_agent_session_id_appears_in_telemetry(
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_agent_environment"] == expected_agent
@@ -397,12 +382,9 @@ def test_agent_session_id_empty_in_telemetry_when_unset(_, mock_conn, runner):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_agent_session_id"] == ""
@@ -520,12 +502,9 @@ def test_cortex_surface_appears_in_telemetry(
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     message = usage_command_event["message"]
@@ -542,12 +521,9 @@ def test_cortex_surface_empty_in_telemetry_when_unset(_, mock_conn, runner):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_cortex_client_surface"] == ""
@@ -593,12 +569,9 @@ def test_executing_command_sends_telemetry_result_data(
     assert result.exit_code == 0, result.output
 
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     result_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            1
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[1].args[0].to_dict()
     )
     assert (
         result_command_event["message"]["type"] == "result_executing_command"
@@ -797,12 +770,9 @@ def test_failing_executing_command_sends_telemetry_data(
         runner.invoke(["app", "run"], catch_exceptions=False)
 
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     result_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            1
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[1].args[0].to_dict()
     )
     assert (
         result_command_event["message"]["type"] == "error_executing_command"
@@ -864,12 +834,9 @@ def test_ci_integration_version_appears_in_telemetry(_, mock_conn, runner):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert (
@@ -915,12 +882,9 @@ def test_ci_auth_type_appears_in_telemetry(_, mock_conn, runner):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert (
@@ -939,8 +903,10 @@ def test_ci_auth_type_appears_in_telemetry(_, mock_conn, runner):
         ("SNOWFLAKE_JWT", "key_pair"),
         ("EXTERNALBROWSER", "externalbrowser"),
         ("OAUTH", "oauth"),
-        ("OAUTH_AUTHORIZATION_CODE", "oauth"),
-        ("OAUTH_CLIENT_CREDENTIALS", "oauth"),
+        # Authorization-code without a client id is the custom-client token.
+        # The built-in local client is chosen in _classify_auth_type.
+        ("OAUTH_AUTHORIZATION_CODE", "oauth_authorization_code"),
+        ("OAUTH_CLIENT_CREDENTIALS", "oauth_client_credentials"),
         ("USERNAME_PASSWORD_MFA", "username_password_mfa"),
         ("PROGRAMMATIC_ACCESS_TOKEN", "programmatic_access_token"),
         ("PAT_WITH_EXTERNAL_SESSION", "programmatic_access_token"),
@@ -962,25 +928,146 @@ def test_normalize_auth_type(authenticator, expected):
     assert _normalize_auth_type(authenticator) == expected
 
 
+class _ConnectionWithoutAuthenticator:
+    """Open connection that has no connector ``_authenticator`` attribute."""
+
+    def __init__(self):
+        self._telemetry = mock.Mock()
+        self.schema = None
+        self.role = None
+        self.database = None
+        self.warehouse = None
+        self.host = "h"
+        self.account = "acct"
+        self.user = "usr"
+
+    def close(self):
+        return None
+
+    @property
+    def _authenticator(self):
+        raise AssertionError(
+            "command_auth_type must not read connection._authenticator"
+        )
+
+
+def _telemetry_messages(connection) -> list[dict]:
+    messages = []
+    for (
+        call
+    ) in connection._telemetry.try_add_log_to_batch.call_args_list:  # noqa: SLF001
+        messages.append(call.args[0].to_dict()["message"])
+    return messages
+
+
+_JWT_CONFIG = """
+[connections.default]
+account = "acct"
+user = "usr"
+authenticator = "SNOWFLAKE_JWT"
+"""
+
+_OAUTH_CODE_CONFIG = """
+[connections.default]
+account = "acct"
+user = "usr"
+authenticator = "OAUTH_AUTHORIZATION_CODE"
+"""
+
+_EXTERNAL_SESSION_CONFIG = """
+[connections.default]
+account = "acct"
+user = "usr"
+authenticator = "SNOWFLAKE_JWT"
+session_token = "sentinel-session-token"
+master_token = "sentinel-master-token"
+"""
+
+
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
-def test_auth_type_appears_in_telemetry(_, mock_conn, runner):
-    """The auth type resolved on the live connection is recorded for any command,
-    independent of the CI/CD environment."""
-    mock_conn.return_value._authenticator = "SNOWFLAKE_JWT"  # noqa: SLF001
-    with mock.patch.dict(os.environ, {}, clear=True):
-        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+def test_auth_type_comes_from_resolved_parameters_not_connector(
+    _, mock_conn, runner, config_file
+):
+    """A connection with no _authenticator still reports the resolved auth type."""
+    mock_conn.return_value = _ConnectionWithoutAuthenticator()
+    with config_file(_JWT_CONFIG) as config:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            result = runner.invoke_with_config_file(config, ["connection", "test"])
 
     assert result.exit_code == 0, result.output
-    usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
-    )
+    connection = mock_conn.return_value
+    messages = _telemetry_messages(connection)
+    assert messages
+    assert {message["command_auth_type"] for message in messages} == {"key_pair"}
+    mock_conn.reset_mock()
+    connection._telemetry.reset_mock()  # noqa: SLF001
+    with config_file(_JWT_CONFIG) as config:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            again = runner.invoke_with_config_file(config, ["connection", "test"])
+    assert again.exit_code == 0, again.output
+    # The cached connection is reused, so the second command does not connect
+    # again and still reports the auth type recorded for that connection.
+    mock_conn.assert_not_called()
+    again_messages = _telemetry_messages(connection)
+    assert again_messages
+    assert {message["command_auth_type"] for message in again_messages} == {"key_pair"}
 
-    assert usage_command_event["message"]["command_auth_type"] == "key_pair"
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_env_only_oauth_client_is_authorization_code_and_secrets_stay_out(
+    _, mock_conn, runner, config_file
+):
+    """Client id and secret set only through the environment select the custom client.
+
+    The sentinel values must not appear in the telemetry payload.
+    """
+    mock_conn.return_value = _ConnectionWithoutAuthenticator()
+    sentinels = ("sentinel-client-id", "sentinel-client-secret")
+    with config_file(_OAUTH_CODE_CONFIG) as config:
+        with mock.patch.dict(
+            os.environ,
+            {
+                "SNOWFLAKE_OAUTH_CLIENT_ID": sentinels[0],
+                "SNOWFLAKE_OAUTH_CLIENT_SECRET": sentinels[1],
+            },
+            clear=True,
+        ):
+            result = runner.invoke_with_config_file(config, ["connection", "test"])
+
+    assert result.exit_code == 0, result.output
+    messages = _telemetry_messages(mock_conn.return_value)
+    assert messages
+    assert {message["command_auth_type"] for message in messages} == {
+        "oauth_authorization_code"
+    }
+    serialized = repr(messages)
+    for sentinel in sentinels:
+        assert sentinel not in serialized
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_external_session_tokens_report_external_session_and_stay_out_of_payload(
+    _, mock_conn, runner, config_file
+):
+    """session_token plus master_token wins over a configured authenticator."""
+    mock_conn.return_value = _ConnectionWithoutAuthenticator()
+    sentinels = ("sentinel-session-token", "sentinel-master-token")
+    with config_file(_EXTERNAL_SESSION_CONFIG) as config:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            result = runner.invoke_with_config_file(config, ["connection", "test"])
+
+    assert result.exit_code == 0, result.output
+    messages = _telemetry_messages(mock_conn.return_value)
+    assert messages
+    assert {message["command_auth_type"] for message in messages} == {
+        "external_session"
+    }
+    serialized = repr(messages)
+    for sentinel in sentinels:
+        assert sentinel not in serialized
 
 
 def test_sf_gitlab_component_takes_priority_over_gitlab_ci():
@@ -1017,12 +1104,9 @@ def test_flags_from_parent_contexts_are_captured(mock_uuid4, mock_connect, runne
 
     assert result.exit_code == 0, result.output
 
+    telemetry = mock_connect.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_connect.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     command_flags = usage_command_event["message"]["command_flags"]
@@ -1056,12 +1140,19 @@ def test_telemetry_does_not_open_connection_for_interactive_authenticator(
     for one to get the connector's telemetry channel -- which for externalbrowser
     launched a browser on every command and hung headless/CI runs.
     """
-    with config_file(_INTERACTIVE_CONFIG) as config:
-        with mock.patch.dict(os.environ, {}, clear=True):
-            result = runner.invoke_with_config_file(config, ["connection", "list"])
+    for authenticator in (
+        "externalbrowser",
+        "oauth_authorization_code",
+        "username_password_mfa",
+    ):
+        mock_connect.reset_mock()
+        config_text = _INTERACTIVE_CONFIG.replace("externalbrowser", authenticator)
+        with config_file(config_text) as config:
+            with mock.patch.dict(os.environ, {}, clear=True):
+                result = runner.invoke_with_config_file(config, ["connection", "list"])
 
-    assert result.exit_code == 0, result.output
-    mock_connect.assert_not_called()
+        assert result.exit_code == 0, result.output
+        mock_connect.assert_not_called()
 
 
 @mock.patch("snowflake.connector.connect")
@@ -1125,3 +1216,250 @@ def test_get_auth_type_does_not_open_connection(mock_connect):
 
     assert _get_auth_type() == ""
     mock_connect.assert_not_called()
+
+
+# Resolved connect() parameters after config, flags and SNOWFLAKE_* env merge.
+# Expected tokens are literals from SNOW-4389588, not recomputed by the test.
+_AUTH_TYPE_CASES = [
+    ({"authenticator": "OAUTH"}, "oauth"),
+    ({"authenticator": "oauth"}, "oauth"),
+    ({"authenticator": "OAUTH", "oauth_client_id": "custom-client"}, "oauth"),
+    ({"authenticator": "OAUTH_AUTHORIZATION_CODE"}, "oauth_local_application"),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "",
+            "oauth_client_secret": None,
+        },
+        "oauth_local_application",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "LOCAL_APPLICATION",
+        },
+        "oauth_local_application",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "LOCAL_APPLICATION",
+            "oauth_client_secret": "LOCAL_APPLICATION",
+        },
+        "oauth_local_application",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "LOCAL_APPLICATION",
+            "oauth_client_secret": "",
+        },
+        "oauth_local_application",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "other-client",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_secret": "other-secret",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "LOCAL_APPLICATION",
+            "oauth_client_secret": "other-secret",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "other-client",
+            "oauth_client_secret": "LOCAL_APPLICATION",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "local_application",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {"authenticator": "OAUTH_CLIENT_CREDENTIALS"},
+        "oauth_client_credentials",
+    ),
+    (
+        {"authenticator": "oauth_client_credentials"},
+        "oauth_client_credentials",
+    ),
+    (
+        {"session_token": "session-value", "master_token": "master-value"},
+        "external_session",
+    ),
+    (
+        {
+            "authenticator": "SNOWFLAKE_JWT",
+            "session_token": "session-value",
+            "master_token": "master-value",
+        },
+        "external_session",
+    ),
+    (
+        {
+            "authenticator": "PAT_WITH_EXTERNAL_SESSION",
+            "session_token": "session-value",
+            "master_token": "master-value",
+        },
+        "external_session",
+    ),
+    (
+        {"session_token": "session-value"},
+        "password",
+    ),
+    (
+        {"session_token": "   ", "master_token": "master-value"},
+        "password",
+    ),
+    ({"authenticator": "PAT_WITH_EXTERNAL_SESSION"}, "programmatic_access_token"),
+    ({"authenticator": "SNOWFLAKE"}, "password"),
+    ({}, "password"),
+    ({"authenticator": "SNOWFLAKE_JWT"}, "key_pair"),
+    ({"authenticator": "  SNOWFLAKE_JWT  "}, "key_pair"),
+    ({"authenticator": "EXTERNALBROWSER"}, "externalbrowser"),
+    ({"authenticator": "USERNAME_PASSWORD_MFA"}, "username_password_mfa"),
+    ({"authenticator": "PROGRAMMATIC_ACCESS_TOKEN"}, "programmatic_access_token"),
+    ({"authenticator": "WORKLOAD_IDENTITY"}, "workload_identity"),
+    ({"authenticator": "https://example.okta.com"}, "okta"),
+    ({"authenticator": "SOME_FUTURE_AUTH"}, "some_future_auth"),
+]
+
+
+@pytest.mark.parametrize("parameters, expected", _AUTH_TYPE_CASES)
+def test_resolved_connection_parameters_set_command_auth_type(parameters, expected):
+    """command_auth_type comes from the parameters passed to connect()."""
+    from snowflake.cli._app.telemetry import (
+        _auth_type_by_connection_id,
+        _classify_auth_type,
+        _get_auth_type,
+        bind_connection_auth_type,
+    )
+    from snowflake.connector.connection import SnowflakeConnection
+
+    assert _classify_auth_type(parameters) == expected
+
+    connection = SnowflakeConnection.__new__(SnowflakeConnection)
+    try:
+        bind_connection_auth_type(connection, parameters)
+        context = mock.Mock()
+        context.connection_if_open = connection
+        with mock.patch(
+            "snowflake.cli._app.telemetry.get_cli_context", return_value=context
+        ):
+            assert _get_auth_type() == expected
+        # An uninitialized connection has no _authenticator on connector 4 or 5.
+        assert not hasattr(connection, "_authenticator")
+    finally:
+        _auth_type_by_connection_id.pop(id(connection), None)
+
+
+class _LoginCursor:
+    def __init__(self, user: str):
+        self._user = user
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, _query, *_args, **_kwargs):
+        return self
+
+    def fetchone(self):
+        return (self._user,)
+
+
+class _LoginConnection:
+    def __init__(self, user: str):
+        self._user = user
+        self._telemetry = mock.Mock()
+        self.closed = False
+
+    def cursor(self):
+        return _LoginCursor(self._user)
+
+    def close(self):
+        self.closed = True
+
+
+def test_successful_auth_login_reports_local_oauth(runner, config_file, monkeypatch):
+    """A finished snow auth login records oauth_local_application on its events."""
+    users = ["JDOE", "JDOE"]
+    connections: list[_LoginConnection] = []
+
+    def connect(**_kwargs):
+        connection = _LoginConnection(users.pop(0))
+        connections.append(connection)
+        return connection
+
+    monkeypatch.setattr("snowflake.connector.connect", connect)
+    with config_file(_SILENT_CONFIG) as config:
+        with with_feature_flags({FeatureFlag.ENABLE_AUTH_COMMANDS: True}):
+            result = runner.invoke_with_config_file(
+                config, ["auth", "login", "myorg-myacct"]
+            )
+
+    assert result.exit_code == 0, result.output
+    assert len(connections) == 2
+    discovery, caching = connections
+    assert discovery._telemetry.try_add_log_to_batch.call_count == 0  # noqa: SLF001
+    messages = _telemetry_messages(caching)
+    assert messages
+    assert {message["command_auth_type"] for message in messages} == {
+        "oauth_local_application"
+    }
+    assert all(message["command"] == ["auth", "login"] for message in messages)
+    assert discovery.closed
+    assert caching.closed
+
+
+def test_failed_auth_login_does_not_report_local_oauth(
+    runner, config_file, monkeypatch
+):
+    """A rejected snow auth login does not record oauth_local_application."""
+    from snowflake.cli._app.telemetry import CLITelemetryClient
+    from snowflake.connector.errors import Error as SnowflakeError
+
+    recorded: list[str] = []
+    original = CLITelemetryClient.generate_telemetry_data_dict
+
+    def spy(payload, command_info=None):
+        data = original(payload, command_info=command_info)
+        recorded.append(data.get("command_auth_type", ""))
+        return data
+
+    def connect(**_kwargs):
+        raise SnowflakeError("The account refused the sign-in.")
+
+    monkeypatch.setattr("snowflake.connector.connect", connect)
+    monkeypatch.setattr(
+        CLITelemetryClient, "generate_telemetry_data_dict", staticmethod(spy)
+    )
+    with config_file(_SILENT_CONFIG) as config:
+        with with_feature_flags({FeatureFlag.ENABLE_AUTH_COMMANDS: True}):
+            result = runner.invoke_with_config_file(
+                config, ["auth", "login", "myorg-myacct"]
+            )
+
+    assert result.exit_code != 0, result.output
+    assert recorded
+    assert set(recorded) == {""}

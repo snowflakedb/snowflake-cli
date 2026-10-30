@@ -20,7 +20,7 @@ import re
 import sys
 import threading
 from enum import Enum, unique
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union, cast
 
 import click
 import typer
@@ -341,36 +341,50 @@ def _get_ci_auth_type() -> str:
     return os.environ.get("SF_CICD_AUTH_TYPE", "").strip().lower()
 
 
-# Maps the connector's resolved authenticator (SnowflakeConnection._authenticator,
-# a normalized upper-case token) to a stable, low-cardinality telemetry value. The
+# Maps an authenticator token to a stable, low-cardinality telemetry value. The
 # vocabulary is deliberately aligned with the command_ci_auth_type tokens (see
 # _get_ci_auth_type) so the CI-declared and the actually-resolved auth types can be
 # analyzed together. The set is open: an unrecognized non-empty token is passed
 # through lower-cased rather than dropped, mirroring how the CI field treats
 # unknown values.
+#
+# OAUTH_AUTHORIZATION_CODE is absent on purpose. Local OAuth and a custom
+# authorization-code client share that authenticator; _classify_auth_type splits
+# them using the client id and secret. snow auth list (_is_local_oauth) treats
+# the literal LOCAL_APPLICATION as a custom client. Telemetry treats that literal
+# as the connector's built-in client.
+_LOCAL_APPLICATION_CLIENT = "LOCAL_APPLICATION"
 _AUTH_TYPE_BY_AUTHENTICATOR = {
     "SNOWFLAKE": "password",
     "SNOWFLAKE_JWT": "key_pair",
     "EXTERNALBROWSER": "externalbrowser",
     "OAUTH": "oauth",
-    "OAUTH_AUTHORIZATION_CODE": "oauth",
-    "OAUTH_CLIENT_CREDENTIALS": "oauth",
+    "OAUTH_CLIENT_CREDENTIALS": "oauth_client_credentials",
     "USERNAME_PASSWORD_MFA": "username_password_mfa",
     "PROGRAMMATIC_ACCESS_TOKEN": "programmatic_access_token",
     "PAT_WITH_EXTERNAL_SESSION": "programmatic_access_token",
     "WORKLOAD_IDENTITY": "workload_identity",
 }
 
+# Auth type for connections opened by connect_to_snowflake, keyed by id().
+# Connector 5's connection class has __slots__ and no _authenticator, so the
+# value cannot live on the connection object. The entry stays after the
+# command so a cached connection can be reused without connecting again.
+_auth_type_by_connection_id: Dict[int, str] = {}
+
+# snow auth login connects outside the CLI context. The caching connection is
+# held here so the command's own events can leave on it, then closed at flush.
+_login_connection: Any = None
+_login_auth_type: Optional[str] = None
+
 
 def _normalize_auth_type(authenticator: str) -> str:
-    """Normalize a connector authenticator token to a telemetry-safe auth type.
+    """Normalize an authenticator token to a telemetry-safe auth type.
 
-    ``authenticator`` is the value the connector resolved
-    (``SnowflakeConnection._authenticator``). Known tokens map to the shared
-    vocabulary; the Okta authenticator -- whose token is the customer's Okta
-    *URL* -- is collapsed to ``"okta"`` so the URL never reaches telemetry.
-    Unrecognized non-empty tokens are passed through lower-cased; a blank value
-    yields ``""``.
+    Known tokens map to the shared vocabulary; the Okta authenticator, whose
+    token is the customer's Okta URL, is collapsed to ``"okta"`` so the URL
+    never reaches telemetry. Unrecognized non-empty tokens are passed through
+    lower-cased; a blank value yields ``""``.
     """
     token = authenticator.strip()
     if not token:
@@ -385,36 +399,134 @@ def _normalize_auth_type(authenticator: str) -> str:
     return token.lower()
 
 
-def _get_auth_type() -> str:
-    """Get the authentication type actually used for the current command.
+def _parameter_text(value: Any) -> Optional[str]:
+    """Stripped connect parameter, or None when it is unset or not a string."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    return text or None
 
-    Reads the authenticator the connector resolved on the live connection --
-    after config, CLI flags and ``SNOWFLAKE_*`` env vars are merged and the
-    default applied -- so it reflects what was really used rather than only what
-    was explicitly configured (``connection_context.authenticator`` is unset for
-    the default password case and for env-var-driven auth). Unlike
-    ``command_ci_auth_type`` this is not limited to the official CI/CD
-    integrations: it is recorded for every command that opens a connection,
-    which is what telemetry needs to segment auth usage (password vs key_pair vs
-    oauth vs externalbrowser vs ...).
 
-    Reads the connection only if one is *already* open: telemetry must never be
-    the reason the CLI authenticates. ``get_cli_context().connection`` is lazy and
-    would dial on a miss, which for externalbrowser/OAuth means launching a
-    browser -- and the payload is also built for the pre-command event, before the
-    command body has connected. So the field is empty on the pre-command event and
-    populated on the post-command one, where the connection genuinely exists. Any
-    failure, no open connection, or a connection that does not expose a string
-    authenticator yields ``""``.
+def _is_local_application_client(value: Any) -> bool:
+    """True when the client id or secret is unset or exactly LOCAL_APPLICATION."""
+    text = _parameter_text(value)
+    return text is None or text == _LOCAL_APPLICATION_CLIENT
+
+
+def _classify_auth_type(parameters: Mapping[str, Any]) -> str:
+    """Map resolved ``connect()`` parameters to ``command_auth_type``.
+
+    Both ``session_token`` and ``master_token`` set means an externally
+    provided session, whichever authenticator is configured. A missing
+    authenticator is the connector default, password. This runs only after a
+    connection has opened, so the field is not left blank for that default.
+    """
+    if _parameter_text(parameters.get("session_token")) and _parameter_text(
+        parameters.get("master_token")
+    ):
+        return "external_session"
+    authenticator = _parameter_text(parameters.get("authenticator")) or "SNOWFLAKE"
+    if authenticator.upper() == "OAUTH_AUTHORIZATION_CODE":
+        client_id = parameters.get("oauth_client_id")
+        client_secret = parameters.get("oauth_client_secret")
+        if _is_local_application_client(client_id) and _is_local_application_client(
+            client_secret
+        ):
+            return "oauth_local_application"
+        return "oauth_authorization_code"
+    return _normalize_auth_type(authenticator)
+
+
+def bind_connection_auth_type(connection: Any, parameters: Mapping[str, Any]) -> None:
+    """Remember the auth type for a connection ``connect_to_snowflake`` opened.
+
+    Stores only the classified token. The parameters themselves, including
+    tokens and client secrets, are not retained. Failures are ignored so
+    telemetry cannot break the connection.
     """
     try:
+        _auth_type_by_connection_id[id(connection)] = _classify_auth_type(parameters)
+    except Exception:
+        return
+
+
+def hold_login_connection(connection: Any, parameters: Mapping[str, Any]) -> None:
+    """Keep ``snow auth login``'s caching connection until telemetry flushes.
+
+    The login command connects outside the CLI context. Holding this connection
+    lets the command's own events leave on it. ``release_command_connection``
+    closes it.
+    """
+    global _login_connection, _login_auth_type
+    try:
+        auth_type = _classify_auth_type(parameters)
+    except Exception:
+        _close_quietly(connection)
+        return
+    _login_auth_type = auth_type
+    _login_connection = connection
+
+
+def release_command_connection() -> None:
+    """Close a held login connection.
+
+    Auth types for connections opened through ``connect_to_snowflake`` stay
+    recorded. A later command in this process can reuse the cached connection
+    without connecting again, and still needs the type.
+    """
+    global _login_connection, _login_auth_type
+    connection = _login_connection
+    _login_connection = None
+    _login_auth_type = None
+    _close_quietly(connection)
+
+
+def _close_quietly(connection: Any) -> None:
+    if connection is None:
+        return
+    try:
+        connection.close()
+    except Exception:
+        return
+
+
+def _is_auth_login_command() -> bool:
+    try:
+        command = _find_command_info().get(CLITelemetryField.COMMAND)
+    except Exception:
+        return False
+    return command == ["auth", "login"]
+
+
+def _get_auth_type() -> str:
+    """Get the authentication type used for the current command.
+
+    The value is the classification of the parameters passed to
+    ``snowflake.connector.connect()`` after config, flags and ``SNOWFLAKE_*``
+    env vars are merged. It does not read connector attributes, so connector 4
+    and connector 5 report the same token.
+
+    Reads a connection only if one is already open: telemetry must never be
+    the reason the CLI authenticates. ``get_cli_context().connection`` is lazy
+    and would dial on a miss, which for externalbrowser or OAuth means
+    launching a browser. The payload is also built for the pre-command event,
+    before the command body has connected, so the field is empty then and
+    filled on drain once a connection exists. Any failure or no open
+    connection yields ``""``.
+
+    ``snow auth login`` connects outside the CLI context. Until that sign-in
+    succeeds the field stays empty, including when the attempt fails. A
+    success reports the classification of the caching connect.
+    """
+    try:
+        if _is_auth_login_command():
+            return _login_auth_type or ""
         connection = get_cli_context().connection_if_open
+        if connection is None:
+            return ""
+        return _auth_type_by_connection_id.get(id(connection), "")
     except Exception:
         return ""
-    authenticator = getattr(connection, "_authenticator", None)
-    if not isinstance(authenticator, str):
-        return ""
-    return _normalize_auth_type(authenticator)
 
 
 # Authenticators whose login flow needs a human present: opening a connection
@@ -666,6 +778,13 @@ class CLITelemetryClient:
         So prefer a connection that is already open, and only fall back to
         opening one when logging in is silent (_telemetry_may_open_connection).
         """
+        # Login connects outside the CLI context. Do not open the ambient
+        # connection to carry its events, and do not borrow one that is
+        # already open. A failed login therefore sends nothing.
+        if _is_auth_login_command():
+            if _login_connection is None:
+                return None
+            return getattr(_login_connection, "_telemetry", None)
         connection = self._ctx.connection_if_open
         if connection is None and _telemetry_may_open_connection():
             connection = self._ctx.connection
@@ -817,7 +936,9 @@ class CLITelemetryClient:
             # that never opened a connection and can never be sent. Drop it:
             # this client is a module-level singleton, and leaving events queued
             # would attribute them to whatever command runs next in the same
-            # process.
+            # process. Release the login connection after send_batch so its
+            # channel stays open for the events just queued.
+            release_command_connection()
             with self._lock:
                 self._pending.clear()
 

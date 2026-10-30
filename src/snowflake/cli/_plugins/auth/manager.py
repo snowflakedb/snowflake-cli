@@ -216,7 +216,7 @@ class AuthManager:
             cache_target, session_role = _caching_session(requested, edits, user)
             return cache_target, session_role
 
-        session_user = sign_in(
+        signed = sign_in(
             target=SignInTarget(
                 requested.account,
                 _host_for_discovery(requested, saved),
@@ -226,25 +226,41 @@ class AuthManager:
             caching_session=caching_session,
             **edits.context_to_check(),
         )
-        signed_in = _SessionUserAtAccount(requested.account, session_user)
-        target = SignInTarget(
-            requested.account,
-            _host_to_store(requested, signed_in),
-        )
-        choice = _choose_connection_name(
-            signed_in,
-            existing_name=_existing_local_oauth_name(signed_in),
-            requested_name=requested_name,
-        )
-        return _save_connection(
-            choice.name,
-            target,
-            user=session_user,
-            edits=edits,
-            source_name=choice.source_name,
-            kept_name_note=choice.kept_name_note,
-            session_role=session_role,
-        )
+        # The caching connection stays open so the command's telemetry can
+        # leave on it. Close it here when login does not finish.
+        held = False
+        try:
+            session_user = signed.user
+            signed_in = _SessionUserAtAccount(requested.account, session_user)
+            target = SignInTarget(
+                requested.account,
+                _host_to_store(requested, signed_in),
+            )
+            choice = _choose_connection_name(
+                signed_in,
+                existing_name=_existing_local_oauth_name(signed_in),
+                requested_name=requested_name,
+            )
+            result = _save_connection(
+                choice.name,
+                target,
+                user=session_user,
+                edits=edits,
+                source_name=choice.source_name,
+                kept_name_note=choice.kept_name_note,
+                session_role=session_role,
+            )
+            from snowflake.cli._app.telemetry import hold_login_connection
+
+            hold_login_connection(signed.connection, signed.parameters)
+            held = True
+            return result
+        finally:
+            if not held:
+                try:
+                    signed.connection.close()
+                except Exception:
+                    pass
 
     def list_connections(self) -> CollectionResult:
         """Saved connections, including ones with no session."""
@@ -547,7 +563,13 @@ def _connection_to_write(
 
 
 def _is_local_oauth(config: ConnectionConfig) -> bool:
-    """Snowflake OAuth for local applications, which uses the built-in client."""
+    """Snowflake OAuth for local applications, which uses the built-in client.
+
+    A client id or secret of ``LOCAL_APPLICATION`` still counts as a custom
+    client here. Command telemetry classifies that literal as the built-in
+    client, ``oauth_local_application``. The two checks are intentionally
+    different.
+    """
     if (config.authenticator or "").upper() != AUTHENTICATOR:
         return False
     return not config.oauth_client_id and not config.oauth_client_secret

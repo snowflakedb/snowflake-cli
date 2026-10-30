@@ -31,7 +31,7 @@ from snowflake.cli._app.constants import (
     INTERNAL_APPLICATION_NAME,
     PARAM_APPLICATION_NAME,
 )
-from snowflake.cli._app.telemetry import command_info
+from snowflake.cli._app.telemetry import bind_connection_auth_type, command_info
 from snowflake.cli._plugins.auth.oidc.manager import OidcManager
 from snowflake.cli.api.config import (
     get_connection_dict,
@@ -315,10 +315,12 @@ def connect_to_snowflake(
             contextlib.redirect_stdout(silent_stdout),
             contextlib.redirect_stderr(silent_stderr),
         ):
-            return snowflake.connector.connect(
+            connection = snowflake.connector.connect(
                 application=command_info(),
                 **connection_parameters,
             )
+        bind_connection_auth_type(connection, connection_parameters)
+        return connection
     except (ForbiddenError, DatabaseError) as err:
         hint = _oauth_failure_hint(err, connection_parameters)
         if hint:
