@@ -891,11 +891,91 @@ class TestPerAccountAppHostname:
             is None
         )
 
-    def test_account_infra_falls_back_to_allowlist_for_regionless_host(self):
-        # The modern account alias has no region in its host; the infra must be
-        # recovered from SYSTEM$ALLOWLIST's regioned host.
+    def _deployment_info_conn(self, host, payload=None, *, raises=False):
+        conn = Mock(host=host)
+        if raises:
+            conn.execute_string.side_effect = RuntimeError("function disabled")
+            return conn
+        cursor = Mock()
+        cursor.fetchone.return_value = {"INFO": payload}
+        conn.execute_string.return_value = (cursor,)
+        return conn
+
+    def test_account_infra_uses_dns_region_id_not_sql_host(self):
+        # The SQL host names one deployment; the shared DNS zone names another.
         mgr = self._manager()
-        conn = Mock(host="myorg-myacct.snowflakecomputing.com")
+        conn = self._deployment_info_conn(
+            "acct.shard2.us-west-2.aws.snowflakecomputing.com",
+            json.dumps({"dnsRegionId": "us-west-2.aws"}),
+        )
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch(
+            "snowflake.cli._plugins.apps.manager.guess_regioned_host_from_allowlist"
+        ) as mock_allowlist:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "us-west-2.aws"  # noqa: SLF001
+        mock_allowlist.assert_not_called()
+
+    def test_account_infra_lowercases_dns_region_id(self):
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "acct.shard1.us-west-2.aws.snowflakecomputing.com",
+            json.dumps({"dnsRegionId": "US-WEST-2.AWS"}),
+        )
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context") as mock_ctx:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "us-west-2.aws"  # noqa: SLF001
+
+    def test_account_infra_appends_privatelink_to_dns_region_id(self):
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "acct.shard2.us-west-2.aws.privatelink.snowflakecomputing.com",
+            json.dumps({"dnsRegionId": "us-west-2.aws"}),
+        )
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context") as mock_ctx:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "us-west-2.aws.privatelink"  # noqa: SLF001
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            None,
+            "",
+            "not-json",
+            json.dumps({"region": "us-west-2"}),
+            json.dumps({"dnsRegionId": "unknownregion.unknowncsp"}),
+            json.dumps({"dnsRegionId": "us-west-2.aws/extra"}),
+            json.dumps({"dnsRegionId": ".us-west-2.aws"}),
+        ],
+    )
+    def test_account_infra_falls_back_to_sql_host_without_dns_region_id(self, payload):
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "acct.shard2.us-west-2.aws.snowflakecomputing.com",
+            payload,
+        )
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context") as mock_ctx:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "shard2.us-west-2.aws"  # noqa: SLF001
+
+    def test_account_infra_falls_back_when_deployment_info_unavailable(self):
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "acct.qa6.us-west-2.aws.snowflakecomputing.com",
+            raises=True,
+        )
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context") as mock_ctx:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "qa6.us-west-2.aws"  # noqa: SLF001
+
+    def test_account_infra_falls_back_to_allowlist_for_regionless_host(self):
+        # Regionless host and no DNS region: recover infra from the allowlist.
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "myorg-myacct.snowflakecomputing.com",
+            raises=True,
+        )
         with patch(
             "snowflake.cli._plugins.apps.manager.get_cli_context"
         ) as mock_ctx, patch(

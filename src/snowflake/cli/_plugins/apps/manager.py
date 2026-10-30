@@ -173,6 +173,48 @@ CERT_PROBE_LABEL = "snowflake-cli-cert-check"
 # unreachable ingress. A timeout is treated as UNKNOWN (non-blocking).
 CERT_PROBE_TIMEOUT_SECONDS = 5
 
+# Includes ``dnsRegionId``, the DNS zone used in ``*.snowflake.app`` hosts.
+# That zone can differ from the deployment label in the SQL host.
+ACCOUNT_DEPLOYMENT_INFO_QUERY = "SELECT SYSTEM$GET_ACCOUNT_DEPLOYMENT_INFO() AS info"
+
+# Returned when ``DNS_REGION_ID`` is unset. Not a real DNS zone.
+_UNSET_DNS_REGION_ID = "unknownregion.unknowncsp"
+
+# One DNS label: letters, digits, and internal hyphens.
+_DNS_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+def _parse_dns_region_id(payload: Any) -> Optional[str]:
+    """Return ``dnsRegionId`` from deployment-info JSON, or ``None``.
+
+    Only dotted DNS labels are accepted. The unset sentinel and other
+    non-host values are rejected.
+    """
+    if not isinstance(payload, str) or not payload.strip():
+        return None
+    try:
+        info = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(info, dict):
+        return None
+    region_id = info.get("dnsRegionId")
+    if not isinstance(region_id, str):
+        return None
+    region_id = region_id.strip().lower()
+    if (
+        not region_id
+        or region_id == _UNSET_DNS_REGION_ID
+        or region_id.startswith(".")
+        or region_id.endswith(".")
+    ):
+        return None
+    labels = region_id.split(".")
+    if any(_DNS_LABEL_RE.fullmatch(label) is None for label in labels):
+        return None
+    return region_id
+
+
 # OpenSSL certificate-verification codes (``SSLCertVerificationError.verify_code``)
 # that prove the account is *not* serving a per-account wildcard certificate:
 #   62 = hostname mismatch — a cert is served but does not cover the per-account
@@ -2169,19 +2211,16 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return slug.lower().replace("_", "-")
 
     def _account_infra(self) -> Optional[str]:
-        """Return the ``<infra>`` segment of the per-account app host, or ``None``.
+        """Return the ``<infra>`` segment of a per-account app host, or ``None``.
 
-        CNG apps are reached at ``<app>.<org>-<account>.<infra>.snowflake.app``
-        (e.g. ``qa6.us-west-2.aws`` for ``…qa6.us-west-2.aws.snowflake.app``).
-        The ``<infra>`` matches the region/deployment segment of the account's
-        *regioned* SQL host, so it is taken from the connection host by dropping
-        the leading account label and the trailing ``snowflakecomputing.com``.
+        App hosts use the account's DNS region id, which can differ from the
+        deployment label in the SQL host when deployments share a DNS zone.
+        Probing the SQL-host label then fails hostname checks and is reported
+        as a missing certificate.
 
-        Modern regionless account aliases (``myorg-myacct.snowflakecomputing.com``)
-        and legacy ``us-west-2`` accounts (whose connection host the connector
-        leaves region-less) carry no region, so this falls back to
-        :func:`guess_regioned_host_from_allowlist` (``SYSTEM$ALLOWLIST``) to
-        recover a regioned host — the same recovery the rest of the CLI uses.
+        Read from ``SYSTEM$GET_ACCOUNT_DEPLOYMENT_INFO()``. Fall back to the
+        regioned SQL host, then ``SYSTEM$ALLOWLIST`` for regionless aliases.
+        PrivateLink connections append ``.privatelink``.
         """
         try:
             conn = get_cli_context().connection
@@ -2191,11 +2230,48 @@ class SnowflakeAppManager(SqlExecutionMixin):
             )
             return None
 
+        region_id = self._lookup_dns_region_id(conn)
+        if region_id:
+            if self._host_uses_privatelink(getattr(conn, "host", None)):
+                return f"{region_id}.privatelink"
+            return region_id
+
         infra = self._infra_from_sql_host(getattr(conn, "host", None))
         if infra:
             return infra
         # Region-less connection host: recover a regioned host via the allowlist.
         return self._infra_from_sql_host(guess_regioned_host_from_allowlist(conn))
+
+    @staticmethod
+    def _lookup_dns_region_id(conn) -> Optional[str]:
+        """Return the account DNS region id, or ``None`` if it cannot be read.
+
+        A missing function or unset id is not an error. Callers fall back to
+        the SQL host.
+        """
+        try:
+            *_, cursor = conn.execute_string(
+                ACCOUNT_DEPLOYMENT_INFO_QUERY, cursor_class=DictCursor
+            )
+            row = cursor.fetchone()
+        except Exception:
+            log.debug(
+                "Could not look up DNS region id for the per-account cert probe.",
+                exc_info=True,
+            )
+            return None
+        if not isinstance(row, dict):
+            return None
+        payload = next(
+            (value for key, value in row.items() if str(key).lower() == "info"),
+            None,
+        )
+        return _parse_dns_region_id(payload)
+
+    @staticmethod
+    def _host_uses_privatelink(host: Optional[str]) -> bool:
+        labels = host_labels(host)
+        return bool(labels) and "privatelink" in [label.lower() for label in labels]
 
     @staticmethod
     def _infra_from_sql_host(host: Optional[str]) -> Optional[str]:
