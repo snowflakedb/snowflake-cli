@@ -24,6 +24,12 @@ from snowflake.cli._plugins.dcm.exceptions import (
     ManifestConfigurationError,
     ManifestNotFoundError,
 )
+from snowflake.cli._plugins.dcm.fanout.orchestrator import (
+    FanoutOptions,
+    reject_conflicting_options,
+    reject_orphaned_options,
+    run_fanout,
+)
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import (
     DEFAULT_DEFINITION_FILE_NAME,
@@ -319,6 +325,98 @@ init_project_identifier_option = typer.Option(
 )
 
 
+fanout_option = typer.Option(
+    None,
+    "--fanout",
+    help="Run one invocation per `manifest.yml` target whose name matches this pattern, "
+    "for example `TENANT_*`, or `*` for every target. Each target supplies its own "
+    "values through `variable_overrides`. Starts are spaced to stay under the account's "
+    "concurrent templating limit.",
+    show_default=False,
+)
+
+pace_option = typer.Option(
+    None,
+    "--pace",
+    help="Minimum seconds between invocation starts. A floor: the run may space starts "
+    "wider, never tighter. Requires `--fanout`.",
+    show_default=False,
+)
+
+max_inflight_option = typer.Option(
+    None,
+    "--max-inflight",
+    help="Maximum number of invocations running at once. Requires `--fanout`.",
+    show_default=False,
+)
+
+calibrate_option = typer.Option(
+    None,
+    "--calibrate/--no-calibrate",
+    help="Adjust the pace during the run from how long completed invocations take, "
+    "keeping in-flight invocations near `--max-inflight`. On by default. "
+    "Requires `--fanout`.",
+    show_default=False,
+)
+
+fanout_retries_option = typer.Option(
+    None,
+    "--fanout-retries",
+    help="Retry attempts for capacity rejections, per target. Requires `--fanout`.",
+    show_default=False,
+)
+
+only_option = typer.Option(
+    None,
+    "--only",
+    help="Comma-separated target names to run, for re-running a subset. Requires "
+    "`--fanout`.",
+    show_default=False,
+)
+
+list_targets_option = typer.Option(
+    False,
+    "--list-targets",
+    help="Resolve the fan-out pattern, print the invocation for each matched target and "
+    "which project objects would be created, then exit without running anything. "
+    "Requires `--fanout`.",
+)
+
+
+def _fanout_options(
+    fanout: Optional[str],
+    pace: Optional[float],
+    max_inflight: Optional[int],
+    calibrate: Optional[bool],
+    fanout_retries: Optional[int],
+    only: Optional[str],
+    list_targets: bool,
+    identifier: Optional[FQN],
+    target: Optional[str],
+    variables: Optional[List[str]],
+) -> Optional[FanoutOptions]:
+    """Validate the fan-out options and return them, or None for a single-tenant run.
+
+    Without `--fanout` the command behaves exactly as it did before, so this
+    returns None and the caller takes its original path untouched.
+    """
+    reject_orphaned_options(
+        fanout, pace, max_inflight, calibrate, fanout_retries, only, list_targets
+    )
+    if fanout is None:
+        return None
+    reject_conflicting_options(identifier, target, variables)
+    return FanoutOptions(
+        pattern=fanout,
+        pace=pace,
+        max_inflight=max_inflight,
+        calibrate=calibrate,
+        retries=fanout_retries,
+        only=only,
+        list_targets=list_targets,
+    )
+
+
 _ACCOUNT_GUIDANCE = "The current session account is required to match the manifest target's account_identifier."
 _ROLE_GUIDANCE = (
     "The current session role is required to match the manifest target's project_owner."
@@ -437,7 +535,32 @@ def _resolve_target_context(
         configuration=effective_target.templating_config,
         declared_variable_names=manifest.templating.declared_variable_names,
         assets=list(manifest.assets.values()),
+        variable_overrides=effective_target.variable_arguments(),
     )
+
+
+def _effective_variables(
+    context: TargetContext, variables: Optional[List[str]]
+) -> Optional[List[str]]:
+    """The target's overrides, with command-line values applied on top.
+
+    Precedence runs `templating.defaults`, then the target's `templating_config`,
+    then its `variable_overrides`, then `-D`. The first two are resolved
+    server-side. The last two are merged here rather than concatenated, because
+    both end up as named arguments of the VARIABLES clause and the same name
+    cannot appear twice.
+    """
+    if not context.variable_overrides:
+        return variables
+    from_command_line = {
+        entry.split("=", 1)[0].strip() for entry in (variables or []) if "=" in entry
+    }
+    kept = [
+        entry
+        for entry in context.variable_overrides
+        if entry.split("=", 1)[0] not in from_command_line
+    ]
+    return [*kept, *(variables or [])]
 
 
 def _resolve_context_with_required_manifest(
@@ -695,6 +818,13 @@ def deploy(
     deployment: Optional[str] = deployment_option(
         mutually_exclusive=["variables", "env_file"]
     ),
+    fanout: Optional[str] = fanout_option,
+    pace: Optional[float] = pace_option,
+    max_inflight: Optional[int] = max_inflight_option,
+    calibrate: Optional[bool] = calibrate_option,
+    fanout_retries: Optional[int] = fanout_retries_option,
+    only: Optional[str] = only_option,
+    list_targets: bool = list_targets_option,
     skip_plan: bool = typer.Option(
         False,
         "--skip-plan",
@@ -706,6 +836,26 @@ def deploy(
     """
     Deploys local project changes to Snowflake by creating, altering, or dropping objects to match your definition files.
     """
+    fanout_options = _fanout_options(
+        fanout,
+        pace,
+        max_inflight,
+        calibrate,
+        fanout_retries,
+        only,
+        list_targets,
+        identifier,
+        target,
+        variables,
+    )
+    if fanout_options:
+        return run_fanout(
+            "deploy",
+            fanout_options,
+            from_location=from_location,
+            alias=alias,
+        )
+
     with command_artifacts(save_output):
 
         context = _resolve_context_with_required_manifest(
@@ -733,7 +883,7 @@ def deploy(
                 project_identifier=project_id,
                 configuration=context.configuration,
                 from_stage=effective_stage,
-                variables=variables,
+                variables=_effective_variables(context, variables),
                 alias=alias,
                 skip_plan=skip_plan,
                 env_vars=env_vars,
@@ -1022,6 +1172,13 @@ def plan(
     target: Optional[str] = target_option,
     save_output: bool = save_output_option,
     env_file: Optional[SecurePath] = env_file_option(mutually_exclusive=["deployment"]),
+    fanout: Optional[str] = fanout_option,
+    pace: Optional[float] = pace_option,
+    max_inflight: Optional[int] = max_inflight_option,
+    calibrate: Optional[bool] = calibrate_option,
+    fanout_retries: Optional[int] = fanout_retries_option,
+    only: Optional[str] = only_option,
+    list_targets: bool = list_targets_option,
     delta: bool = typer.Option(
         False,
         "--delta",
@@ -1035,6 +1192,26 @@ def plan(
     """
     Shows what objects would be created, altered, or dropped by the `deploy` command, without applying any changes.
     """
+    fanout_options = _fanout_options(
+        fanout,
+        pace,
+        max_inflight,
+        calibrate,
+        fanout_retries,
+        only,
+        list_targets,
+        identifier,
+        target,
+        variables,
+    )
+    if fanout_options:
+        return run_fanout(
+            "plan",
+            fanout_options,
+            from_location=from_location,
+            delta=delta,
+        )
+
     with command_artifacts(save_output):
         context = _resolve_context_with_required_manifest(
             from_location, identifier, target
@@ -1061,7 +1238,7 @@ def plan(
                     project_identifier=project_id,
                     configuration=context.configuration,
                     from_stage=effective_stage,
-                    variables=variables,
+                    variables=_effective_variables(context, variables),
                     delta=delta,
                     output_path=output_path,
                     env_vars=env_vars,
@@ -1112,7 +1289,7 @@ def raw_analyze(
                         project_identifier=project_id,
                         configuration=context.configuration,
                         from_stage=effective_stage,
-                        variables=variables,
+                        variables=_effective_variables(context, variables),
                         output_path=output_path,
                         env_vars=env_vars,
                     ),
@@ -2440,7 +2617,7 @@ def preview(
                 object_identifier=object_identifier,
                 configuration=context.configuration,
                 from_stage=effective_stage,
-                variables=variables,
+                variables=_effective_variables(context, variables),
                 limit=limit,
                 env_vars=env_vars,
             ),

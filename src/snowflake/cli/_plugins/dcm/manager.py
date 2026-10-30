@@ -324,6 +324,25 @@ class DCMProjectManager(SqlExecutionMixin):
             f" WAREHOUSE_SIZE = {to_string_literal(size)}"
         )
 
+    def list_projects_in_schema(self, database: str, schema: str) -> SnowflakeCursor:
+        """All DCM projects in one schema.
+
+        One statement answers the existence question for every project in that
+        schema, which is what fan-out needs: a per-project check would add a round
+        trip per tenant.
+        """
+        log.info(
+            "Running DCM list-projects-in-schema manager operation (database=%s, schema=%s).",
+            database,
+            schema,
+        )
+        # A schema is a two-part name, so it occupies the schema and name slots of
+        # the FQN rather than the database and schema ones. Passing the database in
+        # would render a three-part name with a fabricated schema.
+        schema_identifier = FQN(database=None, schema=database, name=schema)
+        query = f"SHOW DCM PROJECTS IN SCHEMA {schema_identifier.sql_identifier}"
+        return self.execute_query(query=query)
+
     def list_deployments(self, project_identifier: FQN) -> SnowflakeCursor:
         log.info(
             "Running DCM list-deployments manager operation (project_identifier=%s).",

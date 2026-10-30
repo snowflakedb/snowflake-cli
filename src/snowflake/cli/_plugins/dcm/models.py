@@ -283,6 +283,43 @@ class DCMTemplating:
         return set(self.env_vars) | set(self.env_secrets)
 
 
+def as_sql_string_literal(value: Any) -> str:
+    """Render a manifest value as a SQL string literal, for example ``'_TENANT_A'``.
+
+    Without the quotes a value can be read as an identifier rather than a string.
+    Booleans are rendered in SQL spelling, since YAML ``true`` would otherwise
+    arrive as Python's ``True``.
+    """
+    if isinstance(value, bool):
+        text = "true" if value else "false"
+    else:
+        text = str(value)
+    escaped = text.replace("'", "''")
+    return f"'{escaped}'"
+
+
+def _parse_variable_overrides(value: Any, target_name: str) -> Dict[str, Any]:
+    """Validate a target's ``variable_overrides`` mapping.
+
+    These values are templating variables scoped to one target, applied on top of
+    the target's ``templating_config`` and below anything passed as ``-D``.
+    """
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise InvalidManifestError(
+            f"Target '{target_name}' has a 'variable_overrides' that is not a mapping "
+            f"of variable name to value. Found {type(value).__name__}."
+        )
+    for key in value:
+        if not isinstance(key, str) or not key:
+            raise InvalidManifestError(
+                f"Variable names in 'variable_overrides' of target '{target_name}' must "
+                f"be non-empty strings. Found {key!r}."
+            )
+    return dict(value)
+
+
 @dataclass
 class DCMTarget:
     """Target configuration for DCM manifest v2."""
@@ -292,19 +329,31 @@ class DCMTarget:
     account_identifier: str
     project_owner: str
     templating_config: Optional[str] = None
+    variable_overrides: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMTarget":
         templating_config = data.get("templating_config")
         account_identifier = data.get("account_identifier", "")
         project_owner = data.get("project_owner", "")
+        name = data.get("name", "").upper()
         return cls(
-            name=data.get("name", "").upper(),
+            name=name,
             project_name=data.get("project_name", ""),
             account_identifier=account_identifier if account_identifier else "",
             project_owner=to_identifier(project_owner) if project_owner else "",
             templating_config=templating_config.upper() if templating_config else None,
+            variable_overrides=_parse_variable_overrides(
+                data.get("variable_overrides"), name
+            ),
         )
+
+    def variable_arguments(self) -> List[str]:
+        """The overrides as ``KEY=<literal>`` values, in a stable order."""
+        return [
+            f"{key}={as_sql_string_literal(value)}"
+            for key, value in sorted(self.variable_overrides.items())
+        ]
 
 
 @dataclass
@@ -531,3 +580,4 @@ class TargetContext:
     configuration: Optional[str] = None
     declared_variable_names: Set[str] = field(default_factory=set)
     assets: List[DCMAsset] = field(default_factory=list)
+    variable_overrides: List[str] = field(default_factory=list)
