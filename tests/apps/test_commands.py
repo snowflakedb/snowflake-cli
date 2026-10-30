@@ -1906,6 +1906,47 @@ class TestSnowflakeAppManager:
         assert "IN SCHEMA" in query
 
     @patch(EXECUTE_QUERY)
+    def test_app_service_exists_returns_true(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([{"name": "MY_APP"}]))
+        mock_execute.return_value = mock_cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        assert SnowflakeAppManager().app_service_exists(fqn) is True
+        mock_execute.assert_called_once_with(
+            "SHOW APPLICATION SERVICES LIKE 'MY\\\\_APP' IN SCHEMA DB.SCHEMA",
+            cursor_class=DictCursor,
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_returns_false_without_rows(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = mock_cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        assert SnowflakeAppManager().app_service_exists(fqn) is False
+
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_requires_an_exact_name(self, mock_execute):
+        """``_`` is a LIKE wildcard, so only a row with the exact name counts."""
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([{"name": "MYXAPP"}]))
+        mock_execute.return_value = mock_cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        assert SnowflakeAppManager().app_service_exists(fqn) is False
+
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_quotes_a_personal_database(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = mock_cursor
+        fqn = app_fqn(
+            database="USER$first.last@example.com", schema="PUBLIC", name="MY_APP"
+        )
+        SnowflakeAppManager().app_service_exists(fqn)
+        query = mock_execute.call_args[0][0]
+        assert query.endswith('IN SCHEMA "USER$first.last@example.com".PUBLIC')
+
+    @patch(EXECUTE_QUERY)
     def test_create_workspace_ensures_live_version(self, mock_execute):
         fqn = FQN(database="DB", schema="SCHEMA", name="WORKSPACE")
         SnowflakeAppManager().create_workspace(fqn)
@@ -4914,6 +4955,21 @@ class TestAccountCapabilities:
 # ── CLI command tests ─────────────────────────────────────────────────
 
 
+@pytest.fixture
+def no_existing_app_service():
+    """Make ``snow app setup``'s existing-app check find nothing.
+
+    These setup tests replace ``SnowflakeAppManager`` with a ``MagicMock``, whose
+    ``app_service_exists`` would otherwise return a truthy mock.
+    """
+    with patch(
+        "snowflake.cli._plugins.apps.commands._app_service_exists",
+        return_value=False,
+    ):
+        yield
+
+
+@pytest.mark.usefixtures("no_existing_app_service")
 class TestSetupCommand:
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_app_yml",
@@ -5055,12 +5111,16 @@ class TestSetupCommand:
             personal_db_span = _get_completed_span(
                 "snowflake_app.setup.get_personal_database"
             )
+            existing_app_span = _get_completed_span(
+                "snowflake_app.setup.check_existing_app_service"
+            )
             write_span = _get_completed_span("snowflake_app.setup.write_manifest")
 
             # Child spans live underneath the top-level setup span.
             setup_span_id = setup_span[CLIMetricsSpan.ID_KEY]
             assert resolve_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
             assert personal_db_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
+            assert existing_app_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
             assert write_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -6120,6 +6180,7 @@ class TestSetupCapabilitiesCommand:
 # ── perform_bundle tests ──────────────────────────────────────────────
 
 
+@pytest.mark.usefixtures("no_existing_app_service")
 class TestSetupServerResolvedDefaults:
     """End-to-end ``snow app setup`` coverage of the server-resolved defaults
     returned by ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``.
@@ -6180,6 +6241,116 @@ class TestSetupServerResolvedDefaults:
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "PARAM_DB"
         assert resolved["schema"] == "PARAM_SCHEMA"
+
+
+class TestSetupExistingAppService:
+    """``snow app setup`` warns when the app it configures already exists,
+    because deploying the project would replace that app."""
+
+    @staticmethod
+    def _configure(mock_mgr_cls, exists):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        if isinstance(exists, Exception):
+            mock_mgr.app_service_exists.side_effect = exists
+        else:
+            mock_mgr.app_service_exists.return_value = exists
+        return mock_mgr
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_dry_run_warns_about_existing_app(self, mock_mgr_cls, runner, tmp_path):
+        mock_mgr = self._configure(mock_mgr_cls, exists=True)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+            assert result.exit_code == 0, result.output
+            assert not (tmp_path / "app.yml").exists()
+
+        mock_mgr.app_service_exists.assert_called_once_with(
+            FQN(database="PARAM_DB", schema="PARAM_SCHEMA", name="MY_APP")
+        )
+        output = _unwrapped(result.output)
+        assert (
+            "Application service PARAM_DB.PARAM_SCHEMA.MY_APP already exists." in output
+        )
+        assert "replace that app's code and settings" in output
+        assert "pass a different --app-name" in output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_still_writes_manifest_for_existing_app(
+        self, mock_mgr_cls, runner, tmp_path
+    ):
+        """The warning does not block setup: deploying over the existing app
+        on purpose stays possible."""
+        self._configure(mock_mgr_cls, exists=True)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "name: MY_APP" in (tmp_path / "app.yml").read_text()
+
+        output = _unwrapped(result.output)
+        assert (
+            "Application service PARAM_DB.PARAM_SCHEMA.MY_APP already exists." in output
+        )
+        assert "change name in app.yml" in output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_no_warning_without_existing_app(self, mock_mgr_cls, runner, tmp_path):
+        self._configure(mock_mgr_cls, exists=False)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+            assert result.exit_code == 0, result.output
+
+        assert "already exists" not in result.output
+
+    @pytest.mark.parametrize("exists", [True, False])
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_json_output_reports_app_exists(
+        self, mock_mgr_cls, exists, runner, tmp_path
+    ):
+        self._configure(mock_mgr_cls, exists=exists)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--dry-run",
+                    "--format",
+                    "json",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        assert json.loads(result.output)["app_exists"] is exists
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_failed_lookup_does_not_block_setup(self, mock_mgr_cls, runner, tmp_path):
+        """``SHOW ... IN SCHEMA`` fails on a schema that does not exist yet, such
+        as an App Space schema before the first deploy creates it."""
+        self._configure(
+            mock_mgr_cls,
+            exists=ProgrammingError("Schema does not exist or not authorized."),
+        )
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert (tmp_path / "app.yml").exists()
+
+        assert "already exists" not in result.output
 
 
 class TestPerformBundle:

@@ -28,6 +28,7 @@
 * `snow streamlit deploy` revokes `WITH GRANT OPTION` when `with_grant_option` is removed from a Streamlit grant in `snowflake.yml`. The privilege itself stays in place.
 * `snow streamlit deploy --legacy` now always runs on the warehouse runtime and rejects any other `runtime_name`. A versioned deploy that omits `runtime_name` leaves the runtime unset, and applies container-only settings for a `compute_pool` only when creating a new app.
 * `snow app version drop` works with both sync and async drops and says the drop may take a few minutes.
+* `snow app setup` warns when an application service with the same name already exists in the resolved database and schema, because deploying the project would replace that app. `--dry-run` shows the warning too, and `--format json` reports it as `app_exists`. Setup still completes, so you can deploy over the existing app on purpose.
 
 
 # v3.31.0

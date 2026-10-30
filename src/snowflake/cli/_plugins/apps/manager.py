@@ -287,9 +287,11 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.util import (
+    identifier_to_show_like_pattern,
     identifier_to_str,
     to_identifier,
     to_string_literal,
+    unquote_identifier,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
@@ -1345,6 +1347,24 @@ class SnowflakeAppManager(SqlExecutionMixin):
             return "IDLE"
         normalised = {k.lower(): v for k, v in row.items()}
         return normalised.get("status", "IDLE")
+
+    def app_service_exists(self, service_fqn: FQN) -> bool:
+        """Return True if the application service exists and is visible to the role.
+
+        ``SHOW`` lists only services the role holds a privilege on. A deploy
+        cannot alter a service hidden from its role, so it fails on that service
+        instead of replacing it.
+        """
+        database = to_identifier(service_fqn.database)
+        schema = to_identifier(service_fqn.schema)
+        cursor = self.execute_query(
+            "SHOW APPLICATION SERVICES LIKE "
+            f"{identifier_to_show_like_pattern(service_fqn.name)}"
+            f" IN SCHEMA {database}.{schema}",
+            cursor_class=DictCursor,
+        )
+        unqualified = unquote_identifier(service_fqn.name).upper()
+        return any(row["name"].upper() == unqualified for row in cursor)
 
     def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
         """Drop an application service if it exists."""
