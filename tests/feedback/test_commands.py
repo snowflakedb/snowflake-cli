@@ -25,10 +25,7 @@ from snowflake.cli._plugins.feedback.constants import (
     RATE_LIMIT_MAX,
 )
 from snowflake.cli.api.exceptions import MissingConfigurationError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.connector.errors import DatabaseError
-
-from tests_common.feature_flag_utils import with_feature_flags
 
 _AGENT_ENV_VARS = (
     "CORTEX_SESSION_ID",
@@ -77,15 +74,8 @@ def _json_feedback(*extra: str) -> list[str]:
     return ["feedback", "--rating", "2", "--yes", "--format", "JSON", *extra]
 
 
-def test_feedback_hidden_from_root_help_when_flag_off(runner):
+def test_feedback_listed_in_root_help(runner):
     result = runner.invoke(["--help"])
-    assert result.exit_code == 0, result.output
-    assert "| feedback " not in result.output
-
-
-def test_feedback_listed_in_root_help_when_flag_on(runner):
-    with with_feature_flags({FeatureFlag.ENABLE_SNOW_FEEDBACK: True}):
-        result = runner.invoke(["--help"])
     assert result.exit_code == 0, result.output
     assert "| feedback " in result.output
 
@@ -101,7 +91,7 @@ def test_feedback_help_lists_required_rating(runner):
     assert "error text is not sent" in result.output
     assert "include passwords" in result.output
     assert "AI agent" in result.output
-    assert "preview and may be removed" in result.output
+    assert "preview and may be removed" not in result.output
 
 
 def test_rating_is_required(runner, mock_connect):
