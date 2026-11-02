@@ -60,6 +60,7 @@ dcm/list-deployments.mdx: content/en/developer-guide/snowflake-cli/command-refer
 dcm/list.mdx: content/en/developer-guide/snowflake-cli/command-reference/dcm-commands/list.mdx
 dcm/plan.mdx: content/en/developer-guide/snowflake-cli/command-reference/dcm-commands/plan.mdx
 dcm/purge.mdx: content/en/developer-guide/snowflake-cli/command-reference/dcm-commands/purge.mdx
+feedback.mdx: content/en/developer-guide/snowflake-cli/command-reference/feedback-commands/feedback.mdx
 git/copy.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/copy.mdx
 git/describe.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/describe.mdx
 git/drop.mdx: content/en/developer-guide/snowflake-cli/command-reference/git-commands/drop.mdx

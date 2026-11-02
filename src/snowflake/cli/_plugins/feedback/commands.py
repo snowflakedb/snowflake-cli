@@ -35,9 +35,8 @@ from snowflake.cli.api.commands.command_docs import (
     link,
     plain_text,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperFactory
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import CommandResult, MessageResult, ObjectResult
 from snowflake.cli.api.utils.tty import is_tty_interactive
 
@@ -50,17 +49,7 @@ class FeedbackCategory(str, Enum):
     OTHER = "other"
 
 
-class _FeedbackTyperFactory(SnowTyperFactory):
-    def create_instance(self) -> SnowTyper:
-        hidden = FeatureFlag.ENABLE_SNOW_FEEDBACK.is_disabled()
-        for command in self.commands_to_register:
-            command.kwargs["hidden"] = hidden
-        return super().create_instance()
-
-
-app = _FeedbackTyperFactory(
-    is_hidden=FeatureFlag.ENABLE_SNOW_FEEDBACK.is_disabled,
-)
+app = SnowTyperFactory()
 
 
 def _requires_explicit_yes() -> bool:
@@ -113,10 +102,6 @@ def _emit(outcome: FeedbackOutcome) -> CommandResult:
             plain_text(
                 "Pass --last-error to attach the id and type of the last CLI "
                 "error. The error text is not sent."
-            ),
-            plain_text(
-                "This command is in preview and may be removed. It is hidden "
-                "from snow --help until ENABLE_SNOW_FEEDBACK is turned on."
             ),
         ),
         examples=(

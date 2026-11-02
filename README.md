@@ -35,6 +35,8 @@ Cheatsheet: <https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflak
 
 Feel free to file an issue or submit a PR here for general cases. For official support, contact Snowflake support at: https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge
 
+`snow feedback` sends a rating and an optional note to Snowflake. Pass `--rating` from 1 (poor) to 4 (excellent). A note is optional for people and required for an AI agent: name the command you ran, what you expected, and what happened. Pass `--yes` when stdin is not a terminal. Do not include passwords, tokens, private keys, account locators, data from Snowflake accounts, or SQL that contains customer data.
+
 ## Install Snowflake CLI
 
 ### Direct install (recommended)

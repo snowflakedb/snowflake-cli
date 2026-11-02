@@ -30,6 +30,8 @@
   | dbt            Manages dbt on Snowflake projects.                            |
   | dcm            Manages DCM Projects in Snowflake.                            |
   | feature        Manages declarative feature-store objects in Snowflake.       |
+  | feedback       Send a rating and optional note about Snowflake CLI to        |
+  |                Snowflake.                                                    |
   | git            Manages git repositories in Snowflake.                        |
   | helpers        Helper commands.                                              |
   | init           Creates project directory from template.                      |
@@ -10101,9 +10103,6 @@
   |                                                                              |
   | Pass --last-error to attach the id and type of the last CLI error. The error |
   | text is not sent.                                                            |
-  |                                                                              |
-  | This command is in preview and may be removed. It is hidden from snow --help |
-  | until ENABLE_SNOW_FEEDBACK is turned on.                                     |
   +------------------------------------------------------------------------------+
   +- Examples -------------------------------------------------------------------+
   | Send a rating without a note.                                                |
@@ -17598,6 +17597,8 @@
   | dbt            Manages dbt on Snowflake projects.                            |
   | dcm            Manages DCM Projects in Snowflake.                            |
   | feature        Manages declarative feature-store objects in Snowflake.       |
+  | feedback       Send a rating and optional note about Snowflake CLI to        |
+  |                Snowflake.                                                    |
   | git            Manages git repositories in Snowflake.                        |
   | helpers        Helper commands.                                              |
   | init           Creates project directory from template.                      |
