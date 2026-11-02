@@ -1304,6 +1304,38 @@ def test_repl_skips_elapsed_when_silent(output_format, repl, capsys):
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
+def test_repl_quiet_hides_result_and_elapsed_keeps_spool(
+    compiling_repl, capsys, tmp_path
+):
+    spool = tmp_path / "out.txt"
+    try:
+        run_repl(
+            compiling_repl,
+            (f'!spool "{spool}"', "!set quiet=true", "select 1;", "exit", "y"),
+            monotonic_values=(0.0, 0.5, 1.0, 1.5, 2.0, 2.5),
+        )
+        output = capsys.readouterr().out
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        get_cli_context_manager().close_spool()
+
+    assert "| 1 |" not in output
+    assert "Time Elapsed" not in output
+    assert "| 1 |" in contents
+
+
+def test_repl_quiet_still_prints_errors(compiling_repl, capsys):
+    run_repl(
+        compiling_repl,
+        ("!set quiet=true", "select <% missing %>;", "exit", "y"),
+        monotonic_values=(0.0, 0.5, 1.0, 1.5),
+    )
+
+    output = capsys.readouterr().out
+    assert "Error occurred: SQL rendering error" in output
+    assert "| 1 |" not in output
+
+
 def test_refresh_completion_catalog_disabled_says_so(capsys):
     repl = Repl(SqlManager(), auto_completion=False)
     repl.refresh_completion_catalog()

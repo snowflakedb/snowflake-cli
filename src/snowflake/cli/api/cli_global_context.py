@@ -103,6 +103,9 @@ class _CliGlobalContextManager:
     )
 
     output_format: OutputFormat = OutputFormat.TABLE
+    # SnowSQL quiet: hide query results on the terminal. An open spool still
+    # receives them. Errors go through cli_console and are not affected.
+    quiet: bool = False
     spool_path: Path | None = None
     spool_stream: TextIO | None = None
     _spool_stack: ExitStack | None = field(default=None, repr=False, compare=False)
@@ -363,6 +366,10 @@ class _CliGlobalContextAccess:
     @property
     def output_format(self) -> OutputFormat:
         return self._manager.output_format
+
+    @property
+    def quiet(self) -> bool:
+        return self._manager.quiet
 
     @property
     def spool_path(self) -> Path | None:

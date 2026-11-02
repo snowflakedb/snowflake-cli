@@ -62,6 +62,25 @@ get_console().soft_wrap = True
 get_console()._markup = False  # noqa: SLF001
 
 
+class _DiscardStream:
+    """Drop result text when quiet is on and no spool file is open."""
+
+    encoding = "utf-8"
+    errors = "replace"
+
+    def write(self, s: str) -> int:
+        return len(s) if s else 0
+
+    def flush(self) -> None:
+        return None
+
+    def isatty(self) -> bool:
+        return False
+
+
+_DISCARD_STREAM = _DiscardStream()
+
+
 class TeeTextIO:
     """Write the same text to stdout and an open spool file. Never a TTY."""
 
@@ -90,8 +109,17 @@ class TeeTextIO:
         return getattr(self._primary, "errors", None)
 
 
-def _result_stream() -> TextIO | TeeTextIO:
+def _result_stream() -> TextIO | TeeTextIO | _DiscardStream:
+    """Where query results are written.
+
+    ``quiet`` hides them on the terminal. An open spool still receives them.
+    ``--silent`` does not use this path.
+    """
     spool = get_cli_context().spool_stream
+    if get_cli_context().quiet:
+        if spool is None:
+            return _DISCARD_STREAM
+        return spool
     if spool is None:
         return sys.stdout
     return TeeTextIO(sys.stdout, spool)
@@ -269,8 +297,9 @@ def _stdout_is_terminal() -> bool:
     # Current stdout, not get_console().is_terminal: Rich caches the latter on
     # the stream it first saw, and FORCE_COLOR (even "0") makes that True.
     # While spooling, both sinks get the non-TTY layout so the file does not
-    # pick up Rich ANSI / Live (see GH#2725).
-    if get_cli_context().spool_stream is not None:
+    # pick up Rich ANSI / Live (see GH#2725). Quiet uses the same layout: the
+    # terminal is not a result sink, and a spool file must stay pipe-formatted.
+    if get_cli_context().quiet or get_cli_context().spool_stream is not None:
         return False
     isatty = getattr(sys.stdout, "isatty", None)
     try:

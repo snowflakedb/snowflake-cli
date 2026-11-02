@@ -266,6 +266,70 @@ def test_sql_spool_with_plain_output_format(
         manager.output_format = previous
 
 
+@pytest.mark.parametrize(
+    "quiet_statement,expect_terminal",
+    [
+        (None, True),
+        ("!set quiet=false", True),
+        ("!set quiet=true", False),
+    ],
+)
+@pytest.mark.parametrize("with_spool", [False, True])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_quiet_on_off_with_and_without_spool(
+    mock_execute,
+    mock_connect,
+    runner,
+    mock_cursor,
+    tmp_path,
+    quiet_statement,
+    expect_terminal,
+    with_spool,
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    lines = []
+    if with_spool:
+        lines.append(f'!spool "{spool}"')
+    if quiet_statement is not None:
+        lines.append(quiet_statement)
+    lines.append("select 1 as n;")
+    if with_spool:
+        lines.append("!spool off")
+    result = runner.invoke(["sql", "-q", "\n".join(lines)])
+    assert result.exit_code == 0, result.output
+    if expect_terminal:
+        assert "| 1 |" in result.output
+    else:
+        assert "| 1 |" not in result.output
+    if with_spool:
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_quiet_empty_is_rejected_and_query_does_not_run(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    """An empty quiet= is not the unset default: the batch fails before SQL."""
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "!set quiet=\nselect 1 as n;"])
+    assert result.exit_code != 0
+    assert "Invalid value for quiet: ''" in result.output
+    assert "| 1 |" not in result.output
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_silent_still_prints_result_table(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "--silent", "-q", "select 1 as n;"])
+    assert result.exit_code == 0, result.output
+    assert "| 1 |" in result.output
+
+
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_file(mock_execute, runner, mock_cursor, named_temporary_file):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))

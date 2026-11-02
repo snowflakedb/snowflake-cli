@@ -446,20 +446,39 @@ class AbortCommand(ReplCommand):
         return CompileCommandResult(command=cls(args[0]))
 
 
-_SET_USAGE = "Usage: `!set output_format=<format>`"
+_SET_USAGE = "Usage: `!set output_format=<format>` | `!set quiet=<true|false>`"
 _SET_OPTION_OUTPUT_FORMAT = "output_format"
+_SET_OPTION_QUIET = "quiet"
+_SET_OPTIONS = frozenset({_SET_OPTION_OUTPUT_FORMAT, _SET_OPTION_QUIET})
+_SET_SUPPORTED = "Only output_format and quiet are supported."
+# SnowSQL booleans. An empty value is not false and not a reset to unset.
+_QUIET_TRUE = frozenset({"true", "yes", "on", "1"})
+_QUIET_FALSE = frozenset({"false", "no", "off", "0"})
+
+
+def _parse_quiet_value(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in _QUIET_TRUE:
+        return True
+    if normalized in _QUIET_FALSE:
+        return False
+    raise ValueError(f"Invalid value for quiet: {value!r}. Use true or false.")
 
 
 @register_command("!set")
 @dataclass
 class SetCommand(ReplCommand):
-    """Set a session option. Only output_format is supported."""
+    """Set a session option. output_format and quiet are supported."""
 
     option: str
     value: str
 
     def execute(self, connection: SnowflakeConnection):
-        get_cli_context_manager().output_format = OutputFormat.from_string(self.value)
+        manager = get_cli_context_manager()
+        if self.option == _SET_OPTION_QUIET:
+            manager.quiet = _parse_quiet_value(self.value)
+            return
+        manager.output_format = OutputFormat.from_string(self.value)
 
     @classmethod
     def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
@@ -483,31 +502,39 @@ class SetCommand(ReplCommand):
                 error_message=f"No arguments passed to 'set' command. {_SET_USAGE}"
             )
 
-        output_format_keys = [
-            key for key in kwargs if key.lower() == _SET_OPTION_OUTPUT_FORMAT
-        ]
-        if len(output_format_keys) > 1:
-            names = ", ".join(f"{key!r}" for key in output_format_keys)
-            return CompileCommandResult(error_message=f"Duplicated argument {names}")
+        for option in _SET_OPTIONS:
+            keys = [key for key in kwargs if key.lower() == option]
+            if len(keys) > 1:
+                names = ", ".join(f"{key!r}" for key in keys)
+                return CompileCommandResult(
+                    error_message=f"Duplicated argument {names}"
+                )
 
-        unknown = [key for key in kwargs if key.lower() != _SET_OPTION_OUTPUT_FORMAT]
+        unknown = [key for key in kwargs if key.lower() not in _SET_OPTIONS]
         if unknown:
             names = ", ".join(f"{key!r}" for key in unknown)
             return CompileCommandResult(
                 error_message=(
-                    f"Unknown option passed to 'set' command: {names}. "
-                    "Only output_format is supported."
+                    f"Unknown option passed to 'set' command: {names}. {_SET_SUPPORTED}"
                 )
             )
 
-        value = next(iter(kwargs.values()))
+        known = [key for key in kwargs if key.lower() in _SET_OPTIONS]
+        if len(known) > 1:
+            return CompileCommandResult(
+                error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+            )
+
+        option = known[0].lower()
+        value = kwargs[known[0]]
         try:
-            OutputFormat.from_string(value)
+            if option == _SET_OPTION_QUIET:
+                _parse_quiet_value(value)
+            else:
+                OutputFormat.from_string(value)
         except ValueError as e:
             return CompileCommandResult(error_message=str(e))
-        return CompileCommandResult(
-            command=cls(option=_SET_OPTION_OUTPUT_FORMAT, value=value)
-        )
+        return CompileCommandResult(command=cls(option=option, value=value))
 
 
 _SPOOL_USAGE = "Usage: `!spool <file>` | `!spool off`"

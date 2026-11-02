@@ -62,6 +62,10 @@ EXIT_KEYWORDS = ("exit", "quit")
 
 
 def _print_sql_elapsed(elapsed_seconds: float) -> None:
+    # Quiet hides query output, including this footer. Errors use cli_console
+    # directly and still print.
+    if get_cli_context().quiet:
+        return
     output_format = get_cli_context().output_format or OutputFormat.TABLE
     if is_structured_format(output_format):
         return

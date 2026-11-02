@@ -309,6 +309,7 @@ def test_queries_execute_help(mock_print, mock_ctx):
             ["output_format=plain"],
             SetCommand(option="output_format", value="plain"),
         ),
+        ("!set", ["quiet=true"], SetCommand(option="quiet", value="true")),
         ("!spool", ["out.txt"], SpoolCommand(path="out.txt")),
         ("!spool", ["off"], SpoolCommand(path=None)),
         (
@@ -357,35 +358,40 @@ def test_rehash_from_args():
     )
 
 
+_SET_USAGE = "Usage: `!set output_format=<format>` | `!set quiet=<true|false>`"
+_SET_SUPPORTED = "Only output_format and quiet are supported."
+
+
 def test_set_from_args():
     assert SetCommand.from_args([], {}) == CompileCommandResult(
-        error_message="No arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+        error_message=f"No arguments passed to 'set' command. {_SET_USAGE}"
     )
     assert SetCommand.from_args("", {}) == CompileCommandResult(
-        error_message="No arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+        error_message=f"No arguments passed to 'set' command. {_SET_USAGE}"
     )
     assert SetCommand.from_args(["output_format", "plain"], {}) == CompileCommandResult(
-        error_message="Too many arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+        error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
     )
     assert SetCommand.from_args([], {"header": "false"}) == CompileCommandResult(
-        error_message="Unknown option passed to 'set' command: 'header'. Only output_format is supported."
+        error_message=f"Unknown option passed to 'set' command: 'header'. {_SET_SUPPORTED}"
     )
     assert SetCommand.from_args(
         [], {"output_format": "plain", "header": "false"}
     ) == CompileCommandResult(
-        error_message="Unknown option passed to 'set' command: 'header'. Only output_format is supported."
+        error_message=f"Unknown option passed to 'set' command: 'header'. {_SET_SUPPORTED}"
     )
     assert SetCommand.from_args(
         [], {"header": "false", "timing": "on"}
     ) == CompileCommandResult(
-        error_message="Unknown option passed to 'set' command: 'header', 'timing'. Only output_format is supported."
+        error_message=(
+            f"Unknown option passed to 'set' command: 'header', 'timing'. {_SET_SUPPORTED}"
+        )
     )
     csi_key = "\x1b[31mred"
     result = SetCommand.from_args([], {csi_key: "1"})
     assert result == CompileCommandResult(
         error_message=(
-            f"Unknown option passed to 'set' command: {csi_key!r}. "
-            "Only output_format is supported."
+            f"Unknown option passed to 'set' command: {csi_key!r}. {_SET_SUPPORTED}"
         )
     )
     assert "\x1b[31m" not in (result.error_message or "")
@@ -430,6 +436,66 @@ def test_set_execute_sets_output_format():
         assert get_cli_context().output_format is OutputFormat.TABLE
     finally:
         manager.output_format = previous
+
+
+def test_set_quiet_from_args():
+    assert SetCommand.from_args("quiet=true") == CompileCommandResult(
+        command=SetCommand(option="quiet", value="true")
+    )
+    assert SetCommand.from_args("QUIET=FALSE") == CompileCommandResult(
+        command=SetCommand(option="quiet", value="FALSE")
+    )
+    assert SetCommand.from_args([], {"quiet": "on"}) == CompileCommandResult(
+        command=SetCommand(option="quiet", value="on")
+    )
+    assert SetCommand.from_args("quiet=") == CompileCommandResult(
+        error_message="Invalid value for quiet: ''. Use true or false."
+    )
+    assert SetCommand.from_args("quiet=maybe") == CompileCommandResult(
+        error_message="Invalid value for quiet: 'maybe'. Use true or false."
+    )
+    assert SetCommand.from_args("quiet=true QUIET=false") == CompileCommandResult(
+        error_message="Duplicated argument 'quiet'"
+    )
+    assert SetCommand.from_args(
+        [], {"quiet": "true", "QUIET": "false"}
+    ) == CompileCommandResult(error_message="Duplicated argument 'quiet', 'QUIET'")
+    assert SetCommand.from_args(
+        "output_format=json quiet=true"
+    ) == CompileCommandResult(
+        error_message=(
+            "Too many arguments passed to 'set' command. "
+            "Usage: `!set output_format=<format>` | `!set quiet=<true|false>`"
+        )
+    )
+
+
+def test_set_quiet_empty_does_not_change_an_existing_value():
+    """Empty is rejected. Unset stays the default, and a prior true stays true."""
+    manager = get_cli_context_manager()
+    assert manager.quiet is False
+    rejected = SetCommand.from_args("quiet=")
+    assert rejected.command is None
+    assert manager.quiet is False
+
+    SetCommand(option="quiet", value="true").execute(mock.Mock())
+    assert manager.quiet is True
+    rejected_again = SetCommand.from_args("quiet=")
+    assert rejected_again.error_message is not None
+    assert manager.quiet is True
+
+
+def test_set_execute_sets_quiet():
+    manager = get_cli_context_manager()
+    assert manager.quiet is False
+    SetCommand(option="quiet", value="true").execute(mock.Mock())
+    assert get_cli_context().quiet is True
+    SetCommand(option="quiet", value="false").execute(mock.Mock())
+    assert get_cli_context().quiet is False
+    SetCommand(option="quiet", value="yes").execute(mock.Mock())
+    assert manager.quiet is True
+    SetCommand(option="quiet", value="0").execute(mock.Mock())
+    assert manager.quiet is False
 
 
 def test_spool_from_args():
