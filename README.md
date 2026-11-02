@@ -53,7 +53,7 @@ Windows (PowerShell):
 irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
 ```
 
-Upgrade later with `snow upgrade` (public preview, same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
+Upgrade later with `snow upgrade` (same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
 
 ### Install with uv (PyPi)
 
