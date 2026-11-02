@@ -19,6 +19,16 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.32.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
 * `snow dbt execute` now accepts the `check` and `clone` commands. These previously failed with a CLI "No such command" error.
 * `snow sql` accepts `!set quiet=true` and `!set quiet=false`. `quiet=true` hides query results on the terminal, including the elapsed-time footer, and still appends them to an open `!spool` file. Errors still print. Leaving `quiet` unset shows results. An empty `!set quiet=` is rejected and does not change the current setting. `--silent` is unchanged.
 
