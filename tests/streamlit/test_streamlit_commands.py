@@ -848,6 +848,29 @@ class TestStreamlitCommands(StreamlitTestClass):
         assert result.exit_code == 0, result.output
         assert result.output == "https://foo.bar\n"
 
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitManager")
+    def test_status_prints_the_service_row(self, manager_cls, runner):
+        manager_cls.return_value.status.return_value = [
+            {
+                "name": "DB.PUBLIC.APP",
+                "runtime_name": "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+                "compute_pool": "POOL",
+                "url": "https://example.test/app",
+                "service_name": "STPLATSTREAMLIT7",
+                "service_status": "RUNNING",
+                "container_status": "READY",
+                "current_instances": 1,
+                "message": None,
+            }
+        ]
+
+        result = runner.invoke(["streamlit", "status", "DB.PUBLIC.APP"])
+
+        assert result.exit_code == 0, result.output
+        assert "STPLATSTREAMLIT7" in result.output
+        assert "RUNNING" in result.output
+        manager_cls.return_value.status.assert_called_once()
+
     @pytest.mark.parametrize(
         "command, parameters",
         [

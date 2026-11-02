@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* `snow streamlit status` reports the SPCS service behind a Streamlit app. `service_status` is the service (`NOT_APPLICABLE`, `NOT_STARTED`, `RUNNING`, `SUSPENDED`). `container_status` is one status for the containers inside that service: `READY` means every container is ready, and a mix such as `READY` and `PENDING` rolls up to the non-ready status. The command does not start the app.
 * `snow dbt execute` now accepts the `check` and `clone` commands. These previously failed with a CLI "No such command" error.
 * `snow sql` accepts `!set quiet=true` and `!set quiet=false`. `quiet=true` hides query results on the terminal, including the elapsed-time footer, and still appends them to an open `!spool` file. Errors still print. Leaving `quiet` unset shows results. An empty `!set quiet=` is rejected and does not change the current setting. `--silent` is unchanged.
 * `snow feedback` is now generally available.

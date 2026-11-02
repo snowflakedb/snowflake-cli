@@ -17462,6 +17462,69 @@
   
   '''
 # ---
+# name: test_help_messages[streamlit.status]
+  '''
+                                                                                  
+   Usage: root streamlit status [OPTIONS] NAME [global options] [connection       
+   options]                                                                       
+                                                                                  
+   Returns the runtime and backing SPCS service status for a Streamlit app.       
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the Streamlit app; for example:           |
+  |                      my_streamlit                                            |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Global and connection options ----------------------------------------------+
+  | Connection options: --connection, --host, --port, --protocol, --account,     |
+  | --user, --password, --authenticator, --workload-identity-provider,           |
+  | --private-key-file, --token, --token-file-path, --database, --schema,        |
+  | --role, --warehouse, --temporary-connection, --mfa-passcode, --enable-diag,  |
+  | --diag-log-path, --diag-allowlist-path, --oauth-client-id,                   |
+  | --oauth-client-secret, --oauth-authorization-url, --oauth-token-request-url, |
+  | --oauth-redirect-uri, --oauth-scope, --oauth-disable-pkce,                   |
+  | --oauth-enable-refresh-tokens, --oauth-enable-single-use-refresh-tokens,     |
+  | --client-store-temporary-credential, --secondary-roles,                      |
+  | --server-session-keep-alive                                                  |
+  | Global options: --format, --verbose, --debug, --silent,                      |
+  | --enhanced-exit-codes, --decimal-precision                                   |
+  |                                                                              |
+  | Run `snow --help` for full descriptions, or use `--help-all` on this         |
+  | command.                                                                     |
+  +------------------------------------------------------------------------------+
+  +- Usage notes ----------------------------------------------------------------+
+  | Reports whether the SPCS service behind a Streamlit app is running. The      |
+  | command is read-only: it does not start, resume, or restart the app.         |
+  |                                                                              |
+  | • service_status is the SPCS service. A warehouse runtime uses               |
+  |   NOT_APPLICABLE. NOT_STARTED means no service is currently attributed to    |
+  |   the app. Otherwise it is the status from SHOW SERVICES, such as RUNNING or |
+  |   SUSPENDED.                                                                 |
+  | • container_status is one status for the containers inside that service,     |
+  |   from SYSTEM$GET_SERVICE_STATUS. READY means every container is ready. A    |
+  |   mix, such as READY and PENDING, rolls up to the non-ready status. It needs |
+  |   the MONITOR privilege. Without it, service_status is still returned.       |
+  +------------------------------------------------------------------------------+
+  +- Examples -------------------------------------------------------------------+
+  | Return the runtime, the backing service status, and the Snowsight URL:       |
+  | snow streamlit status my_streamlit_app                                       |
+  +------------------------------------------------------------------------------+
+  +- Related topics -------------------------------------------------------------+
+  | • https://docs.snowflake.com/en/developer-guide/snowflake-cli/index          |
+  | • Snowflake CLI command reference                                            |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/overview                                                 |
+  | • Streamlit commands                                                         |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/streamlit-commands/overview                              |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[streamlit]
   '''
                                                                                   
@@ -17491,6 +17554,8 @@
   | list       Lists all available streamlits.                                   |
   | logs       Streams live logs from a deployed Streamlit app to your terminal. |
   | share      Shares a Streamlit app with another role.                         |
+  | status     Returns the runtime and backing SPCS service status for a         |
+  |            Streamlit app.                                                    |
   +------------------------------------------------------------------------------+
   
   
@@ -18617,6 +18682,8 @@
   | list       Lists all available streamlits.                                   |
   | logs       Streams live logs from a deployed Streamlit app to your terminal. |
   | share      Shares a Streamlit app with another role.                         |
+  | status     Returns the runtime and backing SPCS service status for a         |
+  |            Streamlit app.                                                    |
   +------------------------------------------------------------------------------+
   
   

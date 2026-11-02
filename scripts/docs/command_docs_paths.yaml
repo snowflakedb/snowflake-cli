@@ -154,4 +154,5 @@ streamlit/get-url.mdx: content/en/developer-guide/snowflake-cli/command-referenc
 streamlit/list.mdx: content/en/developer-guide/snowflake-cli/command-reference/streamlit-commands/list.mdx
 streamlit/logs.mdx: content/en/developer-guide/snowflake-cli/command-reference/streamlit-commands/logs.mdx
 streamlit/share.mdx: content/en/developer-guide/snowflake-cli/command-reference/streamlit-commands/share.mdx
+streamlit/status.mdx: content/en/developer-guide/snowflake-cli/command-reference/streamlit-commands/status.mdx
 upgrade.mdx: content/en/developer-guide/snowflake-cli/command-reference/upgrade-commands/upgrade.mdx
