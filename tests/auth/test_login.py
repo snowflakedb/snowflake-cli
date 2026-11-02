@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import json
 import webbrowser
 from textwrap import dedent
 
@@ -186,11 +187,18 @@ def test_login_help_says_the_default_connection_changes(runner):
         result = runner.invoke(["auth", "login", "--help"])
 
     assert result.exit_code == 0, result.output
-    assert "changes the default connection" in result.output
-    assert "public account host" in result.output
-    assert "signs in each time" in result.output
+    flat = _panel_text(result.output)
+    assert "changes the default connection" in flat
+    assert "every saved local OAuth connection" in flat
+    assert "connection named for the account" in flat
+    assert "public account host" in flat
+    assert "signs in each time" in flat
     assert "--host" in result.output
     assert "--connection-name" in result.output
+    assert "A different role writes a different connection." in flat
+    assert "Omitted uses the connection with no role." in flat
+    assert "the role when one is passed" in flat
+    assert "--clear-role" not in result.output
 
 
 def test_login_prompts_for_the_account_and_nothing_else(
@@ -461,7 +469,8 @@ def test_a_second_login_updates_the_existing_local_oauth_connection(
     with config_file(_SAVED_LOCAL_OAUTH) as path:
         with _enable_auth():
             result = runner.invoke_with_config_file(
-                str(path), ["auth", "login", "myorg-myacct"]
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "SYSADMIN"],
             )
         written = tomlkit.parse(path.read_text())
 
@@ -476,9 +485,12 @@ def test_a_second_login_updates_the_existing_local_oauth_connection(
     assert connection["schema"] == "PUBLIC"
     assert connection["authenticator"] == "OAUTH_AUTHORIZATION_CODE"
     assert written["default_connection_name"] == "work"
+    assert connection["oauth_scope"] == "refresh_token session:role:SYSADMIN"
     assert calls[0]["account"] == "myorg-myacct"
     assert "user" not in calls[0]
+    assert calls[0]["role"] == "SYSADMIN"
     assert calls[1]["user"] == "JDOE"
+    assert calls[1]["role"] == "SYSADMIN"
 
 
 def test_a_saved_connection_still_signs_in_so_another_user_can_be_chosen(
@@ -521,7 +533,7 @@ def test_a_saved_connection_still_signs_in_so_another_user_can_be_chosen(
     assert written["default_connection_name"] == "myorg-myacct-SSMITH"
 
 
-def test_a_bare_repeat_login_uses_the_host_stored_for_that_user(
+def test_a_bare_login_uses_the_host_stored_for_that_user(
     runner, config_file, monkeypatch
 ):
     calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
@@ -542,14 +554,63 @@ def test_a_bare_repeat_login_uses_the_host_stored_for_that_user(
     assert len(calls) == 2
     assert "role" not in calls[0]
     assert calls[0]["host"] == host
+    assert calls[0]["oauth_scope"] == "refresh_token"
     assert calls[1]["user"] == "JDOE"
-    assert calls[1]["role"] == "SYSADMIN"
+    assert "role" not in calls[1]
+    assert calls[1]["oauth_scope"] == "refresh_token"
     assert calls[1]["host"] == host
-    connection = written["connections"]["work"]
-    assert connection["host"] == host
-    assert connection["user"] == "JDOE"
-    assert connection["role"] == "SYSADMIN"
-    assert set(written["connections"]) == {"work", "keypair"}
+    assert written["connections"]["work"]["host"] == host
+    assert written["connections"]["work"]["role"] == "SYSADMIN"
+    created = written["connections"]["myorg-myacct-JDOE"]
+    assert created["host"] == host
+    assert created["user"] == "JDOE"
+    assert "role" not in created
+    assert set(written["connections"]) == {"work", "keypair", "myorg-myacct-JDOE"}
+
+
+def test_a_repeat_login_for_the_same_role_uses_the_stored_host(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    host = "myorg-myacct.privatelink.snowflakecomputing.com"
+    other = "other.privatelink.snowflakecomputing.com"
+    config = dedent(
+        f"""\
+        [connections.work]
+        account = "myorg-myacct"
+        user = "JDOE"
+        host = "{host}"
+        role = "SYSADMIN"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+
+        [connections.analyst]
+        account = "myorg-myacct"
+        user = "JDOE"
+        host = "{other}"
+        role = "ANALYST"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+        """
+    )
+    with config_file(config) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "SYSADMIN"],
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert "host" not in calls[0]
+    assert calls[0]["role"] == "SYSADMIN"
+    assert calls[1]["host"] == host
+    assert calls[1]["role"] == "SYSADMIN"
+    assert set(written["connections"]) == {"work", "analyst"}
+    assert written["connections"]["work"]["host"] == host
+    assert written["connections"]["work"]["role"] == "SYSADMIN"
+    assert written["connections"]["analyst"]["host"] == other
+    assert written["default_connection_name"] == "work"
 
 
 def test_a_saved_connection_signs_in_and_stores_the_given_host(
@@ -560,7 +621,8 @@ def test_a_saved_connection_signs_in_and_stores_the_given_host(
     with config_file(_SAVED_LOCAL_OAUTH) as path:
         with _enable_auth():
             result = runner.invoke_with_config_file(
-                str(path), ["auth", "login", "myorg-myacct", "--host", host]
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "SYSADMIN", "--host", host],
             )
         written = tomlkit.parse(path.read_text())
 
@@ -609,9 +671,9 @@ def test_two_saved_users_on_one_account_still_sign_in(runner, config_file, monke
     assert "role" not in calls[0]
     assert "host" not in calls[0]
     assert calls[1]["user"] == "JDOE"
-    assert calls[1]["role"] == "SYSADMIN"
+    assert "role" not in calls[1]
     assert calls[1]["host"] == "myorg-myacct.privatelink.snowflakecomputing.com"
-    assert set(written["connections"]) == {"jdoe", "ssmith"}
+    assert set(written["connections"]) == {"jdoe", "ssmith", "myorg-myacct-JDOE"}
     assert written["connections"]["jdoe"]["user"] == "JDOE"
     assert written["connections"]["jdoe"]["role"] == "SYSADMIN"
     assert (
@@ -621,7 +683,11 @@ def test_two_saved_users_on_one_account_still_sign_in(runner, config_file, monke
     assert written["connections"]["ssmith"]["user"] == "SSMITH"
     assert written["connections"]["ssmith"]["role"] == "PUBLIC"
     assert "host" not in written["connections"]["ssmith"]
-    assert written["default_connection_name"] == "jdoe"
+    created = written["connections"]["myorg-myacct-JDOE"]
+    assert created["user"] == "JDOE"
+    assert "role" not in created
+    assert created["host"] == "myorg-myacct.privatelink.snowflakecomputing.com"
+    assert written["default_connection_name"] == "myorg-myacct-JDOE"
 
 
 @pytest.mark.parametrize(
@@ -746,20 +812,27 @@ def test_a_passed_role_or_warehouse_is_stored_after_sign_in(
         assert call["database"] == "NEW_DB"
         assert call["schema"] == "NEW_SCHEMA"
         assert call["validate_default_parameters"] is True
-    connection = written["connections"]["work"]
+    assert written["connections"]["work"]["role"] == "SYSADMIN"
+    assert written["connections"]["work"]["warehouse"] == "COMPUTE_WH"
+    assert written["connections"]["work"]["database"] == "ANALYTICS"
+    assert written["connections"]["work"]["schema"] == "PUBLIC"
+    connection = written["connections"]["myorg-myacct-JDOE-ANALYST"]
     assert connection["oauth_scope"] == "refresh_token session:role:ANALYST"
     assert connection["role"] == "ANALYST"
     assert connection["warehouse"] == "NEW_WH"
     assert connection["database"] == "NEW_DB"
     assert connection["schema"] == "NEW_SCHEMA"
     assert connection["user"] == "JDOE"
-    assert set(written["connections"]) == {"work", "keypair"}
+    assert set(written["connections"]) == {
+        "work",
+        "keypair",
+        "myorg-myacct-JDOE-ANALYST",
+    }
 
 
 @pytest.mark.parametrize(
     ("flag", "removed", "kept_field", "kept_value"),
     [
-        ("--clear-role", "role", "warehouse", "COMPUTE_WH"),
         ("--clear-warehouse", "warehouse", "role", "SYSADMIN"),
         ("--clear-database", "database", "schema", "PUBLIC"),
         ("--clear-schema", "schema", "database", "ANALYTICS"),
@@ -772,7 +845,8 @@ def test_clear_flags_remove_a_stored_connection_field(
     with config_file(_SAVED_LOCAL_OAUTH) as path:
         with _enable_auth():
             result = runner.invoke_with_config_file(
-                str(path), ["auth", "login", "myorg-myacct", flag]
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "SYSADMIN", flag],
             )
         written = tomlkit.parse(path.read_text())
 
@@ -780,22 +854,18 @@ def test_clear_flags_remove_a_stored_connection_field(
     assert len(calls) == 2
     assert "user" not in calls[0]
     assert calls[1]["user"] == "JDOE"
-    if flag == "--clear-role":
-        for call in calls:
-            assert "role" not in call
-    else:
-        assert "role" not in calls[0]
-        assert calls[1]["role"] == "SYSADMIN"
+    for call in calls:
+        assert call["role"] == "SYSADMIN"
     connection = written["connections"]["work"]
     assert removed not in connection
     assert connection[kept_field] == kept_value
     assert connection["user"] == "JDOE"
+    assert set(written["connections"]) == {"work", "keypair"}
 
 
 @pytest.mark.parametrize(
     ("value_flag", "value", "clear_flag"),
     [
-        ("--role", "ANALYST", "--clear-role"),
         ("--warehouse", "NEW_WH", "--clear-warehouse"),
         ("--database", "NEW_DB", "--clear-database"),
         ("--schema", "NEW_SCHEMA", "--clear-schema"),
@@ -857,7 +927,7 @@ def test_a_new_login_checks_warehouse_database_and_schema(
         assert call["validate_default_parameters"] is True
     assert "user" not in calls[0]
     assert calls[0]["client_store_temporary_credential"] is False
-    connection = written["connections"]["myorg-myacct-JDOE"]
+    connection = written["connections"]["myorg-myacct-JDOE-ANALYST"]
     assert connection["role"] == "ANALYST"
     assert connection["oauth_scope"] == "refresh_token session:role:ANALYST"
     assert connection["warehouse"] == "NEW_WH"
@@ -865,11 +935,13 @@ def test_a_new_login_checks_warehouse_database_and_schema(
     assert connection["schema"] == "NEW_SCHEMA"
 
 
-def test_a_sign_in_with_no_cached_session_uses_the_stored_role(
+def test_a_login_with_no_role_targets_the_role_less_connection(
     runner, config_file, monkeypatch
 ):
     calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
     with config_file(_SAVED_LOCAL_OAUTH) as path:
+        before = tomlkit.parse(path.read_text())
+        before_work = dict(before["connections"]["work"])
         with _enable_auth():
             result = runner.invoke_with_config_file(
                 str(path), ["auth", "login", "myorg-myacct"]
@@ -878,31 +950,29 @@ def test_a_sign_in_with_no_cached_session_uses_the_stored_role(
 
     assert result.exit_code == 0, result.output
     assert len(calls) == 2
-    assert "role" not in calls[0]
-    assert calls[0]["oauth_scope"] == "refresh_token"
-    assert "session:role" not in calls[0]["oauth_scope"]
-    assert calls[1]["role"] == "SYSADMIN"
-    assert calls[1]["oauth_scope"] == "refresh_token session:role:SYSADMIN"
-    assert calls[1]["validate_default_parameters"] is True
     for call in calls:
+        assert "role" not in call
+        assert call["oauth_scope"] == "refresh_token"
+        assert "session:role" not in call["oauth_scope"]
         assert "warehouse" not in call
         assert "database" not in call
         assert "schema" not in call
-    assert written["connections"]["work"]["role"] == "SYSADMIN"
-    assert (
-        written["connections"]["work"]["oauth_scope"]
-        == "refresh_token session:role:SYSADMIN"
-    )
-    assert written["connections"]["work"]["warehouse"] == "COMPUTE_WH"
-    assert written["connections"]["work"]["database"] == "ANALYTICS"
-    assert written["connections"]["work"]["schema"] == "PUBLIC"
+    assert dict(written["connections"]["work"]) == before_work
+    created = written["connections"]["myorg-myacct-JDOE"]
+    assert "role" not in created
+    assert created["oauth_scope"] == "refresh_token"
+    assert "warehouse" not in created
+    assert "database" not in created
+    assert "schema" not in created
+    assert written["default_connection_name"] == "myorg-myacct-JDOE"
 
 
-def test_a_passed_role_replaces_the_stored_role_when_signing_in(
-    runner, config_file, monkeypatch
-):
+def test_a_different_role_writes_a_new_connection(runner, config_file, monkeypatch):
     calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
     with config_file(_SAVED_LOCAL_OAUTH) as path:
+        before = tomlkit.parse(path.read_text())
+        before_work = dict(before["connections"]["work"])
+        before_keypair = dict(before["connections"]["keypair"])
         with _enable_auth():
             result = runner.invoke_with_config_file(
                 str(path),
@@ -919,40 +989,32 @@ def test_a_passed_role_replaces_the_stored_role_when_signing_in(
         assert "warehouse" not in call
         assert "database" not in call
         assert "schema" not in call
-    connection = written["connections"]["work"]
-    assert connection["role"] == "ANALYST"
-    assert connection["oauth_scope"] == "refresh_token session:role:ANALYST"
-    assert connection["warehouse"] == "COMPUTE_WH"
-    assert connection["database"] == "ANALYTICS"
-    assert connection["schema"] == "PUBLIC"
+    assert dict(written["connections"]["work"]) == before_work
+    assert dict(written["connections"]["keypair"]) == before_keypair
+    created = written["connections"]["myorg-myacct-JDOE-ANALYST"]
+    assert created["role"] == "ANALYST"
+    assert created["oauth_scope"] == "refresh_token session:role:ANALYST"
+    assert "warehouse" not in created
+    assert "database" not in created
+    assert "schema" not in created
+    assert written["default_connection_name"] == "myorg-myacct-JDOE-ANALYST"
 
 
-def test_clear_role_on_a_sign_in_does_not_pass_the_stored_role(
-    runner, config_file, monkeypatch
-):
+def test_clear_role_is_rejected_and_writes_nothing(runner, config_file, monkeypatch):
     calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
     with config_file(_SAVED_LOCAL_OAUTH) as path:
+        before = path.read_text()
         with _enable_auth():
             result = runner.invoke_with_config_file(
                 str(path), ["auth", "login", "myorg-myacct", "--clear-role"]
             )
-        written = tomlkit.parse(path.read_text())
+        after = path.read_text()
 
-    assert result.exit_code == 0, result.output
-    assert len(calls) == 2
-    for call in calls:
-        assert "role" not in call
-        assert call["oauth_scope"] == "refresh_token"
-        assert "session:role" not in call["oauth_scope"]
-        assert "warehouse" not in call
-        assert "database" not in call
-        assert "schema" not in call
-    connection = written["connections"]["work"]
-    assert "role" not in connection
-    assert connection["oauth_scope"] == "refresh_token"
-    assert connection["warehouse"] == "COMPUTE_WH"
-    assert connection["database"] == "ANALYTICS"
-    assert connection["schema"] == "PUBLIC"
+    assert result.exit_code == 2, result.output
+    assert "No such option" in result.output
+    assert "--clear-role" in result.output
+    assert calls == []
+    assert after == before
 
 
 @pytest.mark.parametrize(
@@ -988,7 +1050,8 @@ def test_login_stores_refresh_settings_and_a_later_command_keeps_them(
     with config_file(saved) as path:
         with _enable_auth():
             result = runner.invoke_with_config_file(
-                str(path), ["auth", "login", "myorg-myacct"]
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "SYSADMIN"],
             )
         written = tomlkit.parse(path.read_text())
         before_later = path.read_text()
@@ -1011,8 +1074,8 @@ def test_login_stores_refresh_settings_and_a_later_command_keeps_them(
 
     assert result.exit_code == 0, result.output
     assert calls[0]["client_store_temporary_credential"] is False
-    assert calls[0]["oauth_scope"] == "refresh_token"
-    assert "role" not in calls[0]
+    assert calls[0]["role"] == "SYSADMIN"
+    assert calls[0]["oauth_scope"] == "refresh_token session:role:SYSADMIN"
     assert calls[1]["client_store_temporary_credential"] is True
     assert calls[1]["role"] == "SYSADMIN"
     assert calls[1]["oauth_scope"] == "refresh_token session:role:SYSADMIN"
@@ -1288,13 +1351,20 @@ def test_two_people_on_one_account_get_different_connection_names(
     assert written["default_connection_name"] == "myorg-myacct-SSMITH"
 
 
+@pytest.mark.parametrize(
+    ("role_args", "taken_name"),
+    [
+        ([], "myorg-myacct-JDOE"),
+        (["--role", "ANALYST"], "myorg-myacct-JDOE-ANALYST"),
+    ],
+)
 def test_a_taken_derived_name_gets_a_short_suffix_and_is_printed(
-    runner, config_file, monkeypatch
+    runner, config_file, monkeypatch, role_args, taken_name
 ):
     _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
     config = dedent(
-        """\
-        [connections.myorg-myacct-JDOE]
+        f"""\
+        [connections.{taken_name}]
         account = "other-acct"
         user = "OLD"
         authenticator = "SNOWFLAKE_JWT"
@@ -1303,26 +1373,26 @@ def test_a_taken_derived_name_gets_a_short_suffix_and_is_printed(
     with config_file(config) as path:
         with _enable_auth():
             result = runner.invoke_with_config_file(
-                str(path), ["auth", "login", "myorg-myacct"]
+                str(path), ["auth", "login", "myorg-myacct", *role_args]
             )
         written = tomlkit.parse(path.read_text())
 
-    created = set(written["connections"]) - {"myorg-myacct-JDOE"}
+    created = set(written["connections"]) - {taken_name}
     assert result.exit_code == 0, result.output
     assert len(created) == 1
     name = created.pop()
-    suffix = name.removeprefix("myorg-myacct-JDOE-")
-    assert name.startswith("myorg-myacct-JDOE-")
+    suffix = name.removeprefix(f"{taken_name}-")
+    assert name.startswith(f"{taken_name}-")
     assert len(suffix) == 4
     assert all(character in "0123456789abcdef" for character in suffix)
     assert f"changed the default connection to {name}" in result.output
     assert written["default_connection_name"] == name
-    assert written["connections"]["myorg-myacct-JDOE"]["user"] == "OLD"
-    assert (
-        written["connections"]["myorg-myacct-JDOE"]["authenticator"] == "SNOWFLAKE_JWT"
-    )
+    assert written["connections"][taken_name]["user"] == "OLD"
+    assert written["connections"][taken_name]["authenticator"] == "SNOWFLAKE_JWT"
     assert written["connections"][name]["user"] == "JDOE"
     assert written["connections"][name]["account"] == "myorg-myacct"
+    if role_args:
+        assert written["connections"][name]["role"] == "ANALYST"
 
 
 def test_an_explicit_connection_name_is_what_gets_written(
@@ -1409,7 +1479,7 @@ def test_an_explicit_name_for_a_different_user_and_account_stops_after_sign_in(
     assert result.exit_code != 0, result.output
     flat = _panel_text(result.output)
     assert "shared" in flat
-    assert "different user or account" in flat
+    assert "different user, account, or role" in flat
     assert "Choose a different connection name." in flat
     assert len(calls) == 2
     assert calls[1]["user"] == "JDOE"
@@ -1442,7 +1512,7 @@ def test_an_explicit_name_for_another_user_on_the_same_account_writes_nothing(
     assert result.exit_code != 0, result.output
     flat = _panel_text(result.output)
     assert "ssmith" in flat
-    assert "different user or account" in flat
+    assert "different user, account, or role" in flat
     assert len(calls) == 2
     assert "user" not in calls[0]
     assert calls[1]["user"] == "JDOE"
@@ -1487,7 +1557,15 @@ def test_a_terminal_rename_moves_the_default_when_the_old_name_was_the_default(
         with _enable_auth():
             result = runner.invoke_with_config_file(
                 str(path),
-                ["auth", "login", "myorg-myacct", "--connection-name", "personal"],
+                [
+                    "auth",
+                    "login",
+                    "myorg-myacct",
+                    "--role",
+                    "SYSADMIN",
+                    "--connection-name",
+                    "personal",
+                ],
                 input="y\n",
             )
         written = tomlkit.parse(path.read_text())
@@ -1537,7 +1615,15 @@ def test_accepting_a_rename_sets_the_default_when_the_old_name_was_not(
         with _enable_auth():
             result = runner.invoke_with_config_file(
                 str(path),
-                ["auth", "login", "myorg-myacct", "--connection-name", "personal"],
+                [
+                    "auth",
+                    "login",
+                    "myorg-myacct",
+                    "--role",
+                    "SYSADMIN",
+                    "--connection-name",
+                    "personal",
+                ],
                 input="y\n",
             )
         written = tomlkit.parse(path.read_text())
@@ -1556,7 +1642,15 @@ def test_declining_a_rename_keeps_the_old_name(runner, config_file, monkeypatch)
         with _enable_auth():
             result = runner.invoke_with_config_file(
                 str(path),
-                ["auth", "login", "myorg-myacct", "--connection-name", "personal"],
+                [
+                    "auth",
+                    "login",
+                    "myorg-myacct",
+                    "--role",
+                    "SYSADMIN",
+                    "--connection-name",
+                    "personal",
+                ],
                 input="\n",
             )
         written = tomlkit.parse(path.read_text())
@@ -1583,7 +1677,15 @@ def test_with_no_terminal_the_original_name_stays_and_login_says_so(
         with _enable_auth():
             result = runner.invoke_with_config_file(
                 str(path),
-                ["auth", "login", "myorg-myacct", "--connection-name", "personal"],
+                [
+                    "auth",
+                    "login",
+                    "myorg-myacct",
+                    "--role",
+                    "SYSADMIN",
+                    "--connection-name",
+                    "personal",
+                ],
             )
         written = tomlkit.parse(path.read_text())
 
@@ -1606,7 +1708,15 @@ def test_the_same_connection_name_does_not_ask(runner, config_file, monkeypatch)
         with _enable_auth():
             result = runner.invoke_with_config_file(
                 str(path),
-                ["auth", "login", "myorg-myacct", "--connection-name", "work"],
+                [
+                    "auth",
+                    "login",
+                    "myorg-myacct",
+                    "--role",
+                    "SYSADMIN",
+                    "--connection-name",
+                    "work",
+                ],
             )
         written = tomlkit.parse(path.read_text())
 
@@ -1615,3 +1725,393 @@ def test_the_same_connection_name_does_not_ask(runner, config_file, monkeypatch)
     assert "Kept connection name" not in result.output
     assert set(written["connections"]) == {"work", "keypair"}
     assert written["default_connection_name"] == "work"
+
+
+def test_a_derived_name_includes_the_role_when_one_is_passed(
+    runner, config_file, monkeypatch
+):
+    _patch_sign_in(monkeypatch, ["JDOE", "JDOE", "JDOE", "JDOE"])
+    with config_file(_OTHER_CONNECTION) as path:
+        with _enable_auth():
+            bare = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+            with_role = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "sysadmin"],
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert bare.exit_code == 0, bare.output
+    assert with_role.exit_code == 0, with_role.output
+    assert "myorg-myacct-JDOE-sysadmin" in with_role.output
+    assert set(written["connections"]) == {
+        "keypair",
+        "myorg-myacct-JDOE",
+        "myorg-myacct-JDOE-sysadmin",
+    }
+    assert "role" not in written["connections"]["myorg-myacct-JDOE"]
+    assert written["connections"]["myorg-myacct-JDOE-sysadmin"]["role"] == "sysadmin"
+    assert written["default_connection_name"] == "myorg-myacct-JDOE-sysadmin"
+
+
+@pytest.mark.parametrize(
+    ("stored_role", "passed_role", "same_connection"),
+    [
+        ("SYSADMIN", "sysadmin", True),
+        ('"Sys Admin"', '"Sys Admin"', True),
+        ('"Sys Admin"', '"SYS ADMIN"', False),
+        ('"SYSADMIN"', "SYSADMIN", False),
+    ],
+)
+def test_an_unquoted_role_matches_without_case_and_a_quoted_role_matches_exactly(
+    runner, config_file, monkeypatch, stored_role, passed_role, same_connection
+):
+    _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    config = dedent(
+        f"""\
+        [connections.work]
+        account = "myorg-myacct"
+        user = "JDOE"
+        role = {json.dumps(stored_role)}
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+        """
+    )
+    with config_file(config) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", passed_role],
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert written["connections"]["work"]["user"] == "JDOE"
+    if same_connection:
+        assert set(written["connections"]) == {"work"}
+        assert written["connections"]["work"]["role"] == passed_role
+        assert written["default_connection_name"] == "work"
+        return
+    assert written["connections"]["work"]["role"] == stored_role
+    created_name = f"myorg-myacct-JDOE-{passed_role}"
+    assert set(written["connections"]) == {"work", created_name}
+    assert written["connections"][created_name]["role"] == passed_role
+    assert written["default_connection_name"] == created_name
+
+
+@pytest.mark.parametrize(
+    ("saved_role", "role_args"),
+    [
+        ("SYSADMIN", ["--role", "ANALYST"]),
+        ("SYSADMIN", []),
+        (None, ["--role", "SYSADMIN"]),
+    ],
+)
+def test_an_explicit_name_for_a_different_role_writes_nothing(
+    runner, config_file, monkeypatch, saved_role, role_args
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    lines = [
+        "[connections.work]",
+        'account = "myorg-myacct"',
+        'user = "JDOE"',
+    ]
+    if saved_role is not None:
+        lines.append(f"role = {json.dumps(saved_role)}")
+    lines.extend(
+        [
+            'authenticator = "OAUTH_AUTHORIZATION_CODE"',
+            "client_store_temporary_credential = true",
+        ]
+    )
+    config = "\n".join(lines) + "\n"
+    with config_file(config) as path:
+        before = path.read_text()
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                [
+                    "auth",
+                    "login",
+                    "myorg-myacct",
+                    "--connection-name",
+                    "work",
+                    *role_args,
+                ],
+            )
+        after = path.read_text()
+
+    assert result.exit_code == 1, result.output
+    flat = _panel_text(result.output)
+    assert "work" in flat
+    assert "different user, account, or role" in flat
+    assert "Choose a different connection name." in flat
+    assert len(calls) == 2
+    assert calls[1]["user"] == "JDOE"
+    assert after == before
+
+
+def test_a_bare_login_sends_the_host_every_local_oauth_connection_shares(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    host = "myorg-myacct.privatelink.snowflakecomputing.com"
+    config = dedent(
+        f"""\
+        [connections.jdoe]
+        account = "myorg-myacct"
+        user = "JDOE"
+        host = "{host}"
+        role = "SYSADMIN"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+
+        [connections.ssmith]
+        account = "myorg-myacct"
+        user = "SSMITH"
+        host = "{host}"
+        role = "PUBLIC"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+        """
+    )
+    with config_file(config) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert calls[0]["host"] == host
+    assert "role" not in calls[0]
+    assert calls[1]["host"] == host
+    assert "role" not in calls[1]
+    assert written["connections"]["jdoe"]["role"] == "SYSADMIN"
+    assert written["connections"]["ssmith"]["role"] == "PUBLIC"
+    assert written["connections"]["myorg-myacct-JDOE"]["host"] == host
+    assert "role" not in written["connections"]["myorg-myacct-JDOE"]
+
+
+def test_a_bare_login_uses_the_account_named_host_when_saved_hosts_differ(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    account_host = "account.privatelink.snowflakecomputing.com"
+    other_host = "other.privatelink.snowflakecomputing.com"
+    config = dedent(
+        f"""\
+        [connections.myorg-myacct]
+        account = "myorg-myacct"
+        user = "JDOE"
+        host = "{account_host}"
+        role = "SYSADMIN"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+
+        [connections.ssmith]
+        account = "myorg-myacct"
+        user = "SSMITH"
+        host = "{other_host}"
+        role = "PUBLIC"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+        """
+    )
+    with config_file(config) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert calls[0]["host"] == account_host
+    assert "role" not in calls[0]
+    created = written["connections"]["myorg-myacct-JDOE"]
+    assert created["host"] == account_host
+    assert "role" not in created
+    assert written["connections"]["myorg-myacct"]["role"] == "SYSADMIN"
+    assert written["connections"]["myorg-myacct"]["host"] == account_host
+    assert written["connections"]["ssmith"]["host"] == other_host
+
+
+def test_a_bare_login_omits_the_host_when_saved_hosts_differ(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    config = dedent(
+        """\
+        [connections.jdoe]
+        account = "myorg-myacct"
+        user = "JDOE"
+        host = "jdoe.privatelink.snowflakecomputing.com"
+        role = "SYSADMIN"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+
+        [connections.ssmith]
+        account = "myorg-myacct"
+        user = "SSMITH"
+        host = "ssmith.privatelink.snowflakecomputing.com"
+        role = "PUBLIC"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+        """
+    )
+    with config_file(config) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct"]
+            )
+
+    assert result.exit_code == 0, result.output
+    assert "host" not in calls[0]
+    assert "role" not in calls[0]
+    assert calls[1]["host"] == "jdoe.privatelink.snowflakecomputing.com"
+    assert "role" not in calls[1]
+
+
+def test_a_new_role_stores_only_the_context_this_login_names(
+    runner, config_file, monkeypatch
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    host = "myorg-myacct.privatelink.snowflakecomputing.com"
+    config = dedent(
+        f"""\
+        [connections.plain]
+        account = "myorg-myacct"
+        user = "JDOE"
+        host = "{host}"
+        warehouse = "COMPUTE_WH"
+        database = "ANALYTICS"
+        schema = "PUBLIC"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+        """
+    )
+    with config_file(config) as path:
+        before_plain = dict(tomlkit.parse(path.read_text())["connections"]["plain"])
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", "ANALYST"],
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    for call in calls:
+        assert call["role"] == "ANALYST"
+        assert call["host"] == host
+        assert "warehouse" not in call
+        assert "database" not in call
+        assert "schema" not in call
+    assert dict(written["connections"]["plain"]) == before_plain
+    created = written["connections"]["myorg-myacct-JDOE-ANALYST"]
+    assert created["role"] == "ANALYST"
+    assert created["host"] == host
+    assert "warehouse" not in created
+    assert "database" not in created
+    assert "schema" not in created
+
+
+@pytest.mark.parametrize(
+    ("args", "updated", "untouched"),
+    [
+        (["--role", "SYSADMIN"], "work", "plain"),
+        ([], "plain", "work"),
+    ],
+)
+def test_a_saved_connection_matches_by_its_stored_role(
+    runner, config_file, monkeypatch, args, updated, untouched
+):
+    _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    config = dedent(
+        """\
+        [connections.work]
+        account = "myorg-myacct"
+        user = "JDOE"
+        role = "SYSADMIN"
+        warehouse = "COMPUTE_WH"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+
+        [connections.plain]
+        account = "myorg-myacct"
+        user = "JDOE"
+        database = "ANALYTICS"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+
+        [connections.ssmith]
+        account = "myorg-myacct"
+        user = "SSMITH"
+        role = "SYSADMIN"
+        authenticator = "OAUTH_AUTHORIZATION_CODE"
+        client_store_temporary_credential = true
+        """
+    )
+    with config_file(config) as path:
+        before = tomlkit.parse(path.read_text())
+        before_untouched = dict(before["connections"][untouched])
+        before_ssmith = dict(before["connections"]["ssmith"])
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path), ["auth", "login", "myorg-myacct", *args]
+            )
+        written = tomlkit.parse(path.read_text())
+
+    assert result.exit_code == 0, result.output
+    assert set(written["connections"]) == {"work", "plain", "ssmith"}
+    assert dict(written["connections"][untouched]) == before_untouched
+    assert dict(written["connections"]["ssmith"]) == before_ssmith
+    assert written["default_connection_name"] == updated
+    assert written["connections"][updated]["user"] == "JDOE"
+
+
+@pytest.mark.parametrize("role", ["[bold]X[/bold]", '"My Role"'])
+def test_a_role_with_markup_or_quotes_is_printed_and_stored(
+    runner, config_file, monkeypatch, role
+):
+    _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    with config_file(_OTHER_CONNECTION) as path:
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", role],
+            )
+        written = tomlkit.parse(path.read_text())
+
+    name = f"myorg-myacct-JDOE-{role}"
+    assert result.exit_code == 0, result.output
+    assert f"changed the default connection to {name}" in result.output
+    assert written["connections"][name]["role"] == role
+    assert written["default_connection_name"] == name
+
+
+@pytest.mark.parametrize(
+    ("role", "extra", "exit_code"),
+    [
+        ("", [], 1),
+        ("   ", [], 1),
+        ("", ["--enhanced-exit-codes"], 2),
+    ],
+)
+def test_a_blank_role_writes_nothing(
+    runner, config_file, monkeypatch, role, extra, exit_code
+):
+    calls = _patch_sign_in(monkeypatch, ["JDOE", "JDOE"])
+    with config_file(_SAVED_LOCAL_OAUTH) as path:
+        before = path.read_text()
+        with _enable_auth():
+            result = runner.invoke_with_config_file(
+                str(path),
+                ["auth", "login", "myorg-myacct", "--role", role, *extra],
+            )
+        after = path.read_text()
+
+    assert result.exit_code == exit_code, result.output
+    assert "Role is blank. Enter a role, or omit --role." in result.output
+    assert calls == []
+    assert after == before

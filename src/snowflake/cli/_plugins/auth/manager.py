@@ -46,25 +46,22 @@ from snowflake.cli.api.utils.tty import is_tty_interactive
 class _ConnectionEdits:
     """Connection fields this login sets or clears.
 
-    A passed role is sent on both connects and checked there. A stored role
-    is sent on the caching connect, once the session user is known, and
-    checked there. A named warehouse, database, or schema is checked with
-    the login and then stored.
+    A passed role is sent on both connects and checked there. An omitted
+    role sends none, including when this user already has a role stored on
+    another connection. A named warehouse, database, or schema is checked
+    with the login and then stored.
     """
 
     role: str | None = None
     warehouse: str | None = None
     database: str | None = None
     schema: str | None = None
-    clear_role: bool = False
     clear_warehouse: bool = False
     clear_database: bool = False
     clear_schema: bool = False
 
     def apply(self, config: ConnectionConfig) -> None:
-        if self.clear_role:
-            config.role = None
-        elif self.role is not None:
+        if self.role is not None:
             config.role = self.role
         if self.clear_warehouse:
             config.warehouse = None
@@ -78,31 +75,6 @@ class _ConnectionEdits:
             config.schema = None
         elif self.schema is not None:
             config.schema = self.schema
-
-    def role_for_discovery(self) -> str | None:
-        """Role for the first connect, before the session user is known.
-
-        A passed role wins. Clearing the role mints with none. An omitted
-        role waits until the session user is known, so another person's
-        saved role is not sent.
-        """
-        if self.clear_role:
-            return None
-        return self.role
-
-    def role_for_caching(self, saved: ConnectionConfig | None) -> str | None:
-        """Role for the caching connect once the session user is known.
-
-        A passed role wins. Clearing the role mints with none. Otherwise the
-        role stored for this user is used, so a repeat sign-in keeps it.
-        """
-        if self.clear_role:
-            return None
-        if self.role is not None:
-            return self.role
-        if saved is None:
-            return None
-        return saved.role
 
     def context_to_check(self) -> dict[str, str]:
         """Warehouse, database, and schema this login named.
@@ -130,28 +102,35 @@ class _NameChoice:
 
 @dataclass(frozen=True)
 class _SessionUserAtAccount:
-    """The session user at an account. One local OAuth connection per pair.
+    """One local OAuth connection: account, session user, and connection role.
 
     The derived name uses the session user Snowflake returned. Connector 4
     uppercases the cache key and connector 5 lowercases it, so a name built
-    from that key would differ between them. A host or a role can change
-    without this becoming a different connection.
+    from that key would differ between them. No role is its own connection.
+    A different role is a different connection. A host can change without
+    this becoming a different connection.
     """
 
     account: str
     session_user: str
+    role: str | None = None
 
     def derived_name(self) -> str:
-        """Account and session user, so two people on one account get two names."""
-        return f"{self.account}-{self.session_user}"
+        """Account, session user, and the role when this login passed one."""
+        base = f"{self.account}-{self.session_user}"
+        if self.role is None:
+            return base
+        return f"{base}-{self.role}"
 
     def matches(self, config: ConnectionConfig) -> bool:
-        """True when this saved connection is local OAuth for this user and account."""
+        """True when this saved connection is local OAuth for this key."""
         if not _is_local_oauth(config):
             return False
         if (config.account or "").casefold() != self.account.casefold():
             return False
-        return _same_session_user(config.user, self.session_user)
+        if not _same_session_user(config.user, self.session_user):
+            return False
+        return _same_connection_role(config.role, self.role)
 
 
 _SUFFIX_ATTEMPTS = 8
@@ -169,7 +148,6 @@ class AuthManager:
         warehouse: str | None = None,
         database: str | None = None,
         schema: str | None = None,
-        clear_role: bool = False,
         clear_warehouse: bool = False,
         clear_database: bool = False,
         clear_schema: bool = False,
@@ -179,22 +157,24 @@ class AuthManager:
 
         The account is the only prompt. Login always signs in, including when
         a session for this account is already cached, so the person can choose
-        a different user. A session user who already has a local OAuth
-        connection updates that connection. A different session user gets a
-        new one. A host flag or an account URL replaces the stored host. A
-        bare account keeps a host already stored for this user. A new
-        connection stores a host only when one already belongs to this user,
-        or when the connection named for the account has one. The caching
-        connect receives that host, because it is part of the OAuth cache
-        key. An omitted role is sent on the caching connect when this user
-        already has one stored. A passed role is sent on both connects. An
-        omitted warehouse, database, or schema leaves the stored value. A
-        new connection is named from the account and the session user, or
-        from ``connection_name`` when one is passed.
+        a different user. One local OAuth connection per account, session
+        user, and connection role. A matching login updates that connection.
+        A different role writes a new one and leaves the others alone. No
+        role is its own connection. A login that omits the role sends no role
+        on either connect. A host flag or an account URL replaces the stored
+        host. A bare account uses a host every local OAuth connection for
+        that account shares, then the host on the connection named for the
+        account. A new connection stores a host shared by this session user's
+        connections for the account, then the account-named host. It stores
+        only the warehouse, database,
+        and schema this login names. A new connection is named from the
+        account, the session user, and the role when one is passed, or from
+        ``connection_name`` when one is passed.
         """
         # Imported here to avoid a cycle through the CLI app while plugins load.
         from snowflake.cli._app.telemetry import command_info
 
+        role = _explicit_role(role)
         requested_name = _explicit_connection_name(connection_name)
         _reject_name_owned_by_another_authenticator(requested_name)
         requested = SignInTarget.from_login(account, host)
@@ -203,7 +183,6 @@ class AuthManager:
             warehouse=warehouse,
             database=database,
             schema=schema,
-            clear_role=clear_role,
             clear_warehouse=clear_warehouse,
             clear_database=clear_database,
             clear_schema=clear_schema,
@@ -213,7 +192,7 @@ class AuthManager:
 
         def caching_session(user: str) -> tuple[SignInTarget, str | None]:
             nonlocal session_role
-            cache_target, session_role = _caching_session(requested, edits, user)
+            cache_target, session_role = _caching_session(requested, edits.role, user)
             return cache_target, session_role
 
         signed = sign_in(
@@ -222,7 +201,7 @@ class AuthManager:
                 _host_for_discovery(requested, saved),
             ),
             application=command_info(),
-            role=edits.role_for_discovery(),
+            role=edits.role,
             caching_session=caching_session,
             **edits.context_to_check(),
         )
@@ -231,7 +210,7 @@ class AuthManager:
         held = False
         try:
             session_user = signed.user
-            signed_in = _SessionUserAtAccount(requested.account, session_user)
+            signed_in = _SessionUserAtAccount(requested.account, session_user, role)
             target = SignInTarget(
                 requested.account,
                 _host_to_store(requested, signed_in),
@@ -291,16 +270,18 @@ class AuthManager:
 
 def _caching_session(
     requested: SignInTarget,
-    edits: _ConnectionEdits,
+    role: str | None,
     session_user: str,
 ) -> tuple[SignInTarget, str | None]:
-    """Host and role for the connect that caches this session user."""
-    signed_in = _SessionUserAtAccount(requested.account, session_user)
-    saved = _saved_local_oauth(signed_in)
-    config = None if saved is None else saved[1]
+    """Host and role for the connect that caches this session user.
+
+    The role is the one this login passed. An omitted role is not filled in
+    from a saved connection.
+    """
+    signed_in = _SessionUserAtAccount(requested.account, session_user, role)
     return (
         SignInTarget(requested.account, _host_to_store(requested, signed_in)),
-        edits.role_for_caching(config),
+        role,
     )
 
 
@@ -310,17 +291,13 @@ def _host_for_discovery(
 ) -> str | None:
     """Host for the first connect, before the session user is known.
 
-    A host flag or an account URL is used. A bare account uses the host on
-    the one saved local OAuth connection, so a private account still opens.
-    Otherwise it uses the host on the connection whose name is the account.
-    With no stored host, ``connect()`` omits it and the connector uses the
-    public account host.
+    A host flag or an account URL is used. A bare account uses the host when
+    every saved local OAuth connection for that account stores that same
+    host. Otherwise it uses the host on the connection whose name is the
+    account. With no stored host, ``connect()`` omits it and the connector
+    uses the public account host.
     """
-    if requested.host:
-        return requested.host
-    if len(saved) == 1:
-        return saved[0][1].host or None
-    return _host_on_account_named_connection(requested.account)
+    return _shared_or_account_named_host(requested, saved)
 
 
 def _host_to_store(
@@ -329,19 +306,46 @@ def _host_to_store(
 ) -> str | None:
     """Host this login writes, which the caching ``connect()`` must use.
 
-    A host flag or an account URL replaces a stored host. A bare account
-    keeps the host already stored for this user. A new connection takes a
-    host from the connection whose name is the account, when that connection
-    has one. Another person's local OAuth host is not copied. With no stored
-    host, ``connect()`` omits it and the connector uses the public account
-    host.
+    A host flag or an account URL replaces a stored host. A matching
+    connection keeps the host it already stores. A new connection takes a
+    host every local OAuth connection this session user has for the account
+    shares, then the host on the connection whose name is the account.
+    Another person's local OAuth host is not copied. With no stored host,
+    ``connect()`` omits it and the connector uses the public account host.
     """
     if requested.host:
         return requested.host
     saved = _saved_local_oauth(signed_in)
     if saved is not None:
         return saved[1].host or None
+    return _shared_or_account_named_host(
+        requested,
+        _local_oauth_for_session_user(signed_in),
+    )
+
+
+def _shared_or_account_named_host(
+    requested: SignInTarget,
+    saved: list[tuple[str, ConnectionConfig]],
+) -> str | None:
+    """Explicit host, a host every connection stores, or the account-named host."""
+    if requested.host:
+        return requested.host
+    shared = _shared_host(saved)
+    if shared is not None:
+        return shared
     return _host_on_account_named_connection(requested.account)
+
+
+def _shared_host(saved: list[tuple[str, ConnectionConfig]]) -> str | None:
+    """The host when every connection stores that same host."""
+    if not saved:
+        return None
+    hosts = [config.host or None for _, config in saved]
+    first = hosts[0]
+    if first and all(host == first for host in hosts):
+        return first
+    return None
 
 
 def _host_on_account_named_connection(account: str) -> str | None:
@@ -381,6 +385,14 @@ def _save_connection(
     if kept_name_note:
         message = f"{kept_name_note} {message}"
     return MessageResult(message)
+
+
+def _explicit_role(role: str | None) -> str | None:
+    if role is None:
+        return None
+    if not role.strip():
+        raise CliArgumentError("Role is blank. Enter a role, or omit --role.")
+    return role
 
 
 def _explicit_connection_name(connection_name: str | None) -> str | None:
@@ -445,7 +457,7 @@ def _choose_explicit_name(
         if signed_in.matches(owner):
             return _NameChoice(name=requested_name, source_name=requested_name)
         raise CliError(
-            f"Connection {requested_name} belongs to a different user or account. "
+            f"Connection {requested_name} belongs to a different user, account, or role. "
             "Choose a different connection name."
         )
     if existing_name is None or requested_name == existing_name:
@@ -485,7 +497,7 @@ def _suffixed_connection_name(base: str, taken: set[str]) -> str:
 
 
 def _existing_local_oauth_name(signed_in: _SessionUserAtAccount) -> str | None:
-    """The one saved local OAuth connection for this user and account."""
+    """The saved local OAuth connection for this account, user, and role."""
     saved = _saved_local_oauth(signed_in)
     if saved is None:
         return None
@@ -495,7 +507,7 @@ def _existing_local_oauth_name(signed_in: _SessionUserAtAccount) -> str | None:
 def _saved_local_oauth(
     signed_in: _SessionUserAtAccount,
 ) -> tuple[str, ConnectionConfig] | None:
-    """The one saved local OAuth connection for this user and account."""
+    """The saved local OAuth connection for this account, user, and role."""
     matched = [
         (name, config)
         for name, config in _local_oauth_for_account(signed_in.account)
@@ -515,10 +527,42 @@ def _local_oauth_for_account(account: str) -> list[tuple[str, ConnectionConfig]]
     ]
 
 
+def _local_oauth_for_session_user(
+    signed_in: _SessionUserAtAccount,
+) -> list[tuple[str, ConnectionConfig]]:
+    """Local OAuth connections this session user has for the account, any role."""
+    return [
+        (name, config)
+        for name, config in _local_oauth_for_account(signed_in.account)
+        if _same_session_user(config.user, signed_in.session_user)
+    ]
+
+
 def _same_session_user(stored: str | None, session_user: str) -> bool:
     if stored is None or not stored.strip():
         return False
     return SessionUser(stored).shares_cache_key_with(SessionUser(session_user))
+
+
+def _same_connection_role(stored: str | None, given: str | None) -> bool:
+    """Unquoted roles compare case-insensitively. A quoted role matches only itself.
+
+    No role is its own key. A quoted spelling and an unquoted spelling stay
+    different connections, even when Snowflake would treat them as one role.
+    """
+    stored_blank = stored is None or not stored.strip()
+    given_blank = given is None or not given.strip()
+    if stored_blank or given_blank:
+        return stored_blank and given_blank
+    if stored is None or given is None:
+        return False
+    if _quoted_role(stored) or _quoted_role(given):
+        return stored == given
+    return stored.casefold() == given.casefold()
+
+
+def _quoted_role(role: str) -> bool:
+    return len(role) >= 2 and role.startswith('"') and role.endswith('"')
 
 
 def _connection_to_write(

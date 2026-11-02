@@ -3378,21 +3378,24 @@
   |                           host.                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --connection-name  -n      TEXT  Name for this connection. Omitted uses the  |
-  |                                  account and the session user. In a          |
-  |                                  terminal, a different free name asks before |
-  |                                  a rename.                                   |
-  | --host                     TEXT  Custom account host. A bare account uses    |
-  |                                  the public account host.                    |
-  | --role                     TEXT  Connection role. Omitted leaves the stored  |
-  |                                  role unchanged.                             |
+  | --connection-name  -n      TEXT  Name for this connection. The derived name  |
+  |                                  uses the account, the session user, and the |
+  |                                  role when one is passed. In a terminal, a   |
+  |                                  different free name asks before a rename.   |
+  | --host                     TEXT  Custom account host. A bare account uses a  |
+  |                                  host every saved local OAuth connection for |
+  |                                  that account shares, then the host on the   |
+  |                                  connection named for the account, then the  |
+  |                                  public account host.                        |
+  | --role                     TEXT  Connection role. A different role writes a  |
+  |                                  different connection. Omitted uses the      |
+  |                                  connection with no role.                    |
   | --warehouse                TEXT  Connection warehouse. Omitted leaves the    |
   |                                  stored warehouse unchanged.                 |
   | --database                 TEXT  Connection database. Omitted leaves the     |
   |                                  stored database unchanged.                  |
   | --schema                   TEXT  Connection schema. Omitted leaves the       |
   |                                  stored schema unchanged.                    |
-  | --clear-role                     Remove the stored connection role.          |
   | --clear-warehouse                Remove the stored connection warehouse.     |
   | --clear-database                 Remove the stored connection database.      |
   | --clear-schema                   Remove the stored connection schema.        |
@@ -3410,10 +3413,13 @@
   | OAuth connection this command writes.                                        |
   |                                                                              |
   | Pass an account. An account URL or the --host flag sets a custom account     |
-  | host. A bare account uses the public account host.                           |
+  | host. A bare account uses a host every saved local OAuth connection for that |
+  | account shares, then the host on the connection named for the account, then  |
+  | the public account host.                                                     |
   |                                                                              |
-  | A new connection is named from the account and the session user, for example |
-  | myorg-myaccount-JDOE. --connection-name chooses a different name.            |
+  | A new connection is named from the account, the session user, and the role   |
+  | when one is passed, for example myorg-myaccount-JDOE-SYSADMIN.               |
+  | --connection-name chooses a different name.                                  |
   |                                                                              |
   | Login signs in each time, including when a session is already cached, so a   |
   | different user can be chosen. A later command reuses that session.           |

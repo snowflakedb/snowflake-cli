@@ -54,12 +54,15 @@ def register_login(app: SnowTyperFactory) -> None:
                 plain_text(
                     "Pass an account. An account URL or the ",
                     code("--host"),
-                    " flag sets a custom account host. A bare account uses the "
-                    "public account host.",
+                    " flag sets a custom account host. A bare account uses a "
+                    "host every saved local OAuth connection for that account "
+                    "shares, then the host on the connection named for the "
+                    "account, then the public account host.",
                 ),
                 plain_text(
-                    "A new connection is named from the account and the session "
-                    "user, for example myorg-myaccount-JDOE. ",
+                    "A new connection is named from the account, the session "
+                    "user, and the role when one is passed, for example "
+                    "myorg-myaccount-JDOE-SYSADMIN. ",
                     code("--connection-name"),
                     " chooses a different name.",
                 ),
@@ -95,25 +98,32 @@ def register_login(app: SnowTyperFactory) -> None:
             "--connection-name",
             "-n",
             help=(
-                "Name for this connection. Omitted uses the account and the "
-                "session user. In a terminal, a different free name asks "
-                "before a rename."
+                "Name for this connection. The derived name uses the account, "
+                "the session user, and the role when one is passed. In a "
+                "terminal, a different free name asks before a rename."
             ),
             show_default=False,
         ),
         host: Optional[str] = typer.Option(
             None,
             "--host",
-            help=("Custom account host. A bare account uses the public account host."),
+            help=(
+                "Custom account host. A bare account uses a host every saved "
+                "local OAuth connection for that account shares, then the "
+                "host on the connection named for the account, then the "
+                "public account host."
+            ),
             show_default=False,
         ),
-        role: Optional[str] = OverrideableOption(
+        role: Optional[str] = typer.Option(
             None,
             "--role",
-            help="Connection role. Omitted leaves the stored role unchanged.",
+            help=(
+                "Connection role. A different role writes a different "
+                "connection. Omitted uses the connection with no role."
+            ),
             show_default=False,
-            mutually_exclusive=["clear_role"],
-        )(),
+        ),
         warehouse: Optional[str] = OverrideableOption(
             None,
             "--warehouse",
@@ -136,13 +146,6 @@ def register_login(app: SnowTyperFactory) -> None:
             help="Connection schema. Omitted leaves the stored schema unchanged.",
             show_default=False,
             mutually_exclusive=["clear_schema"],
-        )(),
-        clear_role: bool = OverrideableOption(
-            False,
-            "--clear-role",
-            help="Remove the stored connection role.",
-            is_flag=True,
-            mutually_exclusive=["role"],
         )(),
         clear_warehouse: bool = OverrideableOption(
             False,
@@ -177,7 +180,6 @@ def register_login(app: SnowTyperFactory) -> None:
             warehouse=warehouse,
             database=database,
             schema=schema,
-            clear_role=clear_role,
             clear_warehouse=clear_warehouse,
             clear_database=clear_database,
             clear_schema=clear_schema,
