@@ -20,6 +20,7 @@
   | --version                           Shows version of the Snowflake CLI       |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
+  | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
   | --install-completion                Install completion for the current       |
@@ -228,6 +229,7 @@
   | --version                           Shows version of the Snowflake CLI       |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
+  | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
   | --install-completion                Install completion for the current       |
@@ -416,6 +418,7 @@
   | --version                           Shows version of the Snowflake CLI       |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
+  | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
   | --install-completion                Install completion for the current       |
@@ -644,6 +647,7 @@
   | --version                           Shows version of the Snowflake CLI       |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
+  | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
   | --install-completion                Install completion for the current       |

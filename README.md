@@ -55,6 +55,8 @@ irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
 
 Upgrade later with `snow upgrade` (same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
 
+Auto-upgrade is off until you opt in, and it applies only to a direct install. Set `auto_upgrade = true` under `[cli]` in `config.toml`, or `SNOWFLAKE_CLI_AUTO_UPGRADE=1` for one process. Turn it off with `SNOWFLAKE_CLI_AUTO_UPGRADE=0` or `--no-auto-upgrade`.
+
 ### Install with uv (PyPi)
 
 Install Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.11. `snow upgrade` refuses on this channel.

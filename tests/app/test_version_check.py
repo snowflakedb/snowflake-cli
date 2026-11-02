@@ -37,10 +37,7 @@ from snowflake.cli.api.config import (
     get_config_bool_value,
     get_env_variable_name,
 )
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
-
-from tests_common.feature_flag_utils import with_feature_flags
 
 AUTO_UPGRADE_ENV = get_env_variable_name(CLI_SECTION, key=AUTO_UPGRADE_KEY)
 AIR_GAPPED_ENV = get_env_variable_name(CLI_SECTION, key=AIR_GAPPED_KEY)
@@ -448,8 +445,7 @@ def _auto_upgrade_enabled(monkeypatch, *, source: CLIInstallationSource):
     monkeypatch.setattr(__about__, "INSTALLATION_SOURCE", source)
     monkeypatch.delenv(AUTO_UPGRADE_DONE_ENV, raising=False)
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
-    with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-        yield
+    yield
 
 
 @patch(*_PATCH_VERSION)
@@ -533,9 +529,8 @@ def test_managed_install_still_shows_banner_when_auto_upgrade_off(monkeypatch):
     )
     monkeypatch.delenv(AUTO_UPGRADE_ENV, raising=False)
     monkeypatch.delenv(AUTO_UPGRADE_DONE_ENV, raising=False)
-    with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: False}):
-        assert should_hide_new_version_banner_for_auto_upgrade() is False
-        assert get_new_version_msg() == _WARNING_MESSAGE
+    assert should_hide_new_version_banner_for_auto_upgrade() is False
+    assert get_new_version_msg() == _WARNING_MESSAGE
 
 
 @patch(*_PATCH_VERSION)
