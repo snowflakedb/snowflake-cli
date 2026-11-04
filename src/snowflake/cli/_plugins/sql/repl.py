@@ -62,14 +62,21 @@ EXIT_KEYWORDS = ("exit", "quit")
 
 
 def _print_sql_elapsed(elapsed_seconds: float) -> None:
-    # Quiet hides query output, including this footer. Errors use cli_console
-    # directly and still print.
-    if get_cli_context().quiet:
+    # Quiet and --silent hide this on the terminal only; the spool copy follows
+    # them like query results do. Errors go through cli_console and still print.
+    ctx = get_cli_context()
+    if not ctx.timing:
         return
-    output_format = get_cli_context().output_format or OutputFormat.TABLE
+    output_format = ctx.output_format or OutputFormat.TABLE
     if is_structured_format(output_format):
         return
-    cli_console.message(f"Time Elapsed: {elapsed_seconds:.3f}s")
+    line = f"Time Elapsed: {elapsed_seconds:.3f}s"
+    if not ctx.quiet:
+        cli_console.message(line)
+    spool = ctx.spool_stream
+    if ctx.timing_in_output_file and spool is not None:
+        spool.write(f"{line}\n")
+        spool.flush()
 
 
 # History file path will be set when REPL is initialized
@@ -374,9 +381,6 @@ class Repl:
                                 self._user_sql_in_flight = False
                     elapsed = time.monotonic() - started
 
-                    if expected_results_cnt > 0:
-                        _print_sql_elapsed(elapsed)
-
                 except Exception as e:
                     elapsed = time.monotonic() - started
                     log.debug("error occurred: %s", e)
@@ -386,6 +390,11 @@ class Repl:
                     # fixes config or a transient blip clears.
                     get_cli_context_manager().connection_cache.clear_failures()
 
+                    if expected_results_cnt > 0:
+                        _print_sql_elapsed(elapsed)
+
+                else:
+                    # Outside the try above, so a failed spool write is reported once.
                     if expected_results_cnt > 0:
                         _print_sql_elapsed(elapsed)
 

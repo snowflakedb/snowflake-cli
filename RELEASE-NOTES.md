@@ -20,6 +20,7 @@
 
 ## New additions
 * `snow streamlit status` reports the SPCS service behind a Streamlit app. `service_status` is the service (`NOT_APPLICABLE`, `NOT_STARTED`, `RUNNING`, `SUSPENDED`). `container_status` is one status for the containers inside that service: `READY` means every container is ready, and a mix such as `READY` and `PENDING` rolls up to the non-ready status. The command does not start the app.
+* `snow sql` accepts `!set timing=<true|false>` and `!set timing_in_output_file=<true|false>`. With `timing_in_output_file=true`, the `Time Elapsed` line is also written to an open `!spool` file, even when `quiet=true`. `timing=false` hides it everywhere. By default `timing` is on and `timing_in_output_file` is off. Empty values are rejected and leave the setting unchanged. JSON, JSON_EXT and CSV output never include the line.
 
 ## Fixes and improvements
 

@@ -446,29 +446,43 @@ class AbortCommand(ReplCommand):
         return CompileCommandResult(command=cls(args[0]))
 
 
-_SET_USAGE = "Usage: `!set output_format=<format>` | `!set quiet=<true|false>`"
+_SET_USAGE = (
+    "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
+    "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>`"
+)
 _SET_OPTION_OUTPUT_FORMAT = "output_format"
 _SET_OPTION_QUIET = "quiet"
-_SET_OPTIONS = frozenset({_SET_OPTION_OUTPUT_FORMAT, _SET_OPTION_QUIET})
-_SET_SUPPORTED = "Only output_format and quiet are supported."
+_SET_OPTION_TIMING = "timing"
+_SET_OPTION_TIMING_IN_OUTPUT_FILE = "timing_in_output_file"
 # SnowSQL booleans. An empty value is not false and not a reset to unset.
-_QUIET_TRUE = frozenset({"true", "yes", "on", "1"})
-_QUIET_FALSE = frozenset({"false", "no", "off", "0"})
+_BOOL_TRUE = frozenset({"true", "yes", "on", "1"})
+_BOOL_FALSE = frozenset({"false", "no", "off", "0"})
+_SET_BOOL_OPTIONS = frozenset(
+    {
+        _SET_OPTION_QUIET,
+        _SET_OPTION_TIMING,
+        _SET_OPTION_TIMING_IN_OUTPUT_FILE,
+    }
+)
+_SET_OPTIONS = _SET_BOOL_OPTIONS | {_SET_OPTION_OUTPUT_FORMAT}
+_SET_SUPPORTED = (
+    "Only output_format, quiet, timing and timing_in_output_file are supported."
+)
 
 
-def _parse_quiet_value(value: str) -> bool:
+def _parse_bool_value(option: str, value: str) -> bool:
     normalized = value.strip().lower()
-    if normalized in _QUIET_TRUE:
+    if normalized in _BOOL_TRUE:
         return True
-    if normalized in _QUIET_FALSE:
+    if normalized in _BOOL_FALSE:
         return False
-    raise ValueError(f"Invalid value for quiet: {value!r}. Use true or false.")
+    raise ValueError(f"Invalid value for {option}: {value!r}. Use true or false.")
 
 
 @register_command("!set")
 @dataclass
 class SetCommand(ReplCommand):
-    """Set a session option. output_format and quiet are supported."""
+    """Set a session option. output_format, quiet, timing and timing_in_output_file are supported."""
 
     option: str
     value: str
@@ -476,7 +490,13 @@ class SetCommand(ReplCommand):
     def execute(self, connection: SnowflakeConnection):
         manager = get_cli_context_manager()
         if self.option == _SET_OPTION_QUIET:
-            manager.quiet = _parse_quiet_value(self.value)
+            manager.quiet = _parse_bool_value(self.option, self.value)
+            return
+        if self.option == _SET_OPTION_TIMING:
+            manager.timing = _parse_bool_value(self.option, self.value)
+            return
+        if self.option == _SET_OPTION_TIMING_IN_OUTPUT_FILE:
+            manager.timing_in_output_file = _parse_bool_value(self.option, self.value)
             return
         manager.output_format = OutputFormat.from_string(self.value)
 
@@ -528,8 +548,8 @@ class SetCommand(ReplCommand):
         option = known[0].lower()
         value = kwargs[known[0]]
         try:
-            if option == _SET_OPTION_QUIET:
-                _parse_quiet_value(value)
+            if option in _SET_BOOL_OPTIONS:
+                _parse_bool_value(option, value)
             else:
                 OutputFormat.from_string(value)
         except ValueError as e:

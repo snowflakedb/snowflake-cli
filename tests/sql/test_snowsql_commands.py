@@ -310,6 +310,12 @@ def test_queries_execute_help(mock_print, mock_ctx):
             SetCommand(option="output_format", value="plain"),
         ),
         ("!set", ["quiet=true"], SetCommand(option="quiet", value="true")),
+        ("!set", ["timing=on"], SetCommand(option="timing", value="on")),
+        (
+            "!set",
+            ["timing_in_output_file=false"],
+            SetCommand(option="timing_in_output_file", value="false"),
+        ),
         ("!spool", ["out.txt"], SpoolCommand(path="out.txt")),
         ("!spool", ["off"], SpoolCommand(path=None)),
         (
@@ -358,8 +364,13 @@ def test_rehash_from_args():
     )
 
 
-_SET_USAGE = "Usage: `!set output_format=<format>` | `!set quiet=<true|false>`"
-_SET_SUPPORTED = "Only output_format and quiet are supported."
+_SET_USAGE = (
+    "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
+    "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>`"
+)
+_SET_SUPPORTED = (
+    "Only output_format, quiet, timing and timing_in_output_file are supported."
+)
 
 
 def test_set_from_args():
@@ -384,7 +395,7 @@ def test_set_from_args():
         [], {"header": "false", "timing": "on"}
     ) == CompileCommandResult(
         error_message=(
-            f"Unknown option passed to 'set' command: 'header', 'timing'. {_SET_SUPPORTED}"
+            f"Unknown option passed to 'set' command: 'header'. {_SET_SUPPORTED}"
         )
     )
     csi_key = "\x1b[31mred"
@@ -463,10 +474,7 @@ def test_set_quiet_from_args():
     assert SetCommand.from_args(
         "output_format=json quiet=true"
     ) == CompileCommandResult(
-        error_message=(
-            "Too many arguments passed to 'set' command. "
-            "Usage: `!set output_format=<format>` | `!set quiet=<true|false>`"
-        )
+        error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
     )
 
 
@@ -496,6 +504,48 @@ def test_set_execute_sets_quiet():
     assert manager.quiet is True
     SetCommand(option="quiet", value="0").execute(mock.Mock())
     assert manager.quiet is False
+
+
+@pytest.mark.parametrize("option", ["timing", "TIMING", "timing_in_output_file"])
+@pytest.mark.parametrize("value", ["true", "Yes", "on", "1", "false", "NO", "off", "0"])
+def test_set_timing_options_accept_snowsql_booleans(option, value):
+    assert SetCommand.from_args(f"{option}={value}") == CompileCommandResult(
+        command=SetCommand(option=option.lower(), value=value)
+    )
+
+
+@pytest.mark.parametrize(
+    "raw_args, error_message",
+    (
+        ("timing=", "Invalid value for timing: ''. Use true or false."),
+        (
+            "timing_in_output_file=",
+            "Invalid value for timing_in_output_file: ''. Use true or false.",
+        ),
+        ("timing=maybe", "Invalid value for timing: 'maybe'. Use true or false."),
+        ("timing=true TIMING=false", "Duplicated argument 'timing'"),
+        (
+            "timing=on timing_in_output_file=true",
+            f"Too many arguments passed to 'set' command. {_SET_USAGE}",
+        ),
+    ),
+)
+def test_set_timing_options_reject_invalid_input(raw_args, error_message):
+    assert SetCommand.from_args(raw_args) == CompileCommandResult(
+        error_message=error_message
+    )
+
+
+def test_set_execute_sets_timing_options():
+    manager = get_cli_context_manager()
+    assert manager.timing is True
+    assert manager.timing_in_output_file is False
+
+    SetCommand(option="timing", value="off").execute(mock.Mock())
+    SetCommand(option="timing_in_output_file", value="on").execute(mock.Mock())
+
+    assert get_cli_context().timing is False
+    assert get_cli_context().timing_in_output_file is True
 
 
 def test_spool_from_args():

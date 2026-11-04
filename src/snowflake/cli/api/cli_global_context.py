@@ -106,6 +106,10 @@ class _CliGlobalContextManager:
     # SnowSQL quiet: hide query results on the terminal. An open spool still
     # receives them. Errors go through cli_console and are not affected.
     quiet: bool = False
+    # SnowSQL timing: show the `Time Elapsed` footer.
+    timing: bool = True
+    # SnowSQL timing_in_output_file: also write it to an open spool. Needs timing.
+    timing_in_output_file: bool = False
     spool_path: Path | None = None
     spool_stream: TextIO | None = None
     _spool_stack: ExitStack | None = field(default=None, repr=False, compare=False)
@@ -370,6 +374,14 @@ class _CliGlobalContextAccess:
     @property
     def quiet(self) -> bool:
         return self._manager.quiet
+
+    @property
+    def timing(self) -> bool:
+        return self._manager.timing
+
+    @property
+    def timing_in_output_file(self) -> bool:
+        return self._manager.timing_in_output_file
 
     @property
     def spool_path(self) -> Path | None:

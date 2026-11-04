@@ -1,3 +1,4 @@
+import io
 import os
 from textwrap import dedent
 from types import SimpleNamespace
@@ -12,7 +13,10 @@ from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.repl import Repl, _print_sql_elapsed
 from snowflake.cli._plugins.sql.repl_commands import EditCommand
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.formats import OutputFormat
 
@@ -1273,6 +1277,68 @@ def test_print_sql_elapsed_human_formats_silent(output_format, capsys):
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
+def _attach_spool(timing_in_output_file: bool, timing: bool = True) -> io.StringIO:
+    manager = get_cli_context_manager()
+    manager.timing = timing
+    manager.timing_in_output_file = timing_in_output_file
+    manager.spool_stream = io.StringIO()
+    return manager.spool_stream
+
+
+@pytest.mark.parametrize(
+    "timing, timing_in_output_file, terminal, spooled",
+    (
+        (True, False, True, ""),
+        (True, True, True, "Time Elapsed: 0.123s\n"),
+        (False, True, False, ""),
+    ),
+)
+def test_print_sql_elapsed_timing_flags(
+    timing, timing_in_output_file, terminal, spooled, capsys
+):
+    spool = _attach_spool(timing_in_output_file, timing=timing)
+    with sql_output_settings(OutputFormat.TABLE, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert ("Time Elapsed: 0.123s" in capsys.readouterr().out) is terminal
+    assert spool.getvalue() == spooled
+
+
+@pytest.mark.parametrize(
+    "quiet, silent",
+    ((True, False), (False, True), (True, True)),
+)
+def test_print_sql_elapsed_spool_ignores_quiet_and_silent(quiet, silent, capsys):
+    spool = _attach_spool(timing_in_output_file=True)
+    get_cli_context_manager().quiet = quiet
+    with sql_output_settings(OutputFormat.TABLE, silent=silent):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+    assert spool.getvalue() == "Time Elapsed: 0.123s\n"
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
+)
+def test_print_sql_elapsed_structured_skips_spool(output_format, capsys):
+    spool = _attach_spool(timing_in_output_file=True)
+    with sql_output_settings(output_format, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+    assert spool.getvalue() == ""
+
+
+def test_print_sql_elapsed_timing_in_output_file_without_spool(capsys):
+    get_cli_context_manager().timing_in_output_file = True
+    with sql_output_settings(OutputFormat.TABLE, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert capsys.readouterr().out.count("Time Elapsed: 0.123s") == 1
+
+
 @pytest.mark.parametrize(
     "output_format",
     (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
@@ -1322,6 +1388,99 @@ def test_repl_quiet_hides_result_and_elapsed_keeps_spool(
     assert "| 1 |" not in output
     assert "Time Elapsed" not in output
     assert "| 1 |" in contents
+
+
+def _run_spooled_repl(repl, spool, *inputs):
+    monotonic_values = [0.0, 0.5] * (len(inputs) + 2)
+    try:
+        run_repl(
+            repl,
+            (f'!spool "{spool}"', *inputs, "exit", "y"),
+            monotonic_values=monotonic_values,
+        )
+        return spool.read_text(encoding="utf-8")
+    finally:
+        get_cli_context_manager().close_spool()
+
+
+def test_repl_default_spool_keeps_elapsed_on_terminal_only(
+    compiling_repl, capsys, tmp_path
+):
+    contents = _run_spooled_repl(compiling_repl, tmp_path / "out.txt", "select 1;")
+
+    assert "Time Elapsed: 0.500s" in capsys.readouterr().out
+    assert "| 1 |" in contents
+    assert "Time Elapsed" not in contents
+
+
+def test_repl_timing_in_output_file_writes_elapsed_after_table(
+    compiling_repl, capsys, tmp_path
+):
+    contents = _run_spooled_repl(
+        compiling_repl,
+        tmp_path / "out.txt",
+        "!set timing_in_output_file=true",
+        "select 1;",
+    )
+
+    assert capsys.readouterr().out.count("Time Elapsed: 0.500s") == 1
+    assert contents.count("Time Elapsed") == 1
+    assert contents.splitlines()[-1] == "Time Elapsed: 0.500s"
+    assert contents.rindex("| 1 |") < contents.index("Time Elapsed")
+
+
+def test_repl_quiet_with_timing_in_output_file_spools_elapsed(
+    compiling_repl, capsys, tmp_path
+):
+    contents = _run_spooled_repl(
+        compiling_repl,
+        tmp_path / "out.txt",
+        "!set timing_in_output_file=true",
+        "!set quiet=true",
+        "select 1;",
+    )
+
+    output = capsys.readouterr().out
+    assert "| 1 |" not in output
+    assert "Time Elapsed" not in output
+    assert contents.splitlines()[-1] == "Time Elapsed: 0.500s"
+    assert contents.rindex("| 1 |") < contents.index("Time Elapsed")
+
+
+@pytest.mark.parametrize(
+    "inputs, expected",
+    (
+        (("!set timing_in_output_file=",), False),
+        (("!set timing_in_output_file=true", "!set timing_in_output_file="), True),
+    ),
+)
+def test_repl_empty_timing_in_output_file_keeps_current_value(
+    inputs, expected, compiling_repl, capsys, tmp_path
+):
+    contents = _run_spooled_repl(
+        compiling_repl, tmp_path / "out.txt", *inputs, "select 1;"
+    )
+
+    assert "Invalid value for timing_in_output_file: ''" in capsys.readouterr().out
+    assert get_cli_context().timing_in_output_file is expected
+    assert ("Time Elapsed: 0.500s" in contents) is expected
+
+
+def test_repl_reports_failed_elapsed_spool_write_once(repl, capsys):
+    class FailingElapsedStream(io.StringIO):
+        def write(self, s):
+            if s.startswith("Time Elapsed"):
+                raise OSError(28, "No space left on device")
+            return super().write(s)
+
+    manager = get_cli_context_manager()
+    manager.timing_in_output_file = True
+    manager.spool_stream = FailingElapsedStream()
+    run_repl(repl, ("select 1;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed: 0.500s") == 1
+    assert output.count("No space left on device") == 1
 
 
 def test_repl_quiet_still_prints_errors(compiling_repl, capsys):

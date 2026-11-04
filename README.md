@@ -157,7 +157,13 @@ Commands print a table unless you pass `--format`. To change that default, set
 `SNOWFLAKE_CLI_OUTPUT_FORMAT` environment variable. Allowed values are `TABLE`,
 `JSON`, `JSON_EXT`, `CSV`, and `PLAIN`. `--format` on the command line still wins.
 In `snow sql`, `!set output_format=<format>` changes the format for later
-statements in that session.
+statements in that session. `!set timing=false` hides the `Time Elapsed` line
+that follows each statement. `!set timing_in_output_file=true` also writes that
+line into a file opened with `!spool`. Both accept `true`, `yes`, `on`, and `1`,
+or `false`, `no`, `off`, and `0`. An empty value is rejected and leaves the
+current setting unchanged. `timing` is on by default and
+`timing_in_output_file` is off, so a spool file keeps the results only. JSON,
+JSON_EXT, and CSV output never include the line.
 
 ```toml
 [cli]
