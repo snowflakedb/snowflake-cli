@@ -2510,38 +2510,76 @@ class TestSharedCommandsFromAppYml:
             call()
 
 
-class TestCngHealthMonitoringDisabled:
-    """Event-table health monitoring is not available for serverless apps."""
+class TestCngHealthMonitoring:
+    """Serverless apps read the event table when the server can serve it."""
 
     @pytest.mark.parametrize(
-        "kwargs",
+        "kwargs, event_table_type",
         [
-            {"event_type": "metric"},
-            {"event_type": "lifecycle"},
-            {"since": "1h"},
-            {"until": "1h"},
-            {"event_type": "log", "since": "30m"},
+            ({"event_type": "metric"}, "METRIC"),
+            ({"event_type": "lifecycle"}, "EVENT"),
+            ({"since": "1h"}, "LOG"),
+            ({"until": "1h"}, "LOG"),
+            ({"event_type": "log", "since": "30m"}, "LOG"),
         ],
     )
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
-    def test_event_table_paths_rejected_for_serverless(
-        self, mock_ctx, mock_mgr_cls, kwargs, tmp_path
+    def test_event_table_paths_query_server_for_serverless(
+        self, mock_ctx, mock_mgr_cls, kwargs, event_table_type, tmp_path
     ):
         from snowflake.cli._plugins.apps.commands import snowflake_app_events
 
         (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.return_value = "[]"
+
+        snowflake_app_events(None, None, target="prod", **kwargs)
+
+        mgr.get_event_table_data.assert_called_once()
+        assert mgr.get_event_table_data.call_args.args[1] == event_table_type
+        mgr.get_service_logs.assert_not_called()
+
+    @pytest.mark.parametrize("errno", [2, 94550])
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_event_table_unavailable_for_serverless(
+        self, mock_ctx, mock_mgr_cls, errno, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+        from snowflake.connector.errors import ProgrammingError
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.side_effect = ProgrammingError(
+            "Event table data is not available", errno=errno
+        )
 
         with pytest.raises(
             CliError,
-            match="Health monitoring is not available for serverless apps",
+            match="Health monitoring is not yet available for serverless apps",
         ):
-            snowflake_app_events(None, None, target="prod", **kwargs)
+            snowflake_app_events(None, None, event_type="metric", target="prod")
 
-        mgr.get_event_table_data.assert_not_called()
-        mgr.get_service_logs.assert_not_called()
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_other_event_table_errors_keep_generic_message(
+        self, mock_ctx, mock_mgr_cls, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+        from snowflake.connector.errors import ProgrammingError
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.side_effect = ProgrammingError(
+            "Insufficient privileges", errno=3001
+        )
+
+        with pytest.raises(CliError, match="Could not retrieve metric data"):
+            snowflake_app_events(None, None, event_type="metric", target="prod")
 
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
@@ -2578,25 +2616,6 @@ class TestCngHealthMonitoringDisabled:
         mgr.get_service_logs.assert_called_once()
         mgr.get_event_table_data.assert_not_called()
         assert result.message == "cng-live-log"
-
-    @patch(f"{_COMMANDS}.SnowflakeAppManager")
-    @patch(f"{_COMMANDS}.get_cli_context")
-    def test_event_table_allowed_when_serverless_parameters_disabled(
-        self, mock_ctx, mock_mgr_cls, tmp_path
-    ):
-        from snowflake.cli._plugins.apps.commands import snowflake_app_events
-
-        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
-        mock_ctx.return_value = _make_ctx(tmp_path)
-        mgr = _make_manager_mock(mock_mgr_cls)
-        mgr.serverless_account_parameters_enabled.return_value = False
-        mgr.get_event_table_data.return_value = "[]"
-
-        result = snowflake_app_events(None, None, event_type="metric", target="prod")
-
-        mgr.get_event_table_data.assert_called_once()
-        mgr.get_service_logs.assert_not_called()
-        assert list(result.result) == []
 
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")

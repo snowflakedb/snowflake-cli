@@ -235,6 +235,24 @@ class TestParseMetricRecords:
         assert by_instance["0"]["cores"] == 0.038
         assert by_instance["1"]["cores"] == 0.091
 
+    def test_serverless_has_no_instance_or_container(self):
+        payload = json.dumps(
+            [
+                _metric_row(
+                    "1784242528.0",
+                    "container.cpu.usage",
+                    "0.038",
+                    "cpu",
+                    container=None,
+                    instance=None,
+                )
+            ]
+        )
+        records = parse_metric_records(payload)
+        assert records[0]["cores"] == 0.038
+        assert records[0]["instance"] == ""
+        assert records[0]["container"] == ""
+
 
 def _event_row(ts, name, message, status, container=None, instance="0"):
     body = json.dumps({"message": message, "status": status})
@@ -317,6 +335,10 @@ class TestFormatLogLines:
         assert "[0/runner] from instance 0" in lines[0]
         assert "[1/runner] from instance 1" in lines[1]
         assert "[0/sidecar] from sidecar" in lines[2]
+
+    def test_serverless_lines_have_no_tag(self):
+        payload = json.dumps([["1784242528.0", None, None, "INFO: app started", "{}"]])
+        assert format_log_lines(payload) == "2026-07-16T22:55:28Z INFO: app started"
 
     def test_empty(self):
         assert format_log_lines("") == ""

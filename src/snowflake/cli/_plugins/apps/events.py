@@ -20,9 +20,8 @@ of its event table via the ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``
 system function. That function returns a VARCHAR holding a JSON array of
 positional tuples whose layout depends on the requested ``event_type``.
 
-Do not use this function for serverless (CNG) apps. That backend does not
-support it. The ``snow app events`` command rejects metric, lifecycle, and
-windowed-log requests for those apps.
+Serverless (CNG) apps have no service instances or containers, so their tuples
+carry ``null`` in the instance and container positions.
 
 This module keeps the pure logic — client-side time-window resolution and
 decoding the positional tuples into named, human-readable records — separate
@@ -48,6 +47,12 @@ log = logging.getLogger(__name__)
 # ``[start_time, end_time]`` window of ``TIMESTAMP`` literals, and an optional
 # trailing ``return_uuid`` flag (see below).
 EVENT_TABLE_FUNCTION = "SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA"
+
+# Error codes the function returns when the account cannot serve a serverless
+# app's event-table data yet: 2 (unsupported feature) while event-table reads
+# are not enabled for serverless apps, and 94550 while the account's telemetry
+# is not attributed to individual serverless apps.
+SERVERLESS_EVENT_TABLE_UNAVAILABLE_ERRNOS = frozenset({2, 94550})
 
 # Account/session parameter that bounds how many records the function returns
 # inline as a JSON array. The CLI reads it at runtime rather than assuming a
@@ -326,7 +331,7 @@ def parse_metric_records(
     network). Records are returned latest-first and carry the ``instance``
     (numeric replica index) and ``container`` (container name) the metric was
     reported for, so multi-instance/multi-container services can be told
-    apart.
+    apart. Both are empty for serverless apps.
     """
     records: List[dict] = []
     for row in _load_rows(raw):
@@ -344,8 +349,9 @@ def parse_metric_records(
             "metric": name,
         }
         record.update(_metric_value_fields(row[_METRIC_UNIT], numeric, raw_values))
-        record["instance"] = row[_METRIC_INSTANCE]
-        record["container"] = row[_METRIC_CONTAINER]
+        instance = row[_METRIC_INSTANCE]
+        record["instance"] = instance if instance is not None else ""
+        record["container"] = row[_METRIC_CONTAINER] or ""
         records.append(record)
 
     records.sort(key=lambda r: r["time"], reverse=True)
@@ -408,7 +414,7 @@ def format_log_lines(raw: str) -> str:
     ``<iso-timestamp> [<instance>/<container>] <body>`` line per tuple, oldest
     first so the output reads like a normal log tail. The ``[instance/container]``
     tag lets logs from multi-instance or multi-container services be told
-    apart.
+    apart. Serverless apps have neither, so their lines carry no tag.
     """
     lines: List[str] = []
     for row in _load_rows(raw):
@@ -418,5 +424,8 @@ def format_log_lines(raw: str) -> str:
         instance = row[_LOG_INSTANCE]
         container = row[_LOG_CONTAINER]
         body = row[_LOG_BODY]
-        lines.append(f"{timestamp} [{instance}/{container}] {body}".rstrip())
+        if instance is None and container is None:
+            lines.append(f"{timestamp} {body}".rstrip())
+        else:
+            lines.append(f"{timestamp} [{instance}/{container}] {body}".rstrip())
     return "\n".join(lines)

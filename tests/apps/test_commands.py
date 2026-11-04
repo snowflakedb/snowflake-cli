@@ -31,12 +31,11 @@ from snowflake.cli._plugins.apps.commands import (
     _is_cng_compute_resource,
     _log_service_logs,
     _make_build_log_streamer,
-    _requests_event_table_health_monitoring,
     _utf8_output,
     _warn_if_cng_url_cert_missing,
     snowflake_app_events,
 )
-from snowflake.cli._plugins.apps.events import EventStream, parse_lifecycle_records
+from snowflake.cli._plugins.apps.events import parse_lifecycle_records
 from snowflake.cli._plugins.apps.generate import _generate_app_yml, _yaml_str
 from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_LABEL,
@@ -624,31 +623,6 @@ class TestIsCngComputeResource:
     )
     def test_predicate(self, value, expected):
         assert _is_cng_compute_resource(value) is expected
-
-
-class TestRequestsEventTableHealthMonitoring:
-    """Event-table health monitoring is metric, lifecycle, and windowed logs."""
-
-    def test_live_log_tail_is_not_event_table(self):
-        assert (
-            _requests_event_table_health_monitoring(EventStream.LOG, None, None)
-            is False
-        )
-
-    @pytest.mark.parametrize(
-        "stream, since, until",
-        [
-            (EventStream.METRIC, None, None),
-            (EventStream.LIFECYCLE, None, None),
-            (EventStream.LOG, "1h", None),
-            (EventStream.LOG, None, "1h"),
-            (EventStream.METRIC, "1h", "now"),
-        ],
-    )
-    def test_metric_lifecycle_and_windowed_logs_use_event_table(
-        self, stream, since, until
-    ):
-        assert _requests_event_table_health_monitoring(stream, since, until) is True
 
 
 class TestServerlessAccountParameters:
