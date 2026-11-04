@@ -2327,7 +2327,7 @@ def test_build_image(mock_execute_query):
     container = spec["spec"]["containers"][0]
     assert container["name"] == "main"
     assert (
-        container["image"] == "/snowflake/images/snowflake_images/sf-image-build:0.0.1"
+        container["image"] == "/snowflake/images/snowflake_images/sf-image-build:0.0.3"
     )
     assert (
         container["env"]["IMAGE_REGISTRY_URL"]

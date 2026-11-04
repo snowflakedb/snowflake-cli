@@ -388,7 +388,7 @@ class ServiceManager(SqlExecutionMixin):
                 "containers": [
                     {
                         "name": "main",
-                        "image": "/snowflake/images/snowflake_images/sf-image-build:0.0.1",
+                        "image": "/snowflake/images/snowflake_images/sf-image-build:0.0.3",
                         "env": {
                             "IMAGE_REGISTRY_URL": image_registry_url,
                             "IMAGE_NAME": image_name,
