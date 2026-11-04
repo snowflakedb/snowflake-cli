@@ -1463,3 +1463,76 @@ def test_failed_auth_login_does_not_report_local_oauth(
     assert result.exit_code != 0, result.output
     assert recorded
     assert set(recorded) == {""}
+
+
+class TestAppYmlRuntimeTelemetry:
+    """``snow app`` result events carry the app.yml runtime fields."""
+
+    @mock.patch("snowflake.connector.connect")
+    def test_streamlit_app_yml_v2(self, mock_conn, project_directory, runner):
+        with project_directory("snowflake_app_yml_streamlit"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        events = _get_telemetry_events(mock_conn)
+        _assert_executing_event_has_no_app_flow(events)
+        results = [
+            e["message"]
+            for e in events
+            if e["message"]["type"] == "result_executing_command"
+        ]
+        assert results
+        for message in results:
+            assert message["app_flow"] == "snowflake_app"
+            assert message["app_runtime"] == "python"
+            assert message["app_streamlit"] is True
+            for dropped in (
+                "app_runtime_source",
+                "app_template_type",
+                "app_template_version",
+                "app_created_by",
+                "app_template",
+            ):
+                assert dropped not in message
+        for event in events:
+            if event["message"]["type"] == "executing_command":
+                assert "app_runtime" not in event["message"]
+
+    @mock.patch("snowflake.connector.connect")
+    def test_nextjs_versionless_app_yml_with_snowflake_yml(
+        self, mock_conn, project_directory, runner
+    ):
+        with project_directory("snowflake_app_nextjs_versionless"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        events = _get_telemetry_events(mock_conn)
+        results = [
+            e["message"]
+            for e in events
+            if e["message"]["type"] == "result_executing_command"
+        ]
+        assert results
+        for message in results:
+            assert message["app_flow"] == "snowflake_app"
+            assert message["app_runtime"] == "node"
+            assert message["app_streamlit"] is False
+            assert "app_template" not in message
+
+    @mock.patch("snowflake.connector.connect")
+    def test_absent_without_app_yml(self, mock_conn, project_directory, runner):
+        with project_directory("snowflake_app_v2"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        for event in _get_telemetry_events(mock_conn):
+            assert not [
+                k for k in event["message"] if k.startswith("app_") and k != "app_flow"
+            ]
+
+    @mock.patch("snowflake.connector.connect")
+    def test_absent_for_native_app(self, mock_conn, project_directory, runner):
+        with project_directory("napp_post_deploy_missing_file"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        for event in _get_telemetry_events(mock_conn):
+            assert not [
+                k for k in event["message"] if k.startswith("app_") and k != "app_flow"
+            ]

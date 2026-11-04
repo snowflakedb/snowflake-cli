@@ -109,6 +109,13 @@ class CLITelemetryField(Enum):
     # the flow on the executing_command event should join on
     # COMMAND_EXECUTION_ID across the three events for an invocation.
     APP_FLOW = "app_flow"
+    # Runtime facts from a Snowflake App Runtime ``app.yml``. Emitted next to
+    # APP_FLOW (so, like it, only on result/error events) when app_flow is
+    # "snowflake_app" and an app.yml was loaded:
+    #   app_runtime          "python" | "node"
+    #   app_streamlit        bool, the app.yml ``streamlit`` flag
+    APP_RUNTIME = "app_runtime"
+    APP_STREAMLIT = "app_streamlit"
     # snow upgrade / auto-upgrade (spooled until a connection exists)
     UPGRADE_TRIGGER = "upgrade_trigger"
     UPGRADE_STATUS = "upgrade_status"
@@ -216,6 +223,8 @@ def _find_command_info() -> TelemetryDict:
     app_flow = _get_app_flow()
     if app_flow is not None:
         info[CLITelemetryField.APP_FLOW] = app_flow
+        if app_flow == "snowflake_app":
+            info.update(_get_app_yml_telemetry())
 
     return info
 
@@ -272,6 +281,30 @@ def _get_app_flow() -> str | None:
         # contrived test scenarios where the manager was reset). Treat as
         # "no flow recorded" rather than failing the whole telemetry call.
         return None
+
+
+_APP_YML_RUNTIMES = ("python", "node")
+
+
+def _get_app_yml_telemetry() -> TelemetryDict:
+    """Return the sanitized ``app.yml`` runtime fields for the current command.
+
+    Reads what ``load_app_yml`` recorded on the CLI context; the runtime is
+    checked against a closed set here, at the point of sending. Never raises;
+    returns an empty dict when nothing was recorded.
+    """
+    try:
+        raw = get_cli_context().app_yml_info
+        if not raw:
+            return {}
+        info: TelemetryDict = {}
+        runtime = raw.get("runtime")
+        if runtime in _APP_YML_RUNTIMES:
+            info[CLITelemetryField.APP_RUNTIME] = runtime
+            info[CLITelemetryField.APP_STREAMLIT] = raw.get("streamlit") is True
+        return info
+    except Exception:
+        return {}
 
 
 def _is_env_truthy(name: str) -> bool:

@@ -153,6 +153,7 @@ _PYTHON_APP_YML = dedent(
     package_name: PY_APP
     code_stage: SNOWFLAKE_APPS.PUBLIC.PY_CODE
     artifact_repo: SNOWFLAKE_APPS.PUBLIC.PY_REPO
+    runtime: python
     install:
       commands:
         - ["uv", "sync"]
@@ -238,47 +239,20 @@ class TestAppYmlDefinition:
         assert set(model.targets) == {"dev", "prod"}
 
     @pytest.mark.parametrize(
-        "phases, expected",
+        "fields, expected",
         [
-            pytest.param({}, False, id="node-defaults"),
+            pytest.param({}, False, id="node-default"),
+            pytest.param({"runtime": "python"}, True, id="declared-python"),
+            pytest.param({"runtime": "node"}, False, id="declared-node"),
             pytest.param(
-                {"install": {"commands": [["pip", "install", "-r", "req.txt"]]}},
-                True,
-                id="pip-install",
-            ),
-            pytest.param(
-                {"install": {"commands": [["npm", "ci"], ["uv", "sync"]]}},
-                True,
-                id="uv-in-later-command",
-            ),
-            pytest.param(
-                {"build": {"commands": [["pip3.12", "install", "."]]}},
-                True,
-                id="versioned-pip-build",
-            ),
-            pytest.param(
-                {"run": {"command": ["/usr/bin/python3", "-m", "app"]}},
-                True,
-                id="python-path-run",
-            ),
-            pytest.param(
-                {"dev": {"command": ["uvx", "fastapi", "dev"]}}, True, id="uvx-dev"
-            ),
-            pytest.param(
-                {"run": {"command": ["node", "pipeline.js"]}},
+                {"install": {"commands": [["uv", "sync"]]}},
                 False,
-                id="python-tool-only-as-argument",
+                id="python-commands-are-not-inspected",
             ),
-            pytest.param(
-                {"install": {"commands": [["pipenv", "install"]]}},
-                False,
-                id="similar-prefix-not-matched",
-            ),
-            pytest.param({"install": {"commands": [[]]}}, False, id="empty-command"),
         ],
     )
-    def test_is_python_runtime(self, phases, expected):
-        assert _definition(**phases).is_python_runtime is expected
+    def test_is_python_runtime(self, fields, expected):
+        assert _definition(**fields).is_python_runtime is expected
 
     def test_legacy_targets_default_key_rejected(self):
         # The pre-release form nested ``default`` under ``targets``; it is now a

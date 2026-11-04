@@ -1826,6 +1826,9 @@ def _ensure_python_runtime_enabled(
 ) -> None:
     """Raise when *app_def* uses the Python runtime on a compute resource the account does not allow.
 
+    The app uses the Python runtime when ``app.yml`` sets ``runtime: python``
+    (:attr:`AppYmlDefinition.is_python_runtime`).
+
     An unset *compute_resource* is checked as ``MANAGED_COMPUTE_POOL``, the
     backend the server uses by default.
     """
@@ -1836,8 +1839,7 @@ def _ensure_python_runtime_enabled(
         return
     raise CliError(
         f"The Python runtime is not enabled for compute_resource {effective} in "
-        f"this account. This app uses it because an install, build, run, or dev "
-        f"command in {APP_YML_FILENAME} runs pip, python, or uv. Deploy to a "
+        f"this account. This app sets `runtime: python` in {APP_YML_FILENAME}. Deploy to a "
         f"compute_resource that allows the Python runtime, or contact Snowflake "
         f"support to enable it."
     )

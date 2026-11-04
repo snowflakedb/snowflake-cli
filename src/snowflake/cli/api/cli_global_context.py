@@ -20,7 +20,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator, TextIO
+from typing import TYPE_CHECKING, Any, Iterator, TextIO
 
 import tomlkit
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
@@ -145,6 +145,12 @@ class _CliGlobalContextManager:
     # None for any other command. Set by the routing/decoration helpers in
     # _plugins/nativeapp/v2_conversions/compat.py and read by telemetry.
     app_flow: str | None = None
+
+    # Raw (unsanitized) facts read from a Snowflake App Runtime ``app.yml``:
+    # the declared runtime and the ``streamlit`` flag. Recorded by
+    # ``load_app_yml`` and read by telemetry, which validates each value before
+    # sending it. None until an ``app.yml`` has been loaded.
+    app_yml_info: dict[str, Any] | None = None
 
     _definition_manager: DefinitionManager | None = None
     enhanced_exit_codes: bool = False
@@ -436,6 +442,10 @@ class _CliGlobalContextAccess:
     @property
     def app_flow(self) -> str | None:
         return self._manager.app_flow
+
+    @property
+    def app_yml_info(self) -> dict[str, Any] | None:
+        return self._manager.app_yml_info
 
     @property
     def repl(self) -> Repl | None:
