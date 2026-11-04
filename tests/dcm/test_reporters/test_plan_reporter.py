@@ -526,12 +526,210 @@ class TestPlanHeaderRendering:
 class TestPlanRow:
     @pytest.mark.parametrize("operation", ["CREATE", "DROP"])
     def test_non_alter_stays_terse(self, operation):
-        """Only ALTER entities expand sub-changes; CREATE/DROP stay terse even
-        when the payload carries ``changes``."""
+        """CREATE/DROP hide the object's own attributes, including attribute
+        collections such as ``columns``."""
         entry = {
             "type": operation,
             "object_id": {"domain": "TABLE", "fqn": '"T"'},
-            "changes": [{"kind": "set", "attribute_name": "comment", "value": "x"}],
+            "changes": [
+                {"kind": "set", "attribute_name": "comment", "value": "x"},
+                {
+                    "kind": "collection",
+                    "collection_name": "columns",
+                    "changes": [{"kind": "added", "item_id": "ID"}],
+                },
+            ],
+        }
+
+        assert plan_row(entry).details == []
+
+    def test_create_shows_tag_attachments(self):
+        entry = {
+            "type": "CREATE",
+            "object_id": {"domain": "TABLE", "fqn": '"DB"."DATA"."T3"'},
+            "changes": [
+                {
+                    "kind": "collection",
+                    "collection_name": "columns",
+                    "changes": [{"kind": "added", "item_id": "ID"}],
+                },
+                {
+                    "kind": "collection",
+                    "collection_name": "tags",
+                    "id_label": "tag",
+                    "changes": [
+                        {
+                            "kind": "added",
+                            "item_id": "DB.DATA.TAG_A",
+                            "changes": [
+                                {
+                                    "kind": "set",
+                                    "attribute_name": "value",
+                                    "value": ["x"],
+                                }
+                            ],
+                        }
+                    ],
+                },
+            ],
+        }
+
+        assert render_detail_lines(entry) == [
+            "└─ tags",
+            "   └─ added DB.DATA.TAG_A",
+            '      └─ set VALUE: ["x"]',
+        ]
+
+    def test_create_shows_policies_and_dmfs(self):
+        entry = {
+            "type": "CREATE",
+            "object_id": {"domain": "TABLE", "fqn": '"DB"."DATA"."T4"'},
+            "changes": [
+                {"kind": "set", "attribute_name": "kind", "value": "PERMANENT"},
+                {
+                    "kind": "set",
+                    "attribute_name": "row_access_policy",
+                    "value": {"policy": "DB.DATA.RAP"},
+                },
+                {
+                    "kind": "collection",
+                    "collection_name": "columns",
+                    "changes": [
+                        {
+                            "kind": "added",
+                            "item_id": "ID",
+                            "changes": [
+                                {
+                                    "kind": "set",
+                                    "attribute_name": "datatype",
+                                    "value": "NUMBER",
+                                }
+                            ],
+                        },
+                        {
+                            "kind": "added",
+                            "item_id": "EMAIL",
+                            "changes": [
+                                {
+                                    "kind": "set",
+                                    "attribute_name": "datatype",
+                                    "value": "VARCHAR",
+                                },
+                                {
+                                    "kind": "set",
+                                    "attribute_name": "masking_policy",
+                                    "value": {"policy": "DB.DATA.MASK"},
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "kind": "nested",
+                    "attribute_name": "data_metric_schedule",
+                    "changes": [
+                        {
+                            "kind": "set",
+                            "attribute_name": "schedule_type",
+                            "value": "TRIGGER_ON_CHANGES",
+                        }
+                    ],
+                },
+                {
+                    "kind": "collection",
+                    "collection_name": "data_metric_functions",
+                    "changes": [
+                        {
+                            "kind": "added",
+                            "item_id": {"desc": "SNOWFLAKE.CORE.NULL_COUNT(ID)"},
+                        }
+                    ],
+                },
+            ],
+        }
+
+        assert render_detail_lines(entry) == [
+            '├─ set ROW_ACCESS_POLICY: {"policy": "DB.DATA.RAP"}',
+            "├─ columns",
+            "│  └─ added EMAIL",
+            '│     └─ set MASKING_POLICY: {"policy": "DB.DATA.MASK"}',
+            "└─ data_metric_functions",
+            "   └─ added SNOWFLAKE.CORE.NULL_COUNT(ID)",
+        ]
+
+    def test_create_hides_policy_settings_with_scalar_values(self):
+        entry = {
+            "type": "CREATE",
+            "object_id": {"domain": "SCHEMA", "fqn": '"DB"."S"'},
+            "changes": [
+                {
+                    "kind": "set",
+                    "attribute_name": "storage_serialization_policy",
+                    "value": "OPTIMIZED",
+                },
+                {
+                    "kind": "set",
+                    "attribute_name": "overlap_policy",
+                    "value": "NO_OVERLAP",
+                },
+            ],
+        }
+
+        assert plan_row(entry).details == []
+
+    def test_create_shows_any_policy_with_object_reference(self):
+        entry = {
+            "type": "CREATE",
+            "object_id": {"domain": "TABLE", "fqn": '"DB"."S"."T"'},
+            "changes": [
+                {
+                    "kind": "set",
+                    "attribute_name": "aggregation_policy",
+                    "value": {"policy": "DB.S.AGG"},
+                }
+            ],
+        }
+
+        assert render_detail_lines(entry) == [
+            '└─ set AGGREGATION_POLICY: {"policy": "DB.S.AGG"}',
+        ]
+
+    def test_create_shows_grants(self):
+        entry = {
+            "type": "CREATE",
+            "object_id": {"domain": "ROLE", "fqn": '"R"'},
+            "changes": [
+                {"kind": "set", "attribute_name": "comment", "value": "x"},
+                {
+                    "kind": "collection",
+                    "collection_name": "grants",
+                    "changes": [{"kind": "added", "item_id": {"desc": "ROLE A"}}],
+                },
+            ],
+        }
+
+        assert render_detail_lines(entry) == [
+            "└─ grants",
+            "   └─ added ROLE A",
+        ]
+
+    def test_drop_hides_relationships(self):
+        """Dropping an object implies removing its grants and attachments."""
+        entry = {
+            "type": "DROP",
+            "object_id": {"domain": "TABLE", "fqn": '"DB"."S"."T"'},
+            "changes": [
+                {
+                    "kind": "collection",
+                    "collection_name": "grants",
+                    "changes": [{"kind": "removed", "item_id": {"desc": "ROLE A"}}],
+                },
+                {
+                    "kind": "unset",
+                    "attribute_name": "masking_policy",
+                    "prev_value": {"policy": "DB.S.MASK"},
+                },
+            ],
         }
 
         assert plan_row(entry).details == []

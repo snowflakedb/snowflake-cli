@@ -36,6 +36,21 @@ _DOMAIN_WIDTH = 20
 _COLLECTION_KIND = "collection"
 _NESTED_KIND = "nested"
 _CONTAINER_KINDS = (_COLLECTION_KIND, _NESTED_KIND)
+# Collections that describe relationships to other objects rather than the
+# object's own attributes; shown under CREATE too.
+_RELATIONSHIP_COLLECTIONS = frozenset({"grants", "tags", "data_metric_functions"})
+# Attached policies carry an object reference (a dict such as
+# ``{"policy": ...}``); settings like ``storage_serialization_policy`` are plain
+# strings and stay hidden.
+_POLICY_ATTRIBUTE_SUFFIX = "_policy"
+
+
+def _is_policy_attachment(change: "PlanChange") -> bool:
+    return (
+        change.kind not in _CONTAINER_KINDS
+        and (change.attribute_name or "").endswith(_POLICY_ATTRIBUTE_SUFFIX)
+        and (isinstance(change.value, dict) or isinstance(change.prev_value, dict))
+    )
 
 
 class PlanObjectId(BaseModel):
@@ -424,6 +439,26 @@ def _build_nodes(changes: List[PlanChange]) -> List[_ChangeNode]:
     return [node for c in changes if (node := _build_node(c)) is not None]
 
 
+def _relationship_changes(changes: List[PlanChange]) -> List[PlanChange]:
+    """Prune a CREATE entry's changes down to its relationships.
+
+    Relationship collections (grants, tags, DMFs) are kept whole, and policy
+    attributes are kept at any depth, e.g. a masking policy on a column item.
+    Containers and items that lead to a kept change stay as its path; the
+    object's own attributes are dropped.
+    """
+    kept: List[PlanChange] = []
+    for change in changes:
+        if (
+            change.kind == _COLLECTION_KIND
+            and change.collection_name in _RELATIONSHIP_COLLECTIONS
+        ) or _is_policy_attachment(change):
+            kept.append(change)
+        elif children := _relationship_changes(change.changes):
+            kept.append(change.model_copy(update={"changes": children}))
+    return kept
+
+
 def _add_nodes(tree: Tree, nodes: List[_ChangeNode]) -> None:
     """Adds sibling nodes as branches, stable-sorted by kind category."""
     for node in sorted(nodes, key=lambda node: node.sort_key):
@@ -457,9 +492,17 @@ class PlanRow:
         )
 
     @staticmethod
-    def _alter_details(operation: str, changes: List[PlanChange]) -> List[_ChangeNode]:
-        """Only ALTER entities render sub-changes; CREATE/DROP stay terse."""
-        return _build_nodes(changes) if operation == "ALTER" else []
+    def _details(operation: str, changes: List[PlanChange]) -> List[_ChangeNode]:
+        """ALTER entities render all sub-changes. CREATE entities hide the
+        object's own attributes and render only relationships (grants, tags,
+        DMFs and policies), which users define as separate statements. DROP
+        entities stay terse: dropping an object implies removing its
+        relationships."""
+        if operation == "ALTER":
+            return _build_nodes(changes)
+        if operation == "CREATE":
+            return _build_nodes(_relationship_changes(changes))
+        return []
 
     @staticmethod
     def _parse_fqn(fqn: str) -> Optional[FQN]:
@@ -476,7 +519,7 @@ class PlanRow:
         operation = sanitize_for_terminal((entity.type_ or "UNKNOWN").upper())
         domain = sanitize_for_terminal(entity.object_id.domain.upper())
         fqn = cls._parse_fqn(entity.object_id.fqn)
-        details = cls._alter_details(operation, entity.changes)
+        details = cls._details(operation, entity.changes)
         return cls(operation=operation, domain=domain, fqn=fqn, details=details)
 
     def display_fqn(self) -> str:
