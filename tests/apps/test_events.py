@@ -309,10 +309,11 @@ class TestParseLifecycleRecords:
 
 class TestFormatLogLines:
     def test_format(self):
+        # The event-table function returns rows newest first.
         payload = json.dumps(
             [
-                ["1784242528.0", "0", "runner", "INFO: app started", "{}"],
                 ["1784242530.0", "0", "runner", "INFO: listening", "{}"],
+                ["1784242528.0", "0", "runner", "INFO: app started", "{}"],
             ]
         )
         text = format_log_lines(payload)
@@ -326,9 +327,9 @@ class TestFormatLogLines:
     def test_distinguishes_multiple_instances_and_containers(self):
         payload = json.dumps(
             [
-                ["1784242528.0", "0", "runner", "from instance 0", "{}"],
-                ["1784242528.0", "1", "runner", "from instance 1", "{}"],
                 ["1784242528.0", "0", "sidecar", "from sidecar", "{}"],
+                ["1784242528.0", "1", "runner", "from instance 1", "{}"],
+                ["1784242528.0", "0", "runner", "from instance 0", "{}"],
             ]
         )
         lines = format_log_lines(payload).splitlines()

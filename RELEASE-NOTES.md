@@ -24,6 +24,7 @@
 * `app.yml` (version 2) accepts two new top-level keys, `runtime` (`python` or `node`, case-insensitive, default `node`) and `streamlit` (`true` or `false`, default `false`). `streamlit: true` requires `runtime: python`. Both keys apply to the whole file; a `runtime` or `streamlit` key inside a target is ignored. Earlier CLI versions ignore these keys.
 
 ## Fixes and improvements
+* `snow app events` for Snowflake App Runtime projects now prints historical logs (`--since` or `--until`) oldest first, and `--last` keeps the newest lines. Previously the lines came out newest first and `--last` kept the oldest ones.
 
 
 # v3.32.1

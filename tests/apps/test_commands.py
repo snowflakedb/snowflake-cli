@@ -3113,7 +3113,7 @@ class TestSnowflakeAppManager:
     def test_get_event_table_data_over_cap_pages_via_result_scan(self, mock_execute):
         # Above the inline cap the function is called with its return_uuid flag,
         # then the newest rows are read back via RESULT_SCAN and re-serialized
-        # into the inline JSON tuple layout (oldest-first, epoch timestamps).
+        # into the inline JSON tuple layout (newest-first, epoch timestamps).
         param_cursor = Mock()
         param_cursor.fetchone.return_value = {"value": "500"}
         uuid_cursor = Mock()
@@ -3147,10 +3147,11 @@ class TestSnowflakeAppManager:
         )
 
         rows = json.loads(payload)
-        # Reversed to oldest-first, and the datetime is now an epoch string.
-        assert [r[3] for r in rows] == ["older line", "newer line"]
+        # Same newest-first order as the inline payload; the datetime is now an
+        # epoch string.
+        assert [r[3] for r in rows] == ["newer line", "older line"]
         older_epoch = datetime(2026, 7, 16, 22, 0, 1, tzinfo=timezone.utc).timestamp()
-        assert rows[0][0] == str(older_epoch)
+        assert rows[1][0] == str(older_epoch)
 
     @patch(EXECUTE_QUERY)
     def test_get_event_table_data_over_cap_pages_event_result(self, mock_execute):
@@ -7847,12 +7848,12 @@ class TestEventsCommand:
         mock_get_entity.return_value = entity
 
         mock_mgr = mock_manager_cls.return_value
-        # Log payload is oldest-first, as the event table function returns it.
+        # Log payload is newest-first, as the event table function returns it.
         mock_mgr.get_event_table_data.return_value = json.dumps(
             [
-                ["100.0", "0", "runner", "line1", "{}"],
-                ["200.0", "0", "runner", "line2", "{}"],
                 ["300.0", "0", "runner", "line3", "{}"],
+                ["200.0", "0", "runner", "line2", "{}"],
+                ["100.0", "0", "runner", "line1", "{}"],
             ]
         )
 
@@ -7863,8 +7864,7 @@ class TestEventsCommand:
 
         # Only the newest two lines are printed, oldest-first.
         assert "line1" not in result.output
-        assert "line2" in result.output
-        assert "line3" in result.output
+        assert result.output.index("line2") < result.output.index("line3")
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")

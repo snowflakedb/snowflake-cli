@@ -1770,9 +1770,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"ORDER BY TIMESTAMP DESC LIMIT {int(limit)}"
         )
         rows = cursor.fetchall()
-        # RESULT_SCAN returned the newest rows first; reverse to oldest-first so
-        # the reconstructed payload matches the inline function's ordering.
-        tuples = [self._event_table_row_to_tuple(row) for row in reversed(rows)]
+        tuples = [self._event_table_row_to_tuple(row) for row in rows]
         return json.dumps(tuples, default=str)
 
     @staticmethod

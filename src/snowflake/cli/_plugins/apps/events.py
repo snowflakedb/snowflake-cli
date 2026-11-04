@@ -417,7 +417,8 @@ def format_log_lines(raw: str) -> str:
     apart. Serverless apps have neither, so their lines carry no tag.
     """
     lines: List[str] = []
-    for row in _load_rows(raw):
+    # The event-table function returns rows newest first.
+    for row in reversed(_load_rows(raw)):
         if len(row) <= _LOG_BODY:
             continue
         timestamp = _epoch_to_iso(row[_LOG_TS])
