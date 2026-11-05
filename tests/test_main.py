@@ -134,6 +134,46 @@ def test_docs_callback(runner):
     assert result.exit_code == 0, result.output
 
 
+def test_structure_callback_emits_json_catalog(runner):
+    result = runner.invoke(["--structure"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["name"] == "snow"
+    assert payload["help"]
+
+    command_names = {command["name"] for command in payload["commands"]}
+    assert {"connection", "sql", "app"} <= command_names
+    assert "docs" not in command_names
+
+    root_flags = {
+        flag for option in payload.get("options", []) for flag in option["flags"]
+    }
+    assert "--structure" in root_flags
+    assert "--info" in root_flags
+    assert "--docs" not in root_flags
+
+    connection = next(
+        command for command in payload["commands"] if command["name"] == "connection"
+    )
+    list_cmd = next(
+        command for command in connection["commands"] if command["name"] == "list"
+    )
+    list_flags = {flag for option in list_cmd["options"] for flag in option["flags"]}
+    assert "--format" in list_flags
+    format_option = next(
+        option for option in list_cmd["options"] if option["name"] == "format"
+    )
+    assert format_option["choices"] == ["TABLE", "JSON", "JSON_EXT", "CSV", "PLAIN"]
+    assert list_cmd["help"]
+
+    dbt = next(command for command in payload["commands"] if command["name"] == "dbt")
+    deploy = next(command for command in dbt["commands"] if command["name"] == "deploy")
+    auto_compile = next(
+        option for option in deploy["options"] if option["name"] == "auto_compile"
+    )
+    assert auto_compile["flags"] == ["--auto-compile", "--no-auto-compile"]
+
+
 def test_all_commands_have_proper_documentation(runner, get_click_context):
     # invoke any command to populate app context (plugins registration)
     runner.invoke("--help")

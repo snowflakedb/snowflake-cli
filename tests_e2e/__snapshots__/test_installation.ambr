@@ -18,6 +18,8 @@
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
+  | --structure                         Prints a JSON catalog of commands,       |
+  |                                     arguments, and options                   |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
   | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
@@ -229,6 +231,8 @@
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
+  | --structure                         Prints a JSON catalog of commands,       |
+  |                                     arguments, and options                   |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
   | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
@@ -420,6 +424,8 @@
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
+  | --structure                         Prints a JSON catalog of commands,       |
+  |                                     arguments, and options                   |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
   | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
@@ -651,6 +657,8 @@
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
+  | --structure                         Prints a JSON catalog of commands,       |
+  |                                     arguments, and options                   |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
   | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |

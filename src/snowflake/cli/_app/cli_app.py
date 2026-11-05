@@ -29,7 +29,7 @@ from snowflake.cli import __about__
 from snowflake.cli._app.commands_registration.commands_registration_with_callbacks import (
     CommandsRegistrationWithCallbacks,
 )
-from snowflake.cli._app.dev.commands_structure import generate_commands_structure
+from snowflake.cli._app.dev.commands_structure import build_command_catalog
 from snowflake.cli._app.dev.docs.generator import generate_docs
 from snowflake.cli._app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
@@ -46,7 +46,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.exceptions import install_plain_remediation_error_renderer
 from snowflake.cli.api.output.formats import OutputFormat
-from snowflake.cli.api.output.types import CollectionResult
+from snowflake.cli.api.output.types import CollectionResult, ObjectResult
 from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
@@ -152,7 +152,8 @@ class CliAppFactory:
         def callback(value: bool):
             if value:
                 ctx = click.get_current_context()
-                generate_commands_structure(ctx.command).print_node()
+                catalog = build_command_catalog(ctx.command)
+                print_result(ObjectResult(catalog), output_format=OutputFormat.JSON)
                 self._exit_with_cleanup()
 
         return callback
@@ -249,8 +250,7 @@ class CliAppFactory:
             structure: bool = typer.Option(
                 None,
                 "--structure",
-                hidden=True,
-                help="Prints Snowflake CLI structure of commands",
+                help="Prints a JSON catalog of commands, arguments, and options",
                 callback=self._commands_structure_callback(),
                 is_eager=True,
             ),
