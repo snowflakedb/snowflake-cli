@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import pytest
+
+from tests_common.plugin_install import install_test_plugin
 
 
 @pytest.mark.integration
@@ -29,9 +33,10 @@ def test_override_build_in_commands(
         test_root_path / "config" / "plugin_tests" / "override_plugin_config.toml"
     )
 
-    result = runner.invoke(
-        ["--config-file", config_path, "connection", "list", "--format", "JSON"]
-    )
+    with caplog.at_level(logging.INFO, logger="snowflake.cli"):
+        result = runner.invoke(
+            ["--config-file", config_path, "connection", "list", "--format", "JSON"]
+        )
 
     assert (
         "Cannot register plugin [override]: Cannot add command [snow connection list] because it already exists."
@@ -69,8 +74,6 @@ def test_disabled_plugin_is_not_executed(
 
 @pytest.fixture(scope="module")
 def _install_plugin(test_root_path):
-    import subprocess
-    import sys
-
-    path = test_root_path / ".." / "test_external_plugins" / "override_build_in_command"
-    subprocess.check_call([sys.executable, "-m", "pip", "install", str(path)])
+    install_test_plugin(
+        test_root_path / ".." / "test_external_plugins" / "override_build_in_command"
+    )

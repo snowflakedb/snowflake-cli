@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import pytest
+
+from tests_common.plugin_install import install_test_plugin
 
 
 @pytest.mark.integration
@@ -29,9 +33,10 @@ def test_broken_command_path_plugin(
         test_root_path / "config" / "plugin_tests" / "broken_plugin_config.toml"
     )
 
-    result = runner.invoke(
-        ["--config-file", config_path, "connection", "list", "--format", "JSON"]
-    )
+    with caplog.at_level(logging.INFO, logger="snowflake.cli"):
+        result = runner.invoke(
+            ["--config-file", config_path, "connection", "list", "--format", "JSON"]
+        )
     assert result.exit_code == 0, result.output
 
     assert "Loaded external plugin: broken_plugin" in caplog.messages
@@ -46,8 +51,6 @@ def test_broken_command_path_plugin(
 
 @pytest.fixture(scope="module")
 def _install_plugin(test_root_path):
-    import subprocess
-    import sys
-
-    path = test_root_path / ".." / "test_external_plugins" / "broken_plugin"
-    subprocess.check_call([sys.executable, "-m", "pip", "install", str(path)])
+    install_test_plugin(
+        test_root_path / ".." / "test_external_plugins" / "broken_plugin"
+    )
