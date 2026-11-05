@@ -15599,7 +15599,7 @@
   | command.                                                                     |
   +------------------------------------------------------------------------------+
   +- Usage notes ----------------------------------------------------------------+
-  | The current role must have OPERATE privilege on the service to set           |
+  | The current role must have OWNERSHIP privilege on the service to set         |
   | properties.                                                                  |
   +------------------------------------------------------------------------------+
   +- Examples -------------------------------------------------------------------+
@@ -15798,7 +15798,7 @@
   | command.                                                                     |
   +------------------------------------------------------------------------------+
   +- Usage notes ----------------------------------------------------------------+
-  | The current role must have OPERATE privilege on the service to reset         |
+  | The current role must have OWNERSHIP privilege on the service to reset       |
   | properties.                                                                  |
   +------------------------------------------------------------------------------+
   +- Examples -------------------------------------------------------------------+

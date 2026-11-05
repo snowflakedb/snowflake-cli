@@ -1354,7 +1354,7 @@ def resume(name: FQN = ServiceNameArgument, **options) -> CommandResult:
         banners=(REQ_CONTAINER_SERVICES,),
         usage_notes=(
             plain_text(
-                "The current role must have OPERATE privilege on the service to set properties."
+                "The current role must have OWNERSHIP privilege on the service to set properties."
             ),
         ),
         examples=(
@@ -1410,7 +1410,7 @@ def set_property(
         banners=(REQ_CONTAINER_SERVICES,),
         usage_notes=(
             plain_text(
-                "The current role must have OPERATE privilege on the service to reset properties."
+                "The current role must have OWNERSHIP privilege on the service to reset properties."
             ),
         ),
         examples=(

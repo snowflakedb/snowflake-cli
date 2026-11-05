@@ -26,6 +26,7 @@
 
 ## Fixes and improvements
 * `snow app events` for Snowflake App Runtime projects now prints historical logs (`--since` or `--until`) oldest first, and `--last` keeps the newest lines. Previously the lines came out newest first and `--last` kept the oldest ones.
+* The help text for `snow spcs service set` and `snow spcs service unset` now says the current role needs the OWNERSHIP privilege on the service. It previously said OPERATE, which isn't enough to set or unset service properties.
 
 
 # v3.32.1
