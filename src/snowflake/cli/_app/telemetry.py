@@ -20,7 +20,7 @@ import re
 import sys
 import threading
 from enum import Enum, unique
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Union, cast
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union, cast
 
 import click
 import typer
@@ -655,22 +655,100 @@ def _is_cortex_environment() -> bool:
     return _is_env_truthy("COCO_AGENT")
 
 
+def _is_env_set(name: str) -> bool:
+    """Check if an environment variable is set to a non-empty value."""
+    return bool(os.environ.get(name, "").strip())
+
+
+_CODEX_MARKER_ENV_VARS = (
+    "CODEX_SANDBOX",
+    "CODEX_CI",
+    "CODEX_THREAD_ID",
+    "CODEX_SANDBOX_NETWORK_DISABLED",
+)
+_PI_AGENT_PATH_RE = re.compile(r"\.pi[\\/]agent")
+_DEVIN_MARKER_PATH = "/opt/.devin"
+
+
+def _is_kiro_terminal_without_tty() -> bool:
+    # TERM_PROGRAM=kiro is set by the IDE terminal too, so only count it when
+    # no interactive terminal is attached (the Kiro CLI agent case).
+    return "kiro" in os.environ.get("TERM_PROGRAM", "").lower() and (
+        not is_tty_interactive()
+    )
+
+
+# Agent detection rules, grouped by agent so each agent's variables live
+# together. The first matching agent wins.
+_AGENT_RULES: Tuple[Tuple[str, Callable[[], bool]], ...] = (
+    ("CORTEX", _is_cortex_environment),
+    (
+        "CURSOR",
+        lambda: _is_env_truthy("CURSOR_AGENT")
+        or os.environ.get("CURSOR_EXTENSION_HOST_ROLE", "").strip() == "agent-exec",
+    ),
+    (
+        "COWORK",
+        lambda: _is_env_set("CLAUDE_CODE_IS_COWORK")
+        and (_is_env_truthy("CLAUDECODE") or _is_env_set("CLAUDE_CODE")),
+    ),
+    (
+        "CLAUDE_CODE",
+        lambda: _is_env_truthy("CLAUDECODE") or _is_env_set("CLAUDE_CODE"),
+    ),
+    ("GEMINI_CLI", lambda: _is_env_truthy("GEMINI_CLI")),
+    (
+        "OPENCODE",
+        lambda: _is_env_truthy("OPENCODE") or _is_env_set("OPENCODE_CLIENT"),
+    ),
+    (
+        "CODEX",
+        lambda: "CODEX_API_KEY" in os.environ
+        or any(_is_env_set(n) for n in _CODEX_MARKER_ENV_VARS),
+    ),
+    (
+        "COPILOT_CLI",
+        lambda: _is_env_truthy("COPILOT_CLI")
+        or _is_env_set("COPILOT_MODEL")
+        or _is_env_set("COPILOT_ALLOW_ALL"),
+    ),
+    ("KIMI", lambda: _is_env_set("KIMI_PLUGIN_ROOT")),
+    (
+        "GROK",
+        lambda: _is_env_set("GROK_PLUGIN_ROOT") or _is_env_set("GROK_PLUGIN_DATA"),
+    ),
+    ("CLINE", lambda: _is_env_set("CLINE_ACTIVE")),
+    (
+        "ANTIGRAVITY",
+        lambda: _is_env_set("ANTIGRAVITY_AGENT")
+        or _is_env_set("ANTIGRAVITY_CLI_ALIAS"),
+    ),
+    ("AUGMENT_CLI", lambda: _is_env_set("AUGMENT_AGENT")),
+    ("GOOSE", lambda: _is_env_set("GOOSE_PROVIDER")),
+    (
+        "JUNIE",
+        lambda: _is_env_set("JUNIE_DATA") or _is_env_set("JUNIE_SHIM_PATH"),
+    ),
+    ("PI", lambda: bool(_PI_AGENT_PATH_RE.search(os.environ.get("PATH", "")))),
+    ("REPLIT", lambda: _is_env_set("REPL_ID")),
+    ("KIRO", _is_kiro_terminal_without_tty),
+    ("OPENCLAW", lambda: _is_env_set("OPENCLAW_SHELL")),
+    ("DEVIN", lambda: os.path.exists(_DEVIN_MARKER_PATH)),
+    # Generic standard for custom agents: any tool can set AI_AGENT to its name.
+    # Only the fixed "OTHER" value is reported, never the raw name, which is
+    # free text and would make telemetry unbounded.
+    ("OTHER", lambda: _is_env_set("AI_AGENT")),
+)
+
+
 def _detect_agent_environment() -> str:
-    """Detect AI coding agent based on environment variables."""
-    if _is_cortex_environment():
-        return "CORTEX"
-    if _is_env_truthy("CURSOR_AGENT"):
-        return "CURSOR"
-    if _is_env_truthy("CLAUDECODE"):
-        return "CLAUDE_CODE"
-    if _is_env_truthy("GEMINI_CLI"):
-        return "GEMINI_CLI"
-    if _is_env_truthy("OPENCODE"):
-        return "OPENCODE"
-    if "CODEX_API_KEY" in os.environ:
-        return "CODEX"
-    if _is_env_truthy("COPILOT_CLI"):
-        return "COPILOT_CLI"
+    """Detect AI coding agent based on environment variables.
+
+    Returns the first matching agent, see _AGENT_RULES for the order.
+    """
+    for agent, check in _AGENT_RULES:
+        if check():
+            return agent
     return "UNKNOWN"
 
 
@@ -684,7 +762,7 @@ def _get_agent_session_id() -> str:
     agent = _detect_agent_environment()
     if agent == "CORTEX":
         return os.environ.get("CORTEX_SESSION_ID", "").strip()
-    if agent == "CLAUDE_CODE":
+    if agent in ("CLAUDE_CODE", "COWORK"):
         return os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
     return ""
 
