@@ -17586,8 +17586,9 @@
   +- Usage notes ----------------------------------------------------------------+
   | snow upgrade updates a direct install of Snowflake CLI to the latest         |
   | same-major version. It writes a new version directory, verifies the signed   |
-  | manifest and tarball checksum, and retargets the shim. The next snow in the  |
-  | same session is the new version.                                             |
+  | manifest and tarball checksum, retargets the shim, and unpacks the new       |
+  | binary before it returns. The next snow in the same session is the new       |
+  | version.                                                                     |
   |                                                                              |
   | The command works only when snow --info reports installation_source as       |
   | direct-install. Other channels refuse and print the direct-install command.  |

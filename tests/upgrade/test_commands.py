@@ -29,7 +29,10 @@ from snowflake.cli._plugins.upgrade.manager import (
     STATUS_DRY_RUN,
     STATUS_NEW_MAJOR,
     STATUS_REFUSED,
+    STATUS_REVERTED,
+    STATUS_UPGRADED,
     UnimplementedVersionSource,
+    UpgradeDecision,
 )
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.exceptions import CliError
@@ -192,6 +195,88 @@ def test_revert_refuses_pypi(runner):
     assert payload["status"] == STATUS_REFUSED
     assert payload["channel"] == "pypi"
     assert "install_command" in payload
+
+
+def _decision(status: str, to_version: str | None = "3.13.1") -> UpgradeDecision:
+    payload = {"status": status, "from": "3.12.0"}
+    if to_version is not None:
+        payload["to"] = to_version
+    return UpgradeDecision(payload=payload, message=f"status={status}")
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        STATUS_ALREADY_CURRENT,
+        STATUS_DRY_RUN,
+        STATUS_NEW_MAJOR,
+        STATUS_REFUSED,
+        STATUS_REVERTED,
+    ],
+)
+def test_upgrade_warms_only_after_a_new_version_is_installed(
+    runner, monkeypatch, status
+):
+    warmed: list[str] = []
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.upgrade.commands.plan_upgrade",
+        lambda **_kwargs: _decision(status),
+    )
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.upgrade.commands.warm_installed_binary",
+        lambda version: warmed.append(version),
+    )
+    result = runner.invoke(["upgrade"])
+    assert result.exit_code == 0, result.output
+    assert warmed == []
+
+
+def test_upgrade_warms_the_installed_version(runner, monkeypatch):
+    warmed: list[str] = []
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.upgrade.commands.plan_upgrade",
+        lambda **_kwargs: _decision(STATUS_UPGRADED),
+    )
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.upgrade.commands.warm_installed_binary",
+        lambda version: warmed.append(version),
+    )
+    result = runner.invoke(["upgrade"])
+    assert result.exit_code == 0, result.output
+    assert "status=upgraded" in result.output
+    assert warmed == ["3.13.1"]
+
+
+def test_upgrade_reports_warm_failure_after_the_shim_moved(runner, monkeypatch):
+    recorded: list[str] = []
+
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.upgrade.commands.plan_upgrade",
+        lambda **_kwargs: _decision(STATUS_UPGRADED),
+    )
+
+    def _record(**kwargs):
+        recorded.append(str(kwargs.get("status")))
+
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.upgrade.commands.record_upgrade_event",
+        _record,
+    )
+
+    def _fail(version: str) -> None:
+        raise CliError(
+            f"Upgraded to {version}. The new binary failed to start (exit 1)."
+        )
+
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.upgrade.commands.warm_installed_binary",
+        _fail,
+    )
+    result = runner.invoke(["upgrade"])
+    assert result.exit_code == 1, result.output
+    assert "Upgraded to 3.13.1" in result.output
+    assert "failed to start" in result.output
+    assert recorded == [STATUS_UPGRADED]
 
 
 def test_version_unchanged_by_upgrade_command(runner):
