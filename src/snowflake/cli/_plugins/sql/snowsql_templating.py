@@ -12,17 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import string
+import re
 
+# Matches a SnowSQL `&name` variable reference only when the `&` starts a new
+# token, i.e. at the start of the string or preceded by a non-word character.
+# An `&` embedded inside a word (for example `Principal&Interest` in a comment
+# or string literal) is literal text, not a variable reference (see GH#2714).
+_UNESCAPED_AMPERSAND_VAR = re.compile(r"(?<!\w)&([A-Za-z_][A-Za-z0-9_]*)")
+# Matches the explicit braced form `&{name}` so it is normalized the same way
+# `string.Template` with delimiter `&` used to normalize it.
+_BRACED_AMPERSAND_VAR = re.compile(r"&\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
-class _SnowSQLTemplate(string.Template):
-    delimiter = "&"
-
-
-class _Mapper:
-    def __getitem__(self, item):
-        return "&{ " + item + " }"
+# Placeholder shielding `&&` escapes while `&name` references are transpiled.
+_ESCAPED_AMPERSAND = "\0snowflake-cli-escaped-ampersand\0"
 
 
 def transpile_snowsql_templates(text: str) -> str:
-    return _SnowSQLTemplate(text).safe_substitute(_Mapper())  # type: ignore[arg-type]
+    text = text.replace("&&", _ESCAPED_AMPERSAND)
+    text = _UNESCAPED_AMPERSAND_VAR.sub(r"&{ \1 }", text)
+    text = _BRACED_AMPERSAND_VAR.sub(r"&{ \1 }", text)
+    return text.replace(_ESCAPED_AMPERSAND, "&")
