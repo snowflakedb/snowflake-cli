@@ -125,6 +125,22 @@ def _result_stream() -> TextIO | TeeTextIO | _DiscardStream:
     return TeeTextIO(sys.stdout, spool)
 
 
+def print_raw(text: str) -> None:
+    """Write literal text to stdout and an open spool.
+
+    Query results go through ``print_result``, which changes shape with the
+    output format and follows ``quiet``. Echoed SQL stays the statement text
+    in every format, on the terminal, and in an active spool.
+    """
+    safe = sanitize_for_terminal(text) or ""
+    spool = get_cli_context().spool_stream
+    stream = TeeTextIO(sys.stdout, spool) if spool is not None else sys.stdout
+    stream.write(safe)
+    if not safe.endswith("\n"):
+        stream.write("\n")
+    stream.flush()
+
+
 def _print(*args, **kwargs) -> None:
     kwargs.setdefault("file", _result_stream())
     print(*args, **kwargs)

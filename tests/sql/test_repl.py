@@ -1,4 +1,6 @@
+import csv
 import io
+import json
 import os
 from textwrap import dedent
 from types import SimpleNamespace
@@ -33,13 +35,16 @@ def test_execute_returns_expected_results_count_with_cursors(repl):
 def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
     user_inputs = iter(("select 1;", "exit", "y"))
 
-    with mock.patch.object(
-        repl.session,
-        "prompt",
-        side_effect=user_inputs,
-    ), mock.patch(
-        "snowflake.cli._plugins.sql.repl.time.monotonic",
-        side_effect=(0.0, 0.123),
+    with (
+        mock.patch.object(
+            repl.session,
+            "prompt",
+            side_effect=user_inputs,
+        ),
+        mock.patch(
+            "snowflake.cli._plugins.sql.repl.time.monotonic",
+            side_effect=(0.0, 0.123),
+        ),
     ):
         repl.run()
 
@@ -54,12 +59,17 @@ def test_repl_prints_one_elapsed_footer_per_input(repl, capsys, mock_cursor):
         mock_cursor(rows=[("2",)], columns=["2"]),
     ]
 
-    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
-        repl, "_execute", return_value=(len(cursors), cursors)
-    ), mock.patch(
-        "snowflake.cli._plugins.sql.repl.time.monotonic", side_effect=(0.0, 0.5)
-    ), mock.patch.object(
-        repl.session, "prompt", side_effect=iter(("select 1; select 2;", "exit", "y"))
+    with (
+        mock.patch.object(repl, "_initialize_connection"),
+        mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)),
+        mock.patch(
+            "snowflake.cli._plugins.sql.repl.time.monotonic", side_effect=(0.0, 0.5)
+        ),
+        mock.patch.object(
+            repl.session,
+            "prompt",
+            side_effect=iter(("select 1; select 2;", "exit", "y")),
+        ),
     ):
         repl.run()
 
@@ -150,6 +160,175 @@ def test_repl_set_output_format_plain_applies_to_query_on_same_line(
     assert "| 1 |" not in output
 
 
+def _restore_echo(previous: bool) -> None:
+    get_cli_context_manager().echo = previous
+
+
+def test_repl_echo_defaults_off(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("select 1;", "exit", "y"))
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert "select 1;" not in output
+    assert "| 1 |" in output
+
+
+def test_repl_echo_prints_statement_before_result(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("!set echo=true\nselect 1;", "exit", "y"))
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert output.index("select 1;") < output.index("| 1 |")
+
+
+def test_repl_echo_false_stops_later_statements(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(
+            compiling_repl,
+            ("!set echo=true\nselect 1;", "!set echo=false\nselect 2;", "exit", "y"),
+            monotonic_values=(0.0, 0.5, 1.0, 1.5),
+        )
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert output.count("select 1;") == 1
+    assert "select 2;" not in output
+
+
+def test_repl_echo_empty_value_leaves_default(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("!set echo=", "select 1;", "exit", "y"))
+        output = capsys.readouterr().out
+        assert get_cli_context_manager().echo is previous
+    finally:
+        _restore_echo(previous)
+
+    assert "Invalid value for 'echo'" in output
+    assert "select 1;" not in output
+
+
+def test_repl_echo_skips_repl_commands(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("!set echo=true\n!queries help", "exit", "y"))
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert "!queries" not in output
+    assert "FILTER" in output
+
+
+def test_repl_echo_async_statement_before_query_id(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("!set echo=true\nselect 1;>", "exit", "y"))
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert output.index("select 1") < output.index("01b0-async")
+    assert "select 1;>" not in output
+
+
+def test_repl_echo_tees_statement_into_spool(compiling_repl, capsys, tmp_path):
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    previous = manager.echo
+    try:
+        run_repl(
+            compiling_repl,
+            (f'!spool "{spool}"\n!set echo=true\nselect 1;', "exit", "y"),
+        )
+        output = capsys.readouterr().out
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        _restore_echo(previous)
+        manager.close_spool()
+
+    assert output.index("select 1;") < output.index("| 1 |")
+    assert contents.index("select 1;") < contents.index("| 1 |")
+
+
+def _json_documents(text: str) -> list:
+    decoder = json.JSONDecoder()
+    index = 0
+    documents = []
+    while index < len(text):
+        while index < len(text) and text[index].isspace():
+            index += 1
+        if index >= len(text):
+            break
+        document, index = decoder.raw_decode(text, index)
+        documents.append(document)
+    return documents
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
+)
+def test_repl_echo_leaves_structured_output_parseable(
+    compiling_repl, capsys, tmp_path, output_format
+):
+    """Echo must not land inside a JSON array or ahead of a CSV header."""
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    previous_echo = manager.echo
+    previous_format = manager.output_format
+    try:
+        run_repl(
+            compiling_repl,
+            (
+                f'!spool "{spool}"',
+                f"!set output_format={output_format.value}",
+                "!set echo=true",
+                "select 1;",
+                "exit",
+                "y",
+            ),
+            monotonic_values=tuple(i * 0.5 for i in range(8)),
+        )
+        output = capsys.readouterr().out
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        _restore_echo(previous_echo)
+        manager.output_format = previous_format
+        manager.close_spool()
+
+    assert "select 1;" not in output
+    assert "select 1;" not in contents
+    if output_format == OutputFormat.CSV:
+        rows = [row for row in csv.reader(io.StringIO(contents)) if row]
+        assert rows == [["1"], ["1"]]
+    else:
+        assert _json_documents(contents)[-1] == [[{"1": "1"}]]
+
+
+def test_repl_echo_off_spool_has_result_only(compiling_repl, capsys, tmp_path):
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    previous = manager.echo
+    try:
+        run_repl(compiling_repl, (f'!spool "{spool}"\nselect 1;', "exit", "y"))
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        _restore_echo(previous)
+        manager.close_spool()
+
+    assert "select 1;" not in contents
+    assert "| 1 |" in contents
+
+
 def test_repl_skips_elapsed_for_async_only_input(compiling_repl, capsys):
     """An async statement only schedules work — the REPL never waits for it."""
     run_repl(compiling_repl, ("select 1;>", "exit", "y"))
@@ -224,10 +403,13 @@ def test_repl_skips_elapsed_when_rendering_is_interrupted(repl, capsys, mock_cur
     """Ctrl-C during result printing is not Exception, so no footer for that query."""
     cursors = [mock_cursor(rows=[("2",)], columns=["2"])]
 
-    with mock.patch(
-        "snowflake.cli._plugins.sql.repl.print_result",
-        side_effect=(KeyboardInterrupt, None),
-    ), mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)):
+    with (
+        mock.patch(
+            "snowflake.cli._plugins.sql.repl.print_result",
+            side_effect=(KeyboardInterrupt, None),
+        ),
+        mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)),
+    ):
         run_repl(
             repl,
             ("select 1;", "select 2;", "exit", "y"),
@@ -241,8 +423,9 @@ def test_repl_skips_elapsed_when_rendering_is_interrupted(repl, capsys, mock_cur
 
 def test_repl_skips_elapsed_on_ctrl_d(repl, capsys):
     """Ctrl-D at the prompt is EOFError, so the loop prints no elapsed footer."""
-    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
-        repl.session, "prompt", side_effect=EOFError
+    with (
+        mock.patch.object(repl, "_initialize_connection"),
+        mock.patch.object(repl.session, "prompt", side_effect=EOFError),
     ):
         repl.run()
 
@@ -280,12 +463,15 @@ def test_repl_clears_cached_failure_after_query_error(repl):
     re-raise the cached exception until the user relaunches `snow sql`.
     """
     cache = get_cli_context_manager().connection_cache
-    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
-        cache, "clear_failures"
-    ) as mock_clear_failures, mock.patch.object(
-        repl, "_execute", side_effect=Exception("transient connect blip")
-    ), mock.patch.object(
-        repl.session, "prompt", side_effect=iter(("select 1;", "exit", "y"))
+    with (
+        mock.patch.object(repl, "_initialize_connection"),
+        mock.patch.object(cache, "clear_failures") as mock_clear_failures,
+        mock.patch.object(
+            repl, "_execute", side_effect=Exception("transient connect blip")
+        ),
+        mock.patch.object(
+            repl.session, "prompt", side_effect=iter(("select 1;", "exit", "y"))
+        ),
     ):
         repl.run()
 

@@ -331,6 +331,22 @@ def test_sql_silent_still_prints_result_table(
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_echo_does_not_prefix_one_shot(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    manager = get_cli_context_manager()
+    previous = manager.echo
+    try:
+        result = runner.invoke(["sql", "-q", "!set echo=true\nselect 1 as n;"])
+        assert result.exit_code == 0, result.output
+        assert "select 1 as n;" not in result.output
+        assert get_cli_context().echo_enabled is True
+    finally:
+        manager.echo = previous
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_execute_file(mock_execute, runner, mock_cursor, named_temporary_file):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
     query = "query from file"

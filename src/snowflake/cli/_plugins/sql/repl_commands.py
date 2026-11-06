@@ -448,12 +448,14 @@ class AbortCommand(ReplCommand):
 
 _SET_USAGE = (
     "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
-    "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>`"
+    "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>` | "
+    "`!set echo=<true|false>`"
 )
 _SET_OPTION_OUTPUT_FORMAT = "output_format"
 _SET_OPTION_QUIET = "quiet"
 _SET_OPTION_TIMING = "timing"
 _SET_OPTION_TIMING_IN_OUTPUT_FILE = "timing_in_output_file"
+_SET_OPTION_ECHO = "echo"
 # SnowSQL booleans. An empty value is not false and not a reset to unset.
 _BOOL_TRUE = frozenset({"true", "yes", "on", "1"})
 _BOOL_FALSE = frozenset({"false", "no", "off", "0"})
@@ -464,10 +466,11 @@ _SET_BOOL_OPTIONS = frozenset(
         _SET_OPTION_TIMING_IN_OUTPUT_FILE,
     }
 )
-_SET_OPTIONS = _SET_BOOL_OPTIONS | {_SET_OPTION_OUTPUT_FORMAT}
+_SET_OPTIONS = _SET_BOOL_OPTIONS | {_SET_OPTION_OUTPUT_FORMAT, _SET_OPTION_ECHO}
 _SET_SUPPORTED = (
-    "Only output_format, quiet, timing and timing_in_output_file are supported."
+    "Only output_format, quiet, timing, timing_in_output_file and echo are supported."
 )
+_ECHO_VALUES = frozenset({"true", "false"})
 
 
 def _parse_bool_value(option: str, value: str) -> bool:
@@ -479,10 +482,17 @@ def _parse_bool_value(option: str, value: str) -> bool:
     raise ValueError(f"Invalid value for {option}: {value!r}. Use true or false.")
 
 
+def _parse_echo_value(value: str) -> str:
+    normalized = value.lower()
+    if normalized not in _ECHO_VALUES:
+        raise ValueError(f"Invalid value for 'echo': {value!r}. Must be true or false.")
+    return normalized
+
+
 @register_command("!set")
 @dataclass
 class SetCommand(ReplCommand):
-    """Set a session option. output_format, quiet, timing and timing_in_output_file are supported."""
+    """Set a session option. output_format, quiet, timing, timing_in_output_file and echo are supported."""
 
     option: str
     value: str
@@ -497,6 +507,9 @@ class SetCommand(ReplCommand):
             return
         if self.option == _SET_OPTION_TIMING_IN_OUTPUT_FILE:
             manager.timing_in_output_file = _parse_bool_value(self.option, self.value)
+            return
+        if self.option == _SET_OPTION_ECHO:
+            manager.echo = _parse_echo_value(self.value) == "true"
             return
         manager.output_format = OutputFormat.from_string(self.value)
 
@@ -550,6 +563,8 @@ class SetCommand(ReplCommand):
         try:
             if option in _SET_BOOL_OPTIONS:
                 _parse_bool_value(option, value)
+            elif option == _SET_OPTION_ECHO:
+                value = _parse_echo_value(value)
             else:
                 OutputFormat.from_string(value)
         except ValueError as e:

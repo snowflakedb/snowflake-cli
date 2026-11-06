@@ -26,7 +26,7 @@ import pytest
 from rich.cells import cell_len
 from rich.console import Console
 from snowflake.cli._app import ascii_table
-from snowflake.cli._app.printing import print_result
+from snowflake.cli._app.printing import print_raw, print_result
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
@@ -137,7 +137,7 @@ array,object,date
 
 
 _PLAIN_ID_NAME_ROWS = [{"ID": "1", "NAME": "alice"}, {"ID": "2", "NAME": "bob"}]
-_PLAIN_ID_NAME_SNAPSHOT = "ID  NAME \n" "1   alice\n" "2   bob  \n"
+_PLAIN_ID_NAME_SNAPSHOT = "ID  NAME \n1   alice\n2   bob  \n"
 
 
 def test_plain_collection_result_has_no_box(capsys):
@@ -328,7 +328,7 @@ def test_print_nested_results_rereads_format_when_output_format_is_none(
     finally:
         manager.output_format = previous
 
-    assert output == ("+---+\n" "| n |\n" "|---|\n" "| 1 |\n" "+---+\n" "n\n" "2\n")
+    assert output == ("+---+\n| n |\n|---|\n| 1 |\n+---+\nn\n2\n")
 
 
 @pytest.mark.parametrize("wrapper", (MultipleResults, StreamResult))
@@ -1305,6 +1305,23 @@ def test_stderr_hint_tty_only_once(capsys, monkeypatch, caplog):
     _run()
     tty = capsys.readouterr()
     assert tty.err.count(ascii_table.LARGE_RESULT_HINT) == 1
+
+
+def test_print_raw_strips_ansi_and_tees_spool(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "echo.txt"
+    statement = "select '\x1b[31mred';"
+    try:
+        manager.open_spool(spool)
+        print_raw(statement)
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "\x1b" not in terminal
+    assert "select 'red';\n" in terminal
+    assert contents == "select 'red';\n"
 
 
 def test_print_result_tees_while_spool_open(capsys, tmp_path):

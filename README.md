@@ -163,7 +163,10 @@ line into a file opened with `!spool`. Both accept `true`, `yes`, `on`, and `1`,
 or `false`, `no`, `off`, and `0`. An empty value is rejected and leaves the
 current setting unchanged. `timing` is on by default and
 `timing_in_output_file` is off, so a spool file keeps the results only. JSON,
-JSON_EXT, and CSV output never include the line.
+JSON_EXT, and CSV output never include the line. `!set echo=true` prints each
+statement before its result, on the terminal and in an open `!spool` file. The
+default is `echo=false`. JSON, JSON_EXT, and CSV stay free of that statement so
+the result stays parseable. One `!set` changes one option.
 
 ```toml
 [cli]

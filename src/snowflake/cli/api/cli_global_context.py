@@ -110,6 +110,8 @@ class _CliGlobalContextManager:
     timing: bool = True
     # SnowSQL timing_in_output_file: also write it to an open spool. Needs timing.
     timing_in_output_file: bool = False
+    # REPL-only. One-shot SQL keeps VerboseCursor's own statement logging.
+    echo: bool = False
     spool_path: Path | None = None
     spool_stream: TextIO | None = None
     _spool_stack: ExitStack | None = field(default=None, repr=False, compare=False)
@@ -388,6 +390,11 @@ class _CliGlobalContextAccess:
     @property
     def timing_in_output_file(self) -> bool:
         return self._manager.timing_in_output_file
+
+    @property
+    def echo_enabled(self) -> bool:
+        # Named echo_enabled because the print hook rejects a method named echo.
+        return self._manager.echo
 
     @property
     def spool_path(self) -> Path | None:

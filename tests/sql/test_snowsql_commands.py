@@ -366,10 +366,11 @@ def test_rehash_from_args():
 
 _SET_USAGE = (
     "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
-    "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>`"
+    "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>` | "
+    "`!set echo=<true|false>`"
 )
 _SET_SUPPORTED = (
-    "Only output_format, quiet, timing and timing_in_output_file are supported."
+    "Only output_format, quiet, timing, timing_in_output_file and echo are supported."
 )
 
 
@@ -435,6 +436,47 @@ def test_set_from_args():
     ) == CompileCommandResult(
         error_message="Duplicated argument 'output_format', 'OUTPUT_FORMAT'"
     )
+
+
+def test_set_echo_from_args():
+    assert SetCommand.from_args("echo=true") == CompileCommandResult(
+        command=SetCommand(option="echo", value="true")
+    )
+    assert SetCommand.from_args("ECHO=FALSE") == CompileCommandResult(
+        command=SetCommand(option="echo", value="false")
+    )
+    assert SetCommand.from_args([], {"echo": "True"}) == CompileCommandResult(
+        command=SetCommand(option="echo", value="true")
+    )
+    assert SetCommand.from_args("echo=") == CompileCommandResult(
+        error_message="Invalid value for 'echo': ''. Must be true or false."
+    )
+    assert SetCommand.from_args("echo=yes") == CompileCommandResult(
+        error_message="Invalid value for 'echo': 'yes'. Must be true or false."
+    )
+    assert SetCommand.from_args("echo=true ECHO=false") == CompileCommandResult(
+        error_message="Duplicated argument 'echo'"
+    )
+    assert SetCommand.from_args(
+        [], {"echo": "true", "ECHO": "false"}
+    ) == CompileCommandResult(error_message="Duplicated argument 'echo', 'ECHO'")
+    assert SetCommand.from_args(
+        "echo=true output_format=plain"
+    ) == CompileCommandResult(
+        error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+    )
+
+
+def test_set_execute_sets_echo():
+    manager = get_cli_context_manager()
+    previous = manager.echo
+    try:
+        SetCommand(option="echo", value="true").execute(mock.Mock())
+        assert get_cli_context().echo_enabled is True
+        SetCommand(option="echo", value="false").execute(mock.Mock())
+        assert get_cli_context().echo_enabled is False
+    finally:
+        manager.echo = previous
 
 
 def test_set_execute_sets_output_format():
@@ -550,8 +592,7 @@ def test_set_execute_sets_timing_options():
 
 def test_spool_from_args():
     usage = (
-        "No arguments passed to 'spool' command. "
-        "Usage: `!spool <file>` | `!spool off`"
+        "No arguments passed to 'spool' command. Usage: `!spool <file>` | `!spool off`"
     )
     assert SpoolCommand.from_args([], {}) == CompileCommandResult(error_message=usage)
     assert SpoolCommand.from_args("", {}) == CompileCommandResult(error_message=usage)
