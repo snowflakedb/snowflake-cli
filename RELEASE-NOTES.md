@@ -27,6 +27,7 @@
 ## Fixes and improvements
 * `snow app events` for Snowflake App Runtime projects now prints historical logs (`--since` or `--until`) oldest first, and `--last` keeps the newest lines. Previously the lines came out newest first and `--last` kept the oldest ones.
 * The help text for `snow spcs service set` and `snow spcs service unset` now says the current role needs the OWNERSHIP privilege on the service. It previously said OPERATE, which isn't enough to set or unset service properties.
+* The CLI log file (`snowflake-cli.log`) is now always written as UTF-8, regardless of the system locale or code page. On systems where the default encoding isn't UTF-8, such as Windows with cp932, tools that read the log with the system default encoding need to read it as UTF-8 to show non-ASCII characters correctly. Log files written by earlier versions keep their previous encoding.
 * `snow upgrade` unpacks the new direct-install binary before it returns. The next `snow` command is that version and does not show `Unpacking distribution`.
 
 

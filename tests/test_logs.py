@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import codecs
+import io
 import logging
 import os
 import shutil
@@ -30,6 +32,26 @@ from snowflake.cli.api.exceptions import InvalidLogsConfigurationError
 from tests.conftest import clean_logging_handlers
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 from tests_common import IS_WINDOWS
+
+LOGGING_ERROR = "--- Logging error ---"
+
+# Lines like the ones `snow app deploy` logs for the remote build output. Neither
+# U+2713 (check mark) nor U+00B5 (micro sign) can be encoded in cp932.
+BUILD_LOG_LINES = (
+    "#12 DONE 4.1s \u2713 dependencies installed",
+    "Time reading from stream: 9.87\u00b5s",
+)
+
+
+@pytest.fixture
+def ansi_code_page(monkeypatch):
+    """Make the default text encoding cp932, as on Japanese Windows."""
+    # The stdlib resolves `encoding=None` with `io.text_encoding()`, which gives the
+    # ANSI code page on Windows. Patching it makes the tests fail the same way on
+    # every OS.
+    monkeypatch.setattr(
+        io, "text_encoding", lambda encoding, stacklevel=2: encoding or "cp932"
+    )
 
 
 @pytest.fixture
@@ -119,6 +141,19 @@ def assert_file_log_level(logs_path: Path, expected_level: str) -> None:
 
 def assert_log_is_empty(logs_path: Path) -> None:
     assert get_logs_file(logs_path).read_text() == ""
+
+
+def log_build_lines(*lines: str) -> None:
+    # The logger used by `snow app deploy` for the remote build output
+    logger = logging.getLogger("snowflake.cli._plugins.apps.commands")
+    for line in lines:
+        logger.info(line)
+    _flush_logs()
+
+
+def read_utf8_logs(logs_path: Path) -> str:
+    # The platform default encoding would misread non-ASCII text (e.g. cp1252)
+    return get_logs_file(logs_path).read_text(encoding="utf-8")
 
 
 def test_logs_section_appears_in_fresh_config_file(temporary_directory):
@@ -219,3 +254,52 @@ def test_disabled_logs_with_debug_flag(setup_config_and_logs):
     with setup_config_and_logs(save_logs=False, debug=True):
         print_log_messages()
     # Should not raise exception
+
+
+@pytest.mark.parametrize("debug", [False, True], ids=["default", "debug"])
+def test_logs_keep_characters_outside_of_ansi_code_page(
+    debug, ansi_code_page, capsys, setup_config_and_logs
+):
+    with setup_config_and_logs(save_logs=True, debug=debug) as logs_path:
+        log_build_lines(*BUILD_LOG_LINES)
+        logs = read_utf8_logs(logs_path)
+
+    for line in BUILD_LOG_LINES:
+        assert line in logs
+    assert LOGGING_ERROR not in capsys.readouterr().err
+
+
+def test_logs_file_is_utf8_without_bom(ansi_code_page, setup_config_and_logs):
+    with setup_config_and_logs(save_logs=True) as logs_path:
+        log_build_lines(*BUILD_LOG_LINES)
+        logs = get_logs_file(logs_path).read_bytes()
+
+    assert "\u2713".encode("utf-8") in logs
+    assert not logs.startswith(codecs.BOM_UTF8)
+
+
+def test_logs_escape_lone_surrogates(ansi_code_page, capsys, setup_config_and_logs):
+    with setup_config_and_logs(save_logs=True) as logs_path:
+        log_build_lines("before \ud800 after")
+        logs = read_utf8_logs(logs_path)
+
+    assert "before \\ud800 after" in logs
+    assert LOGGING_ERROR not in capsys.readouterr().err
+
+
+def test_initial_loggers_write_logs_file_as_utf8(
+    ansi_code_page, capsys, snowflake_home
+):
+    clean_logging_handlers()
+    # Creates the loggers used until the command sets up its own
+    config_init(snowflake_home / "config.toml")
+    assert len(_list_handlers()) == 1
+
+    log_build_lines(*BUILD_LOG_LINES)
+
+    logs_path = snowflake_home / "logs"
+    logs = read_utf8_logs(logs_path)
+    for line in BUILD_LOG_LINES:
+        assert line in logs
+    assert not get_logs_file(logs_path).read_bytes().startswith(codecs.BOM_UTF8)
+    assert LOGGING_ERROR not in capsys.readouterr().err

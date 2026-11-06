@@ -67,6 +67,11 @@ class DefaultLoggingConfig:
                 "class": "logging.handlers.TimedRotatingFileHandler",
                 "filename": None,
                 "when": "midnight",
+                # UTF-8 on every platform: the default is the ANSI code page on
+                # Windows (e.g. cp932), which cannot encode every log line.
+                # Lone surrogates are escaped instead of failing the write.
+                "encoding": "utf-8",
+                "errors": "backslashreplace",
                 "formatter": "detailed_formatter",
                 "level": logging.INFO,
             },
