@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Upgrading the Snowflake CLI RPM with `rpm -U` or `dnf` keeps `/usr/local/bin/snow` on PATH. The replaced package's uninstall script used to remove that symlink after the new package created it.
 
 
 # v3.33.0
