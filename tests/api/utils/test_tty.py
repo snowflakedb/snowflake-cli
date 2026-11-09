@@ -14,7 +14,8 @@
 
 from unittest import mock
 
-from snowflake.cli.api.utils.tty import is_tty_interactive
+import pytest
+from snowflake.cli.api.utils.tty import is_stdin_tty, is_stdout_tty, is_tty_interactive
 
 
 def test_is_tty_interactive_returns_true_when_tty():
@@ -40,3 +41,17 @@ def test_is_tty_interactive_returns_false_on_exception():
     with mock.patch("sys.stdin") as mock_stdin:
         mock_stdin.isatty.side_effect = Exception("No TTY available")
         assert is_tty_interactive() is False
+
+
+@pytest.mark.parametrize("stdin_tty, stdout_tty", [(True, False), (False, True)])
+def test_stdin_and_stdout_tty_are_reported_separately(stdin_tty, stdout_tty):
+    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
+        mock_stdin.isatty.return_value = stdin_tty
+        mock_stdout.isatty.return_value = stdout_tty
+        assert is_stdin_tty() is stdin_tty
+        assert is_stdout_tty() is stdout_tty
+
+
+def test_stdout_tty_is_false_without_a_stream():
+    with mock.patch("sys.stdout", None):
+        assert is_stdout_tty() is False

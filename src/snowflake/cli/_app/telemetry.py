@@ -20,7 +20,19 @@ import re
 import sys
 import threading
 from enum import Enum, unique
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import click
 import typer
@@ -36,7 +48,11 @@ from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.constants import TELEMETRY_PENDING_LIMIT
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
-from snowflake.cli.api.utils.tty import is_tty_interactive
+from snowflake.cli.api.utils.tty import (
+    is_stdin_tty,
+    is_stdout_tty,
+    is_tty_interactive,
+)
 from snowflake.connector import ProgrammingError
 from snowflake.connector.telemetry import (
     TelemetryData,
@@ -71,6 +87,12 @@ class CLITelemetryField(Enum):
     COMMAND_AUTH_TYPE = "command_auth_type"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     COMMAND_AGENT_SESSION_ID = "command_agent_session_id"
+    # Observed _AGENT_INDICATORS tokens, never variable values. The version
+    # tells "not observed" apart from "not checked by this CLI version".
+    COMMAND_AGENT_INDICATORS = "command_agent_indicators"
+    COMMAND_AGENT_INDICATORS_VERSION = "command_agent_indicators_version"
+    COMMAND_STDIN_TTY = "command_stdin_tty"
+    COMMAND_STDOUT_TTY = "command_stdout_tty"
     COMMAND_CORTEX_CLIENT_SURFACE = "command_cortex_client_surface"
     COMMAND_CORTEX_TERMINAL_LAUNCHER = "command_cortex_terminal_launcher"
     # Configuration
@@ -645,111 +667,165 @@ def _get_cortex_terminal_launcher() -> str:
     )
 
 
-def _is_cortex_environment() -> bool:
-    if "CORTEX_SESSION_ID" in os.environ:
-        return True
-    if _get_cortex_client_surface():
-        return True
-    if _get_cortex_terminal_launcher():
-        return True
-    return _is_env_truthy("COCO_AGENT")
-
-
 def _is_env_set(name: str) -> bool:
     """Check if an environment variable is set to a non-empty value."""
     return bool(os.environ.get(name, "").strip())
 
 
-_CODEX_MARKER_ENV_VARS = (
-    "CODEX_SANDBOX",
-    "CODEX_CI",
-    "CODEX_THREAD_ID",
-    "CODEX_SANDBOX_NETWORK_DISABLED",
-)
+def _is_env_equal(name: str, value: str) -> bool:
+    return os.environ.get(name, "").strip() == value
+
+
 _PI_AGENT_PATH_RE = re.compile(r"\.pi[\\/]agent")
 _DEVIN_MARKER_PATH = "/opt/.devin"
 
+AGENT_INDICATORS_VERSION = 1
 
-def _is_kiro_terminal_without_tty() -> bool:
-    # TERM_PROGRAM=kiro is set by the IDE terminal too, so only count it when
-    # no interactive terminal is attached (the Kiro CLI agent case).
-    return "kiro" in os.environ.get("TERM_PROGRAM", "").lower() and (
-        not is_tty_interactive()
-    )
-
-
-# Agent detection rules, grouped by agent so each agent's variables live
-# together. The first matching agent wins.
-_AGENT_RULES: Tuple[Tuple[str, Callable[[], bool]], ...] = (
-    ("CORTEX", _is_cortex_environment),
+# Dashboards depend on these tokens: do not rename them, and bump
+# AGENT_INDICATORS_VERSION on any change.
+_AGENT_INDICATORS: Tuple[Tuple[str, Callable[[], bool]], ...] = (
+    ("cortex.session_id", lambda: "CORTEX_SESSION_ID" in os.environ),
+    ("cortex.client_surface", lambda: bool(_get_cortex_client_surface())),
+    ("cortex.terminal_launcher", lambda: bool(_get_cortex_terminal_launcher())),
+    ("cortex.coco_agent", lambda: _is_env_truthy("COCO_AGENT")),
+    ("cursor.agent", lambda: _is_env_truthy("CURSOR_AGENT")),
     (
-        "CURSOR",
-        lambda: _is_env_truthy("CURSOR_AGENT")
-        or os.environ.get("CURSOR_EXTENSION_HOST_ROLE", "").strip() == "agent-exec",
+        "cursor.agent_exec",
+        lambda: _is_env_equal("CURSOR_EXTENSION_HOST_ROLE", "agent-exec"),
     ),
+    # Also set in human Cursor IDE terminals.
+    ("cursor.ide_terminal", lambda: _is_env_set("CURSOR_TRACE_ID")),
+    ("claude_code.cowork", lambda: _is_env_set("CLAUDE_CODE_IS_COWORK")),
+    ("claude_code.claudecode", lambda: _is_env_truthy("CLAUDECODE")),
+    ("claude_code.claude_code", lambda: _is_env_set("CLAUDE_CODE")),
+    # Inherited by every process a Claude Code session starts.
+    ("claude_code.session_id", lambda: _is_env_set("CLAUDE_CODE_SESSION_ID")),
+    ("gemini_cli.flag", lambda: _is_env_truthy("GEMINI_CLI")),
+    ("opencode.flag", lambda: _is_env_truthy("OPENCODE")),
+    ("opencode.client", lambda: _is_env_set("OPENCODE_CLIENT")),
+    ("codex.api_key", lambda: "CODEX_API_KEY" in os.environ),
+    ("codex.sandbox", lambda: _is_env_set("CODEX_SANDBOX")),
+    ("codex.ci", lambda: _is_env_set("CODEX_CI")),
+    ("codex.thread", lambda: _is_env_set("CODEX_THREAD_ID")),
     (
-        "COWORK",
-        lambda: _is_env_set("CLAUDE_CODE_IS_COWORK")
-        and (_is_env_truthy("CLAUDECODE") or _is_env_set("CLAUDE_CODE")),
+        "codex.sandbox_network_disabled",
+        lambda: _is_env_set("CODEX_SANDBOX_NETWORK_DISABLED"),
     ),
-    (
-        "CLAUDE_CODE",
-        lambda: _is_env_truthy("CLAUDECODE") or _is_env_set("CLAUDE_CODE"),
-    ),
-    ("GEMINI_CLI", lambda: _is_env_truthy("GEMINI_CLI")),
-    (
-        "OPENCODE",
-        lambda: _is_env_truthy("OPENCODE") or _is_env_set("OPENCODE_CLIENT"),
-    ),
-    (
-        "CODEX",
-        lambda: "CODEX_API_KEY" in os.environ
-        or any(_is_env_set(n) for n in _CODEX_MARKER_ENV_VARS),
-    ),
-    (
-        "COPILOT_CLI",
-        lambda: _is_env_truthy("COPILOT_CLI")
-        or _is_env_set("COPILOT_MODEL")
-        or _is_env_set("COPILOT_ALLOW_ALL"),
-    ),
-    ("KIMI", lambda: _is_env_set("KIMI_PLUGIN_ROOT")),
-    (
-        "GROK",
-        lambda: _is_env_set("GROK_PLUGIN_ROOT") or _is_env_set("GROK_PLUGIN_DATA"),
-    ),
-    ("CLINE", lambda: _is_env_set("CLINE_ACTIVE")),
-    (
-        "ANTIGRAVITY",
-        lambda: _is_env_set("ANTIGRAVITY_AGENT")
-        or _is_env_set("ANTIGRAVITY_CLI_ALIAS"),
-    ),
-    ("AUGMENT_CLI", lambda: _is_env_set("AUGMENT_AGENT")),
-    ("GOOSE", lambda: _is_env_set("GOOSE_PROVIDER")),
-    (
-        "JUNIE",
-        lambda: _is_env_set("JUNIE_DATA") or _is_env_set("JUNIE_SHIM_PATH"),
-    ),
-    ("PI", lambda: bool(_PI_AGENT_PATH_RE.search(os.environ.get("PATH", "")))),
-    ("REPLIT", lambda: _is_env_set("REPL_ID")),
-    ("KIRO", _is_kiro_terminal_without_tty),
-    ("OPENCLAW", lambda: _is_env_set("OPENCLAW_SHELL")),
-    ("DEVIN", lambda: os.path.exists(_DEVIN_MARKER_PATH)),
-    # Generic standard for custom agents: any tool can set AI_AGENT to its name.
-    # Only the fixed "OTHER" value is reported, never the raw name, which is
-    # free text and would make telemetry unbounded.
-    ("OTHER", lambda: _is_env_set("AI_AGENT")),
+    ("copilot_cli.flag", lambda: _is_env_truthy("COPILOT_CLI")),
+    # *_setting tokens are user settings, often exported in shell profiles.
+    ("copilot_cli.model_setting", lambda: _is_env_set("COPILOT_MODEL")),
+    ("copilot_cli.allow_all_setting", lambda: _is_env_set("COPILOT_ALLOW_ALL")),
+    ("kimi.plugin_hook", lambda: _is_env_set("KIMI_PLUGIN_ROOT")),
+    # Other GROK_AGENT values name an agent definition, not a terminal.
+    ("grok.agent_terminal", lambda: _is_env_equal("GROK_AGENT", "1")),
+    ("grok.plugin_root", lambda: _is_env_set("GROK_PLUGIN_ROOT")),
+    ("grok.plugin_data", lambda: _is_env_set("GROK_PLUGIN_DATA")),
+    ("cline.active", lambda: _is_env_set("CLINE_ACTIVE")),
+    ("antigravity.agent", lambda: _is_env_set("ANTIGRAVITY_AGENT")),
+    ("antigravity.cli_alias", lambda: _is_env_set("ANTIGRAVITY_CLI_ALIAS")),
+    ("augment.agent", lambda: _is_env_set("AUGMENT_AGENT")),
+    ("goose.terminal", lambda: _is_env_equal("GOOSE_TERMINAL", "1")),
+    ("goose.provider_setting", lambda: _is_env_set("GOOSE_PROVIDER")),
+    ("junie.data_setting", lambda: _is_env_set("JUNIE_DATA")),
+    ("junie.shim", lambda: _is_env_set("JUNIE_SHIM_PATH")),
+    ("pi.path", lambda: bool(_PI_AGENT_PATH_RE.search(os.environ.get("PATH", "")))),
+    # Set in every Replit shell, human or agent.
+    ("replit.repl", lambda: _is_env_set("REPL_ID")),
+    ("kiro.term_program", lambda: "kiro" in os.environ.get("TERM_PROGRAM", "").lower()),
+    ("openclaw.shell", lambda: _is_env_set("OPENCLAW_SHELL")),
+    ("devin.marker_file", lambda: os.path.exists(_DEVIN_MARKER_PATH)),
+    ("ai_agent.declared", lambda: _is_env_set("AI_AGENT")),
 )
 
 
-def _detect_agent_environment() -> str:
-    """Detect AI coding agent based on environment variables.
+class _AgentSignals(NamedTuple):
+    indicators: FrozenSet[str]
+    stdout_tty: bool
 
-    Returns the first matching agent, see _AGENT_RULES for the order.
-    """
-    for agent, check in _AGENT_RULES:
-        if check():
+    def has_any(self, *tokens: str) -> bool:
+        return not self.indicators.isdisjoint(tokens)
+
+
+_CLAUDE_CODE_INDICATORS = ("claude_code.claudecode", "claude_code.claude_code")
+
+# First match wins, so more specific rules come first. Indicators also found in
+# human sessions (cursor.ide_terminal, claude_code.session_id, *_setting,
+# replit.repl) are reported but never decide the agent.
+_AGENT_RULES: Tuple[Tuple[str, Callable[[_AgentSignals], bool]], ...] = (
+    (
+        "CORTEX",
+        lambda s: s.has_any(
+            "cortex.session_id",
+            "cortex.client_surface",
+            "cortex.terminal_launcher",
+            "cortex.coco_agent",
+        ),
+    ),
+    ("CURSOR", lambda s: s.has_any("cursor.agent", "cursor.agent_exec")),
+    # Before Claude Code: Grok sessions also carry Claude Code variables.
+    (
+        "GROK",
+        lambda s: s.has_any(
+            "grok.agent_terminal", "grok.plugin_root", "grok.plugin_data"
+        ),
+    ),
+    (
+        "COWORK",
+        lambda s: s.has_any("claude_code.cowork")
+        and s.has_any(*_CLAUDE_CODE_INDICATORS),
+    ),
+    ("CLAUDE_CODE", lambda s: s.has_any(*_CLAUDE_CODE_INDICATORS)),
+    ("GEMINI_CLI", lambda s: s.has_any("gemini_cli.flag")),
+    ("OPENCODE", lambda s: s.has_any("opencode.flag", "opencode.client")),
+    (
+        "CODEX",
+        lambda s: s.has_any(
+            "codex.api_key",
+            "codex.sandbox",
+            "codex.ci",
+            "codex.thread",
+            "codex.sandbox_network_disabled",
+        ),
+    ),
+    ("COPILOT_CLI", lambda s: s.has_any("copilot_cli.flag")),
+    ("KIMI", lambda s: s.has_any("kimi.plugin_hook")),
+    ("CLINE", lambda s: s.has_any("cline.active")),
+    (
+        "ANTIGRAVITY",
+        lambda s: s.has_any("antigravity.agent", "antigravity.cli_alias"),
+    ),
+    ("AUGMENT_CLI", lambda s: s.has_any("augment.agent")),
+    ("GOOSE", lambda s: s.has_any("goose.terminal")),
+    ("JUNIE", lambda s: s.has_any("junie.shim")),
+    ("PI", lambda s: s.has_any("pi.path")),
+    # The Kiro IDE terminal sets TERM_PROGRAM too. Known gap: a person piping
+    # output there counts as Kiro.
+    ("KIRO", lambda s: s.has_any("kiro.term_program") and not s.stdout_tty),
+    ("OPENCLAW", lambda s: s.has_any("openclaw.shell")),
+    ("DEVIN", lambda s: s.has_any("devin.marker_file")),
+    # Generic standard for custom agents: any tool can set AI_AGENT to its name.
+    # Only the fixed "OTHER" value is reported, never the raw name, which is
+    # free text and would make telemetry unbounded.
+    ("OTHER", lambda s: s.has_any("ai_agent.declared")),
+)
+
+
+def _observe_agent_indicators() -> FrozenSet[str]:
+    return frozenset(token for token, check in _AGENT_INDICATORS if check())
+
+
+def _agent_from_signals(signals: _AgentSignals) -> str:
+    for agent, rule in _AGENT_RULES:
+        if rule(signals):
             return agent
     return "UNKNOWN"
+
+
+def _detect_agent_environment() -> str:
+    """Return the first matching agent in _AGENT_RULES, or UNKNOWN."""
+    return _agent_from_signals(
+        _AgentSignals(_observe_agent_indicators(), is_stdout_tty())
+    )
 
 
 def is_coding_agent() -> bool:
@@ -757,14 +833,31 @@ def is_coding_agent() -> bool:
     return _detect_agent_environment() != "UNKNOWN"
 
 
-def _get_agent_session_id() -> str:
-    """Return the detected agent's session ID, or empty string."""
-    agent = _detect_agent_environment()
+def _session_id_for_agent(agent: str) -> str:
     if agent == "CORTEX":
         return os.environ.get("CORTEX_SESSION_ID", "").strip()
     if agent in ("CLAUDE_CODE", "COWORK"):
         return os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
     return ""
+
+
+def _get_agent_session_id() -> str:
+    """Return the detected agent's session ID, or empty string."""
+    return _session_id_for_agent(_detect_agent_environment())
+
+
+def _get_agent_telemetry() -> TelemetryDict:
+    indicators = _observe_agent_indicators()
+    stdout_tty = is_stdout_tty()
+    agent = _agent_from_signals(_AgentSignals(indicators, stdout_tty))
+    return {
+        CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: agent,
+        CLITelemetryField.COMMAND_AGENT_SESSION_ID: _session_id_for_agent(agent),
+        CLITelemetryField.COMMAND_AGENT_INDICATORS: sorted(indicators),
+        CLITelemetryField.COMMAND_AGENT_INDICATORS_VERSION: AGENT_INDICATORS_VERSION,
+        CLITelemetryField.COMMAND_STDIN_TTY: is_stdin_tty(),
+        CLITelemetryField.COMMAND_STDOUT_TTY: stdout_tty,
+    }
 
 
 def command_info() -> str:
@@ -861,8 +954,7 @@ class CLITelemetryClient:
             CLITelemetryField.COMMAND_CI_INTEGRATION_VERSION: _get_ci_integration_version(),
             CLITelemetryField.COMMAND_CI_AUTH_TYPE: _get_ci_auth_type(),
             CLITelemetryField.COMMAND_AUTH_TYPE: _get_auth_type(),
-            CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
-            CLITelemetryField.COMMAND_AGENT_SESSION_ID: _get_agent_session_id(),
+            **_get_agent_telemetry(),
             CLITelemetryField.COMMAND_CORTEX_CLIENT_SURFACE: _get_cortex_client_surface(),
             CLITelemetryField.COMMAND_CORTEX_TERMINAL_LAUNCHER: _get_cortex_terminal_launcher(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {

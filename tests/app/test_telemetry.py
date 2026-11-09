@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
+import re
 import uuid
 from unittest import mock
 
@@ -34,6 +36,15 @@ from tests_common.feature_flag_utils import with_feature_flags
 
 class _TestFlags(FeatureFlagMixin):
     FOO = BooleanFlag("FOO", False)
+
+
+@pytest.fixture(autouse=True)
+def _no_devin_marker_file(monkeypatch, tmp_path):
+    # Environment patches cannot hide a real marker file on a Devin machine.
+    monkeypatch.setattr(
+        "snowflake.cli._app.telemetry._DEVIN_MARKER_PATH",
+        str(tmp_path / "no-devin-marker"),
+    )
 
 
 @mock.patch(
@@ -91,6 +102,15 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
         del usage_command_event["message"][
             "command_cortex_terminal_launcher"
         ]  # to avoid side effect from CORTEX_TERMINAL_LAUNCHER_SOURCE
+        del usage_command_event["message"][
+            "command_agent_indicators"
+        ]  # to avoid side effect from agent environment
+        del usage_command_event["message"][
+            "command_stdin_tty"
+        ]  # to avoid side effect from the test runner's terminal
+        del usage_command_event["message"][
+            "command_stdout_tty"
+        ]  # to avoid side effect from the test runner's terminal
         assert usage_command_event == {
             "message": {
                 "driver_type": "PythonConnector",
@@ -105,6 +125,7 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
                 "command_execution_id": "8a2225b3800c4017a4a9eab941db58fa",
                 "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
                 "command_output_type": "TABLE",
+                "command_agent_indicators_version": 1,
                 "type": "executing_command",
                 "project_definition_version": "None",
                 "config_feature_flags": {
@@ -305,19 +326,16 @@ def test_detect_agent_environment_returns_unknown_when_no_agent():
         ("CODEX_CI", "1", "CODEX"),
         ("CODEX_THREAD_ID", "thread-1", "CODEX"),
         ("CODEX_SANDBOX_NETWORK_DISABLED", "1", "CODEX"),
-        ("COPILOT_MODEL", "gpt-5", "COPILOT_CLI"),
-        ("COPILOT_ALLOW_ALL", "1", "COPILOT_CLI"),
         ("KIMI_PLUGIN_ROOT", "/plugins/kimi", "KIMI"),
+        ("GROK_AGENT", "1", "GROK"),
         ("GROK_PLUGIN_ROOT", "/plugins/grok", "GROK"),
         ("GROK_PLUGIN_DATA", "/data/grok", "GROK"),
         ("CLINE_ACTIVE", "true", "CLINE"),
         ("ANTIGRAVITY_AGENT", "1", "ANTIGRAVITY"),
         ("ANTIGRAVITY_CLI_ALIAS", "agy", "ANTIGRAVITY"),
         ("AUGMENT_AGENT", "1", "AUGMENT_CLI"),
-        ("GOOSE_PROVIDER", "openai", "GOOSE"),
-        ("JUNIE_DATA", "/home/junie", "JUNIE"),
+        ("GOOSE_TERMINAL", "1", "GOOSE"),
         ("JUNIE_SHIM_PATH", "/usr/bin/junie", "JUNIE"),
-        ("REPL_ID", "repl-123", "REPLIT"),
         ("OPENCLAW_SHELL", "1", "OPENCLAW"),
     ],
 )
@@ -363,6 +381,14 @@ def test_detect_agent_environment_cursor_extension_role_must_be_agent_exec():
         ({"CLAUDE_CODE": "1", "GEMINI_CLI": "1"}, "CLAUDE_CODE"),
         ({"CLAUDE_CODE": "1", "CODEX_API_KEY": "key"}, "CLAUDE_CODE"),
         ({"KIMI_PLUGIN_ROOT": "/k", "GEMINI_CLI": "1"}, "GEMINI_CLI"),
+        ({"GROK_AGENT": "1", "CLAUDECODE": "1"}, "GROK"),
+        ({"GROK_PLUGIN_DATA": "/g", "CLAUDE_CODE": "1"}, "GROK"),
+        (
+            {"GROK_AGENT": "1", "CLAUDECODE": "1", "CLAUDE_CODE_IS_COWORK": "1"},
+            "GROK",
+        ),
+        ({"CURSOR_AGENT": "1", "GROK_AGENT": "1"}, "CURSOR"),
+        ({"COPILOT_MODEL": "gpt-5", "GEMINI_CLI": "1"}, "GEMINI_CLI"),
     ],
 )
 def test_detect_agent_environment_table_order_wins(env, expected_agent):
@@ -394,17 +420,25 @@ def test_detect_agent_environment_cowork_requires_claude_code_marker():
 
 
 @pytest.mark.parametrize(
-    "tty_interactive, expected_agent",
-    [(False, "KIRO"), (True, "UNKNOWN")],
+    "stdin_tty, stdout_tty, expected_agent",
+    [
+        (False, False, "KIRO"),
+        (True, False, "KIRO"),
+        (False, True, "UNKNOWN"),
+        (True, True, "UNKNOWN"),
+    ],
 )
-def test_detect_agent_environment_kiro_requires_no_tty(tty_interactive, expected_agent):
-    """Test that Kiro is only detected without an interactive terminal."""
+def test_detect_agent_environment_kiro_requires_stdout_not_a_tty(
+    stdin_tty, stdout_tty, expected_agent
+):
+    """Test that Kiro depends on stdout only, so redirecting stdin does not count."""
     from snowflake.cli._app.telemetry import _detect_agent_environment
 
     with mock.patch.dict(os.environ, {"TERM_PROGRAM": "kiro"}, clear=True):
         with mock.patch(
-            "snowflake.cli._app.telemetry.is_tty_interactive",
-            return_value=tty_interactive,
+            "snowflake.cli._app.telemetry.is_stdin_tty", return_value=stdin_tty
+        ), mock.patch(
+            "snowflake.cli._app.telemetry.is_stdout_tty", return_value=stdout_tty
         ):
             assert _detect_agent_environment() == expected_agent
 
@@ -476,21 +510,102 @@ def test_is_coding_agent_true_for_ai_agent_variable():
 
 
 @pytest.mark.parametrize(
-    "env_var",
+    "env_var, env_value",
     [
-        # Set by the Cursor IDE, not only by its agent, so it would also flag
-        # people working in a Cursor terminal.
-        "CURSOR_TRACE_ID",
-        # Set for ordinary GitHub authentication, not only by Copilot CLI.
-        "COPILOT_GITHUB_TOKEN",
+        ("CURSOR_TRACE_ID", "1"),
+        # Not checked at all: set for ordinary GitHub authentication.
+        ("COPILOT_GITHUB_TOKEN", "1"),
+        ("COPILOT_MODEL", "gpt-5"),
+        ("COPILOT_ALLOW_ALL", "true"),
+        ("GOOSE_PROVIDER", "openai"),
+        ("JUNIE_DATA", "/home/user/junie"),
+        ("REPL_ID", "repl-123"),
+        ("CLAUDE_CODE_SESSION_ID", "sess"),
+        # Only the value "1" marks an agent terminal.
+        ("GROK_AGENT", "reviewer"),
+        ("GOOSE_TERMINAL", "true"),
     ],
 )
-def test_detect_agent_environment_skips_markers_shared_with_humans(env_var):
-    """Test that markers a human setup can also set are not used for detection."""
+def test_detect_agent_environment_skips_markers_present_in_human_sessions(
+    env_var, env_value
+):
+    """Test that markers present in ordinary human sessions are not used for detection."""
     from snowflake.cli._app.telemetry import _detect_agent_environment
 
-    with mock.patch.dict(os.environ, {env_var: "1"}, clear=True):
+    with mock.patch.dict(os.environ, {env_var: env_value}, clear=True):
         assert _detect_agent_environment() == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "env, expected_indicator",
+    [
+        ({"CORTEX_SESSION_ID": ""}, "cortex.session_id"),
+        ({"CORTEX_CODE_CLIENT_SURFACE": "coco_cli"}, "cortex.client_surface"),
+        ({"CORTEX_TERMINAL_LAUNCHER_SOURCE": "sandbox"}, "cortex.terminal_launcher"),
+        ({"COCO_AGENT": "true"}, "cortex.coco_agent"),
+        ({"CURSOR_AGENT": "1"}, "cursor.agent"),
+        ({"CURSOR_EXTENSION_HOST_ROLE": "agent-exec"}, "cursor.agent_exec"),
+        ({"CURSOR_TRACE_ID": "trace"}, "cursor.ide_terminal"),
+        ({"CLAUDE_CODE_IS_COWORK": "1"}, "claude_code.cowork"),
+        ({"CLAUDECODE": "1"}, "claude_code.claudecode"),
+        ({"CLAUDE_CODE": "1"}, "claude_code.claude_code"),
+        ({"CLAUDE_CODE_SESSION_ID": "sess"}, "claude_code.session_id"),
+        ({"GEMINI_CLI": "1"}, "gemini_cli.flag"),
+        ({"OPENCODE": "1"}, "opencode.flag"),
+        ({"OPENCODE_CLIENT": "web"}, "opencode.client"),
+        ({"CODEX_API_KEY": ""}, "codex.api_key"),
+        ({"CODEX_SANDBOX": "seatbelt"}, "codex.sandbox"),
+        ({"CODEX_CI": "1"}, "codex.ci"),
+        ({"CODEX_THREAD_ID": "t"}, "codex.thread"),
+        ({"CODEX_SANDBOX_NETWORK_DISABLED": "1"}, "codex.sandbox_network_disabled"),
+        ({"COPILOT_CLI": "1"}, "copilot_cli.flag"),
+        ({"COPILOT_MODEL": "gpt-5"}, "copilot_cli.model_setting"),
+        ({"COPILOT_ALLOW_ALL": "true"}, "copilot_cli.allow_all_setting"),
+        ({"KIMI_PLUGIN_ROOT": "/k"}, "kimi.plugin_hook"),
+        ({"GROK_AGENT": "1"}, "grok.agent_terminal"),
+        ({"GROK_PLUGIN_ROOT": "/g"}, "grok.plugin_root"),
+        ({"GROK_PLUGIN_DATA": "/g"}, "grok.plugin_data"),
+        ({"CLINE_ACTIVE": "true"}, "cline.active"),
+        ({"ANTIGRAVITY_AGENT": "1"}, "antigravity.agent"),
+        ({"ANTIGRAVITY_CLI_ALIAS": "agy"}, "antigravity.cli_alias"),
+        ({"AUGMENT_AGENT": "1"}, "augment.agent"),
+        ({"GOOSE_TERMINAL": "1"}, "goose.terminal"),
+        ({"GOOSE_PROVIDER": "openai"}, "goose.provider_setting"),
+        ({"JUNIE_DATA": "/j"}, "junie.data_setting"),
+        ({"JUNIE_SHIM_PATH": "/j"}, "junie.shim"),
+        ({"PATH": r"C:\Windows;C:\Users\u\.pi\agent\bin"}, "pi.path"),
+        ({"REPL_ID": "r"}, "replit.repl"),
+        ({"TERM_PROGRAM": "Kiro"}, "kiro.term_program"),
+        ({"OPENCLAW_SHELL": "1"}, "openclaw.shell"),
+        ({"AI_AGENT": "my-tool"}, "ai_agent.declared"),
+    ],
+)
+def test_observe_agent_indicators_reports_single_indicator(env, expected_indicator):
+    """Test that each variable produces exactly its own indicator token."""
+    from snowflake.cli._app.telemetry import _observe_agent_indicators
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        assert _observe_agent_indicators() == {expected_indicator}
+
+
+def test_observe_agent_indicators_reports_devin_marker_file():
+    from snowflake.cli._app.telemetry import _observe_agent_indicators
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry.os.path.exists", return_value=True
+        ):
+            assert _observe_agent_indicators() == {"devin.marker_file"}
+
+
+def test_agent_indicator_tokens_are_unique_fixed_names():
+    """Test that tokens are lowercase <agent>.<signal> names, never variable names."""
+    from snowflake.cli._app.telemetry import _AGENT_INDICATORS
+
+    tokens = [token for token, _ in _AGENT_INDICATORS]
+    assert len(tokens) == len(set(tokens))
+    for token in tokens:
+        assert re.fullmatch(r"[a-z0-9_]+\.[a-z0-9_]+", token), token
 
 
 @pytest.mark.parametrize(
@@ -579,6 +694,129 @@ def test_agent_session_id_empty_in_telemetry_when_unset(_, mock_conn, runner):
     )
 
     assert usage_command_event["message"]["command_agent_session_id"] == ""
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_indicators_and_tty_appear_in_telemetry(_, mock_conn, runner):
+    """All observed indicators are sent, not only the ones that decide the agent."""
+    from snowflake.cli._app.telemetry import AGENT_INDICATORS_VERSION
+
+    env = {
+        "GROK_AGENT": "1",
+        "CLAUDECODE": "1",
+        "CLAUDE_CODE_SESSION_ID": "parent-session",
+        "COPILOT_MODEL": "gpt-5",
+    }
+    with mock.patch.dict(os.environ, env, clear=True), mock.patch(
+        "snowflake.cli._app.telemetry.is_stdin_tty", return_value=True
+    ), mock.patch("snowflake.cli._app.telemetry.is_stdout_tty", return_value=False):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
+    message = (
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()["message"]
+    )
+    assert message["command_agent_environment"] == "GROK"
+    assert message["command_agent_session_id"] == ""
+    assert message["command_agent_indicators"] == [
+        "claude_code.claudecode",
+        "claude_code.session_id",
+        "copilot_cli.model_setting",
+        "grok.agent_terminal",
+    ]
+    assert message["command_agent_indicators_version"] == AGENT_INDICATORS_VERSION
+    assert message["command_stdin_tty"] is True
+    assert message["command_stdout_tty"] is False
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_indicators_empty_in_telemetry_when_unset(_, mock_conn, runner):
+    with mock.patch.dict(os.environ, {}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
+    message = (
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()["message"]
+    )
+    assert message["command_agent_environment"] == "UNKNOWN"
+    assert message["command_agent_indicators"] == []
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_indicator_values_are_never_sent(_, mock_conn, runner):
+    """No value of a checked variable reaches telemetry.
+
+    Session ID variables are left out: command_agent_session_id sends them on purpose.
+    """
+    from snowflake.cli._app.telemetry import _AGENT_INDICATORS
+
+    free_text_vars = [
+        "CURSOR_TRACE_ID",
+        "CLAUDE_CODE_IS_COWORK",
+        "CLAUDE_CODE",
+        "OPENCODE_CLIENT",
+        "CODEX_API_KEY",
+        "CODEX_SANDBOX",
+        "CODEX_CI",
+        "CODEX_THREAD_ID",
+        "CODEX_SANDBOX_NETWORK_DISABLED",
+        "COPILOT_MODEL",
+        "COPILOT_ALLOW_ALL",
+        "KIMI_PLUGIN_ROOT",
+        "GROK_PLUGIN_ROOT",
+        "GROK_PLUGIN_DATA",
+        "CLINE_ACTIVE",
+        "ANTIGRAVITY_AGENT",
+        "ANTIGRAVITY_CLI_ALIAS",
+        "AUGMENT_AGENT",
+        "GOOSE_PROVIDER",
+        "JUNIE_DATA",
+        "JUNIE_SHIM_PATH",
+        "REPL_ID",
+        "OPENCLAW_SHELL",
+        "AI_AGENT",
+    ]
+    env = {name: f"secret-value-{i}" for i, name in enumerate(free_text_vars)}
+    env.update(
+        {
+            "COCO_AGENT": "1",
+            "CURSOR_AGENT": "1",
+            "CURSOR_EXTENSION_HOST_ROLE": "agent-exec",
+            "CLAUDECODE": "1",
+            "GEMINI_CLI": "1",
+            "OPENCODE": "1",
+            "COPILOT_CLI": "1",
+            "GROK_AGENT": "1",
+            "GOOSE_TERMINAL": "1",
+            "PATH": "/home/secret-value-path/.pi/agent/bin",
+            "TERM_PROGRAM": "kiro-secret-value-term",
+        }
+    )
+    with mock.patch.dict(os.environ, env, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
+    calls = telemetry.try_add_log_to_batch.call_args_list
+    assert calls
+    sent = json.dumps([call.args[0].to_dict() for call in calls], default=str)
+    assert "secret-value" not in sent
+
+    indicators = calls[0].args[0].to_dict()["message"]["command_agent_indicators"]
+    assert indicators == sorted(set(indicators))
+    not_triggered = {
+        "cortex.session_id",
+        "cortex.client_surface",
+        "cortex.terminal_launcher",
+        "claude_code.session_id",
+        "devin.marker_file",
+    }
+    assert set(indicators) == {token for token, _ in _AGENT_INDICATORS} - not_triggered
 
 
 @pytest.mark.parametrize(

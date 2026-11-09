@@ -27,14 +27,7 @@ from snowflake.cli._plugins.feedback.constants import (
 from snowflake.cli.api.exceptions import MissingConfigurationError
 from snowflake.connector.errors import DatabaseError
 
-_AGENT_ENV_VARS = (
-    "CORTEX_SESSION_ID",
-    "CURSOR_AGENT",
-    "CLAUDECODE",
-    "GEMINI_CLI",
-    "OPENCODE",
-    "CODEX_API_KEY",
-)
+_OBSERVE_AGENT_INDICATORS = "snowflake.cli._app.telemetry._observe_agent_indicators"
 
 _SUCCESS_JSON_KEYS = {
     "status",
@@ -47,9 +40,13 @@ _SUCCESS_JSON_KEYS = {
 
 
 @pytest.fixture(autouse=True)
-def _clear_agent_environment(monkeypatch):
-    for name in _AGENT_ENV_VARS:
-        monkeypatch.delenv(name, raising=False)
+def _no_agent_indicators(monkeypatch):
+    # The test suite itself may run under an agent.
+    monkeypatch.setattr(_OBSERVE_AGENT_INDICATORS, lambda: frozenset())
+
+
+def _set_agent_indicators(monkeypatch, *indicators: str) -> None:
+    monkeypatch.setattr(_OBSERVE_AGENT_INDICATORS, lambda: frozenset(indicators))
 
 
 def _parse_json(output: str) -> dict:
@@ -168,22 +165,23 @@ def test_human_can_submit_rating_without_message(runner, mock_connect):
 
 
 @pytest.mark.parametrize(
-    "env_name,env_value",
+    "indicator",
     [
-        ("CURSOR_AGENT", "1"),
-        ("CLAUDECODE", "1"),
-        ("GEMINI_CLI", "1"),
-        ("OPENCODE", "1"),
-        ("CORTEX_SESSION_ID", "sess"),
-        ("CORTEX_SESSION_ID", ""),
-        ("CODEX_API_KEY", "x"),
-        ("CODEX_API_KEY", ""),
+        "cursor.agent",
+        "claude_code.claudecode",
+        "gemini_cli.flag",
+        "opencode.flag",
+        "cortex.session_id",
+        "codex.api_key",
+        "grok.agent_terminal",
+        "goose.terminal",
+        "ai_agent.declared",
     ],
 )
 def test_agent_without_message_is_rejected(
-    runner, mock_connect, monkeypatch, env_name, env_value
+    runner, mock_connect, monkeypatch, indicator
 ):
-    monkeypatch.setenv(env_name, env_value)
+    _set_agent_indicators(monkeypatch, indicator)
     result = runner.invoke(_json_feedback())
     assert result.exit_code == 1, result.output
     payload = _parse_json(result.output)
@@ -192,8 +190,29 @@ def test_agent_without_message_is_rejected(
     assert _feedback_events(mock_connect) == []
 
 
+@pytest.mark.parametrize(
+    "indicator",
+    [
+        "copilot_cli.model_setting",
+        "copilot_cli.allow_all_setting",
+        "goose.provider_setting",
+        "junie.data_setting",
+        "replit.repl",
+        "cursor.ide_terminal",
+        "claude_code.session_id",
+    ],
+)
+def test_human_session_indicator_does_not_require_message(
+    runner, mock_connect, monkeypatch, indicator
+):
+    _set_agent_indicators(monkeypatch, indicator)
+    result = runner.invoke(_json_feedback())
+    assert result.exit_code == 0, result.output
+    assert _parse_json(result.output)["status"] == "submitted"
+
+
 def test_agent_with_message_sends(runner, mock_connect, monkeypatch):
-    monkeypatch.setenv("CURSOR_AGENT", "1")
+    _set_agent_indicators(monkeypatch, "cursor.agent")
     result = runner.invoke(_json_feedback("--message", "sql error is confusing"))
     assert result.exit_code == 0, result.output
     payload = _parse_json(result.output)
