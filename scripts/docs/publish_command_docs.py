@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -37,10 +38,21 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import yaml
+from prod_docs_common import (
+    COMMAND_REF_URL,
+    COMMAND_REFERENCE_REL,
+    command_group_dir,
+    group_list_label,
+    group_title,
+    render_template,
+)
 
 DOCS_REPO_ENV = "SNOWFLAKE_PROD_DOCS"
 CLI_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MAPPING = Path(__file__).resolve().parent / "command_docs_paths.yaml"
+GROUP_OVERVIEW_TEMPLATE_PATH = (
+    Path(__file__).resolve().parent / "group_overview_template.mdx"
+)
 PAGES_DIR = Path("gen_docs") / "pages"
 
 GeneratePages = Callable[[Path], Path]
@@ -88,7 +100,14 @@ def run(
     docs_repo = resolve_docs_repo(args.docs_repo, environ)
     mapping = load_mapping(args.mapping)
     pages_root = generate(cli_root)
+    dests = [dest for _, dest in mapping]
     changed = copy_mapped_pages(pages_root, docs_repo, mapping, dry_run=args.dry_run)
+    overview_changed, _created = ensure_group_overviews(
+        docs_repo, dests, dry_run=args.dry_run
+    )
+    for path in overview_changed:
+        if path not in changed:
+            changed.append(path)
     if not changed:
         print("No command-reference pages changed.")
         return []
@@ -190,8 +209,6 @@ def copy_mapped_pages(
         dest = docs_repo / dest_rel
         if not source.is_file():
             _die(f"Generated page is missing: {source}")
-        if not dest.parent.is_dir():
-            _die(f"Docs destination directory does not exist: {dest.parent}")
         planned.append((source_rel, dest_rel, source, dest))
 
     changed: list[Path] = []
@@ -200,9 +217,135 @@ def copy_mapped_pages(
             continue
         print(f"{source_rel} -> {dest_rel}")
         if not dry_run:
+            dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, dest)
         changed.append(dest_rel)
     return changed
+
+
+_TOP_OVERVIEW_BLOCK = """\
+- {label}
+  - []({command_ref}/{group}/overview)
+"""
+
+_TOP_OVERVIEW_LINK_RE = re.compile(
+    rf"- \[\]\({re.escape(COMMAND_REF_URL)}/([^/]+)/overview\)"
+)
+
+
+def ensure_group_overviews(
+    docs_repo: Path,
+    dests: Sequence[Path],
+    *,
+    dry_run: bool,
+) -> tuple[list[Path], list[Path]]:
+    """Create missing group overview.mdx files. Existing overviews are not edited.
+
+    Returns ``(changed, created)``. Both lists are the overviews (and top-index
+    bullets) written for groups that had no overview file.
+    """
+    changed: list[Path] = []
+    created: list[Path] = []
+    by_group: dict[Path, list[Path]] = {}
+    for dest_rel in dests:
+        group = command_group_dir(dest_rel)
+        if group is None:
+            continue
+        by_group.setdefault(group, []).append(dest_rel)
+    for group, group_dests in by_group.items():
+        overview_rel = group / "overview.mdx"
+        if not _create_group_overview(
+            docs_repo / overview_rel,
+            group,
+            group_dests,
+            dry_run=dry_run,
+        ):
+            continue
+        created.append(overview_rel)
+        changed.append(overview_rel)
+        top_rel = COMMAND_REFERENCE_REL / "overview.mdx"
+        if _ensure_top_overview_bullet(docs_repo / top_rel, group, dry_run=dry_run):
+            if top_rel not in changed:
+                changed.append(top_rel)
+    return changed, created
+
+
+def _create_group_overview(
+    path: Path, group: Path, dests: Sequence[Path], *, dry_run: bool
+) -> bool:
+    if path.is_file():
+        return False
+    body = render_group_overview_template(
+        title=group_title(group), bullets=_group_command_bullets(dests)
+    )
+    if not dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+    print(
+        f"group overview created -> {group.name}/overview.mdx "
+        f"(from {GROUP_OVERVIEW_TEMPLATE_PATH.name})"
+    )
+    return True
+
+
+def render_group_overview_template(*, title: str, bullets: str) -> str:
+    """Fill the in-repo group overview template for ``title`` and ``bullets``."""
+    return render_template(
+        GROUP_OVERVIEW_TEMPLATE_PATH,
+        "Group overview",
+        {"__TITLE__": title, "__BULLETS__": bullets},
+    )
+
+
+def _group_command_bullets(dests: Sequence[Path]) -> str:
+    lines: list[str] = []
+    for dest in sorted(
+        {d for d in dests if d.name != "overview.mdx"}, key=lambda p: p.as_posix()
+    ):
+        url = "/" + dest.relative_to("content/en").with_suffix("").as_posix()
+        lines.append(f"- []({url})")
+    return "\n".join(lines)
+
+
+def _ensure_top_overview_bullet(path: Path, group: Path, *, dry_run: bool) -> bool:
+    if not path.is_file():
+        return False
+    content = path.read_text(encoding="utf-8")
+    if f"{COMMAND_REF_URL}/{group.name}/" in content:
+        return False
+    block = _TOP_OVERVIEW_BLOCK.format(
+        label=group_list_label(group),
+        command_ref=COMMAND_REF_URL,
+        group=group.name,
+    )
+    updated = _insert_top_overview_block(content, group.name, block)
+    if updated == content:
+        return False
+    if not dry_run:
+        path.write_text(updated, encoding="utf-8")
+    print(f"command-reference overview -> + {group.name}")
+    return True
+
+
+def _insert_top_overview_block(content: str, group_name: str, block: str) -> str:
+    block = block.rstrip() + "\n"
+    last = None
+    for match in _TOP_OVERVIEW_LINK_RE.finditer(content):
+        if match.group(1) > group_name:
+            # Insert before this group's bullet (the "- Label" line two lines up).
+            line_start = content.rfind("\n", 0, match.start())
+            bullet_start = content.rfind("\n", 0, line_start) + 1
+            return content[:bullet_start] + block + "\n" + content[bullet_start:]
+        last = match
+    if last is None:
+        return content.rstrip() + "\n\n" + block
+    after = content.find("\n", last.end())
+    if after < 0:
+        return content.rstrip() + "\n\n" + block
+    after += 1
+    if after < len(content) and content[after] == "\n":
+        after += 1
+    return content[:after] + "\n" + block + content[after:]
 
 
 def _die(message: str, code: int = 1) -> None:

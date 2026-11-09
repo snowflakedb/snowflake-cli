@@ -63,9 +63,17 @@ the prod build or Releng.
 ## Writer helpers
 
 `publish_command_docs.py` regenerates command-reference MDX with `snow --docs`
-and copies mapped pages. `publish_release_notes.py` copies the CLI version from
-`RELEASE-NOTES.md` into the year page, version variable, and monthly table. It
-creates a missing month file from ``scripts/docs/monthly_details_template.mdx``.
+and copies mapped pages. It creates a missing command-group directory and, when
+the group has no ``overview.mdx``, fills one from
+``scripts/docs/group_overview_template.mdx`` (full paths, not ``./`` links).
+Nested dests such as ``spcs-commands/service-commands/create.mdx`` are listed on
+that top group overview; nested overviews are not created.
+Existing overviews are left unchanged. A new group also gets a
+command-reference index bullet, unless the index already has a link
+under that group's folder. `publish_release_notes.py` copies
+the CLI version from `RELEASE-NOTES.md` into the year page, version variable,
+and monthly table. It creates a missing month file from
+``scripts/docs/monthly_details_template.mdx``.
 Neither runs git or opens a PR; use `publish_prod_docs.py` / `snow release
 publish-docs` for the full release flow.
 

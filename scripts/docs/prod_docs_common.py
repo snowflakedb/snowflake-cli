@@ -101,3 +101,52 @@ def format_version_heading_date(release_date: date) -> str:
 def format_monthly_table_date(release_date: date) -> str:
     month = _ENGLISH_MONTHS[release_date.month - 1]
     return f"{release_date.day:02d}-{month}-{release_date.year}"
+
+
+COMMAND_REFERENCE_REL = Path(
+    "content/en/developer-guide/snowflake-cli/command-reference"
+)
+CLI_NAV_TREE_REL = Path("webserver/trees/develop/snowflake-cli-v3.ts")
+RELEASE_NAV_TREE_REL = Path(
+    "webserver/trees/releases/clients/clients-drivers-libraries.ts"
+)
+CLI_YEAR_INDEX_REL = Path("content/en/release-notes/clients-drivers/snowflake-cli.mdx")
+COMMAND_REF_URL = "/developer-guide/snowflake-cli/command-reference"
+
+
+def command_group_dir(dest_rel: Path) -> Path | None:
+    """Return the ``*-commands`` directory under command-reference, if any."""
+    try:
+        relative = dest_rel.relative_to(COMMAND_REFERENCE_REL)
+    except ValueError:
+        return None
+    if len(relative.parts) < 2:
+        return None
+    group = COMMAND_REFERENCE_REL / relative.parts[0]
+    if not group.name.endswith("-commands"):
+        return None
+    return group
+
+
+def group_words(group_dir: Path) -> str:
+    """``feedback-commands`` -> ``feedback commands``."""
+    name = group_dir.name
+    if name.endswith("-commands"):
+        name = name[: -len("-commands")] + " commands"
+    return name.replace("-", " ")
+
+
+def group_title(group_dir: Path) -> str:
+    """``feedback-commands`` -> ``snow feedback commands``."""
+    return f"snow {group_words(group_dir)}"
+
+
+def group_list_label(group_dir: Path) -> str:
+    """``feedback-commands`` -> ``Feedback commands``."""
+    words = group_words(group_dir)
+    return words[:1].upper() + words[1:] if words else words
+
+
+def nav_path_for(dest_rel: Path) -> str:
+    """Docs-repo path to the nav ``path`` value (no ``content/en``, no suffix)."""
+    return dest_rel.relative_to("content/en").with_suffix("").as_posix()
