@@ -44,6 +44,32 @@ def sanitize_for_terminal(text: str) -> str | None:
     return _ANSI_ESCAPE.sub("", text)
 
 
+# Keep TAB and LF so a multi-line prompt still works; strip other C0 controls
+# (including CR/NUL) so untrusted text cannot overwrite the prompt line.
+_UNSAFE_PROMPT_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+
+
+def sanitize_for_prompt(text: str) -> str:
+    """Strip ANSI and prompt-unsafe C0 controls from text shown in a prompt."""
+    cleaned = sanitize_for_terminal(text) or ""
+    return _UNSAFE_PROMPT_CHARS.sub("", cleaned)
+
+
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def sanitize_for_csv(text: str) -> str:
+    """
+    Strip ANSI escape codes and prefix a single quote to text that a
+    spreadsheet would evaluate as a formula (CWE-1236). CSV quoting does
+    not stop spreadsheets from evaluating a quoted ``=...`` cell.
+    """
+    text = _ANSI_ESCAPE.sub("", text)
+    if text.startswith(_CSV_FORMULA_PREFIXES):
+        return "'" + text
+    return text
+
+
 def sanitize_source_error(exc: Exception) -> str:
     """
     Produce a logging-safe description of discovery errors.

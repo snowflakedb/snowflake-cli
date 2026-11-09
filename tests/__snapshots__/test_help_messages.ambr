@@ -10894,10 +10894,10 @@
   | repository.                                                                  |
   | snow init new_snowpark_project --template example_snowpark                   |
   |                                                                              |
-  |   Project identifier (used to determine artifacts stage path)                |
+  |   From template: Project identifier (used to determine artifacts stage path) |
   | [my_snowpark_project]:                                                       |
-  |   What stage should the procedures and functions be deployed to?             |
-  | [dev_deployment]: snowpark                                                   |
+  |   From template: What stage should the procedures and functions be deployed  |
+  | to? [dev_deployment]: snowpark                                               |
   | Output: Initialized the new project in new_snowpark_project                  |
   |                                                                              |
   | Bootstrap a Streamlit project by using the -D option to provide the values   |
@@ -10907,7 +10907,7 @@
   | ../local_templates/example_streamlit -D query_warehouse=dev_wareshouse -D    |
   | stage=testing                                                                |
   |                                                                              |
-  |   Name of the streamlit app [streamlit_app]: My streamlit                    |
+  |   From template: Name of the streamlit app [streamlit_app]: My streamlit     |
   | Output: Initialized the new project in new_streamlit_project                 |
   +------------------------------------------------------------------------------+
   +- Related topics -------------------------------------------------------------+

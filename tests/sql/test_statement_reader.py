@@ -7,6 +7,7 @@ from urllib.request import Request
 
 import pytest
 from jinja2 import UndefinedError
+from snowflake.cli._plugins.sql import statement_reader as statement_reader_mod
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
@@ -47,8 +48,8 @@ class _FakeResponse:
     def geturl(self) -> str:
         return self._url
 
-    def read(self) -> bytes:
-        return self._buf.read()
+    def read(self, size: int = -1) -> bytes:
+        return self._buf.read(size)
 
     def close(self) -> None:
         return
@@ -60,8 +61,10 @@ class _FakeUrlOpen:
     ):
         self.responses = responses
         self.redirects = redirects or {}
+        self.calls: list[str] = []
 
     def __call__(self, url, timeout=None):  # noqa: ARG002
+        self.calls.append(url)
         if url not in self.responses:
             raise urllib.error.HTTPError(url, 404, "Not Found", hdrs=None, fp=None)
         return _FakeResponse(self.redirects.get(url, url), self.responses[url])
@@ -175,6 +178,186 @@ def test_recusion_detection_from_files(tmp_path_factory: pytest.TempPathFactory)
         CompiledStatement(statement="select 1;"),
         CompiledStatement(statement="select 2;"),
     ]
+
+
+def test_recursion_via_aliased_file_path(tmp_path_factory: pytest.TempPathFactory):
+    """Cycle detection must treat resolved path aliases as the same file."""
+    base = tmp_path_factory.mktemp("alias")
+    f1 = base / "f1.sql"
+    alias = base / "." / "f1.sql"
+    f1.write_text(f"select 1; !source {alias.as_posix()};")
+
+    source = files_reader((SecurePath(f1),), WORKING_OPERATOR_FUNCS)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert errors
+    assert errors[0].startswith("Recursion detected:")
+    assert cnt == 1
+    assert compiled == [CompiledStatement(statement="select 1;")]
+
+
+def test_unique_url_chain_hits_depth_limit(monkeypatch):
+    """Distinct URLs must still stop at the nesting cap (not Python RecursionError)."""
+    monkeypatch.setattr(statement_reader_mod, "SQL_SOURCE_MAX_DEPTH", 3)
+    fake = _FakeUrlOpen(
+        {
+            f"https://example.com/{n}.sql": f"!source https://example.com/{n + 1}.sql;"
+            for n in range(5)
+        }
+    )
+    monkeypatch.setattr(statement_reader_mod, "urlopen", fake)
+
+    source = query_reader("!source https://example.com/0.sql;", WORKING_OPERATOR_FUNCS)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert cnt == 0
+    assert not compiled
+    assert errors
+    assert "Maximum !source nesting depth" in errors[0]
+    assert "3" in errors[0]
+    # Depth 0..2 are fetched; the !source inside 2.sql is rejected before GET /3.sql
+    assert len(fake.calls) == 3
+
+
+def test_repeated_source_hits_include_limit(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch
+):
+    """Sibling re-includes of distinct files are bounded by the inclusion cap."""
+    monkeypatch.setattr(statement_reader_mod, "SQL_SOURCE_MAX_INCLUDES", 2)
+    base = tmp_path_factory.mktemp("includes")
+    files = []
+    for i in range(3):
+        path = base / f"f{i}.sql"
+        path.write_text(f"select {i};")
+        files.append(path)
+
+    query = "\n".join(f"!source {p.as_posix()};" for p in files)
+    source = query_reader(query, WORKING_OPERATOR_FUNCS)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert cnt == 2
+    assert compiled == [
+        CompiledStatement(statement="select 0;"),
+        CompiledStatement(statement="select 1;"),
+    ]
+    assert errors
+    assert "Maximum number of !source/!load inclusions" in errors[0]
+    assert "2" in errors[0]
+
+
+def test_same_file_sibling_reinclude_hits_include_limit(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch
+):
+    """Same-file sibling !source after seen_files.pop() must still consume the include cap."""
+    monkeypatch.setattr(statement_reader_mod, "SQL_SOURCE_MAX_INCLUDES", 2)
+    path = tmp_path_factory.mktemp("includes") / "big.sql"
+    path.write_text("select 1;")
+
+    query = "\n".join(f"!source {path.as_posix()};" for _ in range(3))
+    source = query_reader(query, WORKING_OPERATOR_FUNCS)
+    errors, cnt, compiled = compile_statements(source)
+
+    assert cnt == 2
+    assert compiled == [
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 1;"),
+    ]
+    assert errors
+    assert "Maximum number of !source/!load inclusions" in errors[0]
+    assert "2" in errors[0]
+    assert not any("Recursion detected" in e for e in errors)
+
+
+def test_include_limit_does_not_fetch_url_beyond_cap(monkeypatch):
+    """Sibling URL !source past the inclusion cap must not call urlopen."""
+    monkeypatch.setattr(statement_reader_mod, "SQL_SOURCE_MAX_INCLUDES", 2)
+    urls = [f"https://example.com/u{i}.sql" for i in range(3)]
+    fake = _FakeUrlOpen({url: "select 1;" for url in urls})
+    monkeypatch.setattr(statement_reader_mod, "urlopen", fake)
+
+    query = "\n".join(f"!source {url};" for url in urls)
+    errors, cnt, compiled = compile_statements(
+        query_reader(query, WORKING_OPERATOR_FUNCS)
+    )
+
+    assert cnt == 2
+    assert compiled == [
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 1;"),
+    ]
+    assert errors
+    assert "Maximum number of !source/!load inclusions" in errors[0]
+    assert fake.calls == urls[:2]
+
+
+def test_failed_url_fetches_consume_include_budget(monkeypatch):
+    """404 and timeout !source attempts must consume the include budget so later URLs are not fetched."""
+    monkeypatch.setattr(statement_reader_mod, "SQL_SOURCE_MAX_INCLUDES", 2)
+    missing = "https://example.com/missing.sql"
+    slow = "https://example.com/slow.sql"
+    ok = "https://example.com/ok.sql"
+    fake = _FakeUrlOpen({ok: "select 1;"})
+
+    def urlopen_maybe_timeout(url, *args, **kwargs):
+        if url == slow:
+            fake.calls.append(url)
+            raise TimeoutError("timed out")
+        return fake(url, *args, **kwargs)
+
+    monkeypatch.setattr(statement_reader_mod, "urlopen", urlopen_maybe_timeout)
+
+    query = "\n".join((f"!source {missing};", f"!source {slow};", f"!source {ok};"))
+    errors, cnt, compiled = compile_statements(
+        query_reader(query, WORKING_OPERATOR_FUNCS)
+    )
+
+    assert cnt == 0
+    assert not compiled
+    assert sum("Could not fetch" in e for e in errors) == 2
+    assert any("Maximum number of !source/!load inclusions" in e for e in errors)
+    assert fake.calls == [missing, slow]
+
+
+def test_from_file_rejects_oversized_file(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch
+):
+    monkeypatch.setattr(statement_reader_mod, "SQL_SOURCE_SIZE_LIMIT_MB", 0)
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    f1.write_text("select 1;")
+
+    result = ParsedStatement.from_file(str(f1), f"!source {f1};")
+    assert result.error
+    assert "exceeds 0 MB limit" in result.error
+    assert result.statement_type == StatementType.FILE
+
+
+def test_files_reader_rejects_oversized_file(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch
+):
+    monkeypatch.setattr(statement_reader_mod, "SQL_SOURCE_SIZE_LIMIT_MB", 0)
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    f1.write_text("select 1;")
+
+    errors, cnt, compiled = compile_statements(
+        files_reader((SecurePath(f1),), WORKING_OPERATOR_FUNCS)
+    )
+    assert cnt == 0
+    assert not compiled
+    assert errors
+    assert "exceeds 0 MB limit" in errors[0]
+
+
+def test_from_url_rejects_oversized_payload(monkeypatch):
+    monkeypatch.setattr(statement_reader_mod, "SQL_SOURCE_SIZE_LIMIT_MB", 0)
+    url = "https://example.com/big.sql"
+    monkeypatch.setattr(
+        statement_reader_mod, "urlopen", _FakeUrlOpen({url: "select 1;"})
+    )
+
+    source = parse_statement(f"!source {url};", WORKING_OPERATOR_FUNCS)
+    assert source.statement_type == StatementType.URL
+    assert source.error
+    assert "payload exceeds 0 MB limit" in source.error
 
 
 def test_source_missing_url(monkeypatch):

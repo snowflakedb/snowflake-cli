@@ -59,6 +59,13 @@ class TestSqlIdentifier:
         fqn = FQN.from_string("db.schema.func(string, int)")
         assert fqn.sql_identifier == "IDENTIFIER('db.schema.func')(string, int)"
 
+    def test_signature_allows_nested_type_precision(self):
+        fqn = FQN.from_string("db.schema.func(NUMBER(38, 2), VARCHAR)")
+        assert fqn.signature == "(NUMBER(38, 2), VARCHAR)"
+        assert (
+            fqn.sql_identifier == "IDENTIFIER('db.schema.func')(NUMBER(38, 2), VARCHAR)"
+        )
+
     @pytest.mark.parametrize(
         "name, expected",
         [
@@ -240,6 +247,20 @@ def test_set_schema():
     assert fqn.schema == "foo"
 
 
+def test_set_name():
+    fqn = FQN(name="object_name", database="database_name", schema="schema_name")
+    fqn.set_name("foo")
+    assert fqn.name == "foo"
+    fqn.set_name('"quoted name"')
+    assert fqn.name == '"quoted name"'
+
+
+def test_set_name_rejects_non_identifier():
+    fqn = FQN(name="object_name", database=None, schema=None)
+    with pytest.raises(FQNNameError):
+        fqn.set_name("myint origin='https://example.com'")
+
+
 @pytest.mark.parametrize(
     "fqn_str, identifier",
     [
@@ -270,6 +291,18 @@ def test_from_string(fqn_str, identifier):
     assert fqn.identifier == identifier
     if fqn.signature:
         assert fqn.signature == "(string, int, variant)"
+
+
+@pytest.mark.parametrize(
+    "fqn_str, identifier, signature",
+    [
+        ("func()", "func", "()"),
+    ],
+)
+def test_from_string_accepts_signature(fqn_str, identifier, signature):
+    fqn = FQN.from_string(fqn_str)
+    assert fqn.identifier == identifier
+    assert fqn.signature == signature
 
 
 @pytest.mark.parametrize(
@@ -315,6 +348,12 @@ def test_from_stage(fqn_str, identifier):
         "name with space",
         'dot.db."dot.schema"."dot.name"',
         '"dot.db.schema."dot.name"',
+        "f(int); SELECT (1)",
+        "func(int, varchar); SELECT 1",
+        "func('int')",
+        "f(int) ->> GRANT ROLE ACCOUNTADMIN TO USER eve",
+        "f(int) SELECT (1)",
+        "func(int)(varchar)",
     ],
 )
 def test_from_string_fails_if_pattern_does_not_match(fqn_str):
@@ -528,3 +567,10 @@ class TestFromResource:
         result = FQN.from_resource(ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE")
 
         assert result.identifier == f"test_db.test_schema.{expected_name}"
+
+
+def test_set_database_and_schema_keep_connection_names():
+    # Connection names are quoted at SQL build time, so a hyphen or a space is kept.
+    fqn = FQN.from_string("svc").set_database("my-db").set_schema("my schema")
+    assert fqn.database == "my-db"
+    assert fqn.schema == "my schema"

@@ -26,7 +26,7 @@ from snowflake.cli._plugins.stage.manager import (
     UserStagePathParts,
 )
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.project.util import to_identifier, to_string_literal
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -104,7 +104,7 @@ class GitManager(StageManager):
         query = dedent(
             f"""
             create git repository {repo_name.sql_identifier}
-            api_integration = {api_integration}
+            api_integration = {to_identifier(str(api_integration))}
             origin = {to_string_literal(url)}
             """
         )

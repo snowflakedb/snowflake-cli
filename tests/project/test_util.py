@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from io import StringIO
 from itertools import permutations
 
 import pytest
@@ -35,6 +36,7 @@ from snowflake.cli.api.project.util import (
     to_string_literal,
     unquote_identifier,
 )
+from snowflake.connector.util_text import split_statements
 
 VALID_UNQUOTED_IDENTIFIERS = (
     "_",
@@ -228,13 +230,10 @@ def test_is_valid_string_literal(literal, valid):
         ("\xf6", "'\xf6'"),
         ("a\\b", "'a\\b'"),  # bare backslash passes through
         ("C:\\Users\\RUNNER~1", "'C:\\Users\\RUNNER~1'"),
-        # A trailing backslash run (not followed by a quote) is preserved
-        # verbatim: only backslashes *before a quote* are doubled. This is safe
-        # for `ls ... pattern = '...'` because the literal is the final token, so
-        # the (escaped) closing quote has nothing after it for the splitter to
-        # absorb.
-        ("a\\", "'a\\'"),  # single trailing backslash
-        ("a\\\\\\", "'a\\\\\\'"),  # odd-length (3) trailing backslash run
+        # Odd trailing-backslash runs get one extra `\`; even runs are already safe.
+        ("a\\", "'a\\\\'"),  # odd: 1
+        ("a\\\\\\", "'a\\\\\\\\'"),  # odd: 3
+        ("a\\\\", "'a\\\\'"),  # even: 2
         ("'abc", "'''abc'"),  # leading unterminated single quote
         ("a'c", "'a''c'"),  # nested single quote
         ("abc'", "'abc'''"),  # trailing single quote
@@ -260,6 +259,14 @@ def test_is_valid_string_literal(literal, valid):
 )
 def test_to_string_literal(raw_string, literal):
     assert to_string_literal(raw_string) == literal
+
+
+def test_to_string_literal_trailing_backslash_keeps_adjacent_literals_apart():
+    first = to_string_literal("EVT\\")
+    second = to_string_literal("x; select 1")
+    sql = f"select {first}, {second}"
+    stmts = [s for s, _ in split_statements(StringIO(sql))]
+    assert len(stmts) == 1
 
 
 @pytest.mark.parametrize(

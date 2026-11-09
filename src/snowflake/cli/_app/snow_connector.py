@@ -552,7 +552,11 @@ def prepare_private_key(
 
 
 def _maybe_update_oidc_token(connection_parameters: dict) -> dict:
-    """Try to obtain OIDC token automatically."""
+    """Obtain an OIDC token automatically when the user has not already supplied one."""
+    if connection_parameters.get("token") or connection_parameters.get(
+        "token_file_path"
+    ):
+        return connection_parameters
     try:
         manager = OidcManager()
         if token := manager.read_token(OidcProviderTypeWithAuto.AUTO):

@@ -653,8 +653,8 @@ class StageManager(SqlExecutionMixin):
             "Copying files from %s to %s", source_stage_path, destination_stage_path
         )
         # Destination needs to end with /
-        dest = destination_stage_path.absolute_path().rstrip("/") + "/"
-        query = f"copy files into {dest} from {source_stage_path}"
+        dest = destination_stage_path.with_trailing_slash().path_for_sql()
+        query = f"copy files into {dest} from {source_stage_path.path_for_sql()}"
         return self.execute_query(query)
 
     def remove(
@@ -831,10 +831,9 @@ class StageManager(SqlExecutionMixin):
     def _filter_files_list(
         self, stage_path_parts: StagePathParts, files_on_stage: List[str]
     ) -> List[str]:
-        if not stage_path_parts.directory:
+        stage_path = (stage_path_parts.directory or "").rstrip("/")
+        if not stage_path:
             return self._filter_supported_files(files_on_stage)
-
-        stage_path = stage_path_parts.directory
 
         # Exact file path was provided if stage_path in file list
         if stage_path in files_on_stage:
@@ -849,9 +848,19 @@ class StageManager(SqlExecutionMixin):
         if glob.has_magic(stage_path):
             filtered_files = fnmatch.filter(files_on_stage, stage_path)
         else:
-            # Path to directory was provided
-            filtered_files = fnmatch.filter(files_on_stage, f"{stage_path}*")
+            filtered_files = [
+                file_path
+                for file_path in files_on_stage
+                if self._is_directory_or_descendant(file_path, stage_path)
+            ]
         return self._filter_supported_files(filtered_files)
+
+    @staticmethod
+    def _is_directory_or_descendant(file_path: str, directory: str) -> bool:
+        prefix = directory.rstrip("/")
+        return bool(prefix) and (
+            file_path == prefix or file_path.startswith(f"{prefix}/")
+        )
 
     @staticmethod
     def _filter_supported_files(files: List[str]) -> List[str]:

@@ -408,6 +408,27 @@ def test_copy_stage_to_stage(mock_execute, runner, mock_cursor):
     )
 
 
+def test_copy_files_quotes_source_and_destination_paths():
+    mgr = StageManager()
+    with mock.patch.object(mgr, "execute_query") as mock_execute:
+        mgr.copy_files("@repo/foo;bar", '@dst/"dir;x"')
+        query = mock_execute.call_args[0][0]
+        dest = to_string_literal('@dst/"dir;x"/')
+        source = to_string_literal("@repo/foo;bar")
+        assert query == f"copy files into {dest} from {source}"
+        assert len([s for s, _ in split_statements(StringIO(query))]) == 1
+
+
+def test_copy_files_quotes_git_source_path():
+    mgr = GitManager()
+    with mock.patch.object(mgr, "execute_query") as mock_execute:
+        mgr.copy_files("@repo/branches/main/x;payload", "@dst")
+        query = mock_execute.call_args[0][0]
+        source = to_string_literal("@repo/branches/main/x;payload")
+        assert query == f"copy files into @dst/ from {source}"
+        assert len([s for s, _ in split_statements(StringIO(query))]) == 1
+
+
 @pytest.mark.parametrize(
     "stage_path, files_on_stage, expected_stage_path, expected_calls",
     [
@@ -1129,6 +1150,106 @@ def test_execute(
     assert result.output == os_agnostic_snapshot
     for expected_file in expected_files:
         assert f"Executing SQL file: {expected_file}" in caplog.messages
+
+
+@pytest.mark.parametrize(
+    "stage_path, listed_names, expected_files",
+    [
+        (
+            "@exe/dev",
+            [
+                "exe/dev/run.sql",
+                "exe/developer/extra.sql",
+                "exe/dev.sql",
+                "exe/dev_extra.sql",
+            ],
+            ["@exe/dev/run.sql"],
+        ),
+        (
+            "@exe/dev/",
+            [
+                "exe/dev/run.sql",
+                "exe/developer/extra.sql",
+            ],
+            ["@exe/dev/run.sql"],
+        ),
+        (
+            "@exe/a",
+            [
+                "exe/a/S3.sql",
+                "exe/a/b/s4.sql",
+                "exe/ab/extra.sql",
+                "exe/aa.sql",
+            ],
+            ["@exe/a/S3.sql", "@exe/a/b/s4.sql"],
+        ),
+        (
+            "@exe/dev*",
+            [
+                "exe/dev/run.sql",
+                "exe/developer/extra.sql",
+            ],
+            ["@exe/dev/run.sql", "@exe/developer/extra.sql"],
+        ),
+        (
+            "@exe/dev.sql",
+            [
+                "exe/dev.sql",
+                "exe/dev/run.sql",
+            ],
+            ["@exe/dev.sql"],
+        ),
+        (
+            "@exe///",
+            [
+                "exe/dev/run.sql",
+                "exe/developer/extra.sql",
+            ],
+            ["@exe/dev/run.sql", "@exe/developer/extra.sql"],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_execute_directory_match_is_path_component(
+    mock_execute,
+    mock_cursor,
+    runner,
+    stage_path,
+    listed_names,
+    expected_files,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": name} for name in listed_names],
+        [],
+    )
+
+    result = runner.invoke(["stage", "execute", stage_path])
+
+    assert result.exit_code == 0, result.output
+    ls_call, *execute_calls = mock_execute.mock_calls
+    assert ls_call == mock.call("ls @exe", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from {path}") for path in expected_files
+    ]
+
+
+@pytest.mark.parametrize(
+    "file_path, directory, expected",
+    [
+        ("dev/run.sql", "dev", True),
+        ("dev/run.sql", "dev/", True),
+        ("developer/extra.sql", "dev", False),
+        ("dev.sql", "dev", False),
+        ("dev/run.sql", "", False),
+        ("dev/run.sql", "//", False),
+        ("dev/run.sql", "/", False),
+    ],
+)
+def test_is_directory_or_descendant(file_path, directory, expected):
+    assert (
+        StageManager._is_directory_or_descendant(file_path, directory)  # noqa: SLF001
+        is expected
+    )
 
 
 @pytest.mark.parametrize(

@@ -16,6 +16,7 @@ import json
 import re
 import tempfile
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from textwrap import dedent
 from unittest.mock import Mock, call, patch
@@ -29,9 +30,11 @@ from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.project.util import to_identifier, to_string_literal
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.util_text import split_statements
 from yaml import YAMLError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
@@ -116,6 +119,35 @@ def test_create_service(mock_execute_query, temporary_directory):
     actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
     assert expected_query == actual_query
     assert result == cursor
+
+
+@patch(EXECUTE_QUERY)
+def test_create_quotes_sql_fields(mock_execute_query, temporary_directory):
+    spec_path = Path(temporary_directory) / "spec.yml"
+    spec_path.write_text(SPEC_CONTENT)
+    compute_pool = "pool; select 1"
+    warehouse = "wh; select 1"
+    eai = "eai; x"
+    ServiceManager().create(
+        service_name="svc",
+        compute_pool=compute_pool,
+        spec_path=spec_path,
+        min_instances=1,
+        max_instances=1,
+        auto_resume=True,
+        external_access_integrations=[eai],
+        query_warehouse=warehouse,
+        tags=None,
+        comment=None,
+        if_not_exists=False,
+    )
+    query = mock_execute_query.call_args[0][0]
+    assert f"IN COMPUTE POOL {to_identifier(compute_pool)}" in query
+    assert f"QUERY_WAREHOUSE = {to_identifier(warehouse)}" in query
+    assert f"EXTERNAL_ACCESS_INTEGRATIONS = ({to_identifier(eai)})" in query
+    assert f"IN COMPUTE POOL {compute_pool}" not in query
+    assert f"QUERY_WAREHOUSE = {warehouse}" not in query
+    assert len([s for s, _ in split_statements(StringIO(query))]) == 1
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.create")
@@ -1991,6 +2023,102 @@ def test_set_property(mock_execute_query):
     )
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
+
+
+@patch(EXECUTE_QUERY)
+def test_set_property_quotes_identifiers(mock_execute_query):
+    warehouse = "wh; select 1"
+    eai = "eai; x"
+    ServiceManager().set_property(
+        service_name="svc",
+        min_instances=None,
+        max_instances=None,
+        query_warehouse=warehouse,
+        auto_resume=None,
+        auto_suspend_secs=None,
+        external_access_integrations=[eai],
+        comment=None,
+    )
+    query = mock_execute_query.call_args[0][0]
+    assert f"query_warehouse = {to_identifier(warehouse)}" in query
+    assert f"external_access_integrations = ({to_identifier(eai)})" in query
+    assert f"query_warehouse = {warehouse}" not in query
+
+
+def _deploy_kwargs(**overrides):
+    kwargs = dict(
+        service_name="svc",
+        stage="@test_stage",
+        artifacts=["spec.yml"],
+        compute_pool="pool",
+        spec_path=Path("spec.yml"),
+        min_instances=1,
+        max_instances=1,
+        auto_resume=False,
+        auto_suspend_secs=None,
+        external_access_integrations=None,
+        query_warehouse=None,
+        tags=None,
+        comment=None,
+        service_project_paths=Mock(),
+        upgrade=False,
+    )
+    kwargs.update(overrides)
+    return kwargs
+
+
+@patch.object(ServiceManager, "_upload_artifacts")
+@patch("snowflake.cli._plugins.spcs.services.manager.StageManager.create")
+@patch(EXECUTE_QUERY)
+def test_deploy_quotes_create_sql_fields(
+    mock_execute_query, _mock_create, _mock_upload
+):
+    compute_pool = "pool; select 1"
+    spec_path = Path("spec'); select 1.yml")
+    warehouse = "wh; select 1"
+    eai = "eai; x"
+    stage = '@"st\'; select 1"'
+    ServiceManager().deploy(
+        **_deploy_kwargs(
+            stage=stage,
+            compute_pool=compute_pool,
+            spec_path=spec_path,
+            query_warehouse=warehouse,
+            external_access_integrations=[eai],
+        )
+    )
+    query = mock_execute_query.call_args[0][0]
+    stage_sql = StagePath.from_stage_str(stage).path_for_sql()
+    assert f"FROM {stage_sql}" in query
+    assert f"FROM {stage}" not in query
+    assert f"IN COMPUTE POOL {to_identifier(compute_pool)}" in query
+    assert f"SPECIFICATION_FILE = {to_string_literal(str(spec_path))}" in query
+    assert f"QUERY_WAREHOUSE = {to_identifier(warehouse)}" in query
+    assert f"EXTERNAL_ACCESS_INTEGRATIONS = ({to_identifier(eai)})" in query
+    assert f"IN COMPUTE POOL {compute_pool}" not in query
+    assert f"SPECIFICATION_FILE = '{spec_path}'" not in query
+    assert len([s for s, _ in split_statements(StringIO(query))]) == 1
+
+
+@patch.object(ServiceManager, "set_property")
+@patch.object(ServiceManager, "_upload_artifacts")
+@patch("snowflake.cli._plugins.spcs.services.manager.StageManager.create")
+@patch(EXECUTE_QUERY)
+def test_deploy_upgrade_quotes_spec_file(
+    mock_execute_query, _mock_create, _mock_upload, _mock_set_property
+):
+    spec_path = Path("spec'); select 1.yml")
+    stage = '@"st\'; select 1"'
+    ServiceManager().deploy(
+        **_deploy_kwargs(stage=stage, spec_path=spec_path, upgrade=True)
+    )
+    query = mock_execute_query.call_args[0][0]
+    stage_sql = StagePath.from_stage_str(stage).path_for_sql()
+    assert f"FROM {stage_sql}" in query
+    assert f"FROM {stage}" not in query
+    assert f"SPECIFICATION_FILE = {to_string_literal(str(spec_path))}" in query
+    assert f"SPECIFICATION_FILE = '{spec_path}'" not in query
+    assert len([s for s, _ in split_statements(StringIO(query))]) == 1
 
 
 def test_set_property_no_properties():

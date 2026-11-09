@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import sys
 from datetime import date, datetime, time
@@ -45,7 +44,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     StreamResult,
 )
-from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.sanitizers import sanitize_for_csv, sanitize_for_terminal
 
 NO_ITEMS_FOUND: str = "No data"
 
@@ -164,48 +163,133 @@ def _rich_print(*args, **kwargs) -> None:
         stream.flush()
 
 
-class CustomJSONEncoder(JSONEncoder):
+def _uniquify_json_keys(keys: list[Any]) -> list[Any]:
+    """Disambiguate string keys that sanitization collapsed to one name.
+
+    The first key keeps the sanitized name. Later copies get ``name_2``,
+    ``name_3``, … skipping a candidate that is already present, matching
+    ``QueryResult._uniquify_column_names``. Non-string keys are left as they
+    are: a dict cannot contain two equal keys of those types.
+    """
+    used_names = {key for key in keys if isinstance(key, str)}
+    duplicate_counters: dict[str, int] = {}
+    unique_keys: list[Any] = []
+    for name in keys:
+        if not isinstance(name, str) or name not in duplicate_counters:
+            unique_keys.append(name)
+            if isinstance(name, str):
+                duplicate_counters[name] = 1
+            continue
+        duplicate_index = duplicate_counters[name] + 1
+        candidate = f"{name}_{duplicate_index}"
+        while candidate in used_names:
+            duplicate_index += 1
+            candidate = f"{name}_{duplicate_index}"
+        unique_keys.append(candidate)
+        used_names.add(candidate)
+        duplicate_counters[name] = duplicate_index
+    return unique_keys
+
+
+def _sanitize_json_tree(value: Any, _seen: set[int] | None = None) -> Any:
+    """Strip terminal escapes from strings nested in JSON containers.
+
+    ``JSONEncoder`` writes ``str`` on the iterencode fast path and never calls
+    ``default()`` for it, so a ``isinstance(o, str)`` branch in ``default()``
+    does not run. Containers are copied so the caller's objects stay intact.
+    Dict keys are sanitized too; keys that collapse to the same string are
+    uniquified instead of dropped.
+    """
+    if isinstance(value, str):
+        return sanitize_for_terminal(value)
+    if not isinstance(value, (dict, list, tuple)):
+        return value
+
+    seen = set() if _seen is None else _seen
+    marker = id(value)
+    if marker in seen:
+        raise ValueError("Circular reference detected")
+    seen.add(marker)
+    try:
+        if isinstance(value, dict):
+            # One recursive call per nested value, same as the list branch
+            # below. A comprehension would add a second frame per level.
+            sanitized_keys = []
+            sanitized_items = []
+            for key, item in value.items():
+                if isinstance(key, str):
+                    key = sanitize_for_terminal(key)
+                sanitized_keys.append(key)
+                sanitized_items.append(_sanitize_json_tree(item, seen))
+            return dict(
+                zip(
+                    _uniquify_json_keys(sanitized_keys),
+                    sanitized_items,
+                    strict=True,
+                )
+            )
+        # Recurse from a loop, not a comprehension. A comprehension is an
+        # extra stack frame per level and cuts the encodable nesting depth
+        # roughly in half versus json.dumps.
+        sanitized_items = []
+        for item in value:
+            sanitized_items.append(_sanitize_json_tree(item, seen))
+        if isinstance(value, tuple):
+            return tuple(sanitized_items)
+        return sanitized_items
+    finally:
+        seen.remove(marker)
+
+
+class _SanitizingJSONEncoder(JSONEncoder):
+    """JSON encoder that strips ANSI escapes from string values."""
+
+    def encode(self, o):
+        # JSONEncoder.encode() emits a top-level str without calling iterencode.
+        if isinstance(o, str):
+            return super().encode(sanitize_for_terminal(o))
+        return super().encode(o)
+
+    def iterencode(self, o, _one_shot=False):
+        return super().iterencode(_sanitize_json_tree(o), _one_shot)
+
+    def default(self, o):
+        # default() runs only for types the encoder cannot handle. Sanitize the
+        # converted value so strings unwrapped from command results are covered.
+        return _sanitize_json_tree(self._convert(o))
+
+    def _convert(self, o):
+        if isinstance(o, (ObjectResult, MessageResult)):
+            return o.result
+        if isinstance(o, (date, datetime, time)):
+            return o.isoformat()
+        if isinstance(o, Path):
+            return o.as_posix()
+        if isinstance(o, Decimal):
+            return str(o)
+        if isinstance(o, bytearray):
+            return o.hex()
+        return super().default(o)
+
+
+class CustomJSONEncoder(_SanitizingJSONEncoder):
     """Custom JSON encoder handling serialization of non-standard types"""
 
-    def default(self, o):
-        if isinstance(o, str):
-            return sanitize_for_terminal(o)
-        if isinstance(o, (ObjectResult, MessageResult)):
-            return o.result
+    def _convert(self, o):
         if isinstance(o, (CollectionResult, MultipleResults)):
             return list(o.result)
-        if isinstance(o, (date, datetime, time)):
-            return o.isoformat()
-        if isinstance(o, Path):
-            return o.as_posix()
-        if isinstance(o, Decimal):
-            return str(o)
-        if isinstance(o, bytearray):
-            return o.hex()
-        return super().default(o)
+        return super()._convert(o)
 
 
-class StreamingJSONEncoder(JSONEncoder):
+class StreamingJSONEncoder(_SanitizingJSONEncoder):
     """Streaming JSON encoder that doesn't materialize generators into lists"""
 
-    def default(self, o):
-        if isinstance(o, str):
-            return sanitize_for_terminal(o)
-        if isinstance(o, (ObjectResult, MessageResult)):
-            return o.result
+    def _convert(self, o):
         if isinstance(o, (CollectionResult, MultipleResults)):
             raise TypeError(
-                f"CollectionResult should be handled by streaming functions, not encoder"
+                "CollectionResult should be handled by streaming functions, not encoder"
             )
-        if isinstance(o, (date, datetime, time)):
-            return o.isoformat()
-        if isinstance(o, Path):
-            return o.as_posix()
-        if isinstance(o, Decimal):
-            return str(o)
-        if isinstance(o, bytearray):
-            return o.hex()
-        return super().default(o)
+        return super()._convert(o)
 
 
 def _print_json_item_with_array_indentation(item: Any, indent: int):
@@ -259,36 +343,57 @@ def _stream_collection_as_csv(result: CollectionResult):
     if not isinstance(first_item, dict):
         raise TypeError("CSV output requires dictionary items")
 
-    writer = csv.DictWriter(
-        _result_stream(), fieldnames=fieldnames, lineterminator="\n"
-    )
-    writer.writeheader()
-    _write_csv_row(writer, first_item)
+    _write_csv_header(fieldnames)
+    _write_csv_row(fieldnames, first_item)
 
     for item in items:
-        _write_csv_row(writer, item)
+        _write_csv_row(fieldnames, item)
 
 
-def _write_csv_row(writer: csv.DictWriter, row_data: Dict[str, Any]):
+def _csv_field(value: str) -> str:
+    """Quote the way ``csv.QUOTE_MINIMAL`` does, including a bare carriage return.
+
+    Python 3.10 quotes only the configured line ending. A carriage return
+    inside a field is written unquoted, and a reader then splits the record.
+    """
+    if any(char in value for char in (",", '"', "\n", "\r")):
+        return '"' + value.replace('"', '""') + '"'
+    return value
+
+
+def _write_csv_dict(fieldnames: list[str], row: Dict[str, str]) -> None:
+    _result_stream().write(
+        ",".join(_csv_field(row.get(name, "")) for name in fieldnames) + "\n"
+    )
+
+
+def _write_csv_header(fieldnames: list[str]) -> None:
+    _write_csv_dict(
+        fieldnames, {name: sanitize_for_csv(str(name)) for name in fieldnames}
+    )
+
+
+def _write_csv_row(fieldnames: list[str], row_data: Dict[str, Any]) -> None:
     """Write a single CSV row, handling special data types"""
     processed_row = {}
     for key, value in row_data.items():
         if isinstance(value, str):
-            processed_row[key] = sanitize_for_terminal(value)
+            processed_row[key] = sanitize_for_csv(value)
         elif isinstance(value, (date, datetime, time)):
             processed_row[key] = value.isoformat()
         elif isinstance(value, Path):
-            processed_row[key] = value.as_posix()
-        elif isinstance(value, Decimal):
+            processed_row[key] = sanitize_for_csv(value.as_posix())
+        elif isinstance(value, (Decimal, int, float)):
+            # Real numbers stay numeric, so -5 is not prefixed.
             processed_row[key] = str(value)
         elif isinstance(value, bytearray):
             processed_row[key] = value.hex()
         elif value is None:
             processed_row[key] = ""
         else:
-            processed_row[key] = str(value)
+            processed_row[key] = sanitize_for_csv(str(value))
 
-    writer.writerow(processed_row)
+    _write_csv_dict(fieldnames, processed_row)
 
 
 def _get_format_type() -> OutputFormat:
@@ -465,11 +570,9 @@ def _print_object_result_as_csv(result: ObjectResult):
     """
     data = result.result
     if isinstance(data, dict):
-        writer = csv.DictWriter(
-            _result_stream(), fieldnames=list(data.keys()), lineterminator="\n"
-        )
-        writer.writeheader()
-        _write_csv_row(writer, data)
+        fieldnames = list(data.keys())
+        _write_csv_header(fieldnames)
+        _write_csv_row(fieldnames, data)
 
 
 def _print_message_result_as_csv(result: MessageResult):
@@ -478,11 +581,8 @@ def _print_message_result_as_csv(result: MessageResult):
     Creates a simple CSV structure with one column named 'message'
     containing the sanitized message text.
     """
-    writer = csv.DictWriter(
-        _result_stream(), fieldnames=["message"], lineterminator="\n"
-    )
-    writer.writeheader()
-    writer.writerow({"message": sanitize_for_terminal(result.message)})
+    _write_csv_header(["message"])
+    _write_csv_row(["message"], {"message": result.message})
 
 
 def _print_csv_result_streaming(result: CommandResult):

@@ -177,8 +177,10 @@ class MetaField(UpdatableModel):
 
 class Identifier(UpdatableModel):
     name: str = Field(title="Entity name")
-    schema_: Optional[str] = Field(title="Entity schema", alias="schema", default=None)
-    database: Optional[str] = Field(title="Entity database", default=None)
+    schema_: Optional[str] = IdentifierField(
+        title="Entity schema", alias="schema", default=None
+    )
+    database: Optional[str] = IdentifierField(title="Entity database", default=None)
 
 
 class EntityModelBase(ABC, UpdatableModel):

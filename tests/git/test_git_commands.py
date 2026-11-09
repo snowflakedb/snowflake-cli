@@ -21,13 +21,30 @@ import pytest
 from snowflake.cli._plugins.git.manager import GitManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_identifier, to_string_literal
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.util_text import split_statements
 
 EXAMPLE_URL = "https://github.com/an-example-repo.git"
 STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
+
+
+def test_create_quotes_api_integration_name():
+    mgr = GitManager()
+    raw_integration = "myint origin='https://example.com'"
+    with mock.patch.object(mgr, "execute_query") as mock_execute:
+        mgr.create(
+            repo_name=FQN.from_string("repo_name"),
+            api_integration=raw_integration,
+            url=EXAMPLE_URL,
+            secret=None,
+        )
+        query = mock_execute.call_args[0][0]
+        assert f"api_integration = {to_identifier(raw_integration)}" in query
+        assert f"api_integration = {raw_integration}" not in query
+        assert len([s for s, _ in split_statements(StringIO(query))]) == 1
 
 
 def test_toplevel_help(runner):
@@ -777,6 +794,78 @@ def test_execute(
 
 
 @pytest.mark.parametrize(
+    "repository_path, listed_names, expected_files",
+    [
+        (
+            "@repo/branches/main/dev",
+            [
+                "/dev/run.sql",
+                "/developer/extra.sql",
+                "/dev.sql",
+                "/dev_extra.sql",
+            ],
+            ["/dev/run.sql"],
+        ),
+        (
+            "@repo/branches/main/dev/",
+            [
+                "/dev/run.sql",
+                "/developer/extra.sql",
+            ],
+            ["/dev/run.sql"],
+        ),
+        (
+            "@repo/branches/main/dev*",
+            [
+                "/dev/run.sql",
+                "/developer/extra.sql",
+            ],
+            ["/dev/run.sql", "/developer/extra.sql"],
+        ),
+        (
+            "@repo/branches/main/dev.sql",
+            [
+                "/dev.sql",
+                "/dev/run.sql",
+            ],
+            ["/dev.sql"],
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+@mock.patch(f"{STAGE_MANAGER}._conn", new=mock.MagicMock(database="FOO", schema="BAR"))
+@mock.patch(f"snowflake.cli._plugins.stage.manager.time.time", lambda: 123)
+def test_execute_directory_match_is_path_component(
+    mock_execute,
+    mock_cursor,
+    runner,
+    repository_path,
+    listed_names,
+    expected_files,
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": name} for name in listed_names],
+        [],
+    )
+
+    result = runner.invoke(["git", "execute", repository_path])
+
+    assert result.exit_code == 0, result.output
+    create_call, copy_call, ls_call, *execute_calls = mock_execute.mock_calls
+    stage = "FOO.BAR.snowflake_cli_tmp_stage_123"
+    assert create_call == mock.call(
+        f"create temporary stage if not exists IDENTIFIER('{stage}')"
+    )
+    assert copy_call == mock.call(
+        f"copy files into @{stage}/ from @repo/branches/main/"
+    )
+    assert ls_call == mock.call(f"ls @{stage}", cursor_class=DictCursor)
+    assert execute_calls == [
+        mock.call(f"execute immediate from @{stage}{path}") for path in expected_files
+    ]
+
+
+@pytest.mark.parametrize(
     "repository_path, expected_stage, expected_files",
     [
         (
@@ -909,7 +998,8 @@ def test_execute_slash_in_repository_name(
         "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
     )
     assert copy_call == mock.call(
-        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}/"
+        "copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from "
+        f"{StagePath.from_stage_str(expected_stage + '/').path_for_sql()}"
     )
     assert ls_call == mock.call(
         f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor

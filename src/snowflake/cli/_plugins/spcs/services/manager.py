@@ -52,7 +52,7 @@ from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
-from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.project.util import to_identifier, to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -81,7 +81,7 @@ class ServiceManager(SqlExecutionMixin):
             create_statement = f"{create_statement} IF NOT EXISTS"
         query = f"""\
             {create_statement} {service_name}
-            IN COMPUTE POOL {compute_pool}
+            IN COMPUTE POOL {to_identifier(compute_pool)}
             FROM SPECIFICATION $$
             {spec}
             $$
@@ -92,14 +92,14 @@ class ServiceManager(SqlExecutionMixin):
 
         if external_access_integrations:
             external_access_integration_list = ",".join(
-                f"{e}" for e in external_access_integrations
+                to_identifier(e) for e in external_access_integrations
             )
             query.append(
                 f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
             )
 
         if query_warehouse:
-            query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+            query.append(f"QUERY_WAREHOUSE = {to_identifier(query_warehouse)}")
 
         if comment:
             query.append(f"COMMENT = {comment}")
@@ -141,6 +141,9 @@ class ServiceManager(SqlExecutionMixin):
             stage=stage,
         )
 
+        stage_sql = StagePath.from_stage_str(stage).path_for_sql()
+        spec_sql = to_string_literal(str(spec_path))
+
         if upgrade:
             self.set_property(
                 service_name=service_name,
@@ -154,16 +157,16 @@ class ServiceManager(SqlExecutionMixin):
             )
             query = [
                 f"ALTER SERVICE {service_name}",
-                f"FROM {stage}",
-                f"SPECIFICATION_FILE = '{spec_path}'",
+                f"FROM {stage_sql}",
+                f"SPECIFICATION_FILE = {spec_sql}",
             ]
             return self.execute_query(strip_empty_lines(query))
         else:
             query = [
                 f"CREATE SERVICE {service_name}",
-                f"IN COMPUTE POOL {compute_pool}",
-                f"FROM {stage}",
-                f"SPECIFICATION_FILE = '{spec_path}'",
+                f"IN COMPUTE POOL {to_identifier(compute_pool)}",
+                f"FROM {stage_sql}",
+                f"SPECIFICATION_FILE = {spec_sql}",
                 f"AUTO_RESUME = {auto_resume}",
             ]
 
@@ -177,11 +180,11 @@ class ServiceManager(SqlExecutionMixin):
                 query.append(f"AUTO_SUSPEND_SECS = {auto_suspend_secs}")
 
             if query_warehouse:
-                query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+                query.append(f"QUERY_WAREHOUSE = {to_identifier(query_warehouse)}")
 
             if external_access_integrations:
                 external_access_integration_list = ",".join(
-                    f"{e}" for e in external_access_integrations
+                    to_identifier(e) for e in external_access_integrations
                 )
                 query.append(
                     f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
@@ -787,7 +790,7 @@ class ServiceManager(SqlExecutionMixin):
             query.append(f" max_instances = {max_instances}")
 
         if query_warehouse is not None:
-            query.append(f" query_warehouse = {query_warehouse}")
+            query.append(f" query_warehouse = {to_identifier(query_warehouse)}")
 
         if auto_resume is not None:
             query.append(f" auto_resume = {auto_resume}")
@@ -797,7 +800,7 @@ class ServiceManager(SqlExecutionMixin):
 
         if external_access_integrations is not None:
             external_access_integration_list = ",".join(
-                f"{e}" for e in external_access_integrations
+                to_identifier(e) for e in external_access_integrations
             )
             query.append(
                 f"external_access_integrations = ({external_access_integration_list})"

@@ -3043,6 +3043,44 @@ class TestSnowflakeAppManager:
             ["DB.SCHEMA.MY_APP", 500, 0],
         )
 
+    @pytest.mark.parametrize(
+        "name",
+        [
+            # Quote immediately after the opening double quote. Single-quoting
+            # this identifier used to end the literal and leave another statement.
+            '"\', 0); select 1; --"',
+            # A backslash before the quote. The connector splitter treats that
+            # as an escaped quote; the bound value must stay the original name.
+            '"x\\\'; select 1; --"',
+            '"foo\'bar"',
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("last", "instance_id", "sql", "bound_tail"),
+        [
+            (None, None, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?)", []),
+            (100, None, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?)", [100]),
+            (None, 0, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)", [500, 0]),
+            (20, 2, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)", [20, 2]),
+        ],
+    )
+    @patch(EXECUTE_QUERY_WITH_PARAMS)
+    def test_get_service_logs_binds_quoted_identifier(
+        self, mock_execute, name, last, instance_id, sql, bound_tail
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("log line",)
+        mock_execute.return_value = cursor
+
+        fqn = app_fqn(database="DB", schema="SC", name=name)
+        logs = SnowflakeAppManager().get_service_logs(
+            fqn, last=last, instance_id=instance_id
+        )
+
+        assert logs == "log line"
+        assert fqn.identifier == f"DB.SC.{name}"
+        mock_execute.assert_called_once_with(sql, [fqn.identifier, *bound_tail])
+
     def test_get_service_logs_rejects_negative_instance(self):
         with pytest.raises(CliError, match="non-negative"):
             snowflake_app_events(

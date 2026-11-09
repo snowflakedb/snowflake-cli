@@ -14,7 +14,7 @@
 
 import pytest
 from snowflake.cli.api.commands.snow_typer import SnowTyper
-from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.sanitizers import sanitize_for_prompt, sanitize_for_terminal
 from typer.testing import CliRunner
 
 
@@ -33,6 +33,29 @@ from typer.testing import CliRunner
 def test_sanitize_for_terminal(text, expected):
     result = sanitize_for_terminal(text)
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Enter a color", "Enter a color"),
+        ("\rEnter a color", "Enter a color"),
+        ("us-\rwest", "us-west"),
+        ("\r", ""),
+        ("a\x00b", "ab"),
+        ("alice\033[31m", "alice"),
+        ("keep\ttab", "keep\ttab"),
+        ("keep\nnewline", "keep\nnewline"),
+    ],
+)
+def test_sanitize_for_prompt(text, expected):
+    assert sanitize_for_prompt(text) == expected
+
+
+def test_sanitize_for_prompt_strips_controls_terminal_helper_leaves():
+    raw = "ok\r\x07"
+    assert sanitize_for_terminal(raw) == "ok\r\x07"
+    assert sanitize_for_prompt(raw) == "ok"
 
 
 def test_snow_typer_help_sanitization(os_agnostic_snapshot):

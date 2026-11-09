@@ -305,6 +305,39 @@ def test_init_prompted_values(runner, temporary_directory, test_projects_path):
     }
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        "\x1b[31mEnter a color\x1b[0m",
+        "\rEnter a color",
+    ],
+)
+def test_init_prompt_from_template_is_labeled_and_sanitized(
+    runner, temporary_directory, prompt
+):
+    template_root = Path(temporary_directory) / "tmpl"
+    template_root.mkdir()
+    (template_root / "hello.txt").write_text("<! color !>\n")
+    (template_root / "template.yml").write_text(
+        "files_to_render:\n"
+        "  - hello.txt\n"
+        "variables:\n"
+        "  - name: color\n"
+        f"    prompt: {json.dumps(prompt)}\n"
+    )
+
+    result = runner.invoke(
+        ["init", "app", "--template-source", template_root],
+        input="blue\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "\x1b" not in result.output
+    assert "\r" not in result.output
+    assert "From template: Enter a color" in result.output
+    assert (Path("app") / "hello.txt").read_text() == "blue\n"
+
+
 def test_template_flag(runner, temporary_directory, test_projects_path):
     project_name = "project_templating"
     communication = [
@@ -827,6 +860,32 @@ def test_default_computed_connection_account_key_missing(
         )
         assert result.exit_code == 1
         assert "Cannot determine value of variable account_name" in result.output
+
+
+@pytest.mark.parametrize(
+    "filter_name",
+    ["read_file_content", "procedure_from_js_file"],
+)
+@pytest.mark.parametrize("wrap_in_taken_block", [False, True])
+def test_init_rejects_unknown_file_filters(
+    runner,
+    temporary_directory,
+    project_definition_copy,
+    filter_name,
+    wrap_in_taken_block,
+):
+    expression = f"<! 'marker.txt' | {filter_name} !>"
+    if wrap_in_taken_block:
+        expression = f"<!! if true !!>{expression}<!! endif !!>"
+    with project_definition_copy("project_templating") as template_root:
+        (template_root / "template.yml").write_text("files_to_render:\n - file.txt")
+        (template_root / "file.txt").write_text(expression)
+        project = "new_project"
+        result = runner.invoke(["init", project, "--template-source", template_root])
+        assert result.exit_code == 1, result.output
+        assert "Invalid template syntax" in result.output
+        assert filter_name in result.output
+        assert not Path(project).exists()
 
 
 def test_init_errors_when_air_gapped_and_default_source(
