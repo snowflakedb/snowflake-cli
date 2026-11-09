@@ -16106,6 +16106,21 @@
   |                                                             section of       |
   |                                                             config.toml sets |
   |                                                             the default.     |
+  | --option           -o                     KEY=VALUE         Sets a           |
+  |                                                             SnowSQL-style    |
+  |                                                             option for this  |
+  |                                                             run. Only        |
+  |                                                             output_file is   |
+  |                                                             supported: -o    |
+  |                                                             output_file=<pa… |
+  |                                                             appends query    |
+  |                                                             results to the   |
+  |                                                             file and still   |
+  |                                                             prints them,     |
+  |                                                             like !spool      |
+  |                                                             <path>. An empty |
+  |                                                             value turns      |
+  |                                                             spooling off.    |
   | --project          -p                     TEXT              Path where the   |
   |                                                             Snowflake        |
   |                                                             project is       |
@@ -16160,6 +16175,9 @@
   | placeholders in the SQL and pass values with -D "name=value". For            |
   | SnowSQL-style &name syntax, project env.yml overrides, and templating flags, |
   | see Execute SQL statements.                                                  |
+  |                                                                              |
+  | Append query results to a file with -o output_file=<path> (results are still |
+  | printed). !spool off stops writing.                                          |
   |                                                                              |
   | Note: When the query contains characters the shell interprets (for example $ |
   | in SYSTEM$CLIENT_VERSION_INFO() functions), wrap the query in single quotes: |

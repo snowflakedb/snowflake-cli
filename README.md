@@ -167,6 +167,9 @@ JSON_EXT, and CSV output never include the line. `!set echo=true` prints each
 statement before its result, on the terminal and in an open `!spool` file. The
 default is `echo=false`. JSON, JSON_EXT, and CSV stay free of that statement so
 the result stays parseable. One `!set` changes one option.
+`!set output_file=<path>` opens the same file as `!spool <path>`, and
+`!spool off` closes it. To spool from the start of a run, pass
+`-o output_file=<path>`.
 
 ```toml
 [cli]

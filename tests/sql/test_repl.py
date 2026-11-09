@@ -1576,6 +1576,43 @@ def test_repl_quiet_hides_result_and_elapsed_keeps_spool(
     assert "| 1 |" in contents
 
 
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_repl_option_output_file_spools_without_spool_command(
+    mock_execute, mock_cursor, runner, tmp_path
+):
+    """-o output_file opens the spool before the REPL starts, with no !spool line."""
+    mock_execute.side_effect = lambda *args, **kwargs: [
+        mock_cursor(rows=[("1",)], columns=["1"])
+    ]
+    spool = tmp_path / "out.txt"
+    prompts = iter(("select 1;", "exit"))
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch(
+            "snowflake.cli._plugins.sql.repl.Repl._initialize_connection"
+        ), mock.patch(
+            "snowflake.cli._plugins.sql.repl.Repl.repl_prompt",
+            side_effect=lambda *args, **kwargs: next(prompts, "exit"),
+        ):
+            result = runner.invoke(
+                [
+                    "sql",
+                    "--no-prompt-exit-repl",
+                    "-o",
+                    f"output_file={spool}",
+                ],
+                env={"SNOWFLAKE_CLI_AUTO_COMPLETION": "false"},
+            )
+        assert result.exit_code == 0, result.output
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "| 1 |" in result.output
+    assert "| 1 |" in contents
+    assert "!spool" not in result.output
+
+
 def _run_spooled_repl(repl, spool, *inputs):
     monotonic_values = [0.0, 0.5] * (len(inputs) + 2)
     try:

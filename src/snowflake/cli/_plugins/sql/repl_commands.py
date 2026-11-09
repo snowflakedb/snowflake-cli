@@ -449,13 +449,15 @@ class AbortCommand(ReplCommand):
 _SET_USAGE = (
     "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
     "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>` | "
-    "`!set echo=<true|false>`"
+    "`!set echo=<true|false>` | `!set output_file=<path>`"
 )
 _SET_OPTION_OUTPUT_FORMAT = "output_format"
 _SET_OPTION_QUIET = "quiet"
 _SET_OPTION_TIMING = "timing"
 _SET_OPTION_TIMING_IN_OUTPUT_FILE = "timing_in_output_file"
 _SET_OPTION_ECHO = "echo"
+# Free-string path, same file as !spool. Empty is rejected; off is a filename.
+_SET_OPTION_OUTPUT_FILE = "output_file"
 # SnowSQL booleans. An empty value is not false and not a reset to unset.
 _BOOL_TRUE = frozenset({"true", "yes", "on", "1"})
 _BOOL_FALSE = frozenset({"false", "no", "off", "0"})
@@ -466,11 +468,17 @@ _SET_BOOL_OPTIONS = frozenset(
         _SET_OPTION_TIMING_IN_OUTPUT_FILE,
     }
 )
-_SET_OPTIONS = _SET_BOOL_OPTIONS | {_SET_OPTION_OUTPUT_FORMAT, _SET_OPTION_ECHO}
+_SET_OPTIONS = _SET_BOOL_OPTIONS | {
+    _SET_OPTION_OUTPUT_FORMAT,
+    _SET_OPTION_ECHO,
+    _SET_OPTION_OUTPUT_FILE,
+}
 _SET_SUPPORTED = (
-    "Only output_format, quiet, timing, timing_in_output_file and echo are supported."
+    "Only output_format, quiet, timing, timing_in_output_file, echo "
+    "and output_file are supported."
 )
 _ECHO_VALUES = frozenset({"true", "false"})
+_OUTPUT_FILE_VALUE_REQUIRED = "You must specify a value for output_file."
 
 
 def _parse_bool_value(option: str, value: str) -> bool:
@@ -492,13 +500,20 @@ def _parse_echo_value(value: str) -> str:
 @register_command("!set")
 @dataclass
 class SetCommand(ReplCommand):
-    """Set a session option. output_format, quiet, timing, timing_in_output_file and echo are supported."""
+    """Set a session option.
+
+    output_format, quiet, timing, timing_in_output_file, echo and output_file
+    are supported.
+    """
 
     option: str
     value: str
 
     def execute(self, connection: SnowflakeConnection):
         manager = get_cli_context_manager()
+        if self.option == _SET_OPTION_OUTPUT_FILE:
+            manager.open_spool(self.value)
+            return
         if self.option == _SET_OPTION_QUIET:
             manager.quiet = _parse_bool_value(self.option, self.value)
             return
@@ -516,6 +531,11 @@ class SetCommand(ReplCommand):
     @classmethod
     def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
         if isinstance(raw_args, str):
+            # Paths may contain spaces or '='. Do not whitespace-split these.
+            stripped = raw_args.strip()
+            prefix = f"{_SET_OPTION_OUTPUT_FILE}="
+            if stripped.lower().startswith(prefix):
+                return cls._compile_output_file_value(stripped.split("=", 1)[1])
             try:
                 args, kwargs = cls._parse_args(raw_args)
             except ValueError as e:
@@ -523,6 +543,18 @@ class SetCommand(ReplCommand):
         else:
             args, kwargs = raw_args, kwargs or {}
         return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _compile_output_file_value(cls, value: str) -> CompileCommandResult:
+        """Validate a free-string output_file. Does not open or close the spool."""
+        normalized = _strip_matching_quotes(value.strip())
+        if not normalized.strip():
+            return CompileCommandResult(
+                error_message=f"{_OUTPUT_FILE_VALUE_REQUIRED} {_SET_USAGE}"
+            )
+        return CompileCommandResult(
+            command=cls(option=_SET_OPTION_OUTPUT_FILE, value=normalized)
+        )
 
     @classmethod
     def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
@@ -560,6 +592,8 @@ class SetCommand(ReplCommand):
 
         option = known[0].lower()
         value = kwargs[known[0]]
+        if option == _SET_OPTION_OUTPUT_FILE:
+            return cls._compile_output_file_value(value)
         try:
             if option in _SET_BOOL_OPTIONS:
                 _parse_bool_value(option, value)

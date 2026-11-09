@@ -30,6 +30,7 @@ from snowflake.cli._plugins.sql.prompt_format import (
     unknown_token_warning,
     unknown_tokens_in_prompt_format,
 )
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
     Example,
@@ -113,6 +114,55 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
     if unknown_tokens:
         # stderr so the warning stays out of query results / REPL transcript.
         cli_console.stderr_warning(unknown_token_warning(unknown_tokens))
+
+
+_OUTPUT_FILE_OPTION = "output_file"
+
+
+def _strip_matching_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+def _normalize_output_file_value(value: str) -> str:
+    """Strip whitespace and one pair of matching quotes.
+
+    ``off`` is a literal filename. A blank result means spooling is off.
+    """
+    return _strip_matching_quotes(value.strip())
+
+
+def _parse_snowsql_option(raw: str) -> tuple[str, str]:
+    text = raw.strip()
+    if "=" not in text:
+        raise CliArgumentError(f"Invalid option '{text}'. Use -o output_file=<path>.")
+    key, value = text.split("=", 1)
+    return key.strip(), value
+
+
+def _resolve_output_file(raw_options: List[str] | None) -> str | None:
+    """Spool path for this run, or None when spooling is off.
+
+    The last ``-o output_file=`` wins. An empty value does not open a spool.
+    There is no config key or environment variable for this option.
+    """
+    explicit_path: str | None = None
+    for raw in raw_options or []:
+        key, value = _parse_snowsql_option(raw)
+        if key.lower() != _OUTPUT_FILE_OPTION:
+            raise CliArgumentError(
+                f"Unknown option '{key}'. Only output_file is supported."
+            )
+        normalized = _normalize_output_file_value(value)
+        explicit_path = normalized if normalized.strip() else None
+    return explicit_path
+
+
+def _open_output_file(raw_options: List[str] | None) -> None:
+    path = _resolve_output_file(raw_options)
+    if path:
+        get_cli_context_manager().open_spool(path)
 
 
 @app.command(
@@ -206,6 +256,13 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
                     "Execute SQL statements",
                 ),
                 ".",
+            ),
+            plain_text(
+                "Append query results to a file with ",
+                code("-o output_file=<path>"),
+                " (results are still printed). ",
+                code("!spool off"),
+                " stops writing.",
             ),
             note(
                 "When the query contains characters the shell interprets (for example ",
@@ -328,6 +385,19 @@ def execute_sql(
         ),
         show_default=False,
     ),
+    option: List[str] = typer.Option(
+        None,
+        "--option",
+        "-o",
+        metavar="KEY=VALUE",
+        help=(
+            "Sets a SnowSQL-style option for this run. Only output_file is "
+            "supported: -o output_file=\\<path\\> appends query results to the "
+            "file and still prints them, like !spool \\<path\\>. An empty value "
+            "turns spooling off."
+        ),
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """Executes SQL statements against Snowflake interactively or from a query, file, or standard input."""
@@ -366,6 +436,12 @@ def execute_sql(
         _warn_unknown_prompt_tokens(prompt_format)
         if single_transaction:
             raise CliArgumentError("single transaction cannot be used with REPL")
+
+    # Leave the spool open. In -q mode MultipleResults is printed after this
+    # function returns, and a later !spool / !set output_file replaces it.
+    _open_output_file(option)
+
+    if no_source_provided:
         from snowflake.cli._plugins.sql.repl import Repl
 
         auto_completion = get_config_bool_value(
