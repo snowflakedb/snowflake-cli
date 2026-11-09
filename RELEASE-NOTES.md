@@ -15,6 +15,26 @@
  -->
 # Unreleased version
 ## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.33.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.33.0
+## Backward incompatibility
 * Unquoted `snowflake.yml` values for role, warehouse, schema, database, and v1 package name must be a single identifier. A name that contains a dot, space, or hyphen must be quoted. Application package `stage` and v1 `source_stage` must be `schema.name`. A scratch stage may be a single name or `schema.name`.
 
 ## Deprecations
