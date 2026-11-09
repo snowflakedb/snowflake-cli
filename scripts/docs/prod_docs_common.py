@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 import sys
 from datetime import date
+from pathlib import Path
 from typing import NoReturn
 
 RELEASE_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
@@ -39,10 +40,38 @@ _ENGLISH_MONTHS = (
     "Dec",
 )
 
+# Full English month names used in snowflake-prod-docs (not locale-dependent).
+_ENGLISH_MONTH_NAMES = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
 
 def die(message: str, code: int = 1) -> NoReturn:
     print(message, file=sys.stderr)
     raise SystemExit(code)
+
+
+def render_template(template: Path, label: str, replacements: dict[str, str]) -> str:
+    """Fill ``__PLACEHOLDER__`` keys in an in-repo template; die if any remain."""
+    if not template.is_file():
+        die(f"{label} template does not exist: {template}")
+    rendered = template.read_text(encoding="utf-8")
+    for placeholder, value in replacements.items():
+        rendered = rendered.replace(placeholder, value)
+    if any(placeholder in rendered for placeholder in replacements):
+        die(f"{label} template still has unsubstituted placeholders.")
+    return rendered
 
 
 def resolve_release_version() -> str:

@@ -46,7 +46,6 @@ the prod build or Releng.
 ## Prerequisites
 
 - CLI checkout on the release tag (`VERSION` is `X.Y.Z`)
-- `monthly-details/{YYYY-MM}.mdx` already exists in prod-docs for the ship month
 - `git` and `gh` configured for the docs repo
 - For the plugin command: install and enable `scripts/release-plugin`
 
@@ -65,7 +64,8 @@ the prod build or Releng.
 
 `publish_command_docs.py` regenerates command-reference MDX with `snow --docs`
 and copies mapped pages. `publish_release_notes.py` copies the CLI version from
-`RELEASE-NOTES.md` into the year page, version variable, and monthly table.
+`RELEASE-NOTES.md` into the year page, version variable, and monthly table. It
+creates a missing month file from ``scripts/docs/monthly_details_template.mdx``.
 Neither runs git or opens a PR; use `publish_prod_docs.py` / `snow release
 publish-docs` for the full release flow.
 
