@@ -27,7 +27,7 @@ from contextvars import copy_context
 from dataclasses import dataclass
 from enum import Enum
 from os import path
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Dict, Generator, List, Optional, Union
@@ -109,6 +109,94 @@ def _resolve_upload_workers() -> int:
             "must be a positive integer (>= 1)."
         )
     return value
+
+
+def _split_worker_budget(parallel: int) -> tuple[int, int]:
+    """Return ``(connector PARALLEL, directory fan-out)`` inside the upload budget.
+
+    ``parallel`` is clamped into ``[1, budget]`` and the fan-out is
+    ``budget // parallel``, so the product stays within
+    :func:`_resolve_upload_workers`. Clamping comes first: a requested
+    ``parallel`` above the budget must not keep that thread count while the
+    fan-out drops to 1.
+    """
+    budget = _resolve_upload_workers()
+    clamped = min(budget, max(parallel, 1))
+    return clamped, max(1, budget // clamped)
+
+
+def _direct_child_pattern(relative_dir: PurePosixPath) -> str:
+    """Match files directly in ``relative_dir``, not files in a subdirectory.
+
+    The match is anchored at the end and allows a prefix, because Snowflake
+    applies PATTERN to the stage path with an internal prefix in front of the
+    user path (behavior change 209969, postponed).
+    """
+    escaped = re.escape(relative_dir.as_posix())
+    return f"(?:^|.*/){escaped}/[^/]+$"
+
+
+def _root_filename_pattern(names: set[str]) -> str:
+    alternation = "|".join(re.escape(name) for name in sorted(names))
+    return f"(?:^|.*/)(?:{alternation})$"
+
+
+def _has_nested_files(
+    parent: PurePosixPath, relative_paths: list[PurePosixPath]
+) -> bool:
+    for relative in relative_paths:
+        try:
+            remainder = relative.relative_to(parent)
+        except ValueError:
+            continue
+        if len(remainder.parts) > 1:
+            return True
+    return False
+
+
+def _root_basename_collides(relative_paths: list[PurePosixPath]) -> bool:
+    root_names = {path.name for path in relative_paths if len(path.parts) == 1}
+    nested_names = {path.name for path in relative_paths if len(path.parts) > 1}
+    return bool(root_names & nested_names)
+
+
+def _pattern_selects_nested_file(
+    pattern: str, parent: PurePosixPath, relative_paths: list[PurePosixPath]
+) -> bool:
+    """True when ``pattern`` matches a file that is not a direct child of ``parent``."""
+    compiled = re.compile(pattern)
+    for relative in relative_paths:
+        if relative.parent == parent:
+            continue
+        if compiled.fullmatch(relative.as_posix()):
+            return True
+    return False
+
+
+@dataclass
+class _RecursiveGet:
+    stage_path: StagePath
+    local_dir: Path
+    pattern: str | None
+
+
+def _directory_stage_path(file_path: StagePath) -> StagePath:
+    """Directory that contains ``file_path``, with a trailing slash."""
+    parent = file_path.parent
+    return StagePath(
+        stage_name=parent.stage,
+        path=None if parent.is_root() else parent.path,
+        git_ref=parent.git_ref,
+        trailing_slash=True,
+        is_snow_prefixed=parent.is_vstage(),
+    )
+
+
+def _one_file_gets(members: list[StagePath], local_dir: Path) -> list[_RecursiveGet]:
+    return [
+        _RecursiveGet(stage_path=member, local_dir=local_dir, pattern=None)
+        for member in members
+    ]
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
@@ -427,24 +515,110 @@ class StageManager(SqlExecutionMixin):
     def get_recursive(
         self, stage_path: str, dest_path: Path, parallel: int = 4
     ) -> List[SnowflakeCursor]:
-        stage_root = self.build_path(stage_path)
-        resolved_dest = dest_path.resolve()
+        """Download ``stage_path`` into ``dest_path``, keeping the relative tree.
 
-        results = []
-        for file_path in self.iter_stage(stage_root):
+        One GET covers each directory that directly contains files. A directory
+        that also contains nested files sends a PATTERN so those files are not
+        flattened into this directory. Downloading one file stays one GET of
+        that file.
+
+        Directory GETs run concurrently under the same budget as
+        :meth:`put_recursive`. ``parallel`` is the connector PARALLEL on each
+        GET and is clamped by :func:`_split_worker_budget`.
+        """
+        stage_root = self.build_path(stage_path)
+        units = self._plan_recursive_gets(
+            stage_root, dest_path, list(self.iter_stage(stage_root))
+        )
+        if not units:
+            return []
+
+        parallel, dir_workers = _split_worker_budget(parallel)
+        for unit in units:
+            self._assure_is_existing_directory(unit.local_dir)
+
+        def _download(unit: _RecursiveGet) -> SnowflakeCursor:
+            query = (
+                f"get {unit.stage_path.path_for_sql()} "
+                f"{self._to_uri(f'{unit.local_dir}/')} parallel={parallel}"
+            )
+            if unit.pattern is not None:
+                query += f" pattern={to_string_literal(unit.pattern)}"
+            with self._restrict_created_or_updated(unit.local_dir):
+                return self.execute_query(query)
+
+        # The Snowflake connection lives in a ContextVar that does not propagate
+        # to worker threads, so each GET runs in a copy of this thread's context.
+        results: list[SnowflakeCursor] = []
+        with ThreadPoolExecutor(max_workers=dir_workers) as executor:
+            futures = [
+                executor.submit(copy_context().run, _download, unit) for unit in units
+            ]
+            for future in as_completed(futures):
+                results.append(future.result())
+        return results
+
+    def _plan_recursive_gets(
+        self,
+        stage_root: StagePath,
+        dest_path: Path,
+        files: list[StagePath],
+    ) -> list[_RecursiveGet]:
+        resolved_dest = dest_path.resolve()
+        singles: list[_RecursiveGet] = []
+        groups: dict[PurePosixPath, list[StagePath]] = {}
+        relative_paths: list[PurePosixPath] = []
+
+        for file_path in files:
             local_dir = file_path.get_local_target_path(
                 target_dir=dest_path, stage_root=stage_root
             )
-            StageManager._check_for_path_traversal(resolved_dest, local_dir)
-            self._assure_is_existing_directory(local_dir)
-
-            with self._restrict_created_or_updated(local_dir):
-                result = self.execute_query(
-                    f"get {file_path.path_for_sql()} {self._to_uri(f'{local_dir}/')} parallel={parallel}"
+            self._check_for_path_traversal(resolved_dest, local_dir)
+            relative = file_path.relative_to(stage_root)
+            if relative == PurePosixPath("."):
+                singles.append(
+                    _RecursiveGet(
+                        stage_path=file_path, local_dir=local_dir, pattern=None
+                    )
                 )
-            results.append(result)
+                continue
+            groups.setdefault(relative.parent, []).append(file_path)
+            relative_paths.append(relative)
 
-        return results
+        units = list(singles)
+        for parent, members in groups.items():
+            local_dir = members[0].get_local_target_path(
+                target_dir=dest_path, stage_root=stage_root
+            )
+            # A basename PATTERN also matches a nested file of the same name.
+            # A direct-child PATTERN for src/ also matches src/pkg/src/file.sql.
+            # Either match would write two stage files onto one local path.
+            per_file = False
+            pattern = None
+            if parent == PurePosixPath(".") and _root_basename_collides(relative_paths):
+                per_file = True
+            elif _has_nested_files(parent, relative_paths):
+                if parent == PurePosixPath("."):
+                    pattern = _root_filename_pattern(
+                        {member.relative_to(stage_root).name for member in members}
+                    )
+                else:
+                    pattern = _direct_child_pattern(parent)
+                    per_file = _pattern_selects_nested_file(
+                        pattern, parent, relative_paths
+                    )
+            if per_file:
+                units.extend(_one_file_gets(members, local_dir))
+                continue
+            units.append(
+                _RecursiveGet(
+                    stage_path=_directory_stage_path(members[0]),
+                    local_dir=local_dir,
+                    pattern=pattern,
+                )
+            )
+        units.sort(key=lambda unit: unit.stage_path.absolute_path())
+        return units
 
     def put(
         self,
@@ -565,15 +739,7 @@ class StageManager(SqlExecutionMixin):
         is uploaded through an isolated view containing only its direct files.
         The source tree is never mutated.
         """
-        budget = _resolve_upload_workers()
-        # Clamp the per-PUT PARALLEL into [1, budget] before splitting the
-        # budget, so it stays a genuine hard cap on total upload threads:
-        # dir_workers * parallel == (budget // parallel) * parallel <= budget.
-        # Without the clamp, a parallel larger than the budget would floor
-        # dir_workers to 1 yet still spawn `parallel` PUT threads per directory,
-        # exceeding the budget.
-        parallel = min(budget, max(parallel, 1))
-        dir_workers = max(1, budget // parallel)
+        parallel, dir_workers = _split_worker_budget(parallel)
 
         with self._prepared_upload_dir(
             local_path, temp_directory

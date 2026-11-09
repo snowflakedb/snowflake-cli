@@ -272,11 +272,11 @@ def test_copy_to_local_file_system(
 
     assert result.exit_code == 0, result.output
     assert local_path.exists()
-    assert (
-        ctx.get_query()
-        == f"""get {repo_prefix}file.txt file://{local_path.resolve()}/ parallel=4
-get {repo_prefix}dir/file_in_dir.txt file://{local_path.resolve() / 'dir'}/ parallel=4"""
-    )
+    local = local_path.resolve()
+    assert set(ctx.get_queries()) == {
+        f"get {repo_prefix} file://{local}/ parallel=4 pattern='(?:^|.*/)(?:file\\.txt)$'",
+        f"get {repo_prefix}dir/ file://{local / 'dir'}/ parallel=4",
+    }
 
 
 @mock.patch("snowflake.connector.connect")
