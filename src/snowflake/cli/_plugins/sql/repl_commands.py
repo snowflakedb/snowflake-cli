@@ -481,7 +481,7 @@ _ECHO_VALUES = frozenset({"true", "false"})
 _OUTPUT_FILE_VALUE_REQUIRED = "You must specify a value for output_file."
 
 
-def _parse_bool_value(option: str, value: str) -> bool:
+def parse_bool_value(option: str, value: str) -> bool:
     normalized = value.strip().lower()
     if normalized in _BOOL_TRUE:
         return True
@@ -515,13 +515,13 @@ class SetCommand(ReplCommand):
             manager.open_spool(self.value)
             return
         if self.option == _SET_OPTION_QUIET:
-            manager.quiet = _parse_bool_value(self.option, self.value)
+            manager.quiet = parse_bool_value(self.option, self.value)
             return
         if self.option == _SET_OPTION_TIMING:
-            manager.timing = _parse_bool_value(self.option, self.value)
+            manager.timing = parse_bool_value(self.option, self.value)
             return
         if self.option == _SET_OPTION_TIMING_IN_OUTPUT_FILE:
-            manager.timing_in_output_file = _parse_bool_value(self.option, self.value)
+            manager.timing_in_output_file = parse_bool_value(self.option, self.value)
             return
         if self.option == _SET_OPTION_ECHO:
             manager.echo = _parse_echo_value(self.value) == "true"
@@ -596,7 +596,7 @@ class SetCommand(ReplCommand):
             return cls._compile_output_file_value(value)
         try:
             if option in _SET_BOOL_OPTIONS:
-                _parse_bool_value(option, value)
+                parse_bool_value(option, value)
             elif option == _SET_OPTION_ECHO:
                 value = _parse_echo_value(value)
             else:

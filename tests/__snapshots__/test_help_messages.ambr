@@ -16109,9 +16109,12 @@
   | --option           -o                     KEY=VALUE         Sets a           |
   |                                                             SnowSQL-style    |
   |                                                             option for this  |
-  |                                                             run. Only        |
-  |                                                             output_file is   |
-  |                                                             supported: -o    |
+  |                                                             run. Supported   |
+  |                                                             options are      |
+  |                                                             output_file,     |
+  |                                                             quiet and        |
+  |                                                             output_format.   |
+  |                                                             -o               |
   |                                                             output_file=<pa… |
   |                                                             appends query    |
   |                                                             results to the   |
@@ -16119,8 +16122,42 @@
   |                                                             prints them,     |
   |                                                             like !spool      |
   |                                                             <path>. An empty |
-  |                                                             value turns      |
-  |                                                             spooling off.    |
+  |                                                             output_file      |
+  |                                                             turns spooling   |
+  |                                                             off, and         |
+  |                                                             output_file=off  |
+  |                                                             writes to a file |
+  |                                                             named off. -o    |
+  |                                                             quiet=true hides |
+  |                                                             query results on |
+  |                                                             the terminal,    |
+  |                                                             like !set        |
+  |                                                             quiet=true; an   |
+  |                                                             open spool file  |
+  |                                                             still receives   |
+  |                                                             them. -o         |
+  |                                                             output_format=<… |
+  |                                                             sets the         |
+  |                                                             starting output  |
+  |                                                             format, like     |
+  |                                                             !set             |
+  |                                                             output_format,   |
+  |                                                             and overrides    |
+  |                                                             the config key   |
+  |                                                             and environment  |
+  |                                                             variable. It     |
+  |                                                             cannot be        |
+  |                                                             combined with    |
+  |                                                             --format, and    |
+  |                                                             !set             |
+  |                                                             output_format    |
+  |                                                             can still change |
+  |                                                             it later. Repeat |
+  |                                                             -o to set        |
+  |                                                             several options. |
+  |                                                             The last value   |
+  |                                                             of an option     |
+  |                                                             wins.            |
   | --project          -p                     TEXT              Path where the   |
   |                                                             Snowflake        |
   |                                                             project is       |
@@ -16177,7 +16214,9 @@
   | see Execute SQL statements.                                                  |
   |                                                                              |
   | Append query results to a file with -o output_file=<path> (results are still |
-  | printed). !spool off stops writing.                                          |
+  | printed). !spool off stops writing. -o quiet=true hides query results on the |
+  | terminal from the start of a run. -o output_format=<format> sets the         |
+  | starting output format. It cannot be combined with --format.                 |
   |                                                                              |
   | Note: When the query contains characters the shell interprets (for example $ |
   | in SYSTEM$CLIENT_VERSION_INFO() functions), wrap the query in single quotes: |

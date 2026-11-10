@@ -442,9 +442,9 @@ def test_sql_option_output_file_last_wins(
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_option_unknown_key_runs_no_sql(mock_execute, mock_connect, runner):
-    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "timing=true"])
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "header=false"])
     assert result.exit_code != 0
-    assert "Unknown option 'timing'. Only output_file is supported." in result.output
+    assert "Unknown option 'header'." in result.output
     mock_execute.assert_not_called()
 
 
@@ -452,8 +452,309 @@ def test_sql_option_unknown_key_runs_no_sql(mock_execute, mock_connect, runner):
 def test_sql_option_missing_equals_runs_no_sql(mock_execute, mock_connect, runner):
     result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "x"])
     assert result.exit_code != 0
-    assert "Invalid option 'x'. Use -o output_file=<path>." in result.output
+    assert "Invalid option 'x'. Use -o <option>=<value>." in result.output
     mock_execute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "value,expect_terminal",
+    [
+        ("true", False),
+        ("TRUE", False),
+        ("yes", False),
+        ("on", False),
+        ("1", False),
+        (" true ", False),
+        ("false", True),
+        ("False", True),
+        ("no", True),
+        ("off", True),
+        ("0", True),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_accepts_set_quiet_values(
+    mock_execute, mock_connect, runner, mock_cursor, value, expect_terminal
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", f"quiet={value}"])
+    assert result.exit_code == 0, result.output
+    assert ("| 1 |" in result.output) is expect_terminal
+    assert get_cli_context().quiet is not expect_terminal
+
+
+@pytest.mark.parametrize("value", ["", "maybe", "truee"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_invalid_value_runs_no_sql(
+    mock_execute, mock_connect, runner, value
+):
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", f"quiet={value}"])
+    assert result.exit_code != 0
+    assert f"Invalid value for quiet: {value!r}. Use true or false." in result.output
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_invalid_value_opens_no_spool(
+    mock_execute, mock_connect, runner, tmp_path
+):
+    """All -o entries are validated before any of them is applied."""
+    spool = tmp_path / "out.txt"
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            f"output_file={spool}",
+            "-o",
+            "quiet=maybe",
+        ]
+    )
+    assert result.exit_code != 0
+    assert "Invalid value for quiet: 'maybe'. Use true or false." in result.output
+    assert not spool.exists()
+    assert get_cli_context().spool_path is None
+    mock_execute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "first,last,expect_terminal",
+    [("true", "false", True), ("false", "true", False)],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_last_wins(
+    mock_execute, mock_connect, runner, mock_cursor, first, last, expect_terminal
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            f"quiet={first}",
+            "-o",
+            f"quiet={last}",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert ("| 1 |" in result.output) is expect_terminal
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_still_writes_output_file(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                "select 1 as n",
+                "-o",
+                "QUIET=true",
+                "-o",
+                f"output_file={spool}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "| 1 |" not in result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+    finally:
+        manager.close_spool()
+
+
+@pytest.mark.parametrize(
+    "value,expected_format",
+    [
+        ("json", OutputFormat.JSON),
+        ("JSON", OutputFormat.JSON),
+        (" csv ", OutputFormat.CSV),
+        ("table", OutputFormat.TABLE),
+        ("plain", OutputFormat.PLAIN),
+        ("json_ext", OutputFormat.JSON_EXT),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_accepts_set_output_format_names(
+    mock_execute, mock_connect, runner, mock_cursor, value, expected_format
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        ["sql", "-q", "select 1 as n", "-o", f"output_format={value}"]
+    )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == expected_format
+    assert ("| 1 |" in result.output) is (expected_format == OutputFormat.TABLE)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_csv_prints_csv(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "output_format=csv"])
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == ["n", "1"]
+
+
+@pytest.mark.parametrize("value", ["", "html"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_invalid_value_runs_no_sql(
+    mock_execute, mock_connect, runner, tmp_path, value
+):
+    spool = tmp_path / "out.txt"
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            f"output_file={spool}",
+            "-o",
+            f"output_format={value}",
+        ]
+    )
+    assert result.exit_code != 0
+    assert f"Invalid output format: {value!r}. Must be one of:" in result.output
+    assert not spool.exists()
+    assert get_cli_context().spool_path is None
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_last_wins(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            "output_format=json",
+            "-o",
+            "output_format=table",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.TABLE
+    assert "| 1 |" in result.output
+
+
+@pytest.mark.parametrize("flag_value", ["json", "table"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_conflicts_with_format_flag(
+    mock_execute, mock_connect, runner, tmp_path, flag_value
+):
+    """Any explicit --format conflicts, even when both values are the same."""
+    spool = tmp_path / "out.txt"
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "--format",
+            flag_value,
+            "-o",
+            f"output_file={spool}",
+            "-o",
+            "output_format=json",
+        ]
+    )
+    assert result.exit_code != 0
+    assert "--format cannot be combined with -o output_format." in result.output
+    assert not spool.exists()
+    assert get_cli_context().spool_path is None
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_invalid_value_is_reported_before_conflict(
+    mock_execute, mock_connect, runner
+):
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "--format",
+            "json",
+            "-o",
+            "output_format=html",
+        ]
+    )
+    assert result.exit_code != 0
+    assert "Invalid output format: 'html'" in result.output
+    assert "cannot be combined" not in result.output
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_format_flag_alone_is_unchanged(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", "--format", "csv"])
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.CSV
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_overrides_config_key(
+    mock_execute, mock_connect, runner, mock_cursor, config_file, monkeypatch
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    monkeypatch.delenv("SNOWFLAKE_CLI_OUTPUT_FORMAT", raising=False)
+    config = (
+        '[connections.default]\npassword = "dummy"\n\n[cli]\noutput_format = "JSON"\n'
+    )
+    with config_file(config) as cfg:
+        result = runner.invoke_with_config_file(
+            cfg, ["sql", "-q", "select 1 as n", "-o", "output_format=table"]
+        )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.TABLE
+    assert "| 1 |" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_overrides_environment_variable(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        ["sql", "-q", "select 1 as n", "-o", "output_format=table"],
+        env={"SNOWFLAKE_CLI_OUTPUT_FORMAT": "json"},
+    )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.TABLE
+    assert "| 1 |" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_output_format_still_changes_format_after_option(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "!set output_format=table\nselect 1 as n;",
+            "-o",
+            "output_format=json",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.TABLE
+    assert "| 1 |" in result.output
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")

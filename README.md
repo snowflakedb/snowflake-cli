@@ -170,6 +170,15 @@ the result stays parseable. One `!set` changes one option.
 `!set output_file=<path>` opens the same file as `!spool <path>`, and
 `!spool off` closes it. To spool from the start of a run, pass
 `-o output_file=<path>`.
+To hide query results on the terminal from the start of a run, pass
+`-o quiet=true`. It accepts the same values as `!set quiet`, and an open
+spool file still receives the results.
+To set the output format from the start of a run, pass
+`-o output_format=<format>`. It accepts the same names as
+`!set output_format` and overrides the `output_format` config key and the
+`SNOWFLAKE_CLI_OUTPUT_FORMAT` variable. It cannot be combined with `--format`:
+passing both is an error and no SQL runs. `!set output_format` can still
+change the format later.
 
 ```toml
 [cli]

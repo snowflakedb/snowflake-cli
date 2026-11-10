@@ -325,10 +325,10 @@ def test_rejected_snowsql_flags(runner, tmp_path):
         assert result.exit_code != 0, flag
         assert "No such option" in result.output
 
-    # -o exists for output_file only; other SnowSQL keys are rejected by name.
-    result = runner.invoke([*query, "-o", "output_format=json"])
+    # -o supports a few keys; other SnowSQL keys are rejected by name.
+    result = runner.invoke([*query, "-o", "header=false"])
     assert result.exit_code != 0
-    assert "Unknown option 'output_format'" in result.output
+    assert "Unknown option 'header'" in result.output
 
 
 def test_snowsql_compatible_connection_aliases(runner, mock_cursor, tmp_path):
