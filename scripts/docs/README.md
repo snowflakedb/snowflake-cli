@@ -70,10 +70,16 @@ Nested dests such as ``spcs-commands/service-commands/create.mdx`` are listed on
 that top group overview; nested overviews are not created.
 Existing overviews are left unchanged. A new group also gets a
 command-reference index bullet, unless the index already has a link
-under that group's folder. `publish_release_notes.py` copies
-the CLI version from `RELEASE-NOTES.md` into the year page, version variable,
-and monthly table. It creates a missing month file from
-``scripts/docs/monthly_details_template.mdx``.
+under that group's folder. It inserts a left-nav node for mapped pages
+whose path is not already in the tree. A new command page is parented
+on the deepest overview node already in the tree under its directory.
+If none exists, or the insert fails, that is printed; publish then
+fails if a page written in this run still has no node. Command-page
+labels are the generated source path joined with spaces, so hyphens
+and the command prefix stay.
+`publish_release_notes.py` copies the CLI version from `RELEASE-NOTES.md` into
+the year page, version variable, and monthly table. It creates a missing month
+file from ``scripts/docs/monthly_details_template.mdx``.
 Neither runs git or opens a PR; use `publish_prod_docs.py` / `snow release
 publish-docs` for the full release flow.
 

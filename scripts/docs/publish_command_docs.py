@@ -39,11 +39,18 @@ from pathlib import Path
 
 import yaml
 from prod_docs_common import (
+    CLI_NAV_TREE_REL,
     COMMAND_REF_URL,
     COMMAND_REFERENCE_REL,
     command_group_dir,
     group_list_label,
     group_title,
+    insert_nav_child,
+    nav_has_path,
+    nav_page_label,
+    nav_parent_for_page,
+    nav_path_for,
+    read_nav_tree,
     render_template,
 )
 
@@ -102,10 +109,21 @@ def run(
     pages_root = generate(cli_root)
     dests = [dest for _, dest in mapping]
     changed = copy_mapped_pages(pages_root, docs_repo, mapping, dry_run=args.dry_run)
-    overview_changed, _created = ensure_group_overviews(
+    overview_changed, new_overviews = ensure_group_overviews(
         docs_repo, dests, dry_run=args.dry_run
     )
     for path in overview_changed:
+        if path not in changed:
+            changed.append(path)
+    written = [path for path in changed if path.suffix == ".mdx"]
+    source_by_dest = {dest: source for source, dest in mapping}
+    for path in ensure_command_nav(
+        docs_repo,
+        [*new_overviews, *dests],
+        dry_run=args.dry_run,
+        sources=source_by_dest,
+        required=written,
+    ):
         if path not in changed:
             changed.append(path)
     if not changed:
@@ -346,6 +364,103 @@ def _insert_top_overview_block(content: str, group_name: str, block: str) -> str
     if after < len(content) and content[after] == "\n":
         after += 1
     return content[:after] + "\n" + block + content[after:]
+
+
+_COMMAND_REF_NAV_PARENT = "developer-guide/snowflake-cli/command-reference/overview"
+
+
+def ensure_command_nav(
+    docs_repo: Path,
+    dests: Sequence[Path],
+    *,
+    dry_run: bool,
+    sources: Mapping[Path, Path] | None = None,
+    required: Sequence[Path] = (),
+) -> list[Path]:
+    """Insert PAGE nodes for dests whose path is not already in snowflake-cli-v3.ts.
+
+    Does not edit snowflake-cli.ts. Skips (prints) when the tree file or a parent
+    node is missing. ``required`` dests (pages written this run) must have a node
+    afterwards or publish dies. Command-page labels come from ``sources``
+    (dest → generated page path) when that dest is mapped.
+    """
+    tree = docs_repo / CLI_NAV_TREE_REL
+    content = read_nav_tree(docs_repo, CLI_NAV_TREE_REL)
+    original = content
+    if not dests:
+        _require_nav_nodes(content, required)
+        return []
+    if content is None:
+        _require_nav_nodes(content, required)
+        return []
+    overviews: list[tuple[Path, Path]] = []
+    pages: list[tuple[Path, Path | None]] = []
+    for dest_rel in dests:
+        if dest_rel.suffix != ".mdx":
+            continue
+        group = command_group_dir(dest_rel)
+        if group is not None and dest_rel.name == "overview.mdx":
+            overviews.append((dest_rel, group))
+        else:
+            pages.append((dest_rel, group))
+    for dest_rel, group in overviews:
+        content = insert_nav_child(
+            content,
+            parent_path=_COMMAND_REF_NAV_PARENT,
+            path=nav_path_for(dest_rel),
+            label=group_list_label(group),
+            translated=True,
+            children="\n",
+        )
+
+    def _page_label(dest_rel: Path) -> str:
+        source = None if sources is None else sources.get(dest_rel)
+        if source is not None:
+            return nav_page_label(source)
+        return dest_rel.stem
+
+    for dest_rel, group in pages:
+        page_path = nav_path_for(dest_rel)
+        if group is None:
+            content = insert_nav_child(
+                content,
+                parent_path=_COMMAND_REF_NAV_PARENT,
+                path=page_path,
+                label=_page_label(dest_rel),
+                translated=True,
+            )
+            continue
+        parent = nav_parent_for_page(dest_rel, content)
+        if parent is None:
+            print(f"nav insert skipped: no overview ancestor for {page_path!r}")
+            continue
+        content = insert_nav_child(
+            content,
+            parent_path=parent,
+            path=page_path,
+            label=_page_label(dest_rel),
+            translated=False,
+        )
+    changed: list[Path] = []
+    if content != original:
+        if not dry_run:
+            tree.write_text(content, encoding="utf-8")
+        print(f"cli nav -> {CLI_NAV_TREE_REL}")
+        changed = [CLI_NAV_TREE_REL]
+    _require_nav_nodes(content, required)
+    return changed
+
+
+def _require_nav_nodes(content: str | None, required: Sequence[Path]) -> None:
+    missing = [
+        dest
+        for dest in required
+        if dest.suffix == ".mdx"
+        and (content is None or not nav_has_path(content, nav_path_for(dest)))
+    ]
+    if missing:
+        paths = ", ".join(nav_path_for(dest) for dest in missing)
+        _die(f"CLI nav is missing nodes for pages written this run: {paths}")
 
 
 def _die(message: str, code: int = 1) -> None:
