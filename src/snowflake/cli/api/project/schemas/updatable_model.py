@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Dict, Iterator, Optional
@@ -38,6 +39,23 @@ def _is_templated(info: ValidationInfo, value: Any) -> bool:
         and isinstance(value, str)
         and PROJECT_TEMPLATE_START in value
     )
+
+
+def _get_class_annotations(class_: type) -> Dict[str, Any]:
+    """
+    Returns the annotations declared directly on the provided class.
+
+    Starting with Python 3.14, class annotations are evaluated lazily (PEP 649)
+    and are no longer stored in the class ``__dict__`` under ``__annotations__``.
+    Reading ``class_.__annotations__`` would eagerly evaluate them, which can
+    raise for unresolvable forward references, so use ``annotationlib`` with
+    the string format when it is available.
+    """
+    if sys.version_info >= (3, 14):
+        import annotationlib
+
+        return annotationlib.get_annotations(class_, format=annotationlib.Format.STRING)
+    return class_.__dict__.get("__annotations__", {})
 
 
 _initial_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar(
@@ -120,7 +138,7 @@ class UpdatableModel(BaseModel):
         private_attrs = set()
         for class_ in reversed(cls.__mro__):
             class_dict = class_.__dict__
-            field_annotations.update(class_dict.get("__annotations__", {}))
+            field_annotations.update(_get_class_annotations(class_))
 
             if "model_fields" in class_dict and class_.model_fields:
                 # This means the class dict has already been processed by Pydantic

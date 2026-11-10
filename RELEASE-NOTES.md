@@ -24,6 +24,7 @@
 
 ## Fixes and improvements
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.22 to 3.12.15. macOS and Windows binaries now embed Python 3.12 as well.
+* Relaxed the `pydantic` dependency from `==2.12.5` to `>=2.12.5,<3` so the CLI can be packaged on distributions that ship a newer pydantic.
 
 
 # v3.30.0
