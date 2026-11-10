@@ -39,10 +39,14 @@ from pathlib import Path
 
 from prod_docs_common import (
     _ENGLISH_MONTH_NAMES,
+    CLI_YEAR_INDEX_REL,
+    RELEASE_NAV_TREE_REL,
     die,
     format_monthly_table_date,
     format_version_heading_date,
+    insert_nav_child,
     parse_release_date,
+    read_nav_tree,
     render_template,
     resolve_release_version,
 )
@@ -69,6 +73,7 @@ MONTHLY_INDEX_REL = Path(
     "content/en/release-notes/clients-drivers/monthly-releases.mdx"
 )
 MONTHLY_TEMPLATE_PATH = Path(__file__).resolve().parent / "monthly_details_template.mdx"
+YEAR_TEMPLATE_PATH = Path(__file__).resolve().parent / "year_notes_template.mdx"
 VERSION_VAR_RE = re.compile(r"(\{/\* %snowflake-cli-version% replace:: )[\d.]+( \*/\})")
 SNOWFLAKE_CLI_RN = "%snowflake-cli-rn%"
 _CLI_CLIENT_CELL_RE = re.compile(
@@ -128,10 +133,21 @@ def run(
 
     changed: list[Path] = []
     year_path = year_notes_rel(release_date.year)
-    if insert_year_section(
-        docs_repo / year_path, version, section, dry_run=args.dry_run
+    created_year = ensure_year_page(docs_repo, release_date.year, dry_run=args.dry_run)
+    changed.extend(created_year)
+    if args.dry_run and year_path in created_year:
+        print(
+            f"release notes -> {year_path.name} (version {version}) (dry run: not written)"
+        )
+    elif insert_year_section(
+        docs_repo / year_path,
+        version,
+        section,
+        dry_run=args.dry_run,
+        created=year_path in created_year,
     ):
-        changed.append(year_path)
+        if year_path not in changed:
+            changed.append(year_path)
 
     version_var_path = VERSION_VAR_REL
     if bump_version_variable(
@@ -205,12 +221,71 @@ def format_prod_docs_section(parsed: ParsedReleaseNotes, release_date: date) -> 
     return "\n".join(lines).rstrip() + "\n"
 
 
+def ensure_year_page(docs_repo: Path, year: int, *, dry_run: bool) -> list[Path]:
+    """Create snowflake-cli-{year}.mdx, the index link, and the nav child when missing."""
+    rel = year_notes_rel(year)
+    path = docs_repo / rel
+    if path.is_file():
+        return []
+    index_path = docs_repo / CLI_YEAR_INDEX_REL
+    if not index_path.is_file():
+        die(f"Snowflake CLI release-notes index does not exist: {index_path}")
+    stub = render_year_template(year)
+    new_index = _wire_year_index(index_path.read_text(encoding="utf-8"), year)
+    tree_path = docs_repo / RELEASE_NAV_TREE_REL
+    new_tree = None
+    original_tree = read_nav_tree(docs_repo, RELEASE_NAV_TREE_REL)
+    if original_tree is not None:
+        updated_tree = insert_nav_child(
+            original_tree,
+            parent_path="release-notes/clients-drivers/snowflake-cli",
+            path=f"release-notes/clients-drivers/snowflake-cli-{year}",
+            label=str(year),
+            translated=True,
+            place="start",
+        )
+        if updated_tree != original_tree:
+            new_tree = updated_tree
+    changed = [rel, CLI_YEAR_INDEX_REL]
+    if not dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(stub, encoding="utf-8")
+        index_path.write_text(new_index, encoding="utf-8")
+        if new_tree is not None:
+            tree_path.write_text(new_tree, encoding="utf-8")
+            changed.append(RELEASE_NAV_TREE_REL)
+    elif new_tree is not None:
+        changed.append(RELEASE_NAV_TREE_REL)
+    print(f"year page created -> {path.name} (from {YEAR_TEMPLATE_PATH.name})")
+    return changed
+
+
+def render_year_template(year: int) -> str:
+    """Fill the in-repo year notes template for ``year``."""
+    return render_template(YEAR_TEMPLATE_PATH, "Year notes", {"__YEAR__": str(year)})
+
+
+def _wire_year_index(content: str, year: int) -> str:
+    link = f"- [{year} releases](/release-notes/clients-drivers/snowflake-cli-{year})"
+    if link in content:
+        return content
+    match = re.search(
+        r"^- \[\d{4} releases\]\(/release-notes/clients-drivers/snowflake-cli-\d{4}\)",
+        content,
+        re.MULTILINE,
+    )
+    if match is None:
+        die(f"No year list in {CLI_YEAR_INDEX_REL}.")
+    return content[: match.start()] + link + "\n" + content[match.start() :]
+
+
 def insert_year_section(
     path: Path,
     version: str,
     section: str,
     *,
     dry_run: bool,
+    created: bool = False,
 ) -> bool:
     if not path.is_file():
         die(f"Year release-notes file does not exist: {path}")
@@ -220,8 +295,11 @@ def insert_year_section(
     marker = "\n## Version "
     idx = content.find(marker)
     if idx < 0:
-        die(f"Could not find a version section to insert before in {path}")
-    updated = content[:idx] + "\n" + section + content[idx:]
+        if not created:
+            die(f"Could not find a version section to insert before in {path}")
+        updated = content.rstrip() + "\n\n" + section
+    else:
+        updated = content[:idx] + "\n" + section + content[idx:]
     if not dry_run:
         path.write_text(updated, encoding="utf-8")
     print(f"release notes -> {path.name} (version {version})")

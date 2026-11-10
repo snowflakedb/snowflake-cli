@@ -79,7 +79,11 @@ labels are the generated source path joined with spaces, so hyphens
 and the command prefix stay.
 `publish_release_notes.py` copies the CLI version from `RELEASE-NOTES.md` into
 the year page, version variable, and monthly table. It creates a missing month
-file from ``scripts/docs/monthly_details_template.mdx``.
+file from ``scripts/docs/monthly_details_template.mdx``, and a missing year page
+from ``scripts/docs/year_notes_template.mdx``. The first version section is
+appended only on that new stub; an existing year page without a version
+heading still fails. A failed year-page nav insert is printed and does not
+stop publish.
 Neither runs git or opens a PR; use `publish_prod_docs.py` / `snow release
 publish-docs` for the full release flow.
 
