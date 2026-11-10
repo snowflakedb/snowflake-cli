@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* With `WORKLOAD_IDENTITY` authentication, a supplied `token` (for example `SNOWFLAKE_TOKEN` exported by an earlier CI step) that is an expired JWT is replaced by a newly obtained token, as in 3.32. Since 3.33.0 it was used as given and the login failed.
 * Upgrading the Snowflake CLI RPM with `rpm -U` or `dnf` keeps `/usr/local/bin/snow` on PATH. The replaced package's uninstall script used to remove that symlink after the new package created it.
 * `snow dcm plan --save-output`, and `snow dcm test --save-output` return sooner after the query when the saved output has many files. `snow stage copy --recursive` and `snow git copy` download a directory of files faster.
 
