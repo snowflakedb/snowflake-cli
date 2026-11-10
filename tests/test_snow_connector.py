@@ -1122,3 +1122,26 @@ def test_maybe_update_oidc_token_keeps_expired_jwt_when_none_obtained(
     _maybe_update_oidc_token(connection_parameters)
 
     assert connection_parameters["token"] == supplied
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+def test_maybe_update_oidc_token_replaces_jwt_about_to_expire(
+    mock_oidc_manager_class, test_snowcli_config
+):
+    """A supplied JWT that expires within the margin is replaced too."""
+    import time
+
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "token": _jwt_with_exp(time.time() + 30),
+    }
+
+    _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == "minted-oidc-token"

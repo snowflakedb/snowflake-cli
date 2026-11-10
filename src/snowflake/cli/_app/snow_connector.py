@@ -554,8 +554,12 @@ def prepare_private_key(
     )
 
 
+_OIDC_TOKEN_EXPIRY_MARGIN_SECONDS = 60
+
+
 def _is_expired_jwt(token: str) -> bool:
-    """True only when token is a JWT whose exp claim is in the past.
+    """True only when token is a JWT whose exp claim is in the past, or will be
+    within _OIDC_TOKEN_EXPIRY_MARGIN_SECONDS (time to log in, plus clock skew).
 
     The signature is not checked; Snowflake does that. Anything that cannot be
     read as a JWT with a numeric exp counts as not expired, so it is used as given.
@@ -564,7 +568,7 @@ def _is_expired_jwt(token: str) -> bool:
         payload = token.split(".")[1]
         payload += "=" * (-len(payload) % 4)
         exp = json.loads(base64.urlsafe_b64decode(payload))["exp"]
-        return float(exp) <= time.time()
+        return float(exp) <= time.time() + _OIDC_TOKEN_EXPIRY_MARGIN_SECONDS
     except Exception:
         return False
 
