@@ -55,9 +55,25 @@ Windows (PowerShell):
 irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
 ```
 
+Pin a release with `--version` (or `SNOWFLAKE_CLI_VERSION`). Pass `--no-auto-upgrade` with a pin so later `snow` invocations do not replace it via auto-upgrade. This is the same flag as the root `snow --no-auto-upgrade`:
+
+```bash
+curl -LsS https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh | sh -s -- --version 3.29.0 --no-auto-upgrade
+```
+
+```powershell
+.\install.ps1 -Version 3.29.0 -NoAutoUpgrade
+# or, without saving the script first:
+& ([scriptblock]::Create((irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1))) -Version 3.29.0 -NoAutoUpgrade
+```
+
+`irm ... | iex` cannot pass flags. With it, set `$env:SNOWFLAKE_CLI_VERSION` to pin a release. `--no-auto-upgrade` has no environment-variable form.
+
+`--no-auto-upgrade` writes `auto_upgrade = false` under `[cli]` in the `config.toml` the CLI reads. If that file is a symlink, or has a `cli` table the installer cannot edit safely, the installer stops before installing and tells you what to add yourself.
+
 Upgrade later with `snow upgrade` (same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
 
-Auto-upgrade is off until you opt in, and it applies only to a direct install. Set `auto_upgrade = true` under `[cli]` in `config.toml`, or `SNOWFLAKE_CLI_AUTO_UPGRADE=1` for one process. Turn it off with `SNOWFLAKE_CLI_AUTO_UPGRADE=0` or `--no-auto-upgrade`.
+Auto-upgrade is off until you opt in, and it applies only to a direct install. Set `auto_upgrade = true` under `[cli]` in `config.toml`, or `SNOWFLAKE_CLI_AUTO_UPGRADE=1` for one process. Turn it off with `SNOWFLAKE_CLI_AUTO_UPGRADE=0`, `snow --no-auto-upgrade`, or the installer flag `--no-auto-upgrade`.
 
 ### Install with uv (PyPi)
 

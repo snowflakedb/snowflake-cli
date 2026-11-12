@@ -23,6 +23,14 @@
 #
 # Override install root with SNOWFLAKE_CLI_MANAGED_HOME (tests and support).
 # Override repo base with SNOWFLAKE_CLI_MANAGED_REPO (tests; default is sfc-repo).
+#
+# Pin a release (flag or env; flag wins):
+#   curl -LsS .../install.sh | sh -s -- --version 3.29.0
+#   SNOWFLAKE_CLI_VERSION=3.29.0 curl -LsS .../install.sh | sh
+#
+# Keep a pin from being replaced by auto-upgrade (same flag name as snow):
+#   ... | sh -s -- --version 3.29.0 --no-auto-upgrade
+# That writes cli.auto_upgrade = false into the user config.toml.
 
 # shellcheck shell=dash
 # shellcheck disable=SC3043
@@ -32,6 +40,13 @@ set -e
 DOCKER_ENV=${DOCKER_ENV:-""}
 SKIP_PATH_PROMPT=${SKIP_PATH_PROMPT:-""}
 NON_INTERACTIVE=${NON_INTERACTIVE:-""}
+# Optional pin. CLI --version overrides this env.
+REQUESTED_VERSION=${SNOWFLAKE_CLI_VERSION:-""}
+# 1 = write cli.auto_upgrade = false to the user config.toml (--no-auto-upgrade)
+NO_AUTO_UPGRADE=0
+# The download step changes into $TEMP_DIR, so keep the launch directory for
+# resolving a relative XDG_CONFIG_HOME the way the CLI would from this shell.
+INSTALL_CWD=$(pwd)
 
 if [ -f /.dockerenv ] || [ -n "$DOCKER_ENV" ]; then
     NON_INTERACTIVE=1
@@ -132,6 +147,72 @@ repo_version_dir() {
     echo "${REPO_BASE}/$(url_encode "$1")/"
 }
 
+usage() {
+    cat <<'EOF'
+Usage: install.sh [options]
+
+Install the snowflake-managed Snowflake CLI distribution.
+
+Options:
+  --version <ver>           Install this release (e.g. 3.29.0). Default: latest
+                            stable from the repository. Overrides
+                            SNOWFLAKE_CLI_VERSION.
+  --no-auto-upgrade         Set cli.auto_upgrade = false in the user
+                            config.toml. Use with --version so a pin is not
+                            replaced by auto-upgrade on the next snow run.
+  -h, --help                Show this help.
+
+Environment:
+  SNOWFLAKE_CLI_VERSION       Default version pin when --version is omitted.
+  SNOWFLAKE_CLI_MANAGED_HOME  Install root (default: ~/.local/share/snowflake-cli).
+  SNOWFLAKE_CLI_MANAGED_REPO  Repository base URL (tests/support).
+  NON_INTERACTIVE             Skip interactive prompts.
+  SKIP_PATH_PROMPT            Do not edit shell profiles; print export PATH.
+
+Examples:
+  curl -LsS https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh | sh
+  curl -LsS .../install.sh | sh -s -- --version 3.29.0 --no-auto-upgrade
+EOF
+}
+
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --version)
+                if [ -z "$(printf '%s' "${2:-}" | tr -d '[:space:]')" ]; then
+                    print_error "--version requires a value"
+                    usage
+                    exit 1
+                fi
+                REQUESTED_VERSION=$2
+                shift 2
+                ;;
+            --version=*)
+                if [ -z "$(printf '%s' "${1#*=}" | tr -d '[:space:]')" ]; then
+                    print_error "--version requires a value"
+                    usage
+                    exit 1
+                fi
+                REQUESTED_VERSION=${1#*=}
+                shift
+                ;;
+            --no-auto-upgrade)
+                NO_AUTO_UPGRADE=1
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+        esac
+    done
+}
+
 get_stable_version() {
     local version_url="${REPO_BASE}/${POINTER_NAME}"
     local version
@@ -141,6 +222,124 @@ get_stable_version() {
         exit 1
     fi
     echo "$version" | tr -d '[:space:]'
+}
+
+resolve_install_version() {
+    local version
+    version=$(printf '%s' "$REQUESTED_VERSION" | tr -d '[:space:]')
+    if [ -n "$version" ]; then
+        echo "$version"
+        return 0
+    fi
+    get_stable_version
+}
+
+auto_upgrade_manual_hint() {
+    print_error "Add 'auto_upgrade = false' under [cli] in $1 yourself, or set SNOWFLAKE_CLI_AUTO_UPGRADE=false, and re-run without --no-auto-upgrade."
+}
+
+# Set [cli].auto_upgrade = false in the config.toml the CLI reads
+# (--no-auto-upgrade). Fails before installing when the file cannot be
+# edited safely, so a pin is never silently left upgradable.
+disable_auto_upgrade_config() {
+    local value=false
+    local config_dir config_file tmp_file rc
+
+    config_dir=$(snowflake_config_dir)
+    (umask 077 && mkdir -p "$config_dir")
+    config_file="${config_dir}/config.toml"
+
+    if [ -L "$config_file" ]; then
+        print_error "$config_file is a symlink; not editing it."
+        auto_upgrade_manual_hint "$config_file"
+        exit 1
+    fi
+
+    if [ ! -s "$config_file" ]; then
+        (umask 077 && printf '[cli]\nauto_upgrade = %s\n' "$value" > "$config_file")
+        chmod 0600 "$config_file" 2>/dev/null || true
+        print_success "Set cli.auto_upgrade = $value in $config_file"
+        return 0
+    fi
+
+    tmp_file=$(mktemp "${config_dir}/.config.toml.XXXXXX")
+
+    # One pass: replace auto_upgrade under [cli] (or a root cli.auto_upgrade),
+    # else insert it at the end of [cli], else append a [cli] table.
+    # Exit 3 for shapes that cannot be edited without breaking the TOML.
+    rc=0
+    # Header keys may be bare, "double" or 'single' quoted; a comma never
+    # appears in a header outside quotes, which keeps nested array values
+    # such as "  [1, 2]," from being read as headers.
+    awk -v val="$value" -v sq="'" '
+        BEGIN {
+            in_cli = 0; at_root = 1; saw_cli = 0; root_cli = 0; done = 0; bad = 0; eol = ""
+            ws = "[ \t]*"
+            q = "(\"|" sq ")?"
+            cli = ws q "cli" q ws
+            key = "([^\"" sq ",]|\"[^\"]*\"|" sq "[^" sq "]*" sq ")+"
+            tail = ws "(#.*)?$"
+            aot_re = "^" ws "\\[\\[" key "\\]\\]" tail
+            aot_cli_re = "^" ws "\\[\\[" cli "\\]\\]" tail
+            cli_re = "^" ws "\\[" cli "\\]" tail
+            hdr_re = "^" ws "\\[" key "\\]" tail
+            root_au_re = "^" cli "\\." ws q "auto_upgrade" q ws "="
+            root_cli_re = "^" cli "[.=]"
+            au_re = "^" ws q "auto_upgrade" q ws "="
+        }
+        {
+            line = $0
+            if (NR == 1 && line ~ /\r$/) eol = "\r"
+            sub(/\r$/, "", line)
+        }
+        line ~ aot_re {
+            if (line ~ aot_cli_re) bad = 1
+            if (in_cli && !done) { printf "auto_upgrade = %s%s\n", val, eol; done = 1 }
+            in_cli = 0; at_root = 0
+            print; next
+        }
+        line ~ cli_re {
+            in_cli = 1; at_root = 0; saw_cli = 1
+            print; next
+        }
+        line ~ hdr_re {
+            if (in_cli && !done) { printf "auto_upgrade = %s%s\n", val, eol; done = 1 }
+            in_cli = 0; at_root = 0
+            print; next
+        }
+        at_root && line ~ root_au_re {
+            printf "cli.auto_upgrade = %s%s\n", val, eol
+            root_cli = 1; done = 1
+            next
+        }
+        at_root && line ~ root_cli_re { root_cli = 1 }
+        in_cli && line ~ au_re {
+            printf "auto_upgrade = %s%s\n", val, eol
+            done = 1
+            next
+        }
+        { print }
+        END {
+            if (bad || (root_cli && saw_cli)) exit 3
+            if (in_cli && !done) { printf "auto_upgrade = %s%s\n", val, eol; done = 1 }
+            if (!done) {
+                if (root_cli) exit 3
+                if (NR > 0) printf "%s\n", eol
+                printf "[cli]%s\nauto_upgrade = %s%s\n", eol, val, eol
+            }
+        }
+    ' "$config_file" > "$tmp_file" || rc=$?
+
+    if [ "$rc" -ne 0 ]; then
+        rm -f "$tmp_file"
+        print_error "Could not set cli.auto_upgrade in $config_file automatically."
+        auto_upgrade_manual_hint "$config_file"
+        exit 1
+    fi
+
+    mv "$tmp_file" "$config_file"
+    chmod 0600 "$config_file" 2>/dev/null || true
+    print_success "Set cli.auto_upgrade = $value in $config_file"
 }
 
 get_platform_info() {
@@ -503,7 +702,7 @@ gc_old_versions() {
 # Match snowflake.connector.sf_dirs: an existing SNOWFLAKE_HOME, or ~/.snowflake
 # when that directory exists, otherwise the platformdirs config directory.
 snowflake_config_dir() {
-    local candidate
+    local candidate xdg_base
     if [ -n "${SNOWFLAKE_HOME:-}" ]; then
         candidate=$SNOWFLAKE_HOME
     else
@@ -513,16 +712,24 @@ snowflake_config_dir() {
         printf '%s\n' "$candidate"
         return 0
     fi
+    # Match platformdirs 4.3.8 (the version locked in pylock.toml): on Linux a
+    # non-blank XDG_CONFIG_HOME is used as-is, even when relative; on macOS
+    # XDG_CONFIG_HOME is ignored.
     case "$(uname -s)" in
+        Linux)
+            if [ -n "$(printf '%s' "${XDG_CONFIG_HOME:-}" | tr -d '[:space:]')" ]; then
+                xdg_base=$XDG_CONFIG_HOME
+                case "$xdg_base" in
+                    /*) ;;
+                    *) xdg_base="${INSTALL_CWD}/${xdg_base}" ;;
+                esac
+                printf '%s\n' "${xdg_base}/snowflake"
+                return 0
+            fi
+            printf '%s\n' "${HOME}/.config/snowflake"
+            ;;
         Darwin)
             printf '%s\n' "${HOME}/Library/Application Support/snowflake"
-            ;;
-        Linux)
-            if [ -n "${XDG_CONFIG_HOME:-}" ]; then
-                printf '%s\n' "${XDG_CONFIG_HOME}/snowflake"
-            else
-                printf '%s\n' "${HOME}/.config/snowflake"
-            fi
             ;;
         *)
             printf '%s\n' "$candidate"
@@ -842,17 +1049,22 @@ suggest_path_update() {
 }
 
 main() {
-    check_dependencies
+    parse_args "$@"
 
     local version
-    if ! version=$(get_stable_version); then
+    check_dependencies
+
+    if ! version=$(resolve_install_version); then
         exit 1
     fi
     if [ -z "$version" ]; then
-        print_error "Failed to determine the latest snowflake-managed version of Snowflake CLI"
+        print_error "Failed to determine the snowflake-managed version of Snowflake CLI to install"
         exit 1
     fi
     validate_version "$version"
+    if [ -n "$(printf '%s' "$REQUESTED_VERSION" | tr -d '[:space:]')" ]; then
+        echo "Installing snowflake-managed Snowflake CLI v$version (pinned)"
+    fi
 
     download_and_extract "$version"
 
@@ -861,6 +1073,10 @@ main() {
     # config file left readable by other accounts does not fail that check.
     restrict_user_snowflake_config
 
+    if [ "$NO_AUTO_UPGRADE" = "1" ]; then
+        disable_auto_upgrade_config
+    fi
+
     if ! run_with_spinner "Installing Snowflake CLI..." "Installed Snowflake CLI v$version successfully" "Installation failed" install_binary "$version"; then
         exit 1
     fi
@@ -868,4 +1084,4 @@ main() {
     suggest_path_update
 }
 
-main
+main "$@"

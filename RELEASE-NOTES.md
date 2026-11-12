@@ -21,6 +21,7 @@
 ## New additions
 * `snow sql` accepts `-o quiet=<true|false>`, with the same values and error messages as `!set quiet`. It applies before any SQL runs: `-o quiet=true` hides query results on the terminal, and an open spool file still receives them. An invalid value fails before any SQL runs. When `-o quiet=` is given more than once, the last value wins.
 * `snow sql` accepts `-o output_format=<format>`, with the same format names and error messages as `!set output_format`. It sets the starting format before any SQL runs and overrides the `output_format` config key and `SNOWFLAKE_CLI_OUTPUT_FORMAT`. Combining it with `--format` is an error, even when the values match, and no SQL runs. `!set output_format` can still change the format later. When `-o output_format=` is given more than once, the last value wins.
+* The snowflake-managed installers (`install.sh` and `install.ps1`) accept `--version <version>` (PowerShell: `-Version`) or `SNOWFLAKE_CLI_VERSION` to install a specific release instead of the latest. They also accept `--no-auto-upgrade` (PowerShell: `-NoAutoUpgrade`), which sets `auto_upgrade = false` under `[cli]` in `config.toml`, so auto-upgrade does not replace the pinned version.
 
 ## Fixes and improvements
 * Upgrading the Snowflake CLI RPM with `rpm -U` or `dnf` keeps `/usr/local/bin/snow` on PATH. The replaced package's uninstall script used to remove that symlink after the new package created it.
