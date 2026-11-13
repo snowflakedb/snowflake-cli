@@ -14,12 +14,15 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import io
+import json
 import logging
 import os
 import re
 import sys
+import time
 from typing import Dict, Literal, Optional, TextIO
 
 import snowflake.connector
@@ -551,12 +554,49 @@ def prepare_private_key(
     )
 
 
+_OIDC_TOKEN_EXPIRY_MARGIN_SECONDS = 60
+
+
+def _is_expired_jwt(token: str) -> bool:
+    """True only when token is a JWT whose exp claim is in the past, or will be
+    within _OIDC_TOKEN_EXPIRY_MARGIN_SECONDS (time to log in, plus clock skew).
+
+    The signature is not checked; Snowflake does that. Anything that cannot be
+    read as a JWT with a numeric exp counts as not expired, so it is used as given.
+    """
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        exp = json.loads(base64.urlsafe_b64decode(payload))["exp"]
+        return float(exp) <= time.time() + _OIDC_TOKEN_EXPIRY_MARGIN_SECONDS
+    except Exception:
+        return False
+
+
 def _maybe_update_oidc_token(connection_parameters: dict) -> dict:
-    """Obtain an OIDC token automatically when the user has not already supplied one."""
-    if connection_parameters.get("token") or connection_parameters.get(
-        "token_file_path"
-    ):
+    """Obtain an OIDC token automatically when the user has not already supplied one.
+
+    An inline token that is an expired JWT, or one that expires within
+    _OIDC_TOKEN_EXPIRY_MARGIN_SECONDS, is replaced. A token left in the
+    environment by an earlier CI step (for example SNOWFLAKE_TOKEN) can only
+    fail login. A token that is not a JWT, or a JWT with no numeric exp, is
+    used as given.
+
+    token_file_path is not opened and is not checked for expiry. The connector
+    reads that file and prefers it over token, so replacing the inline token
+    would not change the login. An expired JWT stored in the file is used as
+    given.
+    """
+    if connection_parameters.get("token_file_path"):
         return connection_parameters
+    if token := connection_parameters.get("token"):
+        if not _is_expired_jwt(token):
+            return connection_parameters
+        log.info(
+            "Supplied %s token has expired or expires within %s seconds; trying to obtain a new one",
+            AUTHENTICATOR_WORKLOAD_IDENTITY,
+            _OIDC_TOKEN_EXPIRY_MARGIN_SECONDS,
+        )
     try:
         manager = OidcManager()
         if token := manager.read_token(OidcProviderTypeWithAuto.AUTO):

@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import io
+import json
 import os
+import time
 from contextlib import nullcontext
 from unittest import mock
 
@@ -1040,3 +1043,171 @@ def test_no_warning_when_server_session_keep_alive_not_explicitly_false(mock_log
         connection_parameters=connection_parameters,
     )
     mock_log.warning.assert_not_called()
+
+
+def _jwt(payload: dict) -> str:
+    def part(obj):
+        return base64.urlsafe_b64encode(json.dumps(obj).encode()).rstrip(b"=").decode()
+
+    return f"{part({'alg': 'RS256'})}.{part(payload)}.signature"
+
+
+def _jwt_with_exp(exp: float) -> str:
+    return _jwt({"exp": exp})
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+def test_maybe_update_oidc_token_replaces_expired_jwt(
+    mock_oidc_manager_class, test_snowcli_config
+):
+    """A supplied JWT that has expired is replaced by a newly obtained token."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "token": _jwt_with_exp(time.time() - 60),
+    }
+
+    _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == "minted-oidc-token"
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+def test_maybe_update_oidc_token_keeps_unexpired_jwt(
+    mock_oidc_manager_class, test_snowcli_config
+):
+    """A supplied JWT that has not expired is used as given."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    supplied = _jwt_with_exp(time.time() + 300)
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "token": supplied,
+    }
+
+    _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == supplied
+    mock_manager.read_token.assert_not_called()
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+def test_maybe_update_oidc_token_keeps_expired_jwt_when_none_obtained(
+    mock_oidc_manager_class, test_snowcli_config
+):
+    """If no new token can be obtained, the supplied one is left for the login to report."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.side_effect = Exception("not in CI")
+
+    supplied = _jwt_with_exp(time.time() - 60)
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "token": supplied,
+    }
+
+    _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == supplied
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+def test_maybe_update_oidc_token_replaces_jwt_about_to_expire(
+    mock_oidc_manager_class, test_snowcli_config
+):
+    """A supplied JWT that expires within the margin is replaced too."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "token": _jwt_with_exp(time.time() + 30),
+    }
+
+    _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == "minted-oidc-token"
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+def test_maybe_update_oidc_token_keeps_token_file_path_over_expired_jwt(
+    mock_oidc_manager_class, test_snowcli_config
+):
+    """token_file_path is left as given, and an expired inline JWT is not replaced."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    supplied = _jwt_with_exp(time.time() - 60)
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "token": supplied,
+        "token_file_path": "explicit-token-file",
+    }
+
+    _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == supplied
+    assert connection_parameters["token_file_path"] == "explicit-token-file"
+    mock_manager.read_token.assert_not_called()
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+def test_maybe_update_oidc_token_keeps_opaque_token(
+    mock_oidc_manager_class, test_snowcli_config
+):
+    """A supplied token that is not a JWT is used as given."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "token": "not-a-jwt",
+    }
+
+    _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == "not-a-jwt"
+    mock_manager.read_token.assert_not_called()
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+def test_maybe_update_oidc_token_keeps_jwt_without_exp(
+    mock_oidc_manager_class, test_snowcli_config
+):
+    """A supplied JWT with no exp claim is used as given."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    supplied = _jwt({"sub": "ci"})
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "token": supplied,
+    }
+
+    _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == supplied
+    mock_manager.read_token.assert_not_called()
