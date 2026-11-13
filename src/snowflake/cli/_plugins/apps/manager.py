@@ -134,6 +134,7 @@ APP_CAPABILITY_PARAMETERS = {
     "serverless": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
     "python": "ENABLE_APP_SERVICE_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL",
     "python-serverless": "ENABLE_APP_SERVICE_PYTHON_RUNTIME_SERVERLESS",
+    "streamlit-serverless": "ENABLE_APP_SERVICE_STREAMLIT_SERVERLESS",
 }
 
 # System function that triggers per-account URL certificate issuance for the

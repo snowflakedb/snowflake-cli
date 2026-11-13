@@ -4882,6 +4882,7 @@ class TestAccountCapabilities:
         "serverless": False,
         "python": False,
         "python-serverless": False,
+        "streamlit-serverless": False,
     }
 
     @staticmethod
@@ -4906,12 +4907,14 @@ class TestAccountCapabilities:
                 "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS": "ENABLED",
                 "ENABLE_APP_SERVICE_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL": True,
                 "ENABLE_APP_SERVICE_PYTHON_RUNTIME_SERVERLESS": False,
+                "ENABLE_APP_SERVICE_STREAMLIT_SERVERLESS": True,
             }
         )
         assert SnowflakeAppManager().fetch_account_capabilities() == {
             "serverless": True,
             "python": True,
             "python-serverless": False,
+            "streamlit-serverless": True,
         }
         mock_execute.assert_called_once_with(
             "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
