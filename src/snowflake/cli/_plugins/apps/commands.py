@@ -43,6 +43,9 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.apps.app_yml import (
     APP_YML_FILENAME,
+    PYTHON_REQUIRED_PHASES,
+    RUNTIME_NODE,
+    RUNTIME_PYTHON,
     AppYmlDefinition,
     AppYmlTarget,
     load_app_yml,
@@ -59,7 +62,11 @@ from snowflake.cli._plugins.apps.events import (
     parse_metric_records,
     resolve_time_window,
 )
-from snowflake.cli._plugins.apps.generate import _generate_app_yml
+from snowflake.cli._plugins.apps.generate import (
+    _generate_app_yml,
+    detect_python_project,
+    hybrid_app_hint,
+)
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
@@ -1304,6 +1311,8 @@ def snowflake_app_setup(
             with metrics.span("snowflake_app.setup.check_existing_app_service"):
                 app_exists = _app_service_exists(manager, service_fqn)
 
+            python_project = detect_python_project(Path.cwd())
+
             if not dry_run:
                 with metrics.span("snowflake_app.setup.write_manifest"):
                     project_file.write_text(
@@ -1311,6 +1320,7 @@ def snowflake_app_setup(
                             resolved_app_name,
                             resolved_values,
                             use_workspace=use_workspace,
+                            python_project=python_project,
                         ),
                         encoding=encoding,
                     )
@@ -1322,6 +1332,12 @@ def snowflake_app_setup(
                         "success": not dry_run,
                         "code_storage": code_storage,
                         "app_exists": app_exists,
+                        "runtime": python_project.runtime if python_project else "node",
+                        "streamlit": bool(
+                            python_project
+                            and python_project.runtime == "python"
+                            and python_project.streamlit
+                        ),
                         **resolved_values,
                     }
                 )
@@ -1341,6 +1357,18 @@ def snowflake_app_setup(
                     continue
                 cli_console.step(f"  {key}: {value}  ({source})")
             cli_console.step(f"  code storage: {code_storage}")
+            if python_project is not None and python_project.node:
+                cli_console.warning(hybrid_app_hint(python_project.streamlit))
+            elif python_project is not None:
+                kind = "Streamlit " if python_project.streamlit else ""
+                cli_console.step(
+                    f"  runtime: {python_project.runtime}  "
+                    f"(detected {kind}Python project)"
+                )
+                cli_console.warning(
+                    "Python apps have no default commands. Declare `run` in "
+                    f"{APP_YML_FILENAME} before deploying."
+                )
             if app_exists:
                 rename_hint = (
                     "pass a different --app-name"
@@ -1482,9 +1510,10 @@ def _resolve_validate_target(
     ``snowflake.yml`` project the destination may be unset (offline bundle-only
     validation), so the database/schema can be ``None``.
     """
-    manager = SnowflakeAppManager()
     app_def = _load_app_yml_for_command(target)
     if app_def is not None:
+        _ensure_python_phases_declared(app_def)
+        manager = SnowflakeAppManager()
         dep = _resolve_app_yml_target(app_def, target, manager=manager)
         return (
             manager,
@@ -1496,6 +1525,7 @@ def _resolve_validate_target(
             ),
         )
 
+    manager = SnowflakeAppManager()
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
     fqn = entity.fqn
@@ -1819,6 +1849,37 @@ def _effective_compute_resource(
     raise CliError("compute_resource SERVERLESS is not enabled for this account.")
 
 
+def _ensure_python_phases_declared(app_def: AppYmlDefinition) -> None:
+    """Raise when an app whose runtime includes python omits a phase it must declare.
+
+    Checked locally, before anything is uploaded: the builder runs a Python
+    app's declared commands and infers none. A ``node`` and ``python`` runtime
+    that omits ``install`` or ``build`` only gets a warning, since neither is
+    required, but no npm command runs without them.
+    """
+    missing = app_def.missing_python_phases()
+    if missing:
+        raise CliError(
+            f"{APP_YML_FILENAME} has a runtime that includes `python` but does not declare "
+            f"{', '.join(f'`{name}`' for name in missing)}. A Python app gets no "
+            f"default commands: declare "
+            f"{', '.join(f'`{name}`' for name in PYTHON_REQUIRED_PHASES)} in "
+            f"{APP_YML_FILENAME} (`install` and `build` are optional)."
+        )
+    if {RUNTIME_NODE, RUNTIME_PYTHON} <= set(app_def.runtime.split(",")):
+        undeclared = [
+            f"`{name}`"
+            for name in ("install", "build")
+            if getattr(app_def, name) is None or not getattr(app_def, name).commands
+        ]
+        if undeclared:
+            cli_console.warning(
+                "`runtime` includes node and python, so no npm defaults apply. "
+                f"Declare {' and '.join(undeclared)} in {APP_YML_FILENAME}, or "
+                f"{'none will run' if len(undeclared) > 1 else 'it will not run'}."
+            )
+
+
 def _ensure_python_runtime_enabled(
     manager: SnowflakeAppManager,
     app_def: AppYmlDefinition,
@@ -1826,7 +1887,7 @@ def _ensure_python_runtime_enabled(
 ) -> None:
     """Raise when *app_def* uses the Python runtime on a compute resource the account does not allow.
 
-    The app uses the Python runtime when ``app.yml`` sets ``runtime: python``
+    The app uses the Python runtime when its ``app.yml`` runtime includes python
     (:attr:`AppYmlDefinition.is_python_runtime`).
 
     An unset *compute_resource* is checked as ``MANAGED_COMPUTE_POOL``, the
@@ -1839,7 +1900,7 @@ def _ensure_python_runtime_enabled(
         return
     raise CliError(
         f"The Python runtime is not enabled for compute_resource {effective} in "
-        f"this account. This app sets `runtime: python` in {APP_YML_FILENAME}. Deploy to a "
+        f"this account. This app's runtime in {APP_YML_FILENAME} includes `python`. Deploy to a "
         f"compute_resource that allows the Python runtime, or contact Snowflake "
         f"support to enable it."
     )
@@ -2436,6 +2497,8 @@ def _deploy_from_app_yml(
     uploaded), and ``promote_only`` skips upload and build and applies the
     deploy phase against the already-built package (``VERSION LATEST``).
     """
+    _ensure_python_phases_declared(app_def)
+
     ctx = get_cli_context()
     metrics = ctx.metrics
     manager = SnowflakeAppManager(interactive=interactive)

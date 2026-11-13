@@ -24,8 +24,10 @@ example ``2.1`` or ``3``) is rejected rather than parsed against the v2 schema.
 
 This module models the parts the CLI needs to resolve and deploy a target
 (Milestone 1) plus the builder ``install`` / ``build`` / ``run`` / ``dev``
-phases, which are optional and default to Node conventions when omitted. Every
-root field except those four builder phases can be overridden per target.
+phases. A Node app may omit them and gets Node conventions; an app whose
+``runtime`` includes python gets no defaults and must declare ``run`` before it
+deploys. Every root field except those four builder phases can be overridden per
+target.
 """
 
 from __future__ import annotations
@@ -56,6 +58,17 @@ APP_YML_FILENAME = "app.yml"
 RUNTIME_PYTHON = "python"
 RUNTIME_NODE = "node"
 APP_YML_RUNTIME_VALUES = (RUNTIME_PYTHON, RUNTIME_NODE)
+
+# Builder phases a ``runtime: node`` app may omit, and the commands it gets.
+NODE_DEFAULT_INSTALL = [["npm", "ci"]]
+NODE_DEFAULT_BUILD = [["npm", "run", "build"]]
+NODE_DEFAULT_RUN = ["npm", "start"]
+NODE_DEFAULT_DEV = ["npm", "run", "dev"]
+
+# Builder phases a ``runtime: python`` app must declare: it gets no defaults and
+# the builder infers none. Like the builder, the CLI requires only ``run``;
+# ``install`` and ``build`` are optional.
+PYTHON_REQUIRED_PHASES = ("run",)
 
 # The one ``app.yml`` schema version this CLI owns. Below it (``version: 1`` or
 # version-less), ``app.yml`` is the legacy build-only manifest (no ``targets``)
@@ -379,9 +392,10 @@ class AppYmlDefinition(_AppYmlServiceConfig):
     :class:`_AppYmlServiceConfig` (``package_name`` defaults to ``name`` and
     ``artifact_repo`` to ``<name>_repo`` when unset). Only the builder-owned
     ``install`` / ``build`` / ``run`` / ``dev`` sections, plus the ``runtime``
-    and ``streamlit`` keys, are top-level only; the phases are optional and
-    default to Node conventions when omitted. As with the phases, a
-    ``runtime`` / ``streamlit`` key inside a target is ignored.
+    and ``streamlit`` keys, are top-level only. For a Node app the phases are
+    optional and default to Node conventions when omitted; for a Python app an
+    omitted phase stays ``None`` (see :meth:`missing_python_phases`). As with
+    the phases, a ``runtime`` / ``streamlit`` key inside a target is ignored.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -405,7 +419,7 @@ class AppYmlDefinition(_AppYmlServiceConfig):
     # per-target phases). ``runtime`` defaults to ``node`` and ``streamlit`` to
     # ``false``; ``streamlit: true`` requires ``runtime: python``.
     runtime: str = Field(
-        title="Runtime of the app: python or node",
+        title="Runtime of the app: python, node, or a list of them",
         default=RUNTIME_NODE,
     )
     streamlit: bool = Field(
@@ -414,42 +428,49 @@ class AppYmlDefinition(_AppYmlServiceConfig):
     )
 
     # Builder phases. Consumed by the builder service (not the CLI); modeled here
-    # so they can be omitted and defaulted to Node conventions.
-    install: AppYmlBuildPhase = Field(
-        title="Install phase commands",
-        default_factory=lambda: AppYmlBuildPhase(commands=[["npm", "ci"]]),
+    # so a Node app can omit them and get Node conventions, and so a Python app
+    # that omits a required one is refused before deploy.
+    install: Optional[AppYmlBuildPhase] = Field(
+        title="Install phase commands", default=None
     )
-    build: AppYmlBuildPhase = Field(
-        title="Build phase commands",
-        default_factory=lambda: AppYmlBuildPhase(commands=[["npm", "run", "build"]]),
+    build: Optional[AppYmlBuildPhase] = Field(
+        title="Build phase commands", default=None
     )
-    run: AppYmlRunPhase = Field(
-        title="Run command",
-        default_factory=lambda: AppYmlRunPhase(command=["npm", "start"]),
+    run: Optional[AppYmlRunPhase] = Field(
+        title="Run command (required for runtime python)", default=None
     )
-    dev: AppYmlRunPhase = Field(
-        title="Dev command",
-        default_factory=lambda: AppYmlRunPhase(command=["npm", "run", "dev"]),
-    )
+    dev: Optional[AppYmlRunPhase] = Field(title="Dev command", default=None)
 
     @field_validator("runtime", mode="before")
     @classmethod
     def _validate_runtime(cls, value):
-        """Normalise ``runtime`` to lower-case ``python`` or ``node``.
+        """Normalise ``runtime`` to ``python``, ``node`` or ``node,python``.
 
-        ``None`` / ``"null"`` mean the default, ``node``; matching is
-        case-insensitive.
+        Accepts one value or a list of them, case-insensitive. A list is
+        de-duplicated, sorted and comma-joined, the same label the builder
+        reports. ``None`` / ``"null"`` mean the default, ``node``.
         """
         if value is None or value == "null":
             return RUNTIME_NODE
-        if not isinstance(value, str):
-            raise ValueError("runtime must be a string or null")
-        normalized = value.strip().lower()
-        if normalized not in APP_YML_RUNTIME_VALUES:
-            raise ValueError(
-                "runtime must be one of: " + ", ".join(APP_YML_RUNTIME_VALUES)
-            )
-        return normalized
+        if isinstance(value, str):
+            entries = [value]
+        elif isinstance(value, list) and value:
+            entries = value
+        else:
+            raise ValueError("runtime must be a string, a non-empty list, or null")
+        names = set()
+        for entry in entries:
+            if not isinstance(entry, str):
+                raise ValueError("runtime must be a list of strings")
+            normalized = entry.strip().lower()
+            if normalized not in APP_YML_RUNTIME_VALUES:
+                raise ValueError(
+                    "runtime must be one of: "
+                    + ", ".join(APP_YML_RUNTIME_VALUES)
+                    + " (or a list of them)"
+                )
+            names.add(normalized)
+        return ",".join(sorted(names))
 
     @field_validator("streamlit", mode="before")
     @classmethod
@@ -463,18 +484,62 @@ class AppYmlDefinition(_AppYmlServiceConfig):
 
     @model_validator(mode="after")
     def _reject_streamlit_with_node(self):
-        """A Streamlit app runs on Python, so ``streamlit: true`` needs ``runtime: python``."""
-        if self.streamlit and self.runtime != RUNTIME_PYTHON:
+        """A Streamlit app runs on Python, so ``streamlit: true`` needs python in ``runtime``."""
+        if self.streamlit and not self.is_python_runtime:
             raise ValueError(
-                "'streamlit: true' requires 'runtime: python' (runtime defaults "
-                "to 'node')."
+                "'streamlit: true' requires 'runtime: python' (or a runtime list "
+                "that includes python); runtime defaults to 'node'."
             )
         return self
 
+    @model_validator(mode="before")
+    @classmethod
+    def _default_node_phases(cls, values):
+        """Fill omitted phases with Node conventions, for a Node app only.
+
+        A Python or hybrid app keeps omitted phases as ``None``: the CLI checks them at
+        deploy (see :meth:`missing_python_phases`) rather than here, so loading
+        such a manifest for ``events``, ``open`` or telemetry still works. This
+        runs before ``runtime`` is normalised, so it reads the raw value; an
+        invalid ``runtime`` is rejected by its field validator either way.
+        """
+        if not isinstance(values, dict):
+            return values
+        runtime = values.get("runtime")
+        declared = runtime if isinstance(runtime, list) else [runtime]
+        if any(
+            isinstance(r, str) and r.strip().lower() == RUNTIME_PYTHON for r in declared
+        ):
+            return values
+        defaults = {
+            "install": {"commands": NODE_DEFAULT_INSTALL},
+            "build": {"commands": NODE_DEFAULT_BUILD},
+            "run": {"command": NODE_DEFAULT_RUN},
+            "dev": {"command": NODE_DEFAULT_DEV},
+        }
+        return {
+            **values,
+            **{k: v for k, v in defaults.items() if values.get(k) is None},
+        }
+
     @property
     def is_python_runtime(self) -> bool:
-        """Whether the app needs the Python runtime: ``runtime: python``."""
-        return self.runtime == RUNTIME_PYTHON
+        """Whether the app needs the Python runtime: python is in ``runtime``."""
+        return RUNTIME_PYTHON in self.runtime.split(",")
+
+    def missing_python_phases(self) -> List[str]:
+        """The :data:`PYTHON_REQUIRED_PHASES` a Python app does not declare.
+
+        A phase with an empty command counts as not declared, as in the
+        builder. Always empty for a Node app, whose omitted phases are defaulted.
+        """
+        if not self.is_python_runtime:
+            return []
+        return [
+            name
+            for name in PYTHON_REQUIRED_PHASES
+            if getattr(self, name) is None or not getattr(self, name).command
+        ]
 
     @field_validator("targets", mode="before")
     @classmethod

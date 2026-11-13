@@ -345,13 +345,20 @@ class TestAppYmlDefinition:
         assert model.run.command == ["npm", "start"]
 
     def test_build_sections_default_when_omitted(self):
-        # Omitted builder sections fall back to Node conventions so a minimal
-        # manifest still describes a buildable app.
+        # Omitted builder sections of a Node app fall back to Node conventions
+        # so a minimal manifest still describes a buildable app.
         model = _definition()
         assert model.install.commands == [["npm", "ci"]]
         assert model.build.commands == [["npm", "run", "build"]]
         assert model.run.command == ["npm", "start"]
         assert model.dev.command == ["npm", "run", "dev"]
+
+    def test_build_sections_not_defaulted_for_python(self):
+        model = _definition(runtime="python")
+        assert model.install is None
+        assert model.build is None
+        assert model.run is None
+        assert model.dev is None
 
     def test_top_level_artifacts_mapping_ignored(self):
         # The top-level ``artifacts`` block is consumed by the builder service,
@@ -2100,6 +2107,57 @@ class TestDeployFromAppYml:
 
         mgr.python_runtime_enabled.assert_called_once_with("MANAGED_COMPUTE_POOL")
         mgr.create_or_alter_app_service.assert_called_once()
+
+    @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_python_runtime_refused_without_declared_phases(
+        self, mock_ctx, mock_mgr_cls, mock_cert, tmp_path
+    ):
+        """A Python app missing a required phase fails before touching the account."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        without_run = _PYTHON_APP_YML.replace(
+            'run:\n  command: ["python", "app.py"]\n', ""
+        )
+        assert "run:" not in without_run
+        (tmp_path / APP_YML_FILENAME).write_text(without_run)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+
+        with pytest.raises(CliError, match="does not declare `run`"):
+            snowflake_app_deploy(
+                None, False, False, False, interactive=False, target="managed"
+            )
+
+        mgr.python_runtime_enabled.assert_not_called()
+        mgr.create_schema_if_not_exists.assert_not_called()
+        mgr.upload_to_stage.assert_not_called()
+        mgr.build_app_artifact_repo.assert_not_called()
+        mgr.create_or_alter_app_service.assert_not_called()
+        mock_cert.assert_not_called()
+
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_validate_refuses_python_runtime_without_run(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, tmp_path
+    ):
+        """Validate refuses a Python app with no run command before any account call."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_validate
+
+        (tmp_path / APP_YML_FILENAME).write_text(
+            _PYTHON_APP_YML.replace('run:\n  command: ["python", "app.py"]\n', "")
+        )
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+
+        with pytest.raises(CliError, match="does not declare `run`"):
+            snowflake_app_validate(None, target="managed")
+
+        mgr.database_exists.assert_not_called()
+        mgr.schema_exists.assert_not_called()
+        mock_bundle.assert_not_called()
 
     @patch(f"{_COMMANDS}._poll_until")
     @patch(f"{_COMMANDS}.perform_bundle")

@@ -67,7 +67,37 @@ class TestRuntimeAndStreamlitKeys:
     def test_runtime_null_is_the_default(self, value):
         assert _definition(runtime=value).runtime == "node"
 
-    @pytest.mark.parametrize("value", ["java", "", "pythonn", 3, True, ["python"]])
+    @pytest.mark.parametrize(
+        "value, expected",
+        [
+            (["python"], "python"),
+            (["python", "node"], "node,python"),
+            ([" Node ", "PYTHON", "node"], "node,python"),
+        ],
+    )
+    def test_runtime_list_is_normalized(self, value, expected):
+        assert _definition(runtime=value).runtime == expected
+
+    def test_runtime_list_with_python_is_python_runtime(self):
+        assert _definition(runtime=["node", "python"]).is_python_runtime is True
+        assert _definition(runtime=["node"]).is_python_runtime is False
+
+    def test_streamlit_allowed_with_runtime_list_including_python(self):
+        assert _definition(streamlit=True, runtime=["node", "python"]).streamlit
+
+    def test_streamlit_rejected_with_runtime_list_without_python(self):
+        with pytest.raises(ValueError, match="requires 'runtime: python'"):
+            _definition(streamlit=True, runtime=["node"])
+
+    def test_hybrid_runtime_gets_no_node_defaults(self):
+        d = _definition(runtime=["node", "python"])
+        assert d.install is None and d.run is None and d.dev is None
+        assert d.missing_python_phases() == ["run"]
+
+    @pytest.mark.parametrize(
+        "value",
+        ["java", "", "pythonn", 3, True, [], ["java"], ["python", 3], [["node"]]],
+    )
     def test_runtime_invalid(self, value):
         with pytest.raises(ValueError, match="runtime must be"):
             _definition(runtime=value)
@@ -104,7 +134,11 @@ class TestRuntimeAndStreamlitKeys:
 class TestGateWithDeclaredRuntime:
     @pytest.mark.parametrize(
         "kwargs",
-        [{"runtime": "python"}, {"runtime": "python", "streamlit": True}],
+        [
+            {"runtime": "python"},
+            {"runtime": "python", "streamlit": True},
+            {"runtime": ["node", "python"]},
+        ],
     )
     def test_error_message_names_the_reason(self, kwargs):
         from snowflake.cli._plugins.apps.commands import _ensure_python_runtime_enabled
@@ -113,7 +147,7 @@ class TestGateWithDeclaredRuntime:
         manager.python_runtime_enabled.return_value = False
         with pytest.raises(CliError, match="not enabled") as exc:
             _ensure_python_runtime_enabled(manager, _definition(**kwargs), "SERVERLESS")
-        assert "sets `runtime: python`" in str(exc.value)
+        assert "includes `python`" in str(exc.value)
 
     @pytest.mark.parametrize("kwargs", [{"runtime": "node"}, {}])
     def test_node_skips_gate_despite_python_commands(self, kwargs):
@@ -134,6 +168,137 @@ class TestGateWithDeclaredRuntime:
             manager, _definition(runtime="python"), "SERVERLESS"
         )
         manager.python_runtime_enabled.assert_called_once_with("SERVERLESS")
+
+
+_PY_PHASES = {
+    "install": {"commands": [["uv", "sync", "--no-dev"]]},
+    "run": {"command": [".venv/bin/python", "launch.py", "run", "streamlit_app.py"]},
+    "dev": {"command": [".venv/bin/python", "launch.py", "run", "streamlit_app.py"]},
+}
+
+
+class TestPythonPhases:
+    def test_python_gets_no_default_phases(self):
+        d = _definition(runtime="python")
+        assert (d.install, d.build, d.run, d.dev) == (None, None, None, None)
+        assert d.missing_python_phases() == ["run"]
+
+    def test_python_with_only_run_is_complete(self):
+        d = _definition(runtime="python", run=_PY_PHASES["run"])
+        assert d.missing_python_phases() == []
+        assert (d.install, d.build, d.dev) == (None, None, None)
+
+    def test_python_with_all_phases_is_complete(self):
+        assert _definition(runtime="python", **_PY_PHASES).missing_python_phases() == []
+
+    def test_python_reports_omitted_run(self):
+        phases = {k: v for k, v in _PY_PHASES.items() if k != "run"}
+        assert _definition(runtime="python", **phases).missing_python_phases() == [
+            "run"
+        ]
+
+    def test_python_empty_phase_key_counts_as_omitted(self):
+        phases = {**_PY_PHASES, "run": None}
+        assert _definition(runtime=" Python ", **phases).missing_python_phases() == [
+            "run"
+        ]
+
+    def test_python_empty_run_command_counts_as_omitted(self):
+        # The builder rejects an empty run command too.
+        phases = {**_PY_PHASES, "run": {"command": []}}
+        assert _definition(runtime="python", **phases).missing_python_phases() == [
+            "run"
+        ]
+
+    @pytest.mark.parametrize("kwargs", [{}, {"runtime": "node"}, {"runtime": None}])
+    def test_node_fills_only_omitted_phases(self, kwargs):
+        d = _definition(**kwargs, **_PY_INSTALL)
+        assert d.install.commands == [["uv", "sync"]]
+        assert d.run.command == ["npm", "start"]
+        assert d.missing_python_phases() == []
+
+    def test_gate_names_missing_phases(self):
+        from snowflake.cli._plugins.apps.commands import _ensure_python_phases_declared
+
+        with pytest.raises(CliError) as exc:
+            _ensure_python_phases_declared(
+                _definition(runtime="python", install=_PY_PHASES["install"])
+            )
+        message = str(exc.value)
+        assert "does not declare `run`" in message
+        assert "`install` and `build` are optional" in message
+
+    @pytest.mark.parametrize(
+        "kwargs", [{}, {"runtime": "python", **_PY_PHASES}], ids=["node", "python"]
+    )
+    def test_gate_passes_complete_manifests(self, kwargs):
+        from snowflake.cli._plugins.apps.commands import _ensure_python_phases_declared
+
+        _ensure_python_phases_declared(_definition(**kwargs))
+
+    @pytest.mark.parametrize(
+        "phases, undeclared",
+        [
+            (
+                {"run": _PY_PHASES["run"]},
+                "`install` and `build` in app.yml, or none will run.",
+            ),
+            (
+                {"run": _PY_PHASES["run"], "install": _PY_PHASES["install"]},
+                "`build` in app.yml, or it will not run.",
+            ),
+        ],
+    )
+    def test_gate_warns_hybrid_without_npm_phases(self, phases, undeclared):
+        from snowflake.cli._plugins.apps.commands import _ensure_python_phases_declared
+
+        with patch(
+            "snowflake.cli._plugins.apps.commands.cli_console.warning"
+        ) as warning:
+            _ensure_python_phases_declared(
+                _definition(runtime=["node", "python"], **phases)
+            )
+        message = warning.call_args.args[0]
+        assert "no npm defaults apply" in message
+        assert message.endswith(f"Declare {undeclared}")
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {
+                "runtime": ["node", "python"],
+                "build": {"commands": [["npm", "run", "build"]]},
+                **_PY_PHASES,
+            },
+            {"runtime": "python", "run": _PY_PHASES["run"]},
+            {},
+        ],
+        ids=["hybrid-complete", "python", "node"],
+    )
+    def test_gate_does_not_warn_otherwise(self, kwargs):
+        from snowflake.cli._plugins.apps.commands import _ensure_python_phases_declared
+
+        with patch(
+            "snowflake.cli._plugins.apps.commands.cli_console.warning"
+        ) as warning:
+            _ensure_python_phases_declared(_definition(**kwargs))
+        warning.assert_not_called()
+
+    def test_gate_refuses_before_warning(self):
+        from snowflake.cli._plugins.apps.commands import _ensure_python_phases_declared
+
+        with patch(
+            "snowflake.cli._plugins.apps.commands.cli_console.warning"
+        ) as warning, pytest.raises(CliError, match="does not declare `run`"):
+            _ensure_python_phases_declared(_definition(runtime=["node", "python"]))
+        warning.assert_not_called()
+
+    def test_load_does_not_require_phases(self, tmp_path):
+        # Only deploy and validate check the phases, so other commands (and
+        # telemetry) still read an incomplete Python manifest.
+        (tmp_path / APP_YML_FILENAME).write_text(_V2_BODY + "runtime: python\n")
+        d = load_app_yml(tmp_path)
+        assert d.missing_python_phases() == ["run"]
 
 
 _HEADER = (
@@ -188,7 +353,17 @@ class TestRecordedInfoAndTelemetry:
         load_app_yml(tmp_path)
         assert _get_app_yml_telemetry() == {
             CLITelemetryField.APP_RUNTIME: "python",
-            CLITelemetryField.APP_STREAMLIT: True,
+            CLITelemetryField.IS_STREAMLIT: True,
+        }
+
+    def test_v2_hybrid_runtime_is_reported_as_one_label(self, tmp_path, clean_context):
+        (tmp_path / APP_YML_FILENAME).write_text(
+            _HEADER + _V2_BODY + "runtime: [python, node]\n"
+        )
+        load_app_yml(tmp_path)
+        assert _get_app_yml_telemetry() == {
+            CLITelemetryField.APP_RUNTIME: "node,python",
+            CLITelemetryField.IS_STREAMLIT: False,
         }
 
     def test_v2_default_node_without_header(self, tmp_path, clean_context):
@@ -198,7 +373,7 @@ class TestRecordedInfoAndTelemetry:
         load_app_yml(tmp_path)
         assert _get_app_yml_telemetry() == {
             CLITelemetryField.APP_RUNTIME: "node",
-            CLITelemetryField.APP_STREAMLIT: False,
+            CLITelemetryField.IS_STREAMLIT: False,
         }
 
     def test_versionless_nextjs_flow(self, tmp_path, clean_context):
@@ -210,7 +385,7 @@ class TestRecordedInfoAndTelemetry:
         info = _get_app_yml_telemetry()
         assert info == {
             CLITelemetryField.APP_RUNTIME: "node",
-            CLITelemetryField.APP_STREAMLIT: False,
+            CLITelemetryField.IS_STREAMLIT: False,
         }
 
     @pytest.mark.parametrize(
@@ -224,7 +399,7 @@ class TestRecordedInfoAndTelemetry:
         assert load_app_yml(tmp_path) is None
         assert _get_app_yml_telemetry() == {
             CLITelemetryField.APP_RUNTIME: "python",
-            CLITelemetryField.APP_STREAMLIT: True,
+            CLITelemetryField.IS_STREAMLIT: True,
         }
 
     def test_versionless_invalid_values_are_dropped_not_reported(
@@ -236,7 +411,7 @@ class TestRecordedInfoAndTelemetry:
         assert load_app_yml(tmp_path) is None
         info = _get_app_yml_telemetry()
         assert info[CLITelemetryField.APP_RUNTIME] == "node"
-        assert info[CLITelemetryField.APP_STREAMLIT] is False
+        assert info[CLITelemetryField.IS_STREAMLIT] is False
 
     def test_versionless_streamlit_with_node_keeps_runtime(
         self, tmp_path, clean_context
@@ -245,7 +420,7 @@ class TestRecordedInfoAndTelemetry:
         load_app_yml(tmp_path)
         info = _get_app_yml_telemetry()
         assert info[CLITelemetryField.APP_RUNTIME] == "node"
-        assert info[CLITelemetryField.APP_STREAMLIT] is False
+        assert info[CLITelemetryField.IS_STREAMLIT] is False
 
     def test_no_app_yml_records_nothing(self, tmp_path, clean_context):
         load_app_yml(tmp_path)

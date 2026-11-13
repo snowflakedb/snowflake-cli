@@ -43,6 +43,7 @@
 * `snow --structure` prints a JSON catalog of every command, argument, and option (including help text), so agents and scripts can discover the CLI without scraping `--help`. Hidden commands and flags are omitted, matching `--help`.
 * `snow sql` REPL accepts `!set echo=true` and `!set echo=false`. The default is false. With echo on, each SQL statement is printed before its result. An open `!spool` receives that statement too. JSON, JSON_EXT, and CSV omit the statement so the result stays parseable. `!set echo=` is rejected and leaves the previous value in place.
 * `snow sql` accepts `!set output_file=<path>` and `-o output_file=<path>`. Each opens the same file as `!spool <path>`: query results are appended to it and still printed on the terminal. `!spool off` stops writing. An empty `!set output_file=` is rejected and leaves the current file open, and `off` is a filename there. An empty `-o output_file=` turns spooling off. `-o` accepts no other option.
+* Snowflake Apps support Python: `app.yml` `runtime` accepts a list such as `[node, python]`, a Python app must declare `run`, and `snow app setup` writes `runtime: python` and `compute_resource: SERVERLESS` for a Python project.
 
 ## Fixes and improvements
 * `snow app events` for Snowflake App Runtime projects now prints historical logs (`--since` or `--until`) oldest first, and `--last` keeps the newest lines. Previously the lines came out newest first and `--last` kept the oldest ones.

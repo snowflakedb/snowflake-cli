@@ -134,10 +134,10 @@ class CLITelemetryField(Enum):
     # Runtime facts from a Snowflake App Runtime ``app.yml``. Emitted next to
     # APP_FLOW (so, like it, only on result/error events) when app_flow is
     # "snowflake_app" and an app.yml was loaded:
-    #   app_runtime          "python" | "node"
-    #   app_streamlit        bool, the app.yml ``streamlit`` flag
+    #   app_runtime          "python" | "node" | "node,python"
+    #   is_streamlit         bool, the app.yml ``streamlit`` flag
     APP_RUNTIME = "app_runtime"
-    APP_STREAMLIT = "app_streamlit"
+    IS_STREAMLIT = "is_streamlit"
     # snow upgrade / auto-upgrade (spooled until a connection exists)
     UPGRADE_TRIGGER = "upgrade_trigger"
     UPGRADE_STATUS = "upgrade_status"
@@ -305,7 +305,7 @@ def _get_app_flow() -> str | None:
         return None
 
 
-_APP_YML_RUNTIMES = ("python", "node")
+_APP_YML_RUNTIMES = ("python", "node", "node,python")
 
 
 def _get_app_yml_telemetry() -> TelemetryDict:
@@ -323,7 +323,7 @@ def _get_app_yml_telemetry() -> TelemetryDict:
         runtime = raw.get("runtime")
         if runtime in _APP_YML_RUNTIMES:
             info[CLITelemetryField.APP_RUNTIME] = runtime
-            info[CLITelemetryField.APP_STREAMLIT] = raw.get("streamlit") is True
+            info[CLITelemetryField.IS_STREAMLIT] = raw.get("streamlit") is True
         return info
     except Exception:
         return {}

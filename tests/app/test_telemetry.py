@@ -1913,7 +1913,7 @@ class TestAppYmlRuntimeTelemetry:
         for message in results:
             assert message["app_flow"] == "snowflake_app"
             assert message["app_runtime"] == "python"
-            assert message["app_streamlit"] is True
+            assert message["is_streamlit"] is True
             for dropped in (
                 "app_runtime_source",
                 "app_template_type",
@@ -1943,7 +1943,7 @@ class TestAppYmlRuntimeTelemetry:
         for message in results:
             assert message["app_flow"] == "snowflake_app"
             assert message["app_runtime"] == "node"
-            assert message["app_streamlit"] is False
+            assert message["is_streamlit"] is False
             assert "app_template" not in message
 
     @mock.patch("snowflake.connector.connect")
