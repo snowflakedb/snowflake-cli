@@ -13,6 +13,7 @@
 # limitations under the License.
 import glob
 import os
+import threading
 from io import StringIO
 from pathlib import Path
 from typing import Optional
@@ -1631,7 +1632,11 @@ class RecursiveUploadTester:
                 MockTemporaryDirectory.current_name = self.name
                 return super().__enter__()
 
-        with mock.patch(f"{STAGE_MANAGER}.put", new_callable=MockPut):
+        with mock.patch(
+            f"{STAGE_MANAGER}.put", new_callable=MockPut
+        ), mock.patch.object(
+            StageManager, "connection", new=property(lambda self: MagicMock())
+        ):
             with mock.patch(
                 "snowflake.cli._plugins.stage.manager.TemporaryDirectory",
                 MockTemporaryDirectory,
@@ -1738,9 +1743,9 @@ def _collect_recursive_uploads(root: Path, *, parallel: bool):
     put_mock = MagicMock(side_effect=fake_put)
     sm = StageManager()
     budget = "16" if parallel else "1"
-    with mock.patch.object(StageManager, "put", new=put_mock), mock.patch.dict(
-        os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: budget}
-    ):
+    with mock.patch.object(StageManager, "put", new=put_mock), mock.patch.object(
+        StageManager, "connection", new=property(lambda self: MagicMock())
+    ), mock.patch.dict(os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: budget}):
         gen = sm.put_recursive(
             local_path=root,
             stage_path="@stageName",
@@ -1807,8 +1812,12 @@ def test_put_recursive_parallel_over_budget_stays_within_budget(temporary_direct
         return real_executor(*args, **kwargs)
 
     with mock.patch.object(StageManager, "put", new=put_mock), mock.patch.object(
+        StageManager, "connection", new=property(lambda self: MagicMock())
+    ), mock.patch.object(
         stage_manager, "ThreadPoolExecutor", side_effect=recording_executor
-    ), mock.patch.dict(os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: str(budget)}):
+    ), mock.patch.dict(
+        os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: str(budget)}
+    ):
         list(
             StageManager().put_recursive(
                 local_path=src,
@@ -1837,6 +1846,80 @@ def test_recursive_upload_with_empty_dir(temporary_directory):
     _ = tester.execute(local_path=temporary_directory)
 
     assert tester.calls == []
+
+
+def test_put_recursive_opens_connection_on_calling_thread_before_workers(
+    temporary_directory,
+):
+    """put_recursive must open the session on the calling thread before any
+    worker PUT. connect() reads Click's thread-local context, which workers
+    do not have (SNOW-4462463)."""
+    src = Path(temporary_directory) / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("a")
+    (src / "sub").mkdir()
+    (src / "sub" / "b.txt").write_text("b")
+
+    caller = threading.get_ident()
+    events: list[tuple[str, int]] = []
+
+    def tracking_connection(_self):
+        events.append(("connect", threading.get_ident()))
+        return MagicMock()
+
+    def fake_put(*args, **kwargs):
+        events.append(("put", threading.get_ident()))
+        cursor = MagicMock()
+        cursor.fetchall.return_value = []
+        return cursor
+
+    with mock.patch.object(
+        StageManager, "connection", new=property(tracking_connection)
+    ), mock.patch.object(StageManager, "put", new=fake_put):
+        list(
+            StageManager().put_recursive(
+                local_path=src,
+                stage_path="@stageName",
+                temp_directory=src,
+            )
+        )
+
+    assert events, "expected a connection open and at least one PUT"
+    assert events[0] == ("connect", caller)
+    assert all(kind == "put" for kind, _thread in events[1:])
+
+
+def test_put_recursive_does_not_open_connection_when_there_are_no_files(
+    temporary_directory,
+):
+    src = Path(temporary_directory) / "src"
+    src.mkdir()
+    (src / "empty").mkdir()
+
+    events: list[str] = []
+
+    def tracking_connection(_self):
+        events.append("connect")
+        return MagicMock()
+
+    def fake_put(*args, **kwargs):
+        events.append("put")
+        cursor = MagicMock()
+        cursor.fetchall.return_value = []
+        return cursor
+
+    with mock.patch.object(
+        StageManager, "connection", new=property(tracking_connection)
+    ), mock.patch.object(StageManager, "put", new=fake_put):
+        list(
+            StageManager().put_recursive(
+                local_path=src,
+                stage_path="@stageName",
+                temp_directory=src,
+            )
+        )
+
+    assert events == []
 
 
 def test_recursive_upload_glob_file_pattern(temporary_directory):

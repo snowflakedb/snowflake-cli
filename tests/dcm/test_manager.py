@@ -1089,6 +1089,10 @@ class TestSyncLocalFiles:
 
     @mock.patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    @mock.patch(
+        "snowflake.cli._plugins.stage.manager.StageManager.connection",
+        new=property(lambda self: mock.MagicMock()),
+    )
     def test_sync_local_files_uploads_hidden_files(
         self,
         _mock_create_stage,

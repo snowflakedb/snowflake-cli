@@ -783,6 +783,12 @@ class StageManager(SqlExecutionMixin):
                         item["target"] = str(destination / item["target"])
                     return rows
 
+                if units:
+                    # PUT runs on workers. connect() reads Click's thread-local
+                    # context, which those workers do not have, so open the
+                    # session here and let the workers reuse it.
+                    _connection = self.connection
+
                 # The Snowflake connection lives in a ContextVar that does not
                 # propagate to worker threads, so run each upload inside a copy
                 # of the calling thread's context (captured on this thread).

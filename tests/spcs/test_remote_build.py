@@ -20,7 +20,7 @@ Mirrors the style of the ``build-image`` tests in ``test_services.py``.
 
 import json
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from snowflake.cli._plugins.spcs.services.remote_build_manager import (
@@ -30,6 +30,7 @@ from snowflake.cli._plugins.spcs.services.remote_build_manager import (
     RemoteBuildStatus,
     _handle_remote_build_error,
 )
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.exceptions import CliConnectionError, CliError
 
 # ---------------------------------------------------------------------------
@@ -47,6 +48,16 @@ _STAGE_EXECUTE_QUERY = "snowflake.cli._plugins.stage.manager.StageManager.execut
 _STAGE_PUT = "snowflake.cli._plugins.stage.manager.StageManager.put"
 _STAGE_PUT_RECURSIVE = "snowflake.cli._plugins.stage.manager.StageManager.put_recursive"
 _COMMANDS_OBJECT_MANAGER = "snowflake.cli._plugins.spcs.services.commands.ObjectManager"
+
+
+@pytest.fixture(autouse=True)
+def _stub_stage_manager_connection():
+    """put_recursive opens self.connection before workers; CLI tests stub PUT."""
+    with patch.object(
+        StageManager, "connection", new=property(lambda self: MagicMock())
+    ):
+        yield
+
 
 # ---------------------------------------------------------------------------
 # Helpers

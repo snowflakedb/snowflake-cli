@@ -19,7 +19,7 @@ from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from textwrap import dedent
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 from click import ClickException
@@ -2887,6 +2887,10 @@ def test_stream_logs_without_terminal_status_check(mock_sleep, mock_logs):
 @patch(
     "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
 )
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.connection",
+    new=property(lambda self: MagicMock()),
+)
 def test_build_image_cli_recursive_upload_with_nested_dirs(
     mock_stage_execute_query,
     mock_stage_put,
@@ -2981,6 +2985,10 @@ def test_build_image_cli_recursive_upload_with_nested_dirs(
 )
 @patch(
     "snowflake.cli._plugins.stage.manager.StageManager.execute_query",
+)
+@patch(
+    "snowflake.cli._plugins.stage.manager.StageManager.connection",
+    new=property(lambda self: MagicMock()),
 )
 def test_build_image_cli_streams_markup_like_log_lines(
     mock_stage_execute_query,
