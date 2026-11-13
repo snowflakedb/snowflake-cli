@@ -93,6 +93,7 @@ def sync_deploy_root_with_stage(
     local_paths_to_sync: List[Path] | None = None,
     print_diff: bool = True,
     force_overwrite: bool = False,
+    warn_on_preserved_files: bool = True,
 ) -> DiffResult:
     """
     Ensures that the files on our remote stage match the artifacts we have in
@@ -112,6 +113,7 @@ def sync_deploy_root_with_stage(
         local paths. Note that providing an empty list here is equivalent to None.
         print_diff (bool): Whether to print the diff between the local files and the remote stage. Defaults to True
         force_overwrite (bool): Some resources (e.g. streamlit) need to overwrite files on the stage. Defaults to False.
+        warn_on_preserved_files (bool): Warn about stage-only files when not pruning. Defaults to True.
 
     Returns:
         A `DiffResult` instance describing the changes that were performed.
@@ -192,7 +194,7 @@ def sync_deploy_root_with_stage(
         files_not_removed = [str(path) for path in diff.only_on_stage]
         diff.only_on_stage = []
 
-        if len(files_not_removed) > 0:
+        if files_not_removed and warn_on_preserved_files:
             files_not_removed_str = "\n".join(files_not_removed)
             console.warning(
                 f"The following files exist only on the stage:\n{files_not_removed_str}\n\nUse the --prune flag to delete them from the stage."

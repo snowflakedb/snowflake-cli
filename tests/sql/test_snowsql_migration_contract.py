@@ -319,12 +319,16 @@ def test_rejected_snowsql_flags(runner, tmp_path):
     query = ["sql", "-q", "select 1", "--temporary-connection"]
     for flag in (
         ["--warehousename", "wh"],
-        ["-o", "output_format=json"],
         ["--config", "cfg"],
     ):
         result = runner.invoke([*query, *flag])
         assert result.exit_code != 0, flag
         assert "No such option" in result.output
+
+    # -o supports a few keys; other SnowSQL keys are rejected by name.
+    result = runner.invoke([*query, "-o", "header=false"])
+    assert result.exit_code != 0
+    assert "Unknown option 'header'" in result.output
 
 
 def test_snowsql_compatible_connection_aliases(runner, mock_cursor, tmp_path):

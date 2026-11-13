@@ -21,7 +21,10 @@ import pytest
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import CompiledStatement
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     CliArgumentError,
@@ -29,6 +32,7 @@ from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.rendering.sql_templates import SQLTemplateSyntaxConfig
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
@@ -155,6 +159,710 @@ def test_sql_format_plain_flag_matches_set_command(
         assert flag_result.output == set_result.output
     finally:
         manager.output_format = previous
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_after_single_select_does_not_rewrite_that_result(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        manager.output_format = OutputFormat.TABLE
+        result = runner.invoke(["sql", "-q", "select 1 as n;\n!set output_format=json"])
+        assert result.exit_code == 0, result.output
+        assert "+---+\n| n |\n|---|\n| 1 |\n+---+\n" in result.output
+        assert '"n":' not in result.output
+        assert get_cli_context().output_format is OutputFormat.JSON
+        mock_execute.assert_called_once_with(
+            "select 1 as n;", cursor_class=VerboseCursor
+        )
+    finally:
+        manager.output_format = previous
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_spool_tees_query_result(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        result = runner.invoke(
+            ["sql", "-q", f'!spool "{spool}"\nselect 1 as n;\n!spool off']
+        )
+        assert result.exit_code == 0, result.output
+        assert "n" in result.output
+        assert "1" in result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "n" in contents
+        assert "1" in contents
+    finally:
+        manager.close_spool()
+        manager.output_format = previous
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_spool_before_during_after(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.side_effect = [
+        (mock_cursor([(1,)], ["n"]) for _ in range(1)),
+        (mock_cursor([(2,)], ["n"]) for _ in range(1)),
+        (mock_cursor([(3,)], ["n"]) for _ in range(1)),
+    ]
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                (
+                    f'select 1 as n;\n!spool "{spool}"\n'
+                    "select 2 as n;\n!spool off\nselect 3 as n;"
+                ),
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "1" in result.output
+        assert "2" in result.output
+        assert "3" in result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 2 |" in contents
+        assert "| 1 |" not in contents
+        assert "| 3 |" not in contents
+    finally:
+        manager.close_spool()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_spool_with_plain_output_format(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    previous = manager.output_format
+    try:
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                f'!set output_format=plain\n!spool "{spool}"\nselect 1 as n;\n!spool off',
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "n" in contents
+        assert "1" in contents
+        assert "+-" not in contents
+        assert "| n |" not in contents
+    finally:
+        manager.close_spool()
+        manager.output_format = previous
+
+
+@pytest.mark.parametrize(
+    "quiet_statement,expect_terminal",
+    [
+        (None, True),
+        ("!set quiet=false", True),
+        ("!set quiet=true", False),
+    ],
+)
+@pytest.mark.parametrize("with_spool", [False, True])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_quiet_on_off_with_and_without_spool(
+    mock_execute,
+    mock_connect,
+    runner,
+    mock_cursor,
+    tmp_path,
+    quiet_statement,
+    expect_terminal,
+    with_spool,
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    lines = []
+    if with_spool:
+        lines.append(f'!spool "{spool}"')
+    if quiet_statement is not None:
+        lines.append(quiet_statement)
+    lines.append("select 1 as n;")
+    if with_spool:
+        lines.append("!spool off")
+    result = runner.invoke(["sql", "-q", "\n".join(lines)])
+    assert result.exit_code == 0, result.output
+    if expect_terminal:
+        assert "| 1 |" in result.output
+    else:
+        assert "| 1 |" not in result.output
+    if with_spool:
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_file_tees_query_result(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            ["sql", "-q", "select 1 as n", "-o", f"output_file={spool}"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "| 1 |" in result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "| n |" in contents
+        assert "| 1 |" in contents
+    finally:
+        manager.close_spool()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_file_with_filename(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    sql_file = tmp_path / "query.sql"
+    sql_file.write_text("select 1 as n;\n")
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            ["sql", "-f", str(sql_file), "-o", f"output_file={spool}"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "| 1 |" in result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+    finally:
+        manager.close_spool()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_file_normalizes_key_and_quotes(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            ["sql", "-q", "select 1 as n", "-o", f' OUTPUT_FILE = "{spool}" ']
+        )
+        assert result.exit_code == 0, result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+    finally:
+        manager.close_spool()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_file_off_is_literal_filename(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path, monkeypatch
+):
+    """SnowSQL treats off as a filename, not as a request to stop spooling."""
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    monkeypatch.chdir(tmp_path)
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "output_file=off"])
+        assert result.exit_code == 0, result.output
+        contents = (tmp_path / "off").read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+    finally:
+        manager.close_spool()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_file_empty_does_not_spool(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "output_file="])
+    assert result.exit_code == 0, result.output
+    assert "| 1 |" in result.output
+    assert not spool.exists()
+    assert get_cli_context().spool_path is None
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_output_file_ignores_environment_variable(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "from-env.txt"
+    result = runner.invoke(
+        ["sql", "-q", "select 1 as n"],
+        env={"SNOWFLAKE_CLI_OUTPUT_FILE": str(spool)},
+    )
+    assert result.exit_code == 0, result.output
+    assert "| 1 |" in result.output
+    assert not spool.exists()
+    assert get_cli_context().spool_path is None
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_file_last_wins(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                "select 1 as n",
+                "-o",
+                f"output_file={first}",
+                "-o",
+                f"output_file={second}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert not first.exists()
+        contents = second.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+    finally:
+        manager.close_spool()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_unknown_key_runs_no_sql(mock_execute, mock_connect, runner):
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "header=false"])
+    assert result.exit_code != 0
+    assert "Unknown option 'header'." in result.output
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_missing_equals_runs_no_sql(mock_execute, mock_connect, runner):
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "x"])
+    assert result.exit_code != 0
+    assert "Invalid option 'x'. Use -o <option>=<value>." in result.output
+    mock_execute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "value,expect_terminal",
+    [
+        ("true", False),
+        ("TRUE", False),
+        ("yes", False),
+        ("on", False),
+        ("1", False),
+        (" true ", False),
+        ("false", True),
+        ("False", True),
+        ("no", True),
+        ("off", True),
+        ("0", True),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_accepts_set_quiet_values(
+    mock_execute, mock_connect, runner, mock_cursor, value, expect_terminal
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", f"quiet={value}"])
+    assert result.exit_code == 0, result.output
+    assert ("| 1 |" in result.output) is expect_terminal
+    assert get_cli_context().quiet is not expect_terminal
+
+
+@pytest.mark.parametrize("value", ["", "maybe", "truee"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_invalid_value_runs_no_sql(
+    mock_execute, mock_connect, runner, value
+):
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", f"quiet={value}"])
+    assert result.exit_code != 0
+    assert f"Invalid value for quiet: {value!r}. Use true or false." in result.output
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_invalid_value_opens_no_spool(
+    mock_execute, mock_connect, runner, tmp_path
+):
+    """All -o entries are validated before any of them is applied."""
+    spool = tmp_path / "out.txt"
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            f"output_file={spool}",
+            "-o",
+            "quiet=maybe",
+        ]
+    )
+    assert result.exit_code != 0
+    assert "Invalid value for quiet: 'maybe'. Use true or false." in result.output
+    assert not spool.exists()
+    assert get_cli_context().spool_path is None
+    mock_execute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "first,last,expect_terminal",
+    [("true", "false", True), ("false", "true", False)],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_last_wins(
+    mock_execute, mock_connect, runner, mock_cursor, first, last, expect_terminal
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            f"quiet={first}",
+            "-o",
+            f"quiet={last}",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert ("| 1 |" in result.output) is expect_terminal
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_quiet_still_writes_output_file(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                "select 1 as n",
+                "-o",
+                "QUIET=true",
+                "-o",
+                f"output_file={spool}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "| 1 |" not in result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+    finally:
+        manager.close_spool()
+
+
+@pytest.mark.parametrize(
+    "value,expected_format",
+    [
+        ("json", OutputFormat.JSON),
+        ("JSON", OutputFormat.JSON),
+        (" csv ", OutputFormat.CSV),
+        ("table", OutputFormat.TABLE),
+        ("plain", OutputFormat.PLAIN),
+        ("json_ext", OutputFormat.JSON_EXT),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_accepts_set_output_format_names(
+    mock_execute, mock_connect, runner, mock_cursor, value, expected_format
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        ["sql", "-q", "select 1 as n", "-o", f"output_format={value}"]
+    )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == expected_format
+    assert ("| 1 |" in result.output) is (expected_format == OutputFormat.TABLE)
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_csv_prints_csv(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", "output_format=csv"])
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == ["n", "1"]
+
+
+@pytest.mark.parametrize("value", ["", "html"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_invalid_value_runs_no_sql(
+    mock_execute, mock_connect, runner, tmp_path, value
+):
+    spool = tmp_path / "out.txt"
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            f"output_file={spool}",
+            "-o",
+            f"output_format={value}",
+        ]
+    )
+    assert result.exit_code != 0
+    assert f"Invalid output format: {value!r}. Must be one of:" in result.output
+    assert not spool.exists()
+    assert get_cli_context().spool_path is None
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_last_wins(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            "output_format=json",
+            "-o",
+            "output_format=table",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.TABLE
+    assert "| 1 |" in result.output
+
+
+@pytest.mark.parametrize("flag_value", ["json", "table"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_conflicts_with_format_flag(
+    mock_execute, mock_connect, runner, tmp_path, flag_value
+):
+    """Any explicit --format conflicts, even when both values are the same."""
+    spool = tmp_path / "out.txt"
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "--format",
+            flag_value,
+            "-o",
+            f"output_file={spool}",
+            "-o",
+            "output_format=json",
+        ]
+    )
+    assert result.exit_code != 0
+    assert "--format cannot be combined with -o output_format." in result.output
+    assert not spool.exists()
+    assert get_cli_context().spool_path is None
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_invalid_value_is_reported_before_conflict(
+    mock_execute, mock_connect, runner
+):
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "--format",
+            "json",
+            "-o",
+            "output_format=html",
+        ]
+    )
+    assert result.exit_code != 0
+    assert "Invalid output format: 'html'" in result.output
+    assert "cannot be combined" not in result.output
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_format_flag_alone_is_unchanged(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", "--format", "csv"])
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.CSV
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_overrides_config_key(
+    mock_execute, mock_connect, runner, mock_cursor, config_file, monkeypatch
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    monkeypatch.delenv("SNOWFLAKE_CLI_OUTPUT_FORMAT", raising=False)
+    config = (
+        '[connections.default]\npassword = "dummy"\n\n[cli]\noutput_format = "JSON"\n'
+    )
+    with config_file(config) as cfg:
+        result = runner.invoke_with_config_file(
+            cfg, ["sql", "-q", "select 1 as n", "-o", "output_format=table"]
+        )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.TABLE
+    assert "| 1 |" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_format_overrides_environment_variable(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        ["sql", "-q", "select 1 as n", "-o", "output_format=table"],
+        env={"SNOWFLAKE_CLI_OUTPUT_FORMAT": "json"},
+    )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.TABLE
+    assert "| 1 |" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_output_format_still_changes_format_after_option(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "!set output_format=table\nselect 1 as n;",
+            "-o",
+            "output_format=json",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().output_format == OutputFormat.TABLE
+    assert "| 1 |" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_file_unwritable_path(
+    mock_execute, mock_connect, runner, tmp_path
+):
+    spool = tmp_path / "missing" / "out.txt"
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", f"output_file={spool}"])
+    assert result.exit_code != 0
+    assert "Cannot write spool file" in result.output
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_output_file_spool_off_stops_writing(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.side_effect = [
+        (mock_cursor([(1,)], ["n"]) for _ in range(1)),
+        (mock_cursor([(2,)], ["n"]) for _ in range(1)),
+    ]
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                "select 1 as n;\n!spool off\nselect 2 as n;",
+                "-o",
+                f"output_file={spool}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "| 1 |" in result.output
+        assert "| 2 |" in result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+        assert "| 2 |" not in contents
+    finally:
+        manager.close_spool()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_output_file_then_spool_off_keeps_only_first_result(
+    mock_execute, mock_connect, runner, mock_cursor, tmp_path
+):
+    mock_execute.side_effect = [
+        (mock_cursor([(1,)], ["n"]) for _ in range(1)),
+        (mock_cursor([(2,)], ["n"]) for _ in range(1)),
+    ]
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = runner.invoke(
+            [
+                "sql",
+                "-q",
+                f"!set output_file={spool}\nselect 1 as n;\n!spool off\nselect 2 as n;",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "| 1 |" in result.output
+        assert "| 2 |" in result.output
+        contents = spool.read_text(encoding="utf-8")
+        assert "| 1 |" in contents
+        assert "| 2 |" not in contents
+    finally:
+        manager.close_spool()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_quiet_empty_is_rejected_and_query_does_not_run(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    """An empty quiet= is not the unset default: the batch fails before SQL."""
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "!set quiet=\nselect 1 as n;"])
+    assert result.exit_code != 0
+    assert "Invalid value for quiet: ''" in result.output
+    assert "| 1 |" not in result.output
+    mock_execute.assert_not_called()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_silent_still_prints_result_table(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "--silent", "-q", "select 1 as n;"])
+    assert result.exit_code == 0, result.output
+    assert "| 1 |" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_set_echo_does_not_prefix_one_shot(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    manager = get_cli_context_manager()
+    previous = manager.echo
+    try:
+        result = runner.invoke(["sql", "-q", "!set echo=true\nselect 1 as n;"])
+        assert result.exit_code == 0, result.output
+        assert "select 1 as n;" not in result.output
+        assert get_cli_context().echo_enabled is True
+    finally:
+        manager.echo = previous
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")

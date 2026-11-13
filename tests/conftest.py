@@ -61,6 +61,7 @@ from tests_common import IS_WINDOWS
 
 pytest_plugins = [
     "tests_common",
+    "tests_common.quarantine",
     "tests.testing_utils",
     "tests.project.fixtures",
 ]

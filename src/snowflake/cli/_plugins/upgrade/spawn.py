@@ -42,6 +42,7 @@ from typing import NoReturn, Sequence
 
 from snowflake.cli._plugins.upgrade.controls import AUTO_UPGRADE_DONE_ENV
 from snowflake.cli._plugins.upgrade.layout import ManagedLayout
+from snowflake.cli.api.exceptions import CliError
 
 
 def _exit_status(returncode: int) -> int:
@@ -89,3 +90,42 @@ def run_new_binary(version: str, argv: Sequence[str]) -> NoReturn:
         signal.signal(signal.SIGINT, previous_sigint)
         raise
     os._exit(status)
+
+
+def warm_installed_binary(version: str) -> None:
+    """Unpack the new binary before ``snow upgrade`` returns.
+
+    The managed artifact is a PyApp stub. Upgrade extracts that stub and
+    retargets the shim; PyApp unpacks the embedded distribution into its
+    per-version install directory on first execution. Running the version-dir
+    binary once here means the next ``snow`` command does not show
+    ``Unpacking distribution``.
+
+    The child is ``<version>/snow --no-auto-upgrade --version``, not the PATH
+    shim and not the user's command. ``--version`` is a meta command, and
+    ``SNOWFLAKE_CLI_AUTO_UPGRADE_DONE`` is set, so this does not start another
+    upgrade. Stdout is discarded. Stderr is inherited so the unpack spinner
+    stays on the upgrade's terminal.
+
+    The shim already points at ``version`` when this runs. A start failure is
+    reported and does not roll the shim back.
+    """
+    binary = ManagedLayout().binary_path(version)
+    env = os.environ.copy()
+    env[AUTO_UPGRADE_DONE_ENV] = "1"
+    try:
+        completed = subprocess.run(
+            [str(binary), "--no-auto-upgrade", "--version"],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            check=False,
+        )
+    except (FileNotFoundError, PermissionError) as err:
+        raise CliError(
+            f"Upgraded to {version}. The new binary could not be started."
+        ) from err
+    if completed.returncode != 0:
+        raise CliError(
+            f"Upgraded to {version}. The new binary failed to start "
+            f"(exit {_exit_status(completed.returncode)})."
+        )

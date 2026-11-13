@@ -36,6 +36,7 @@ from snowflake.cli.__about__ import CLIInstallationSource
 from snowflake.cli._plugins.upgrade.controls import (
     AUTO_UPGRADE_DONE_ENV,
     allow_major,
+    env_says_on,
     skip_due_to_cli_flag,
 )
 from snowflake.cli._plugins.upgrade.layout import ManagedLayout, read_reverted_from
@@ -66,8 +67,6 @@ from snowflake.cli.api.config import (
     get_env_value,
 )
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.utils.types import try_cast_to_bool
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +76,6 @@ CHECK_TIMEOUT_SECONDS = 15
 DOWNLOAD_TIMEOUT_SECONDS = 60
 
 REASON_NOT_DIRECT_INSTALL = "not_direct_install"
-REASON_FLAG_OFF = "flag_off"
 REASON_CONFIG_OFF = "config_off"
 REASON_ENV_OFF = "env_off"
 REASON_CLI_FLAG = "cli_flag"
@@ -358,7 +356,7 @@ def _begin_download_budget(source: object) -> None:
 
 
 def _opt_out_reason(tokens: list[str]) -> Optional[str]:
-    """Precedence: done, one-run flag, env, config, feature flag."""
+    """Precedence: done, one-run flag, env, config."""
     if _env_is_true(AUTO_UPGRADE_DONE_ENV):
         return REASON_ALREADY_DONE
     if skip_due_to_cli_flag(tokens):
@@ -366,10 +364,8 @@ def _opt_out_reason(tokens: list[str]) -> Optional[str]:
 
     env_raw = get_env_value(CLI_SECTION, key=AUTO_UPGRADE_KEY)
     if env_raw not in (None, ""):
-        if not _env_says_on(env_raw):
+        if not env_says_on(env_raw):
             return REASON_ENV_OFF
-        if not FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE.is_enabled():
-            return REASON_FLAG_OFF
         return None
 
     if (
@@ -377,8 +373,6 @@ def _opt_out_reason(tokens: list[str]) -> Optional[str]:
         is not True
     ):
         return REASON_CONFIG_OFF
-    if not FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE.is_enabled():
-        return REASON_FLAG_OFF
     return None
 
 
@@ -386,21 +380,7 @@ def _env_is_true(name: str) -> bool:
     raw = os.environ.get(name)
     if raw is None or raw == "":
         return False
-    return _env_says_on(raw)
-
-
-def _env_says_on(raw: str) -> bool:
-    """True for ``true`` / ``1`` / ``yes`` / ``on``. Anything else is off.
-
-    ``try_cast_to_bool`` rejects ``yes`` and ``on`` with ``ValueError``. Letting
-    that escape makes an opt-in look like an engine failure (``FailedOpen``).
-    """
-    if raw.strip().lower() in {"yes", "on"}:
-        return True
-    try:
-        return try_cast_to_bool(raw) is True
-    except ValueError:
-        return False
+    return env_says_on(raw)
 
 
 def _argv_before_agent_args(tokens: list[str]) -> list[str]:

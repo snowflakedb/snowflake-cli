@@ -29,6 +29,32 @@ EMPTY_RELEASE_NOTES = """\
 """
 
 REPO_ROOT = Path(__file__).parent.parent
+_UNRELEASED_HEADING = "# Unreleased version"
+
+
+def rewrite_release_notes(current_content: list[str], new_version: str) -> list[str]:
+    """Return RELEASE-NOTES.md lines with Unreleased promoted to ``v{new_version}``."""
+    heading_index = next(
+        (
+            i
+            for i, line in enumerate(current_content)
+            if line.strip() == _UNRELEASED_HEADING
+        ),
+        None,
+    )
+    if heading_index is None:
+        raise ValueError(
+            "RELEASE-NOTES.md must contain a '# Unreleased version' heading."
+        )
+
+    content = list(current_content)
+    content[heading_index] = f"# v{new_version}\n"
+    return [
+        *content[:heading_index],
+        *EMPTY_RELEASE_NOTES.splitlines(keepends=True),
+        "\n",
+        *content[heading_index:],
+    ]
 
 
 def main():
@@ -51,14 +77,7 @@ def main():
         with release_notes.open("r") as fh:
             current_content = fh.readlines()
 
-        license_txt = current_content[:15]
-        current_content[16] = f"# v{new_version}\n"
-        new_content = [
-            *license_txt,
-            *EMPTY_RELEASE_NOTES.splitlines(keepends=True),
-            "\n",
-            *current_content[16:],
-        ]
+        new_content = rewrite_release_notes(current_content, new_version)
         with release_notes.open("w+") as fh:
             fh.writelines(new_content)
 

@@ -15,13 +15,16 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from enum import Enum
 from logging import getLogger
 from pathlib import Path
 from typing import List, Optional
 
 import typer
-from click import UsageError
+from click import UsageError, get_current_context
+from click.core import ParameterSource  # type: ignore
+from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.client_query_span import sql_client_query_span
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.prompt_format import (
@@ -29,6 +32,8 @@ from snowflake.cli._plugins.sql.prompt_format import (
     unknown_token_warning,
     unknown_tokens_in_prompt_format,
 )
+from snowflake.cli._plugins.sql.repl_commands import parse_bool_value
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.commands.command_docs import (
     CommandDocs,
     Example,
@@ -49,6 +54,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliArgumentError
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CommandResult,
     EmptyResult,
@@ -112,6 +118,100 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
     if unknown_tokens:
         # stderr so the warning stays out of query results / REPL transcript.
         cli_console.stderr_warning(unknown_token_warning(unknown_tokens))
+
+
+_OUTPUT_FILE_OPTION = "output_file"
+_QUIET_OPTION = "quiet"
+_OUTPUT_FORMAT_OPTION = "output_format"
+_SUPPORTED_OPTIONS = "Only output_file, quiet and output_format are supported."
+
+
+def _strip_matching_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+def _normalize_output_file_value(value: str) -> str:
+    """Strip whitespace and one pair of matching quotes.
+
+    ``off`` is a literal filename. A blank result means spooling is off.
+    """
+    return _strip_matching_quotes(value.strip())
+
+
+def _parse_snowsql_option(raw: str) -> tuple[str, str]:
+    text = raw.strip()
+    if "=" not in text:
+        raise CliArgumentError(f"Invalid option '{text}'. Use -o <option>=<value>.")
+    key, value = text.split("=", 1)
+    return key.strip(), value
+
+
+@dataclass(frozen=True)
+class _StartupOptions:
+    output_file: str | None = None
+    quiet: bool | None = None
+    output_format: OutputFormat | None = None
+
+
+def _resolve_startup_options(raw_options: List[str] | None) -> _StartupOptions:
+    """Validate every ``-o`` entry before any of them is applied.
+
+    The last value of each option wins. An empty ``output_file`` does not open
+    a spool. There is no config key or environment variable for output_file.
+    """
+    output_file: str | None = None
+    quiet: bool | None = None
+    output_format: OutputFormat | None = None
+    for raw in raw_options or []:
+        key, value = _parse_snowsql_option(raw)
+        option = key.lower()
+        if option == _OUTPUT_FILE_OPTION:
+            normalized = _normalize_output_file_value(value)
+            output_file = normalized if normalized.strip() else None
+        elif option == _QUIET_OPTION:
+            try:
+                quiet = parse_bool_value(_QUIET_OPTION, value)
+            except ValueError as e:
+                raise CliArgumentError(str(e)) from e
+        elif option == _OUTPUT_FORMAT_OPTION:
+            try:
+                output_format = OutputFormat.from_string(value)
+            except ValueError as e:
+                raise CliArgumentError(str(e)) from e
+        else:
+            raise CliArgumentError(f"Unknown option '{key}'. {_SUPPORTED_OPTIONS}")
+    return _StartupOptions(
+        output_file=output_file, quiet=quiet, output_format=output_format
+    )
+
+
+def _reject_format_flag_conflict(resolved: _StartupOptions) -> None:
+    """``--format`` and ``-o output_format`` set the same thing: use only one.
+
+    Only an explicit ``--format`` conflicts. The config key and the environment
+    variable are defaults, so ``-o output_format`` overrides them.
+    """
+    if resolved.output_format is None:
+        return
+    format_source = get_current_context().get_parameter_source("format")  # type: ignore[attr-defined]
+    if format_source == ParameterSource.COMMANDLINE:
+        raise CliArgumentError(
+            "--format cannot be combined with -o output_format. Use only one of them."
+        )
+
+
+def _apply_startup_options(raw_options: List[str] | None) -> None:
+    resolved = _resolve_startup_options(raw_options)
+    _reject_format_flag_conflict(resolved)
+    manager = get_cli_context_manager()
+    if resolved.output_file:
+        manager.open_spool(resolved.output_file)
+    if resolved.quiet is not None:
+        manager.quiet = resolved.quiet
+    if resolved.output_format is not None:
+        manager.output_format = resolved.output_format
 
 
 @app.command(
@@ -204,6 +304,19 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
                     "/developer-guide/snowflake-cli/sql/execute-sql",
                     "Execute SQL statements",
                 ),
+                ".",
+            ),
+            plain_text(
+                "Append query results to a file with ",
+                code("-o output_file=<path>"),
+                " (results are still printed). ",
+                code("!spool off"),
+                " stops writing. ",
+                code("-o quiet=true"),
+                " hides query results on the terminal from the start of a run. ",
+                code("-o output_format=<format>"),
+                " sets the starting output format. It cannot be combined with ",
+                code("--format"),
                 ".",
             ),
             note(
@@ -327,6 +440,27 @@ def execute_sql(
         ),
         show_default=False,
     ),
+    option: List[str] = typer.Option(
+        None,
+        "--option",
+        "-o",
+        metavar="KEY=VALUE",
+        help=(
+            "Sets a SnowSQL-style option for this run. Supported options are "
+            "output_file, quiet and output_format. -o output_file=\\<path\\> appends query "
+            "results to the file and still prints them, like !spool \\<path\\>. "
+            "An empty output_file turns spooling off, and output_file=off "
+            "writes to a file named off. "
+            "-o quiet=true hides query results on the terminal, like "
+            "!set quiet=true; an open spool file still receives them. "
+            "-o output_format=\\<format\\> sets the starting output format, like "
+            "!set output_format, and overrides the config key and environment "
+            "variable. It cannot be combined with --format, and !set output_format "
+            "can still change it later. "
+            "Repeat -o to set several options. The last value of an option wins."
+        ),
+        show_default=False,
+    ),
     **options,
 ) -> CommandResult:
     """Executes SQL statements against Snowflake interactively or from a query, file, or standard input."""
@@ -365,6 +499,12 @@ def execute_sql(
         _warn_unknown_prompt_tokens(prompt_format)
         if single_transaction:
             raise CliArgumentError("single transaction cannot be used with REPL")
+
+    # Leave the spool open. In -q mode MultipleResults is printed after this
+    # function returns, and a later !spool / !set output_file replaces it.
+    _apply_startup_options(option)
+
+    if no_source_provided:
         from snowflake.cli._plugins.sql.repl import Repl
 
         auto_completion = get_config_bool_value(
@@ -400,8 +540,12 @@ def execute_sql(
             list(cursors)
             return EmptyResult()
         if expected_results_cnt == 1:
-            results = list(cursors)
-            if not results:
+            cursors = iter(cursors)
+            try:
+                first = next(cursors)
+            except StopIteration:
                 return EmptyResult()
-            return QueryResult(results[0])
+            print_result(QueryResult(first))
+            list(cursors)
+            return EmptyResult()
         return MultipleResults((QueryResult(c) for c in cursors))

@@ -18,8 +18,11 @@
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
+  | --structure                         Prints a JSON catalog of commands,       |
+  |                                     arguments, and options                   |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
+  | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
   | --install-completion                Install completion for the current       |
@@ -39,6 +42,8 @@
   | dbt                  Manages dbt on Snowflake projects.                      |
   | dcm                  Manages DCM Projects in Snowflake.                      |
   | feature              Manages declarative feature-store objects in Snowflake. |
+  | feedback             Send a rating and optional note about Snowflake CLI to  |
+  |                      Snowflake.                                              |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
   | init                 Creates project directory from template.                |
@@ -52,6 +57,7 @@
   |                      or from a query, file, or standard input.               |
   | stage                Manages stages.                                         |
   | streamlit            Manages a Streamlit app in Snowflake.                   |
+  | upgrade              Upgrade a direct install of Snowflake CLI.              |
   | multilingual-hello   Says hello in various languages                         |
   +------------------------------------------------------------------------------+
   
@@ -225,8 +231,11 @@
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
+  | --structure                         Prints a JSON catalog of commands,       |
+  |                                     arguments, and options                   |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
+  | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
   | --install-completion                Install completion for the current       |
@@ -245,6 +254,8 @@
   | dbt            Manages dbt on Snowflake projects.                            |
   | dcm            Manages DCM Projects in Snowflake.                            |
   | feature        Manages declarative feature-store objects in Snowflake.       |
+  | feedback       Send a rating and optional note about Snowflake CLI to        |
+  |                Snowflake.                                                    |
   | git            Manages git repositories in Snowflake.                        |
   | helpers        Helper commands.                                              |
   | init           Creates project directory from template.                      |
@@ -258,6 +269,7 @@
   |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
+  | upgrade        Upgrade a direct install of Snowflake CLI.                    |
   +------------------------------------------------------------------------------+
   
   +- Connection configuration ---------------------------------------------------+
@@ -412,8 +424,11 @@
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
+  | --structure                         Prints a JSON catalog of commands,       |
+  |                                     arguments, and options                   |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
+  | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
   | --install-completion                Install completion for the current       |
@@ -433,6 +448,8 @@
   | dbt                  Manages dbt on Snowflake projects.                      |
   | dcm                  Manages DCM Projects in Snowflake.                      |
   | feature              Manages declarative feature-store objects in Snowflake. |
+  | feedback             Send a rating and optional note about Snowflake CLI to  |
+  |                      Snowflake.                                              |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
   | init                 Creates project directory from template.                |
@@ -446,6 +463,7 @@
   |                      or from a query, file, or standard input.               |
   | stage                Manages stages.                                         |
   | streamlit            Manages a Streamlit app in Snowflake.                   |
+  | upgrade              Upgrade a direct install of Snowflake CLI.              |
   | multilingual-hello   Says hello in various languages                         |
   +------------------------------------------------------------------------------+
   
@@ -639,8 +657,11 @@
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
+  | --structure                         Prints a JSON catalog of commands,       |
+  |                                     arguments, and options                   |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
+  | --no-auto-upgrade                   Skip auto-upgrade for this invocation.   |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
   | --install-completion                Install completion for the current       |
@@ -659,6 +680,8 @@
   | dbt            Manages dbt on Snowflake projects.                            |
   | dcm            Manages DCM Projects in Snowflake.                            |
   | feature        Manages declarative feature-store objects in Snowflake.       |
+  | feedback       Send a rating and optional note about Snowflake CLI to        |
+  |                Snowflake.                                                    |
   | git            Manages git repositories in Snowflake.                        |
   | helpers        Helper commands.                                              |
   | init           Creates project directory from template.                      |
@@ -672,6 +695,7 @@
   |                from a query, file, or standard input.                        |
   | stage          Manages stages.                                               |
   | streamlit      Manages a Streamlit app in Snowflake.                         |
+  | upgrade        Upgrade a direct install of Snowflake CLI.                    |
   +------------------------------------------------------------------------------+
   
   +- Connection configuration ---------------------------------------------------+

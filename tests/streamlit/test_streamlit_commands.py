@@ -3,7 +3,10 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+import yaml
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import SPCS_RUNTIME_V2_NAME
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.secure_path import SecurePath
 
 from tests.streamlit.streamlit_test_class import (
     RESTART_PARAMS,
@@ -23,13 +26,67 @@ def mock_live_version_location_uri():
         # The mock cursor must have a fetchone() method that returns the dict
         mock_cursor = mock.Mock()
         mock_cursor.fetchone.return_value = {
-            "live_version_location_uri": "snow://streamlit/db.PUBLIC.test_streamlit/versions/live/"
+            "live_version_location_uri": "snow://streamlit/db.PUBLIC.test_streamlit/versions/live/",
+            "main_file": "streamlit_app.py",
         }
         mock_describe.return_value = mock_cursor
         yield mock_describe
 
 
 class TestStreamlitCommands(StreamlitTestClass):
+    @pytest.mark.parametrize("prune", [False, True])
+    @pytest.mark.parametrize("include_warehouse", [False, True])
+    def test_deploy_versioned_main_file_change_updates_in_place(
+        self, project_directory, runner, alter_snowflake_yml, prune, include_warehouse
+    ):
+        with project_directory("example_streamlit_v2") as root:
+            SecurePath(root / "renamed_app.py").write_text(
+                "import streamlit as st\nst.write('renamed')\n"
+            )
+            alter_snowflake_yml(
+                root / "snowflake.yml",
+                "entities.test_streamlit.main_file",
+                "renamed_app.py",
+            )
+            if not include_warehouse:
+                definition = SecurePath(root / "snowflake.yml")
+                project = yaml.safe_load(definition.read_text(DEFAULT_SIZE_LIMIT_MB))
+                del project["entities"]["test_streamlit"]["query_warehouse"]
+                definition.write_text(yaml.safe_dump(project))
+            self.mock_describe.return_value.fetchone.return_value[
+                "query_warehouse"
+            ] = "LIVE_WH"
+            with mock.patch(
+                "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
+                return_value=True,
+            ):
+                command = ["streamlit", "deploy", "--replace"]
+                if prune:
+                    command.append("--prune")
+                result = runner.invoke(command)
+
+        assert result.exit_code == 0, result.output
+        sql = [call.args[0] for call in self.mock_execute.call_args_list if call.args]
+        assert any(
+            "ALTER STREAMLIT" in statement
+            and "MAIN_FILE = 'renamed_app.py'" in statement
+            for statement in sql
+        )
+        assert not any(
+            "CREATE OR REPLACE STREAMLIT" in statement
+            or "ADD LIVE VERSION" in statement
+            for statement in sql
+        )
+        assert (
+            any("QUERY_WAREHOUSE" in statement for statement in sql)
+            is include_warehouse
+        )
+        assert any(
+            call.kwargs.get("local_path")
+            and call.kwargs["local_path"].name == "renamed_app.py"
+            for call in self.mock_put.call_args_list
+        )
+
     def test_list_streamlit(self, runner, mock_streamlit_ctx):
         self.mock_connector.return_value = mock_streamlit_ctx
 
@@ -51,7 +108,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
-                TITLE = 'My Fancy Streamlit';
+                TITLE = 'My Fancy Streamlit'
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -75,7 +133,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = test_warehouse;
+                QUERY_WAREHOUSE = test_warehouse
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
         assert result.exit_code == 0, result.output
@@ -95,7 +154,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = test_warehouse;
+                QUERY_WAREHOUSE = test_warehouse
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -122,7 +182,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                     ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                     MAIN_FILE = 'streamlit_app.py'
                     QUERY_WAREHOUSE = test_warehouse
-                    TITLE = 'My Fancy Streamlit';
+                    TITLE = 'My Fancy Streamlit'
+                    RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                     """
         ).strip()
 
@@ -169,7 +230,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
-                TITLE = 'My Fancy Streamlit';
+                TITLE = 'My Fancy Streamlit'
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -202,7 +264,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                     ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                     MAIN_FILE = 'streamlit_app.py'
                     QUERY_WAREHOUSE = test_warehouse
-                    TITLE = 'My Fancy Streamlit';
+                    TITLE = 'My Fancy Streamlit'
+                    RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                     """
         ).strip()
 
@@ -226,7 +289,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = test_warehouse;
+                QUERY_WAREHOUSE = test_warehouse
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -279,7 +343,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                         ROOT_LOCATION = '@streamlit_stage/{STREAMLIT_NAME}'
                         MAIN_FILE = 'streamlit_app.py'
                         QUERY_WAREHOUSE = test_warehouse
-                        TITLE = 'My Fancy Streamlit';
+                        TITLE = 'My Fancy Streamlit'
+                        RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                         """
         ).strip()
 
@@ -306,7 +371,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')
                 ROOT_LOCATION = '@streamlit_stage/{STREAMLIT_NAME}'
                 MAIN_FILE = 'main.py'
-                QUERY_WAREHOUSE = streamlit_warehouse;
+                QUERY_WAREHOUSE = streamlit_warehouse
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
 
@@ -546,9 +612,9 @@ class TestStreamlitCommands(StreamlitTestClass):
             f"""
                 ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') SET
                 ROOT_LOCATION = '@streamlit/{STREAMLIT_NAME}'
-                MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
-                TITLE = 'My Fancy Streamlit';
+                TITLE = 'My Fancy Streamlit'
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
         assert result.exit_code == 0, result.output
@@ -782,6 +848,29 @@ class TestStreamlitCommands(StreamlitTestClass):
         assert result.exit_code == 0, result.output
         assert result.output == "https://foo.bar\n"
 
+    @mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitManager")
+    def test_status_prints_the_service_row(self, manager_cls, runner):
+        manager_cls.return_value.status.return_value = [
+            {
+                "name": "DB.PUBLIC.APP",
+                "runtime_name": "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+                "compute_pool": "POOL",
+                "url": "https://example.test/app",
+                "service_name": "STPLATSTREAMLIT7",
+                "service_status": "RUNNING",
+                "container_status": "READY",
+                "current_instances": 1,
+                "message": None,
+            }
+        ]
+
+        result = runner.invoke(["streamlit", "status", "DB.PUBLIC.APP"])
+
+        assert result.exit_code == 0, result.output
+        assert "STPLATSTREAMLIT7" in result.output
+        assert "RUNNING" in result.output
+        manager_cls.return_value.status.assert_called_once()
+
     @pytest.mark.parametrize(
         "command, parameters",
         [
@@ -817,7 +906,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 CREATE STREAMLIT IDENTIFIER('{entity_id}')
                 ROOT_LOCATION = '@streamlit/{entity_id}'
                 MAIN_FILE = 'streamlit_app.py'
-                QUERY_WAREHOUSE = streamlit;"""
+                QUERY_WAREHOUSE = streamlit
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';"""
         ).strip()
 
         assert result.exit_code == 0, result.output
@@ -848,7 +938,8 @@ class TestStreamlitCommands(StreamlitTestClass):
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = xsmall
                 TITLE = 'My Streamlit App with Comment'
-                COMMENT = 'This is a test comment';
+                COMMENT = 'This is a test comment'
+                RUNTIME_NAME = 'SYSTEM$WAREHOUSE_RUNTIME';
                 """
         ).strip()
         assert result.exit_code == 0, result.output

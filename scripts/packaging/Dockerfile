@@ -3,8 +3,6 @@ FROM artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/docker-remote/library/u
 ENV HOME=/root
 
 RUN apt -y update
-RUN apt -y install -y software-properties-common binutils --fix-missing
-RUN add-apt-repository ppa:deadsnakes/ppa
 
 RUN apt install -y --fix-missing \
   build-essential \

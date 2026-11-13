@@ -202,7 +202,7 @@ def create(name: str):
     ...
 ```
 
-### CommandDocs {#commanddocs}
+### Writing command docs
 
 The function docstring is the short summary in `--help`. For
 [Snowflake CLI command reference](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/overview)
@@ -217,7 +217,7 @@ shared constants for related links across subcommands. See
 `src/snowflake/cli/_plugins/stage/commands.py` for patterns.
 
 For the interface-first plugin workflow (`CommandDef.docs` in `interface.py`),
-see [CommandDocs in writing-a-plugin.md](writing-a-plugin.md#commanddocs).
+see [Writing command docs in writing-a-plugin.md](writing-a-plugin.md#writing-command-docs).
 
 ```python
 from snowflake.cli.api.commands.command_docs import (
@@ -275,12 +275,11 @@ def list_(...):
 
 To preview output, run `snow --docs` and check the generated
 `.mdx` files under `gen_docs/pages/`. The left-hand path in
-`scripts/command_docs_paths.yaml` must match that layout (one `.mdx` per
+`scripts/docs/command_docs_paths.yaml` must match that layout (one `.mdx` per
 terminal command, path segments = `snow` subcommand names).
 
-**Publishing:** add a mapping in `scripts/command_docs_paths.yaml` for each new
-command page before running `scripts/publish_command_docs.py` (see
-`scripts/publish_command_docs.md`).
+**Publishing:** add a mapping in `scripts/docs/command_docs_paths.yaml` for each
+new command page before publishing (see `scripts/docs/README.md`).
 
 ### Return types
 

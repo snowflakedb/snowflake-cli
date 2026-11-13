@@ -26,16 +26,17 @@ description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
   # Actual project dependencies, from which we generate [project.dependencies] section serving as a lockfile for PyPi
+  "certifi>=2026.10.19",
   "click==8.1.8",
   "configobj==5.0.9",
-  "GitPython==3.2.0",
+  "GitPython==3.2.1",
   "PyYAML==6.0.2",
   "id==1.5.0",
   "jinja2==3.1.6",
   "jaraco.context==6.1.2",
   "keyring==25.7.0",
   "packaging==25.0",
-  "pip==26.2.1",
+  "pip==26.2.2",
   "pluggy==1.6.0",
   "prompt-toolkit==3.0.51",
   "protobuf>=5.29.6,<6",
@@ -45,7 +46,7 @@ dependencies = [
   "requirements-parser==0.13.0",
   "rich==14.0.0",
   "setuptools==84.0.0",
-  "snowflake-connector-python[secure-local-storage]==4.7.5",
+  "snowflake-connector-python[secure-local-storage]==4.8.1",
   'snowflake-snowpark-python==1.53.0',
   "snowflake.core==1.10.0",
   "tomlkit==0.15.1",
@@ -80,6 +81,7 @@ development = [
   "pytest-randomly==3.16.0",
   "pytest-xdist==3.6.1",
   "pytest==8.4.1",
+  "snowflake-ml-python[feature_store]>=2.6.0",
   "syrupy==4.9.1",
   "uv==0.10.9",
 ]
@@ -126,7 +128,6 @@ test-cov = [
   "pytest --cov=snowflake.cli --cov-append --cov-report= -m loaded_modules tests/",
   "coverage report",
 ]
-legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 lock-dependencies = [
   "uv pip compile pyproject.toml -o pylock.toml -p 3.11 --no-annotate --universal --index https://pypi.org/simple",
 ]
@@ -136,7 +137,11 @@ sync-dependencies = [
 
 [tool.hatch.envs.packaging]
 python = "3.12"
-features = ["development", "packaging"]
+# Runtime + packaging extra only. development (pytest, snowflake-ml-python, …)
+# stays on the default/e2e/integration envs. Linux daily packaging runs this
+# env inside Ubuntu 18.04 (scripts/packaging/Dockerfile); a native test extra
+# there fails the graph.
+features = ["packaging"]
 
 [tool.hatch.envs.packaging.scripts]
 build-isolated-binary = [
@@ -149,6 +154,9 @@ build-all = [
   "./scripts/packaging/build_packages.sh",
 ]
 win-build-version = ["python ./scripts/packaging/win/build_version.py"]
+# WHEEL cli-labs-builder. Must stay on this env so Ubuntu 18.04 does not
+# hatch-run the default env (development extras) just to build a wheel.
+legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
 [tool.hatch.envs.e2e]
 template = "e2e"
@@ -205,6 +213,21 @@ pre-install-commands = [
   "pip install pytest-xdist",
 ]
 features = ["development"]
+
+# Local connector 5 check for snow auth login.
+# Hatch syncs this env back to the project pins (connector 4, Snowpark, protobuf < 6)
+# before every command, so the swap has to live in the script. Snowpark's
+# connector < 5 pin is what blocks a normal install of connector 5.1.0.
+[tool.hatch.envs.ud-local]
+python = "3.11"
+features = ["development"]
+
+[tool.hatch.envs.ud-local.scripts]
+test-login = [
+  "python -m pip uninstall -y snowflake-snowpark-python snowflake-connector-python",
+  "python -m pip install 'snowflake-connector-python==5.1.0' 'protobuf==6.32.1'",
+  "python -m pytest tests/auth/test_login.py -q --tb=short",
+]
 
 [tool.hatch.envs.ud.scripts]
 check = [

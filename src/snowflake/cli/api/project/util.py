@@ -98,6 +98,11 @@ def is_valid_object_name(name: str, max_depth=2, allow_quoted=True) -> bool:
     return re.fullmatch(pattern, name) is not None
 
 
+def is_valid_schema_and_name(name: str) -> bool:
+    """Exactly schema.name. A single identifier, or a longer qualifier, is not."""
+    return is_valid_object_name(name, max_depth=1) and not is_valid_identifier(name)
+
+
 def to_quoted_identifier(input_value: str) -> str:
     """
     Turn the input into a valid quoted identifier.
@@ -176,6 +181,10 @@ def to_string_literal(raw_value: str) -> str:
     Converts the raw string value to a correctly escaped, single-quoted string literal.
     """
     escaped = re.sub(r"(\\*)'", lambda m: m.group(1) * 2 + "''", raw_value)
+    # An odd trailing backslash run would escape the closing quote for the
+    # connector splitter.
+    if (len(escaped) - len(escaped.rstrip("\\"))) % 2 == 1:
+        escaped += "\\"
     return f"'{escaped}'"
 
 

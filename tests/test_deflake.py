@@ -30,6 +30,10 @@ HTTP_429 = (
     "snowflake.connector.errors.TooManyRequests: 290429: 290429: "
     "HTTP 429: Too Many Requests"
 )
+HTTP_429_CONCURRENT = (
+    'HTTP 429: b\'{"code":"000645","message":"exceeded number of allowed '
+    "concurrent requests. you may try again later.\"}'"
+)
 HTTP_503 = "ERROR snowflake.connector.network: 290503: HTTP 503: Service Unavailable"
 
 
@@ -37,6 +41,7 @@ HTTP_503 = "ERROR snowflake.connector.network: 290503: HTTP 503: Service Unavail
     "text,expected",
     [
         (HTTP_429, True),
+        (HTTP_429_CONCURRENT, True),
         (HTTP_503, True),
         ("Exceeded maximum number of inbound queries allowed for this instance", True),
         ("GS instance is still unavailable at 2026-09-22", True),
@@ -61,6 +66,11 @@ def test_matches_known_server_issue(text, expected):
             "E         │ 290429 (08001): 01c741ea-081a-988e-0001-c1be39e42a7e: HTTP 429: Too Many   │\n"
             "E         │ Requests                                                                    │\n"
         ),
+        (
+            "E       assert '401 unauthorized' in 'output'\n"
+            'E         │ ------: HTTP 429: b\'{"code":"000645","message":"exceeded number of allowed   │\n'
+            "E         │ concurrent requests. you may try again later. if the problem persists,       │\n"
+        ),
     ],
 )
 def test_matches_known_server_issue_across_pretty_wrapped_lines(text):
@@ -71,6 +81,7 @@ def test_matches_known_server_issue_across_pretty_wrapped_lines(text):
     "text,expected",
     [
         (HTTP_429, TRANSIENT_MAX_RETRIES),
+        (HTTP_429_CONCURRENT, TRANSIENT_MAX_RETRIES),
         (HTTP_503, TRANSIENT_MAX_RETRIES),
         ("assert 1 == 0", DEFAULT_MAX_RETRIES),
     ],

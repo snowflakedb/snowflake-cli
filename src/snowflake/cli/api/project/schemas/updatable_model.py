@@ -217,4 +217,6 @@ def DiscriminatorField(*args, **kwargs):  # noqa N802
 
 
 def IdentifierField(*args, **kwargs):  # noqa N802
-    return Field(max_length=254, pattern=IDENTIFIER_NO_LENGTH, *args, **kwargs)
+    # Pydantic applies pattern= with search semantics. Anchor so a value that
+    # only contains an identifier does not pass.
+    return Field(max_length=254, pattern=rf"^{IDENTIFIER_NO_LENGTH}$", *args, **kwargs)

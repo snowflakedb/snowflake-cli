@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import inspect
 import time
+from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -65,11 +66,9 @@ from snowflake.cli.api.config import (
     get_env_variable_name,
 )
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
 
 from tests_common import IS_WINDOWS
-from tests_common.feature_flag_utils import with_feature_flags
 
 AUTO_UPGRADE_ENV = get_env_variable_name(CLI_SECTION, key=AUTO_UPGRADE_KEY)
 ALLOW_MAJOR_ENV = get_env_variable_name(CLI_SECTION, key=AUTO_UPGRADE_ALLOW_MAJOR_KEY)
@@ -125,7 +124,7 @@ def managed(monkeypatch, managed_home):
 
 def _enable(monkeypatch):
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
-    return with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True})
+    return nullcontext()
 
 
 def _binary(path: Path) -> Path:
@@ -177,26 +176,21 @@ def test_not_direct_install_skips_without_spool_or_download(
     assert capsys.readouterr().out == ""
 
 
-def test_flag_off(monkeypatch, managed, capsys):
-    source = _ReleaseSource("3.13.0")
+def test_env_opt_in_needs_no_feature_flag(monkeypatch, managed, tmp_path, capsys):
+    source = _ReleaseSource("3.13.0", payload=_binary(tmp_path / "next"))
     manager.set_version_source(source)
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
     action = maybe_auto_upgrade(["sql"])
-    assert isinstance(action, Skip)
-    assert action.reason == "flag_off"
-    assert source.release_calls == 0
-    message = _messages(managed)[-1]
-    assert message["upgrade_trigger"] == TRIGGER_AUTO
-    assert message["upgrade_skip_reason"] == "flag_off"
-    assert message["upgrade_status"] == "skipped"
+    assert isinstance(action, Upgraded)
+    assert source.release_calls == 1
+    assert source.materialize_calls == 1
     assert capsys.readouterr().out == ""
 
 
 def test_config_off(monkeypatch, managed):
     source = _ReleaseSource("3.13.0")
     manager.set_version_source(source)
-    with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-        action = maybe_auto_upgrade(["sql"])
+    action = maybe_auto_upgrade(["sql"])
     assert isinstance(action, Skip)
     assert action.reason == "config_off"
     assert source.release_calls == 0
@@ -204,14 +198,14 @@ def test_config_off(monkeypatch, managed):
 
 
 @pytest.mark.parametrize("raw", ["yes", "on", "YES"])
-def test_env_yes_and_on_count_as_opt_in(monkeypatch, managed, raw):
-    source = _ReleaseSource("3.13.0")
+def test_env_yes_and_on_count_as_opt_in(monkeypatch, managed, tmp_path, raw):
+    source = _ReleaseSource("3.13.0", payload=_binary(tmp_path / "next"))
     manager.set_version_source(source)
     monkeypatch.setenv(AUTO_UPGRADE_ENV, raw)
     action = maybe_auto_upgrade(["sql"])
-    assert isinstance(action, Skip)
-    assert action.reason == "flag_off"
-    assert source.release_calls == 0
+    assert isinstance(action, Upgraded)
+    assert source.release_calls == 1
+    assert source.materialize_calls == 1
 
 
 def test_env_unrecognized_is_off_not_fail_open(monkeypatch, managed):
@@ -230,8 +224,7 @@ def test_env_off_overrides_config_on(monkeypatch, managed, config_file):
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "0")
     with config_file(f"[cli]\n{AUTO_UPGRADE_KEY} = true\n") as cfg:
         config_init(cfg)
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            action = maybe_auto_upgrade(["sql"])
+        action = maybe_auto_upgrade(["sql"])
     assert isinstance(action, Skip)
     assert action.reason == "env_off"
     assert source.release_calls == 0

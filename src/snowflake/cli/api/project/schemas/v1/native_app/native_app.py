@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import re
 from typing import List, Optional
 
 from pydantic import Field, field_validator
@@ -26,7 +25,8 @@ from snowflake.cli.api.project.schemas.v1.native_app.application import (
 )
 from snowflake.cli.api.project.schemas.v1.native_app.package import Package, PackageV11
 from snowflake.cli.api.project.util import (
-    SCHEMA_AND_NAME,
+    is_valid_object_name,
+    is_valid_schema_and_name,
 )
 
 
@@ -62,10 +62,20 @@ class NativeApp(UpdatableModel):
 
     @field_validator("source_stage")
     @classmethod
-    def validate_source_stage(cls, input_value: str):
-        if not re.match(SCHEMA_AND_NAME, input_value):
-            raise ValueError("Incorrect value for source_stage value of native_app")
-        return input_value
+    def validate_source_stage(cls, input_value: Optional[str]):
+        if input_value and is_valid_schema_and_name(input_value):
+            return input_value
+        raise ValueError("Incorrect value for source_stage value of native_app")
+
+    @field_validator("scratch_stage")
+    @classmethod
+    def validate_scratch_stage(cls, input_value: Optional[str]):
+        if input_value and is_valid_object_name(input_value, max_depth=1):
+            return input_value
+        raise ValueError(
+            "Incorrect value for scratch_stage value of native_app. "
+            "Expected a single identifier or schema.stage"
+        )
 
     @field_validator("artifacts")
     @classmethod

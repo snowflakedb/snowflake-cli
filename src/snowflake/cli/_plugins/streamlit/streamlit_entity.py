@@ -1,5 +1,6 @@
 import json
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, NamedTuple, Optional
 
@@ -14,17 +15,27 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
     is_spcs_container_runtime,
 )
+from snowflake.cli._plugins.streamlit.warm_up_tasks import (
+    WarmUpTasks,
+    parse_scheduled_tasks,
+    show_scope,
+)
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.constants import DEFAULT_ENV_FILE, DEFAULT_PAGES_DIR
 from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.entities.utils import EntityActions, sync_deploy_root_with_stage
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED, INVALID_PROPERTY
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
-from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
+from snowflake.cli.api.project.schemas.entities.common import (
+    Identifier,
+    PathMapping,
+    _sql_object_name,
+)
 from snowflake.cli.api.project.util import (
+    identifier_to_show_like_pattern,
     to_identifier,
     to_string_literal,
 )
@@ -35,9 +46,18 @@ from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
+# Some accounts do not accept these properties. Names are in lower case, as in
+# the server error.
+_GATED_SETTINGS = (
+    ("app_warehouse", "warehouse"),
+    ("artifact_repositories", "artifact_repositories"),
+    ("idle_auto_shutdown_time_seconds", "idle_auto_shutdown_time_seconds"),
+)
+
 # Snowflake errno / SQLSTATE for "live version already exists" (same codes as
 # SnowflakeAppManager.ensure_workspace_live_version).
 _LIVE_VERSION_EXISTS_ERRNO = 99106
+_MAIN_FILE_UNSUPPORTED_ERRNO = 92824
 _RESTART_STREAMLIT_FUNCTION = "SYSTEM$RESTART_STREAMLIT"
 
 
@@ -70,6 +90,28 @@ def _describe_row_is_spcs_v2(current: Dict[str, Any]) -> bool:
 class _TagRef(NamedTuple):
     name: str
     fqn: str
+
+
+def _ident_key(name: Any) -> str:
+    return (name or "").strip().strip('"').upper()
+
+
+def _name_list_key(names: Any) -> list:
+    """Compare full names, not only the last part.
+
+    If Snowflake qualifies a name differently, the CLI sends the SET again. That
+    is safe. A compare of only the last part does not see a change of database.
+    """
+    if not names:
+        return []
+    if isinstance(names, str):
+        try:
+            names = json.loads(names)
+        except (ValueError, TypeError):
+            return []
+    return sorted(
+        ".".join(_ident_key(part) for part in str(name).split(".")) for name in names
+    )
 
 
 def _main_file_covered_by_artifacts(
@@ -211,6 +253,105 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             and self.model.runtime_name != WAREHOUSE_RUNTIME_NAME
         )
 
+    def _is_container_runtime(self) -> bool:
+        return is_spcs_container_runtime(self.model.runtime_name)
+
+    def _treat_as_container_runtime(
+        self, *, new_versioned_create: bool = False
+    ) -> bool:
+        """Named container runtime, or a new versioned CREATE that only sets a pool.
+
+        Global Services injects the container runtime when a versioned CREATE
+        omits RUNTIME_NAME, the container-default flag is on, and the statement
+        is not CREATE OR REPLACE of an existing app. ALTER never injects it.
+        Other settings follow that app only on the new-create path. The
+        statement still does not name the runtime.
+        """
+        if self._is_container_runtime():
+            return True
+        return (
+            new_versioned_create
+            and bool(self.model.compute_pool)
+            and not self.model.runtime_name
+        )
+
+    def _set_runtime_settings(self) -> list[str]:
+        return [
+            field
+            for field in (
+                "execute_as",
+                "app_warehouse",
+                "artifact_repositories",
+                "idle_auto_shutdown_time_seconds",
+                "schedules",
+            )
+            # An empty list only clears the value, so it applies everywhere.
+            if getattr(self.model, field) not in (None, [])
+        ]
+
+    def validate_as_child(self) -> None:
+        """The setup script has only the CREATE, so EXECUTE AS and the schedule tasks cannot apply."""
+        if set_fields := self._set_runtime_settings():
+            raise CliError(
+                f"{', '.join(set_fields)} cannot be set on a Streamlit app in an "
+                f"application package. Remove them from entity {self.entity_id}."
+            )
+
+    def _reject_non_warehouse_legacy_runtime(self) -> None:
+        """--legacy runs on the warehouse runtime. Any other name is an error.
+
+        An omitted runtime_name is the warehouse runtime. The versioned CREATE
+        default is the container runtime, so a legacy statement pins
+        SYSTEM$WAREHOUSE_RUNTIME instead of omitting RUNTIME_NAME.
+        """
+        runtime = self.model.runtime_name
+        if not runtime or runtime == WAREHOUSE_RUNTIME_NAME:
+            return
+        raise CliError(
+            f"runtime_name {runtime} is not compatible with the --legacy flag. "
+            f"A legacy deployment runs on {WAREHOUSE_RUNTIME_NAME}. "
+            "Remove --legacy to use versioned deployment, or remove runtime_name "
+            "and compute_pool from your snowflake.yml to use legacy deployment."
+        )
+
+    def _validate_runtime_settings(
+        self, legacy: bool, *, new_versioned_create: bool = False
+    ) -> None:
+        """Stop before the first SQL if this deploy cannot apply a setting.
+
+        Each setting changes how the app runs. If the CLI ignores a setting, it
+        deploys a different app.
+        """
+        set_fields = self._set_runtime_settings()
+        if legacy and set_fields:
+            raise CliError(
+                f"{', '.join(set_fields)} cannot be set on a --legacy deployment. "
+                "Remove --legacy to use versioned deployment, or remove them from "
+                "snowflake.yml."
+            )
+        container = self._treat_as_container_runtime(
+            new_versioned_create=new_versioned_create
+        )
+        if self.model.runtime_name:
+            runtime = self.model.runtime_name
+        elif new_versioned_create and self.model.compute_pool:
+            runtime = "not set, and compute_pool uses the container default"
+        else:
+            runtime = "not set"
+        if container and self.model.execute_as == "RESTRICTED CALLER":
+            raise CliError(
+                f"execute_as RESTRICTED CALLER only applies to {WAREHOUSE_RUNTIME_NAME}, "
+                f"but runtime_name is {runtime}. Remove execute_as, or set runtime_name "
+                f"to {WAREHOUSE_RUNTIME_NAME}."
+            )
+        for field in ("artifact_repositories", "schedules"):
+            if getattr(self.model, field) not in (None, []) and not container:
+                raise CliError(
+                    f"{field} only applies to container runtimes, but runtime_name "
+                    f"is {runtime}. Remove {field}, or set runtime_name to "
+                    f"{SPCS_RUNTIME_V2_NAME}."
+                )
+
     def _resolved_query_warehouse(self, live_warehouse: Optional[str] = None) -> str:
         """Warehouse for CREATE: YAML, then the live object's, then the connection.
 
@@ -307,6 +448,33 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 "file. Avoid storing credentials or other secrets in snowflake.yml."
             )
 
+        if legacy:
+            # Before any SQL, including the existence check. A non-warehouse runtime
+            # would deploy a different app than snowflake.yml describes.
+            self._reject_non_warehouse_legacy_runtime()
+
+        # The warehouse runtime ignores a pool. --legacy with no runtime_name is
+        # that runtime. A versioned statement still sends the pool and leaves
+        # the runtime for Global Services to decide.
+        pool_ignored = self.model.compute_pool and (
+            not self._compute_pool_applies() or (legacy and not self.model.runtime_name)
+        )
+        if pool_ignored:
+            runtime_label = self.model.runtime_name or WAREHOUSE_RUNTIME_NAME
+            console.warning(
+                f"compute_pool {sanitize_for_terminal(self.model.compute_pool)} is "
+                f"ignored because runtime_name is {runtime_label}, which does "
+                "not run on a compute pool. Remove compute_pool, or set runtime_name "
+                f"to {SPCS_RUNTIME_V2_NAME}."
+            )
+
+        # A pool with no runtime_name is the container default only on a new
+        # versioned CREATE. --replace cannot know that until DESCRIBE. Every
+        # other illegal setting is visible from snowflake.yml and fails first.
+        unnamed_pool = bool(self.model.compute_pool) and not self.model.runtime_name
+        if not (replace and unnamed_pool):
+            self._validate_runtime_settings(legacy, new_versioned_create=not legacy)
+
         console.step(f"Checking if object exists")
         object_exists = self._object_exists()
 
@@ -316,32 +484,23 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 "Re-run with --replace to update the existing app."
             )
 
-        if legacy and self.model.runtime_name == SPCS_RUNTIME_V2_NAME:
-            # A legacy ROOT_LOCATION deployment cannot carry RUNTIME_NAME at all, so
-            # this would silently produce a warehouse-backed app. That is a materially
-            # different app from the one requested, hence an error rather than a warning.
-            raise CliError(
-                f"runtime_name {SPCS_RUNTIME_V2_NAME} is not compatible with the "
-                "--legacy flag, which cannot set RUNTIME_NAME. Remove --legacy to use "
-                "versioned deployment, or remove runtime_name and compute_pool from "
-                "your snowflake.yml to use legacy deployment."
+        new_versioned_create = not legacy and not object_exists
+        if replace and unnamed_pool:
+            self._validate_runtime_settings(
+                legacy, new_versioned_create=new_versioned_create
             )
-        elif legacy and self.model.runtime_name:
-            # Dropping the warehouse runtime is closer to a no-op, since a legacy app
-            # is warehouse-backed anyway, so this warns instead of failing. Staying
-            # silent is the failure this deploy path is otherwise fixing.
-            console.warning(
-                f"runtime_name {self.model.runtime_name} is ignored for --legacy "
-                "deployments, which cannot set RUNTIME_NAME. Remove --legacy to deploy "
-                "on the requested runtime."
+        if (
+            self.model.app_warehouse
+            and not legacy
+            and self._treat_as_container_runtime(
+                new_versioned_create=new_versioned_create
             )
-
-        if self.model.compute_pool and not self._compute_pool_applies():
+        ):
+            runtime_label = self.model.runtime_name or "the container default"
             console.warning(
-                f"compute_pool {sanitize_for_terminal(self.model.compute_pool)} is "
-                f"ignored because runtime_name is {self.model.runtime_name}, which does "
-                "not run on a compute pool. Remove compute_pool, or set runtime_name "
-                f"to {SPCS_RUNTIME_V2_NAME}."
+                f"app_warehouse {sanitize_for_terminal(self.model.app_warehouse)} is "
+                f"ignored because runtime_name is {runtime_label}. Remove "
+                f"app_warehouse, or set runtime_name to {WAREHOUSE_RUNTIME_NAME}."
             )
 
         # Warn if replacing with a different deployment style
@@ -441,10 +600,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if from_stage_name:
             clauses.append(f"ROOT_LOCATION = {to_string_literal(from_stage_name)}")
 
-        if legacy:
-            desired = _str(self._entity_model.main_file)
-            if not current or _str(cur.get("main_file")) != desired:
-                clauses.append(f"MAIN_FILE = {to_string_literal(desired)}")
+        if self.model.main_file == "":
+            raise CliError(
+                "main_file cannot be empty. Set it to the app's entrypoint file."
+            )
+        if self._main_file_changed(cur):
+            clauses.append(f"MAIN_FILE = {to_string_literal(self.model.main_file)}")
 
         # Only snowflake.yml changes the warehouse of an existing app. Falling
         # back to the connection here would rewrite a live warehouse, or fail
@@ -456,6 +617,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             clauses.append(f"QUERY_WAREHOUSE = {to_identifier(desired_wh)}")
 
         unset_clauses: list[str] = []
+        pre_runtime_unset_clauses: list[str] = []
 
         desired_title = _str(self.model.title)
         current_title = _str(cur.get("title")) if current else ""
@@ -500,7 +662,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 # ALTER STREAMLIT UNSET does not list IMPORTS; clear via SET.
                 clauses.append("IMPORTS = ()")
 
-        if not from_stage_name and not legacy:
+        if legacy:
+            # Pin the warehouse runtime on redeploy too. An omitted live name used
+            # to mean warehouse; the versioned default is now the container runtime.
+            self._reject_non_warehouse_legacy_runtime()
+            live_runtime_id = _id(cur.get("runtime_name")) if current else ""
+            if live_runtime_id != _id(WAREHOUSE_RUNTIME_NAME):
+                clauses.append(
+                    f"RUNTIME_NAME = {to_string_literal(WAREHOUSE_RUNTIME_NAME)}"
+                )
+        elif not from_stage_name:
             runtime_changing = bool(self.model.runtime_name) and (
                 not current
                 or _id(cur.get("runtime_name")) != _id(self.model.runtime_name)
@@ -540,12 +711,31 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                     f"{self.model.fqn.sql_identifier} but is ignored for "
                     f"{self.model.runtime_name or WAREHOUSE_RUNTIME_NAME}."
                 )
+            clauses.extend(self._runtime_setting_clauses(cur))
+            if self.model.artifact_repositories == [] and _name_list_key(
+                cur.get("artifact_repositories")
+            ):
+                clearing_for_warehouse_runtime = (
+                    self.model.runtime_name == WAREHOUSE_RUNTIME_NAME
+                    and is_spcs_container_runtime(cur.get("runtime_name"))
+                )
+                target = (
+                    pre_runtime_unset_clauses
+                    if clearing_for_warehouse_runtime
+                    else unset_clauses
+                )
+                target.append("ARTIFACT_REPOSITORIES")
 
-        if not clauses and not unset_clauses:
+        if not clauses and not unset_clauses and not pre_runtime_unset_clauses:
             return None
 
         identifier = self._get_sql_identifier(schema, database)
         statements = []
+        if pre_runtime_unset_clauses:
+            statements.append(
+                f"ALTER STREAMLIT {identifier} UNSET "
+                f"{', '.join(pre_runtime_unset_clauses)};"
+            )
         if clauses:
             statements.append(
                 f"ALTER STREAMLIT {identifier} SET\n" + "\n".join(clauses) + ";"
@@ -651,10 +841,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if self.model.secrets:
             query += "\n" + self.model.get_secrets_sql()
 
-        # Runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
-        # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
-        # Each field is gated on itself so neither can be dropped because of the other.
-        if not from_stage_name and not legacy:
+        # ROOT_LOCATION (--legacy) pins the warehouse runtime. Omitting RUNTIME_NAME
+        # follows the versioned default, which is the container runtime. A versioned
+        # CREATE emits RUNTIME_NAME only when snowflake.yml names one, so a
+        # compute_pool alone does not invent SYSTEM$ST_CONTAINER_RUNTIME_PY3_11.
+        # Each versioned field is gated on itself so neither can be dropped because
+        # of the other.
+        if legacy or from_stage_name:
+            self._reject_non_warehouse_legacy_runtime()
+            query += f"\nRUNTIME_NAME = {to_string_literal(WAREHOUSE_RUNTIME_NAME)}"
+        else:
             if self.model.runtime_name:
                 query += (
                     f"\nRUNTIME_NAME = {to_string_literal(self.model.runtime_name)}"
@@ -663,14 +859,116 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 query += (
                     f"\nCOMPUTE_POOL = {to_string_literal(self.model.compute_pool)}"
                 )
+            query += "".join(
+                f"\n{clause}"
+                for clause in self._runtime_setting_clauses(
+                    new_versioned_create=not replace
+                )
+            )
 
         if self.model.tags:
             query += f"\n{Tag.to_sql_clause(self.model.tags)}"
 
+        # In the CREATE, so the app never runs with the owner's rights, also not
+        # for a schema's future grants. OWNER is the default. It must come after
+        # WITH TAG.
+        if (
+            not from_stage_name
+            and not legacy
+            and not self._treat_as_container_runtime(new_versioned_create=not replace)
+            and self.model.execute_as == "RESTRICTED CALLER"
+        ):
+            query += "\nEXECUTE AS RESTRICTED CALLER"
+
         return query + ";"
+
+    def _runtime_setting_clauses(
+        self,
+        current: Optional[Dict[str, Any]] = None,
+        *,
+        new_versioned_create: bool = False,
+    ):
+        """If snowflake.yml does not set a value, the live value does not change."""
+        cur = current or {}
+        clauses = []
+        if (
+            self.model.app_warehouse
+            and not self._treat_as_container_runtime(
+                new_versioned_create=new_versioned_create
+            )
+            and _ident_key(cur.get("code_warehouse"))
+            != _ident_key(self.model.app_warehouse)
+        ):
+            clauses.append(f"WAREHOUSE = {to_identifier(self.model.app_warehouse)}")
+        if self.model.artifact_repositories and _name_list_key(
+            cur.get("artifact_repositories")
+        ) != _name_list_key(self.model.artifact_repositories):
+            names = ", ".join(
+                _sql_object_name(name) for name in self.model.artifact_repositories
+            )
+            clauses.append(f"ARTIFACT_REPOSITORIES = ({names})")
+        idle = self.model.idle_auto_shutdown_time_seconds
+        if idle is not None and str(cur.get("idle_auto_shutdown_time_seconds")) != str(
+            idle
+        ):
+            clauses.append(f"IDLE_AUTO_SHUTDOWN_TIME_SECONDS = {int(idle)}")
+        return clauses
+
+    def _execute_settings_ddl(self, sql: str) -> None:
+        """Name the snowflake.yml key when the account does not accept a property.
+
+        Snowflake only says "invalid property". All other errors do not change.
+        """
+        try:
+            self._execute_query(sql)
+        except ProgrammingError as exc:
+            message = str(exc)
+            rejected = [
+                (key, prop)
+                for key, prop in _GATED_SETTINGS
+                if getattr(self.model, key) is not None
+                and f"invalid property '{prop}'" in message.lower().replace('"', "'")
+            ]
+            if getattr(exc, "errno", None) != INVALID_PROPERTY or not rejected:
+                raise
+            key, prop = rejected[0]
+            raise CliError(
+                f"This account does not accept {prop.upper()} on a Streamlit app, so "
+                f"the CLI cannot apply {key} in snowflake.yml. Remove {key}, or ask "
+                "your account administrator to enable it."
+            ) from exc
 
     def get_describe_sql(self) -> str:
         return f"DESCRIBE STREAMLIT {self._get_sql_identifier()};"
+
+    def _show_only_settings(self) -> Dict[str, Any]:
+        """DESCRIBE STREAMLIT does not give these. Without them, each deploy sends them again."""
+        if (
+            self.model.artifact_repositories is None
+            and self.model.idle_auto_shutdown_time_seconds is None
+            and self.model.schedules is None
+        ):
+            return {}
+        fqn = self._get_fqn()
+        scope = show_scope(fqn)
+        rows = self._execute_query(
+            f"SHOW STREAMLITS LIKE {identifier_to_show_like_pattern(fqn.name)}{scope};",
+            cursor_class=DictCursor,
+        ).fetchall()
+        row = next(
+            (r for r in rows if _ident_key(r.get("name")) == _ident_key(fqn.name)),
+            None,
+        )
+        if row is None:
+            return {}
+        return {
+            key: row.get(key)
+            for key in (
+                "artifact_repositories",
+                "idle_auto_shutdown_time_seconds",
+                "scheduled_tasks",
+            )
+        }
 
     def get_share_sql(self, to_role: str) -> str:
         return (
@@ -706,8 +1004,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         """Check if the existing streamlit uses legacy ROOT_LOCATION deployment."""
         try:
             result = self.describe().fetchone()
-            # Versioned deployments have live_version_location_uri, legacy ones don't
-            return result.get("live_version_location_uri") is None
+            # A versioned app can also lack a live version. Only a positive
+            # ROOT_LOCATION identifies an app eligible for legacy conversion.
+            return bool(result.get("root_location")) and not result.get(
+                "live_version_location_uri"
+            )
         except (ProgrammingError, AttributeError, KeyError):
             # If we can't determine, assume it doesn't exist or is inaccessible
             return False
@@ -834,6 +1135,31 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
         return stage_root
 
+    def get_execute_as_sql(self) -> str:
+        """The model lets only two keywords through."""
+        return (
+            f"ALTER STREAMLIT {self._get_sql_identifier()} "
+            f"EXECUTE AS {self.model.execute_as};"
+        )
+
+    def _apply_execute_as(self, current: Optional[Dict[str, Any]]) -> None:
+        """``current`` is None for a new app, which the CREATE already set.
+
+        Errors are not caught: if they were, the app could run with incorrect
+        rights.
+        """
+        if self.model.execute_as is None or current is None:
+            return
+        # DESCRIBE leaves the column out when the account has no RCR.
+        live = current.get("execute_as") or "OWNER"
+        if " ".join(str(live).split()).upper() == self.model.execute_as:
+            return
+        self._workspace_ctx.console.step(
+            f"Setting EXECUTE AS {self.model.execute_as} on "
+            f"{self.model.fqn.sql_identifier}"
+        )
+        self._execute_query(self.get_execute_as_sql())
+
     def _restart_running_app(self) -> None:
         """Bounce the SPCS service so uploaded files replace cached bytecode.
 
@@ -852,6 +1178,19 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
         self._sql_executor.execute_query_with_params(restart_sql, (identifier,))
 
+    def _main_file_changed(self, current: Dict[str, Any]) -> bool:
+        """Compare entrypoints exactly, preserving whitespace in file names."""
+        desired = self.model.main_file
+        return desired is not None and desired != current.get("main_file")
+
+    @staticmethod
+    def _entrypoint_is_bundled(bundle_map: BundleMap, main_file: Optional[str]) -> bool:
+        return bool(
+            main_file
+            and bundle_map.to_project_path(Path(main_file)) is not None
+            and (bundle_map.deploy_root() / main_file).is_file()
+        )
+
     def _deploy_versioned(
         self,
         bundle_map: BundleMap,
@@ -859,6 +1198,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         object_exists: bool = False,
     ):
         restart_after_upload = False
+        deferred_alter_sql = None
+        # None if this deploy makes or replaces the app.
+        kept_app: Optional[Dict[str, Any]] = None
         if object_exists:
             current = self.describe().fetchone() or {}
             stage_root = current.get("live_version_location_uri")
@@ -867,7 +1209,13 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 # ALTER + ADD LIVE VERSION on an object that still has
                 # ROOT_LOCATION (unverified / leaves a hybrid state).
                 old_root = current.get("root_location")
-                self._execute_query(
+                if not old_root:
+                    raise CliError(
+                        "The existing Streamlit app has no live version stage. "
+                        "Restore its live version or deploy with a different "
+                        "identifier, then retry. The existing app was not recreated."
+                    )
+                self._execute_settings_ddl(
                     self.get_deploy_sql(
                         replace=True,
                         legacy=False,
@@ -879,17 +1227,46 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             else:
                 # Already versioned — update properties in place and upload to
                 # the existing live URI (do not re-issue ADD LIVE VERSION).
+                current = {**self._show_only_settings(), **current}
+                if self._is_container_runtime() and not _describe_row_is_spcs_v2(
+                    current
+                ):
+                    # A container runtime accepts no EXECUTE AS, so move a
+                    # warehouse app off RESTRICTED CALLER before its runtime changes.
+                    # After the move, DESCRIBE still shows the old value.
+                    self._apply_execute_as(current)
+                if prune and self.model.main_file is None:
+                    active_main = current.get("main_file")
+                    if not self._entrypoint_is_bundled(bundle_map, active_main):
+                        raise CliError(
+                            "Cannot prune with main_file unset when the app's current "
+                            "entrypoint is missing from the bundle. Include the existing "
+                            "entrypoint in artifacts or set main_file before pruning."
+                        )
+                # Upload a new entrypoint before switching to it. Keep the old
+                # file until ALTER succeeds, even when --prune was requested.
                 alter_sql = self.get_alter_sql(current=current)
-                if alter_sql:
-                    self._execute_query(alter_sql)
-                self._sync_tags()
+                if self._main_file_changed(current):
+                    if not self._entrypoint_is_bundled(
+                        bundle_map, self.model.main_file
+                    ):
+                        raise CliError(
+                            "The new main_file is not a file in the deployment bundle. "
+                            "Set main_file to the app's entrypoint file before deploying."
+                        )
+                    deferred_alter_sql = alter_sql
+                else:
+                    if alter_sql:
+                        self._execute_settings_ddl(alter_sql)
+                    self._sync_tags()
+                kept_app = current
                 # DESCRIBE, not snowflake.yml: a content-only project can omit
                 # runtime_name while the live object is already SPCS v2.
                 restart_after_upload = _describe_row_is_spcs_v2(current)
         else:
             # IF NOT EXISTS, never OR REPLACE: an app DESCRIBE could not see is
             # left alone, and ADD LIVE VERSION below fails on it instead.
-            self._execute_query(
+            self._execute_settings_ddl(
                 self.get_deploy_sql(
                     if_not_exists=True,
                     legacy=False,
@@ -906,21 +1283,62 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                     "and be owned by another role. Deploy with a role that owns "
                     "the app, or choose a different identifier."
                 ) from exc
+        # Before the grants: users must not get the app while it has incorrect rights.
+        if not self._is_container_runtime():
+            self._apply_execute_as(kept_app)
         stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
-        diff = sync_deploy_root_with_stage(
+        sync_bundle = partial(
+            sync_deploy_root_with_stage,
             console=self._workspace_ctx.console,
             deploy_root=bundle_map.deploy_root(),
             bundle_map=bundle_map,
-            prune=prune,
             recursive=True,
             stage_path_parts=stage_path_parts,
             print_diff=True,
             force_overwrite=True,  # files copied to streamlit vstage need to be overwritten
         )
+        diff = sync_bundle(
+            prune=prune and not deferred_alter_sql,
+            warn_on_preserved_files=not (prune and deferred_alter_sql),
+        )
 
-        StreamlitManager(connection=self._conn).grant_privileges(self.model)
+        if deferred_alter_sql:
+            try:
+                self._execute_query(deferred_alter_sql)
+            except ProgrammingError as exc:
+                if getattr(exc, "errno", None) != _MAIN_FILE_UNSUPPORTED_ERRNO:
+                    raise
+                raise CliError(
+                    "This account does not support changing main_file on a versioned "
+                    "Streamlit app. Keep the existing main_file or deploy with a "
+                    "different identifier. The existing app was not recreated."
+                ) from exc
+            self._sync_tags()
+            if prune:
+                prune_diff = sync_bundle(prune=True)
+                if prune_diff.has_changes():
+                    diff = prune_diff
+
         # Property-only ALTER does not clear ScriptCache. Skip when the stage
         # already matches (no-op --replace / CI with unchanged artifacts).
+        # Restart before the steps below: if one fails, a retry finds no stage
+        # change and does not restart.
         if restart_after_upload and diff.has_changes():
             self._restart_running_app()
+        StreamlitManager(connection=self._conn).grant_privileges(self.model)
+        # After the upload: a task starts the app, which needs its files.
+        if self.model.schedules is not None:
+            WarmUpTasks(
+                app=self._get_fqn(),
+                execute_query=self._execute_query,
+                console=self._workspace_ctx.console,
+            ).sync(
+                self.model.schedules,
+                # A new or replaced app has no tasks linked.
+                linked=(
+                    []
+                    if kept_app is None
+                    else parse_scheduled_tasks(kept_app.get("scheduled_tasks"))
+                ),
+            )

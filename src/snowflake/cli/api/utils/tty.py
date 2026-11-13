@@ -13,10 +13,23 @@
 # limitations under the License.
 
 import sys
+from typing import Any
 
 
 def is_tty_interactive() -> bool:
+    return is_stdin_tty() and is_stdout_tty()
+
+
+def is_stdin_tty() -> bool:
+    return _is_tty(sys.stdin)
+
+
+def is_stdout_tty() -> bool:
+    return _is_tty(sys.stdout)
+
+
+def _is_tty(stream: Any) -> bool:
     try:
-        return sys.stdin.isatty() and sys.stdout.isatty()
+        return bool(stream.isatty())
     except Exception:
         return False

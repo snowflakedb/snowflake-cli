@@ -557,6 +557,61 @@ def test_maybe_update_oidc_token_no_update_when_no_token(
     assert "token" not in connection_parameters
 
 
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_maybe_update_oidc_token_keeps_existing_token(
+    mock_connect, mock_oidc_manager_class, test_snowcli_config
+):
+    """An existing token is left in place and is not replaced by auto-detect."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    explicit_token = "explicit-token"
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "account": "test_account",
+        "user": "test_user",
+        "token": explicit_token,
+    }
+
+    result = _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token"] == explicit_token
+    assert result["token"] == explicit_token
+    mock_manager.read_token.assert_not_called()
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_maybe_update_oidc_token_keeps_existing_token_file_path(
+    mock_connect, mock_oidc_manager_class, test_snowcli_config
+):
+    """An existing token file path is left in place and is not replaced by auto-detect."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+
+    explicit_token_file = "explicit-token-file"
+    connection_parameters = {
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
+        "account": "test_account",
+        "user": "test_user",
+        "token_file_path": explicit_token_file,
+    }
+
+    result = _maybe_update_oidc_token(connection_parameters)
+
+    assert connection_parameters["token_file_path"] == explicit_token_file
+    assert result["token_file_path"] == explicit_token_file
+    assert "token" not in connection_parameters
+    mock_manager.read_token.assert_not_called()
+
+
 @mock.patch("snowflake.cli._app.snow_connector.command_info")
 @mock.patch("snowflake.cli._app.snow_connector.OidcManager")
 @mock.patch("snowflake.connector.connect")
@@ -591,6 +646,73 @@ def test_oidc_token_integration_in_connect_to_snowflake(
 
     assert call_kwargs["token"] == mock_token
     assert call_kwargs["authenticator"] == AUTHENTICATOR_WORKLOAD_IDENTITY
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_connect_to_snowflake_keeps_explicit_oidc_token(
+    mock_connect, mock_oidc_manager_class, mock_command_info, test_snowcli_config
+):
+    """An explicit token is the one passed to the connector."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+    explicit_token = "explicit-token"
+
+    connect_to_snowflake(
+        temporary_connection=True,
+        authenticator=AUTHENTICATOR_WORKLOAD_IDENTITY,
+        workload_identity_provider=ApiFederatedAuthenticationType.OIDC.value,
+        account="test_account",
+        user="test_user",
+        token=explicit_token,
+    )
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["token"] == explicit_token
+    assert call_kwargs["authenticator"] == AUTHENTICATOR_WORKLOAD_IDENTITY
+    mock_manager.read_token.assert_not_called()
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_connect_to_snowflake_keeps_explicit_oidc_token_file_path(
+    mock_connect, mock_oidc_manager_class, mock_command_info, test_snowcli_config
+):
+    """An explicit token file path is the one passed to the connector."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = "minted-oidc-token"
+    explicit_token_file = "explicit-token-file"
+
+    connect_to_snowflake(
+        temporary_connection=True,
+        authenticator=AUTHENTICATOR_WORKLOAD_IDENTITY,
+        workload_identity_provider=ApiFederatedAuthenticationType.OIDC.value,
+        account="test_account",
+        user="test_user",
+        token_file_path=explicit_token_file,
+    )
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["token_file_path"] == explicit_token_file
+    assert "token" not in call_kwargs
+    assert call_kwargs["authenticator"] == AUTHENTICATOR_WORKLOAD_IDENTITY
+    mock_manager.read_token.assert_not_called()
 
 
 @mock.patch("snowflake.cli._app.snow_connector.command_info")

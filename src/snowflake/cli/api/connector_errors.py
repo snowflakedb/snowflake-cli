@@ -26,6 +26,9 @@ reports HTTP failures differently between the two:
 
 This module hides that difference behind :data:`HTTP_FAILURE_ERRORS` (the
 exception classes to catch) and :func:`get_http_status_code` (extract the status).
+
+Symbols that exist on v4 and are absent on v5 (for example ``SecretDetector``)
+belong on :class:`snowflake.cli.api.connector_adapter.ConnectorAdapter`.
 """
 
 from __future__ import annotations

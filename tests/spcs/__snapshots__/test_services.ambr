@@ -54,6 +54,7 @@
   +- Error ----------------------------------------------------------------------+
   | Service TEST_SERVICE already exists.                                         |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---

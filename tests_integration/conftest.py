@@ -53,6 +53,7 @@ pytest_plugins = [
     "tests.project.fixtures",
     "tests_common",
     "tests_common.deflake",
+    "tests_common.quarantine",
     "tests_integration.testing_utils",
     "tests_integration.snowflake_connector",
 ]

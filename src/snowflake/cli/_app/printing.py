@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import csv
 import json
 import sys
 from datetime import date, datetime, time
@@ -45,9 +44,15 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     StreamResult,
 )
-from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.sanitizers import sanitize_for_csv, sanitize_for_terminal
 
 NO_ITEMS_FOUND: str = "No data"
+
+# Rich falls back to width=80 when stdout is not a terminal. With many columns
+# that squeezes each cell below readability, producing a series of "|"
+# separators with no content (see GH#2725). Use an effectively unlimited width
+# for non-terminal destinations so Rich picks each column's natural width.
+_NON_TERMINAL_RENDER_WIDTH = 1_000_000
 
 # ensure we do not break URLs that wrap lines
 get_console().soft_wrap = True
@@ -56,48 +61,235 @@ get_console().soft_wrap = True
 get_console()._markup = False  # noqa: SLF001
 
 
-class CustomJSONEncoder(JSONEncoder):
+class _DiscardStream:
+    """Drop result text when quiet is on and no spool file is open."""
+
+    encoding = "utf-8"
+    errors = "replace"
+
+    def write(self, s: str) -> int:
+        return len(s) if s else 0
+
+    def flush(self) -> None:
+        return None
+
+    def isatty(self) -> bool:
+        return False
+
+
+_DISCARD_STREAM = _DiscardStream()
+
+
+class TeeTextIO:
+    """Write the same text to stdout and an open spool file. Never a TTY."""
+
+    def __init__(self, primary: TextIO, secondary: TextIO) -> None:
+        self._primary = primary
+        self._secondary = secondary
+
+    def write(self, s: str) -> int:
+        written = self._primary.write(s)
+        self._secondary.write(s)
+        return written
+
+    def flush(self) -> None:
+        self._primary.flush()
+        self._secondary.flush()
+
+    def isatty(self) -> bool:
+        return False
+
+    @property
+    def encoding(self) -> str:
+        return getattr(self._primary, "encoding", None) or "utf-8"
+
+    @property
+    def errors(self) -> str | None:
+        return getattr(self._primary, "errors", None)
+
+
+def _result_stream() -> TextIO | TeeTextIO | _DiscardStream:
+    """Where query results are written.
+
+    ``quiet`` hides them on the terminal. An open spool still receives them.
+    ``--silent`` does not use this path.
+    """
+    spool = get_cli_context().spool_stream
+    if get_cli_context().quiet:
+        if spool is None:
+            return _DISCARD_STREAM
+        return spool
+    if spool is None:
+        return sys.stdout
+    return TeeTextIO(sys.stdout, spool)
+
+
+def print_raw(text: str) -> None:
+    """Write literal text to stdout and an open spool.
+
+    Query results go through ``print_result``, which changes shape with the
+    output format and follows ``quiet``. Echoed SQL stays the statement text
+    in every format, on the terminal, and in an active spool.
+    """
+    safe = sanitize_for_terminal(text) or ""
+    spool = get_cli_context().spool_stream
+    stream = TeeTextIO(sys.stdout, spool) if spool is not None else sys.stdout
+    stream.write(safe)
+    if not safe.endswith("\n"):
+        stream.write("\n")
+    stream.flush()
+
+
+def _print(*args, **kwargs) -> None:
+    kwargs.setdefault("file", _result_stream())
+    print(*args, **kwargs)
+
+
+def _rich_print(*args, **kwargs) -> None:
+    stream = _result_stream()
+    if stream is sys.stdout:
+        rich_print(*args, **kwargs)
+        return
+    flush = kwargs.pop("flush", False)
+    Console(
+        file=stream,
+        force_terminal=False,
+        markup=False,
+        soft_wrap=True,
+        width=_NON_TERMINAL_RENDER_WIDTH,
+        height=_NON_TERMINAL_RENDER_WIDTH,
+    ).print(*args, **kwargs)
+    if flush:
+        stream.flush()
+
+
+def _uniquify_json_keys(keys: list[Any]) -> list[Any]:
+    """Disambiguate string keys that sanitization collapsed to one name.
+
+    The first key keeps the sanitized name. Later copies get ``name_2``,
+    ``name_3``, … skipping a candidate that is already present, matching
+    ``QueryResult._uniquify_column_names``. Non-string keys are left as they
+    are: a dict cannot contain two equal keys of those types.
+    """
+    used_names = {key for key in keys if isinstance(key, str)}
+    duplicate_counters: dict[str, int] = {}
+    unique_keys: list[Any] = []
+    for name in keys:
+        if not isinstance(name, str) or name not in duplicate_counters:
+            unique_keys.append(name)
+            if isinstance(name, str):
+                duplicate_counters[name] = 1
+            continue
+        duplicate_index = duplicate_counters[name] + 1
+        candidate = f"{name}_{duplicate_index}"
+        while candidate in used_names:
+            duplicate_index += 1
+            candidate = f"{name}_{duplicate_index}"
+        unique_keys.append(candidate)
+        used_names.add(candidate)
+        duplicate_counters[name] = duplicate_index
+    return unique_keys
+
+
+def _sanitize_json_tree(value: Any, _seen: set[int] | None = None) -> Any:
+    """Strip terminal escapes from strings nested in JSON containers.
+
+    ``JSONEncoder`` writes ``str`` on the iterencode fast path and never calls
+    ``default()`` for it, so a ``isinstance(o, str)`` branch in ``default()``
+    does not run. Containers are copied so the caller's objects stay intact.
+    Dict keys are sanitized too; keys that collapse to the same string are
+    uniquified instead of dropped.
+    """
+    if isinstance(value, str):
+        return sanitize_for_terminal(value)
+    if not isinstance(value, (dict, list, tuple)):
+        return value
+
+    seen = set() if _seen is None else _seen
+    marker = id(value)
+    if marker in seen:
+        raise ValueError("Circular reference detected")
+    seen.add(marker)
+    try:
+        if isinstance(value, dict):
+            # One recursive call per nested value, same as the list branch
+            # below. A comprehension would add a second frame per level.
+            sanitized_keys = []
+            sanitized_items = []
+            for key, item in value.items():
+                if isinstance(key, str):
+                    key = sanitize_for_terminal(key)
+                sanitized_keys.append(key)
+                sanitized_items.append(_sanitize_json_tree(item, seen))
+            return dict(
+                zip(
+                    _uniquify_json_keys(sanitized_keys),
+                    sanitized_items,
+                    strict=True,
+                )
+            )
+        # Recurse from a loop, not a comprehension. A comprehension is an
+        # extra stack frame per level and cuts the encodable nesting depth
+        # roughly in half versus json.dumps.
+        sanitized_items = []
+        for item in value:
+            sanitized_items.append(_sanitize_json_tree(item, seen))
+        if isinstance(value, tuple):
+            return tuple(sanitized_items)
+        return sanitized_items
+    finally:
+        seen.remove(marker)
+
+
+class _SanitizingJSONEncoder(JSONEncoder):
+    """JSON encoder that strips ANSI escapes from string values."""
+
+    def encode(self, o):
+        # JSONEncoder.encode() emits a top-level str without calling iterencode.
+        if isinstance(o, str):
+            return super().encode(sanitize_for_terminal(o))
+        return super().encode(o)
+
+    def iterencode(self, o, _one_shot=False):
+        return super().iterencode(_sanitize_json_tree(o), _one_shot)
+
+    def default(self, o):
+        # default() runs only for types the encoder cannot handle. Sanitize the
+        # converted value so strings unwrapped from command results are covered.
+        return _sanitize_json_tree(self._convert(o))
+
+    def _convert(self, o):
+        if isinstance(o, (ObjectResult, MessageResult)):
+            return o.result
+        if isinstance(o, (date, datetime, time)):
+            return o.isoformat()
+        if isinstance(o, Path):
+            return o.as_posix()
+        if isinstance(o, Decimal):
+            return str(o)
+        if isinstance(o, bytearray):
+            return o.hex()
+        return super().default(o)
+
+
+class CustomJSONEncoder(_SanitizingJSONEncoder):
     """Custom JSON encoder handling serialization of non-standard types"""
 
-    def default(self, o):
-        if isinstance(o, str):
-            return sanitize_for_terminal(o)
-        if isinstance(o, (ObjectResult, MessageResult)):
-            return o.result
+    def _convert(self, o):
         if isinstance(o, (CollectionResult, MultipleResults)):
             return list(o.result)
-        if isinstance(o, (date, datetime, time)):
-            return o.isoformat()
-        if isinstance(o, Path):
-            return o.as_posix()
-        if isinstance(o, Decimal):
-            return str(o)
-        if isinstance(o, bytearray):
-            return o.hex()
-        return super().default(o)
+        return super()._convert(o)
 
 
-class StreamingJSONEncoder(JSONEncoder):
+class StreamingJSONEncoder(_SanitizingJSONEncoder):
     """Streaming JSON encoder that doesn't materialize generators into lists"""
 
-    def default(self, o):
-        if isinstance(o, str):
-            return sanitize_for_terminal(o)
-        if isinstance(o, (ObjectResult, MessageResult)):
-            return o.result
+    def _convert(self, o):
         if isinstance(o, (CollectionResult, MultipleResults)):
             raise TypeError(
-                f"CollectionResult should be handled by streaming functions, not encoder"
+                "CollectionResult should be handled by streaming functions, not encoder"
             )
-        if isinstance(o, (date, datetime, time)):
-            return o.isoformat()
-        if isinstance(o, Path):
-            return o.as_posix()
-        if isinstance(o, Decimal):
-            return str(o)
-        if isinstance(o, bytearray):
-            return o.hex()
-        return super().default(o)
+        return super()._convert(o)
 
 
 def _print_json_item_with_array_indentation(item: Any, indent: int):
@@ -107,11 +299,16 @@ def _print_json_item_with_array_indentation(item: Any, indent: int):
         indented_lines = indented_output.split("\n")
         for i, line in enumerate(indented_lines):
             if i == 0:
-                print(" " * indent + line, end="")
+                _print(" " * indent + line, end="")
             else:
-                print("\n" + " " * indent + line, end="")
+                _print("\n" + " " * indent + line, end="")
     else:
-        json.dump(item, sys.stdout, cls=StreamingJSONEncoder, separators=(",", ":"))
+        json.dump(
+            item,
+            _result_stream(),
+            cls=StreamingJSONEncoder,
+            separators=(",", ":"),
+        )
 
 
 def _stream_collection_as_json(result: CollectionResult, indent: int = 4):
@@ -120,18 +317,18 @@ def _stream_collection_as_json(result: CollectionResult, indent: int = 4):
     try:
         first_item = next(items)
     except StopIteration:
-        print("[]", end="")
+        _print("[]", end="")
         return
 
-    print("[")
+    _print("[")
 
     _print_json_item_with_array_indentation(first_item, indent)
 
     for item in items:
-        print(",")
+        _print(",")
         _print_json_item_with_array_indentation(item, indent)
 
-    print("\n]", end="")
+    _print("\n]", end="")
 
 
 def _stream_collection_as_csv(result: CollectionResult):
@@ -146,34 +343,57 @@ def _stream_collection_as_csv(result: CollectionResult):
     if not isinstance(first_item, dict):
         raise TypeError("CSV output requires dictionary items")
 
-    writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames, lineterminator="\n")
-    writer.writeheader()
-    _write_csv_row(writer, first_item)
+    _write_csv_header(fieldnames)
+    _write_csv_row(fieldnames, first_item)
 
     for item in items:
-        _write_csv_row(writer, item)
+        _write_csv_row(fieldnames, item)
 
 
-def _write_csv_row(writer: csv.DictWriter, row_data: Dict[str, Any]):
+def _csv_field(value: str) -> str:
+    """Quote the way ``csv.QUOTE_MINIMAL`` does, including a bare carriage return.
+
+    Python 3.10 quotes only the configured line ending. A carriage return
+    inside a field is written unquoted, and a reader then splits the record.
+    """
+    if any(char in value for char in (",", '"', "\n", "\r")):
+        return '"' + value.replace('"', '""') + '"'
+    return value
+
+
+def _write_csv_dict(fieldnames: list[str], row: Dict[str, str]) -> None:
+    _result_stream().write(
+        ",".join(_csv_field(row.get(name, "")) for name in fieldnames) + "\n"
+    )
+
+
+def _write_csv_header(fieldnames: list[str]) -> None:
+    _write_csv_dict(
+        fieldnames, {name: sanitize_for_csv(str(name)) for name in fieldnames}
+    )
+
+
+def _write_csv_row(fieldnames: list[str], row_data: Dict[str, Any]) -> None:
     """Write a single CSV row, handling special data types"""
     processed_row = {}
     for key, value in row_data.items():
         if isinstance(value, str):
-            processed_row[key] = sanitize_for_terminal(value)
+            processed_row[key] = sanitize_for_csv(value)
         elif isinstance(value, (date, datetime, time)):
             processed_row[key] = value.isoformat()
         elif isinstance(value, Path):
-            processed_row[key] = value.as_posix()
-        elif isinstance(value, Decimal):
+            processed_row[key] = sanitize_for_csv(value.as_posix())
+        elif isinstance(value, (Decimal, int, float)):
+            # Real numbers stay numeric, so -5 is not prefixed.
             processed_row[key] = str(value)
         elif isinstance(value, bytearray):
             processed_row[key] = value.hex()
         elif value is None:
             processed_row[key] = ""
         else:
-            processed_row[key] = str(value)
+            processed_row[key] = sanitize_for_csv(str(value))
 
-    writer.writerow(processed_row)
+    _write_csv_dict(fieldnames, processed_row)
 
 
 def _get_format_type() -> OutputFormat:
@@ -194,16 +414,14 @@ def _get_table(output_format: OutputFormat | None = None):
     return Table(show_header=True, box=box.ASCII)
 
 
-# Rich falls back to width=80 when stdout is not a terminal. With many columns
-# that squeezes each cell below readability, producing a series of "|"
-# separators with no content (see GH#2725). Use an effectively unlimited width
-# for non-terminal destinations so Rich picks each column's natural width.
-_NON_TERMINAL_RENDER_WIDTH = 1_000_000
-
-
 def _stdout_is_terminal() -> bool:
     # Current stdout, not get_console().is_terminal: Rich caches the latter on
     # the stream it first saw, and FORCE_COLOR (even "0") makes that True.
+    # While spooling, both sinks get the non-TTY layout so the file does not
+    # pick up Rich ANSI / Live (see GH#2725). Quiet uses the same layout: the
+    # terminal is not a result sink, and a spool file must stay pipe-formatted.
+    if get_cli_context().quiet or get_cli_context().spool_stream is not None:
+        return False
     isatty = getattr(sys.stdout, "isatty", None)
     try:
         return False if isatty is None else bool(isatty())
@@ -213,9 +431,11 @@ def _stdout_is_terminal() -> bool:
 
 
 def _render_console_for_table() -> Console:
+    stream = _result_stream()
     if _stdout_is_terminal():
         default_console = get_console()
         return Console(
+            file=stream,
             width=default_console.width,
             height=default_console.height or 25,
             soft_wrap=True,
@@ -227,6 +447,7 @@ def _render_console_for_table() -> Console:
     # size falls back to 80x25 and many-column tables collapse. Both dimensions
     # are required for the unlimited width to actually apply (GH#2725).
     return Console(
+        file=stream,
         width=_NON_TERMINAL_RENDER_WIDTH,
         height=_NON_TERMINAL_RENDER_WIDTH,
         soft_wrap=True,
@@ -242,7 +463,7 @@ def _print_multiple_table_results(
     try:
         first_item = next(items)
     except StopIteration:
-        rich_print(NO_ITEMS_FOUND, end="\n\n")
+        _rich_print(NO_ITEMS_FOUND, end="\n\n")
         return
     probed = probe_rows(first_item, items)
     if probed.use_rich:
@@ -257,8 +478,8 @@ def _print_multiple_table_results(
             sys.stdout.flush()
             return
         if console.is_terminal:
-            sys.stdout.write("\n")
-        rich_print(flush=True)
+            _result_stream().write("\n")
+        _rich_print(flush=True)
 
     stream_probed_table(
         probed,
@@ -266,6 +487,7 @@ def _print_multiple_table_results(
         is_tty=is_tty,
         on_success=_trailer,
         plain=_is_plain_format(output_format),
+        stream=_result_stream(),
     )
 
 
@@ -281,7 +503,7 @@ def _print_rich_table(
     with Live(table, console=console, refresh_per_second=4):
         for row in rows:
             table.add_row(*row)
-    rich_print(flush=True)
+    _rich_print(flush=True)
 
 
 def __to_str(val):
@@ -304,7 +526,7 @@ def print_structured(
         if output_format == OutputFormat.CSV:
             for command_result in result.result:
                 _print_csv_result_streaming(command_result)
-                print(flush=True)
+                _print(flush=True)
             printed_end_line = True
         else:
             _stream_json(result)
@@ -315,8 +537,8 @@ def print_structured(
             if output_format == OutputFormat.CSV:
                 _print_csv_result_streaming(r)
             else:
-                json.dump(r, sys.stdout, cls=StreamingJSONEncoder)
-            print(flush=True)
+                json.dump(r, _result_stream(), cls=StreamingJSONEncoder)
+            _print(flush=True)
             printed_end_line = True
     else:
         if output_format == OutputFormat.CSV:
@@ -327,7 +549,7 @@ def print_structured(
 
     # Adds empty line at the end
     if not printed_end_line:
-        print(flush=True)
+        _print(flush=True)
 
 
 def _print_json_result_streaming(result: CommandResult):
@@ -335,9 +557,9 @@ def _print_json_result_streaming(result: CommandResult):
     if isinstance(result, CollectionResult):
         _stream_collection_as_json(result, indent=4)
     elif isinstance(result, (ObjectResult, MessageResult)):
-        json.dump(result, sys.stdout, cls=StreamingJSONEncoder, indent=4)
+        json.dump(result, _result_stream(), cls=StreamingJSONEncoder, indent=4)
     else:
-        json.dump(result, sys.stdout, cls=StreamingJSONEncoder, indent=4)
+        json.dump(result, _result_stream(), cls=StreamingJSONEncoder, indent=4)
 
 
 def _print_object_result_as_csv(result: ObjectResult):
@@ -348,11 +570,9 @@ def _print_object_result_as_csv(result: ObjectResult):
     """
     data = result.result
     if isinstance(data, dict):
-        writer = csv.DictWriter(
-            sys.stdout, fieldnames=list(data.keys()), lineterminator="\n"
-        )
-        writer.writeheader()
-        _write_csv_row(writer, data)
+        fieldnames = list(data.keys())
+        _write_csv_header(fieldnames)
+        _write_csv_row(fieldnames, data)
 
 
 def _print_message_result_as_csv(result: MessageResult):
@@ -361,9 +581,8 @@ def _print_message_result_as_csv(result: MessageResult):
     Creates a simple CSV structure with one column named 'message'
     containing the sanitized message text.
     """
-    writer = csv.DictWriter(sys.stdout, fieldnames=["message"], lineterminator="\n")
-    writer.writeheader()
-    writer.writerow({"message": sanitize_for_terminal(result.message)})
+    _write_csv_header(["message"])
+    _write_csv_row(["message"], {"message": result.message})
 
 
 def _print_csv_result_streaming(result: CommandResult):
@@ -381,20 +600,25 @@ def _stream_json(result):
     indent_size = 2
 
     class _Indented:
-        def __init__(self, stream: TextIO):
+        def __init__(self, stream: TextIO | TeeTextIO):
             self._stream = stream
 
         def write(self, text: str):
             return self._stream.write(indent(text, " " * indent_size))
 
-    print("[")
+    _print("[")
     results = result.result
     res = next(results, None)
     while res:
-        json.dump(res, _Indented(sys.stdout), cls=CustomJSONEncoder, indent=indent_size)  # type: ignore
+        json.dump(
+            res,
+            _Indented(_result_stream()),
+            cls=CustomJSONEncoder,
+            indent=indent_size,
+        )  # type: ignore
         if res := next(results, None):
-            print(",")
-    print("\n]")
+            _print(",")
+    _print("\n]")
 
 
 def print_unstructured(
@@ -402,11 +626,13 @@ def print_unstructured(
 ):
     """Handles outputs like table, plain text and other unstructured types."""
     if not obj:
-        rich_print("Done", flush=True)
+        _rich_print("Done", flush=True)
     elif not obj.result:
-        rich_print("No data", flush=True)
+        _rich_print("No data", flush=True)
     elif isinstance(obj, MessageResult):
-        rich_print(sanitize_for_terminal(obj.message), flush=True)
+        # Markup is disabled on the shared console, so an account name in this
+        # message cannot raise MarkupError. _rich_print also follows an open spool.
+        _rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:
         if isinstance(obj, ObjectResult):
             _print_single_table(obj, output_format)
@@ -424,7 +650,7 @@ def _print_single_table(obj, output_format: OutputFormat | None = None):
         table.add_row(
             sanitize_for_terminal(str(key)), sanitize_for_terminal(__to_str(value))
         )
-    rich_print(table, flush=True)
+    _rich_print(table, flush=True)
 
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
@@ -442,3 +668,4 @@ def print_result(cmd_result: CommandResult, output_format: OutputFormat | None =
             print_unstructured(cmd_result, resolved_format)
         case _:
             raise ValueError(f"Unexpected type {type(cmd_result)}")
+    _result_stream().flush()

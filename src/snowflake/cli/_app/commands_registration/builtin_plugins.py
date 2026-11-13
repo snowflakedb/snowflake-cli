@@ -23,6 +23,7 @@ from snowflake.cli._plugins.custom_images import (
 from snowflake.cli._plugins.dbt import plugin_spec as dbt_plugin_spec
 from snowflake.cli._plugins.dcm import plugin_spec as dcm_project_plugin_spec
 from snowflake.cli._plugins.feature import plugin_spec as feature_plugin_spec
+from snowflake.cli._plugins.feedback import plugin_spec as feedback_plugin_spec
 from snowflake.cli._plugins.git import plugin_spec as git_plugin_spec
 from snowflake.cli._plugins.helpers import plugin_spec as migrate_plugin_spec
 from snowflake.cli._plugins.init import plugin_spec as init_plugin_spec
@@ -67,6 +68,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "dbt": dbt_plugin_spec,
         "logs": logs_plugin_spec,
         "upgrade": upgrade_plugin_spec,
+        "feedback": feedback_plugin_spec,
     }
 
     return plugin_specs

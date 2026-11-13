@@ -22,6 +22,7 @@ from click import ClickException
 from pydantic import BaseModel, Field, model_validator
 from snowflake.cli.api.config import get_default_connection_dict
 from snowflake.cli.api.exceptions import InvalidTemplateError, MissingConfigurationError
+from snowflake.cli.api.sanitizers import sanitize_for_prompt
 from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
@@ -104,12 +105,16 @@ class TemplateVariable(BaseModel):
 
     def prompt_user_for_value(self, no_interactive: bool) -> Union[str, float, int]:
         effective_default = self.resolve_default()
+        if isinstance(effective_default, str):
+            effective_default = sanitize_for_prompt(effective_default)
         if no_interactive:
             if effective_default is None:
                 raise ClickException(f"Cannot determine value of variable {self.name}")
             return effective_default
 
-        prompt = self.prompt if self.prompt else self.name
+        raw_prompt = self.prompt if self.prompt else self.name
+        sanitized = sanitize_for_prompt(str(raw_prompt))
+        prompt = f"From template: {sanitized}" if sanitized else "From template"
         return typer.prompt(prompt, default=effective_default, type=self.python_type)
 
     @staticmethod

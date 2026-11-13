@@ -71,6 +71,19 @@ def _reset_version_source():
     manager.set_version_source(UnimplementedVersionSource())
 
 
+@pytest.fixture(autouse=True)
+def _do_not_start_installed_stub(monkeypatch):
+    """These payloads are scripts named snow.exe.
+
+    Windows CreateProcess rejects that. ``_assert_shim`` already refuses to
+    run it. Warm-up coverage lives in ``test_spawn.py`` and ``test_commands.py``.
+    """
+    monkeypatch.setattr(
+        "snowflake.cli._plugins.upgrade.commands.warm_installed_binary",
+        lambda _version: None,
+    )
+
+
 @pytest.fixture
 def managed_home(tmp_path, monkeypatch):
     root = tmp_path / "snowflake-cli"

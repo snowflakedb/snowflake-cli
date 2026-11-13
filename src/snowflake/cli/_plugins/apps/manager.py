@@ -173,6 +173,48 @@ CERT_PROBE_LABEL = "snowflake-cli-cert-check"
 # unreachable ingress. A timeout is treated as UNKNOWN (non-blocking).
 CERT_PROBE_TIMEOUT_SECONDS = 5
 
+# Includes ``dnsRegionId``, the DNS zone used in ``*.snowflake.app`` hosts.
+# That zone can differ from the deployment label in the SQL host.
+ACCOUNT_DEPLOYMENT_INFO_QUERY = "SELECT SYSTEM$GET_ACCOUNT_DEPLOYMENT_INFO() AS info"
+
+# Returned when ``DNS_REGION_ID`` is unset. Not a real DNS zone.
+_UNSET_DNS_REGION_ID = "unknownregion.unknowncsp"
+
+# One DNS label: letters, digits, and internal hyphens.
+_DNS_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+def _parse_dns_region_id(payload: Any) -> Optional[str]:
+    """Return ``dnsRegionId`` from deployment-info JSON, or ``None``.
+
+    Only dotted DNS labels are accepted. The unset sentinel and other
+    non-host values are rejected.
+    """
+    if not isinstance(payload, str) or not payload.strip():
+        return None
+    try:
+        info = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(info, dict):
+        return None
+    region_id = info.get("dnsRegionId")
+    if not isinstance(region_id, str):
+        return None
+    region_id = region_id.strip().lower()
+    if (
+        not region_id
+        or region_id == _UNSET_DNS_REGION_ID
+        or region_id.startswith(".")
+        or region_id.endswith(".")
+    ):
+        return None
+    labels = region_id.split(".")
+    if any(_DNS_LABEL_RE.fullmatch(label) is None for label in labels):
+        return None
+    return region_id
+
+
 # OpenSSL certificate-verification codes (``SSLCertVerificationError.verify_code``)
 # that prove the account is *not* serving a per-account wildcard certificate:
 #   62 = hostname mismatch — a cert is served but does not cover the per-account
@@ -245,9 +287,11 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.util import (
+    identifier_to_show_like_pattern,
     identifier_to_str,
     to_identifier,
     to_string_literal,
+    unquote_identifier,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
@@ -1304,6 +1348,24 @@ class SnowflakeAppManager(SqlExecutionMixin):
         normalised = {k.lower(): v for k, v in row.items()}
         return normalised.get("status", "IDLE")
 
+    def app_service_exists(self, service_fqn: FQN) -> bool:
+        """Return True if the application service exists and is visible to the role.
+
+        ``SHOW`` lists only services the role holds a privilege on. A deploy
+        cannot alter a service hidden from its role, so it fails on that service
+        instead of replacing it.
+        """
+        database = to_identifier(service_fqn.database)
+        schema = to_identifier(service_fqn.schema)
+        cursor = self.execute_query(
+            "SHOW APPLICATION SERVICES LIKE "
+            f"{identifier_to_show_like_pattern(service_fqn.name)}"
+            f" IN SCHEMA {database}.{schema}",
+            cursor_class=DictCursor,
+        )
+        unqualified = unquote_identifier(service_fqn.name).upper()
+        return any(row["name"].upper() == unqualified for row in cursor)
+
     def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
         """Drop an application service if it exists."""
         self.execute_query(
@@ -1612,11 +1674,6 @@ class SnowflakeAppManager(SqlExecutionMixin):
     ) -> str:
         """Fetch observability telemetry from an application service's event table.
 
-        Do not call this for serverless (CNG) apps. That backend does not
-        support ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``. The
-        ``snow app events`` command rejects those requests before it reaches
-        this method.
-
         Wraps ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``, which returns
         a VARCHAR holding a JSON array of positional tuples for the requested
         ``event_type`` (``LOG`` / ``METRIC`` / ``EVENT``). When both bounds are
@@ -1713,9 +1770,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             f"ORDER BY TIMESTAMP DESC LIMIT {int(limit)}"
         )
         rows = cursor.fetchall()
-        # RESULT_SCAN returned the newest rows first; reverse to oldest-first so
-        # the reconstructed payload matches the inline function's ordering.
-        tuples = [self._event_table_row_to_tuple(row) for row in reversed(rows)]
+        tuples = [self._event_table_row_to_tuple(row) for row in rows]
         return json.dumps(tuples, default=str)
 
     @staticmethod
@@ -2169,19 +2224,16 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return slug.lower().replace("_", "-")
 
     def _account_infra(self) -> Optional[str]:
-        """Return the ``<infra>`` segment of the per-account app host, or ``None``.
+        """Return the ``<infra>`` segment of a per-account app host, or ``None``.
 
-        CNG apps are reached at ``<app>.<org>-<account>.<infra>.snowflake.app``
-        (e.g. ``qa6.us-west-2.aws`` for ``…qa6.us-west-2.aws.snowflake.app``).
-        The ``<infra>`` matches the region/deployment segment of the account's
-        *regioned* SQL host, so it is taken from the connection host by dropping
-        the leading account label and the trailing ``snowflakecomputing.com``.
+        App hosts use the account's DNS region id, which can differ from the
+        deployment label in the SQL host when deployments share a DNS zone.
+        Probing the SQL-host label then fails hostname checks and is reported
+        as a missing certificate.
 
-        Modern regionless account aliases (``myorg-myacct.snowflakecomputing.com``)
-        and legacy ``us-west-2`` accounts (whose connection host the connector
-        leaves region-less) carry no region, so this falls back to
-        :func:`guess_regioned_host_from_allowlist` (``SYSTEM$ALLOWLIST``) to
-        recover a regioned host — the same recovery the rest of the CLI uses.
+        Read from ``SYSTEM$GET_ACCOUNT_DEPLOYMENT_INFO()``. Fall back to the
+        regioned SQL host, then ``SYSTEM$ALLOWLIST`` for regionless aliases.
+        PrivateLink connections append ``.privatelink``.
         """
         try:
             conn = get_cli_context().connection
@@ -2191,11 +2243,48 @@ class SnowflakeAppManager(SqlExecutionMixin):
             )
             return None
 
+        region_id = self._lookup_dns_region_id(conn)
+        if region_id:
+            if self._host_uses_privatelink(getattr(conn, "host", None)):
+                return f"{region_id}.privatelink"
+            return region_id
+
         infra = self._infra_from_sql_host(getattr(conn, "host", None))
         if infra:
             return infra
         # Region-less connection host: recover a regioned host via the allowlist.
         return self._infra_from_sql_host(guess_regioned_host_from_allowlist(conn))
+
+    @staticmethod
+    def _lookup_dns_region_id(conn) -> Optional[str]:
+        """Return the account DNS region id, or ``None`` if it cannot be read.
+
+        A missing function or unset id is not an error. Callers fall back to
+        the SQL host.
+        """
+        try:
+            *_, cursor = conn.execute_string(
+                ACCOUNT_DEPLOYMENT_INFO_QUERY, cursor_class=DictCursor
+            )
+            row = cursor.fetchone()
+        except Exception:
+            log.debug(
+                "Could not look up DNS region id for the per-account cert probe.",
+                exc_info=True,
+            )
+            return None
+        if not isinstance(row, dict):
+            return None
+        payload = next(
+            (value for key, value in row.items() if str(key).lower() == "info"),
+            None,
+        )
+        return _parse_dns_region_id(payload)
+
+    @staticmethod
+    def _host_uses_privatelink(host: Optional[str]) -> bool:
+        labels = host_labels(host)
+        return bool(labels) and "privatelink" in [label.lower() for label in labels]
 
     @staticmethod
     def _infra_from_sql_host(host: Optional[str]) -> Optional[str]:
@@ -2480,6 +2569,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         schema: Optional[str] = None,
         include_url_prefix: bool = False,
         include_health_check: bool = False,
+        include_postgres_instances: bool = False,
     ) -> str:
         """Render an inline application-service ``SPECIFICATION`` from a target.
 
@@ -2499,10 +2589,11 @@ class SnowflakeAppManager(SqlExecutionMixin):
         written. When ``database`` / ``schema`` are omitted the value passes
         through unchanged.
 
-        ``url_prefix`` and ``health_check`` are serverless-only fields, so
-        they are emitted only when *include_url_prefix* / *include_health_check*
-        are set — the caller gates them on ``compute_resource: SERVERLESS`` —
-        and dropped otherwise.
+        ``url_prefix``, ``health_check``, and ``postgres_instances`` are
+        serverless-only fields, so they are emitted only when
+        *include_url_prefix* / *include_health_check* /
+        *include_postgres_instances* are set — the caller gates them on
+        ``compute_resource: SERVERLESS`` — and dropped otherwise.
 
         Deployment-location fields (``name`` / ``database`` / ``schema`` /
         ``account``) locate and name the service and are not part of the
@@ -2548,6 +2639,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
         if target.environment_variables:
             spec["environment_variables"] = [
                 {"name": e.name, "value": e.value} for e in target.environment_variables
+            ]
+        if include_postgres_instances and target.postgres_instances is not None:
+            spec["postgres_instances"] = [
+                {
+                    key: value
+                    for key, value in (
+                        ("instance", binding.instance),
+                        ("name", binding.name),
+                        ("authentication_mode", binding.authentication_mode),
+                    )
+                    if value is not None
+                }
+                for binding in target.postgres_instances
             ]
         return yaml.safe_dump(spec, sort_keys=False, default_flow_style=False)
 

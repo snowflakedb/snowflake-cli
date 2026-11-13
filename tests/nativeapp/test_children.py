@@ -12,6 +12,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.project_definition import (
@@ -158,3 +159,16 @@ def test_children_bundle_with_custom_dir(mock_id, project_directory):
 """
                 )
             )
+
+
+def test_children_bundle_validates_each_child(project_directory):
+    with mock_config_key("enable_native_app_children", True):
+        app_pkg, action_ctx = _get_app_pkg_entity(project_directory)
+        with mock.patch.object(
+            StreamlitEntity,
+            "validate_as_child",
+            side_effect=CliError("cannot be set"),
+        ) as validate:
+            with pytest.raises(CliError, match="cannot be set"):
+                app_pkg.action_bundle(action_ctx)
+        validate.assert_called_once_with()

@@ -177,8 +177,10 @@ class MetaField(UpdatableModel):
 
 class Identifier(UpdatableModel):
     name: str = Field(title="Entity name")
-    schema_: Optional[str] = Field(title="Entity schema", alias="schema", default=None)
-    database: Optional[str] = Field(title="Entity database", default=None)
+    schema_: Optional[str] = IdentifierField(
+        title="Entity schema", alias="schema", default=None
+    )
+    database: Optional[str] = IdentifierField(title="Entity database", default=None)
 
 
 class EntityModelBase(ABC, UpdatableModel):
@@ -326,6 +328,14 @@ class Grant(UpdatableModel):
         return (
             f"REVOKE {self.privilege} ON {entity_model.get_type().upper()}"
             f" {entity_model.fqn.sql_identifier} FROM {self.grantee_sql}"
+        )
+
+    def get_revoke_grant_option_sql(self, entity_model: EntityModelBase) -> str:
+        """Revoke only the grant option. The privilege itself stays."""
+        return (
+            f"REVOKE GRANT OPTION FOR {self.privilege} ON "
+            f"{entity_model.get_type().upper()} {entity_model.fqn.sql_identifier}"
+            f" FROM {self.grantee_sql}"
         )
 
 

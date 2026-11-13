@@ -1,3 +1,6 @@
+import csv
+import io
+import json
 import os
 from textwrap import dedent
 from types import SimpleNamespace
@@ -12,7 +15,10 @@ from snowflake.cli._plugins.sql.completion.completer import SqlReplCompleter
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.repl import Repl, _print_sql_elapsed
 from snowflake.cli._plugins.sql.repl_commands import EditCommand
-from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.formats import OutputFormat
 
@@ -29,13 +35,16 @@ def test_execute_returns_expected_results_count_with_cursors(repl):
 def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
     user_inputs = iter(("select 1;", "exit", "y"))
 
-    with mock.patch.object(
-        repl.session,
-        "prompt",
-        side_effect=user_inputs,
-    ), mock.patch(
-        "snowflake.cli._plugins.sql.repl.time.monotonic",
-        side_effect=(0.0, 0.123),
+    with (
+        mock.patch.object(
+            repl.session,
+            "prompt",
+            side_effect=user_inputs,
+        ),
+        mock.patch(
+            "snowflake.cli._plugins.sql.repl.time.monotonic",
+            side_effect=(0.0, 0.123),
+        ),
     ):
         repl.run()
 
@@ -50,12 +59,17 @@ def test_repl_prints_one_elapsed_footer_per_input(repl, capsys, mock_cursor):
         mock_cursor(rows=[("2",)], columns=["2"]),
     ]
 
-    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
-        repl, "_execute", return_value=(len(cursors), cursors)
-    ), mock.patch(
-        "snowflake.cli._plugins.sql.repl.time.monotonic", side_effect=(0.0, 0.5)
-    ), mock.patch.object(
-        repl.session, "prompt", side_effect=iter(("select 1; select 2;", "exit", "y"))
+    with (
+        mock.patch.object(repl, "_initialize_connection"),
+        mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)),
+        mock.patch(
+            "snowflake.cli._plugins.sql.repl.time.monotonic", side_effect=(0.0, 0.5)
+        ),
+        mock.patch.object(
+            repl.session,
+            "prompt",
+            side_effect=iter(("select 1; select 2;", "exit", "y")),
+        ),
     ):
         repl.run()
 
@@ -146,6 +160,175 @@ def test_repl_set_output_format_plain_applies_to_query_on_same_line(
     assert "| 1 |" not in output
 
 
+def _restore_echo(previous: bool) -> None:
+    get_cli_context_manager().echo = previous
+
+
+def test_repl_echo_defaults_off(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("select 1;", "exit", "y"))
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert "select 1;" not in output
+    assert "| 1 |" in output
+
+
+def test_repl_echo_prints_statement_before_result(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("!set echo=true\nselect 1;", "exit", "y"))
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert output.index("select 1;") < output.index("| 1 |")
+
+
+def test_repl_echo_false_stops_later_statements(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(
+            compiling_repl,
+            ("!set echo=true\nselect 1;", "!set echo=false\nselect 2;", "exit", "y"),
+            monotonic_values=(0.0, 0.5, 1.0, 1.5),
+        )
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert output.count("select 1;") == 1
+    assert "select 2;" not in output
+
+
+def test_repl_echo_empty_value_leaves_default(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("!set echo=", "select 1;", "exit", "y"))
+        output = capsys.readouterr().out
+        assert get_cli_context_manager().echo is previous
+    finally:
+        _restore_echo(previous)
+
+    assert "Invalid value for 'echo'" in output
+    assert "select 1;" not in output
+
+
+def test_repl_echo_skips_repl_commands(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("!set echo=true\n!queries help", "exit", "y"))
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert "!queries" not in output
+    assert "FILTER" in output
+
+
+def test_repl_echo_async_statement_before_query_id(compiling_repl, capsys):
+    previous = get_cli_context_manager().echo
+    try:
+        run_repl(compiling_repl, ("!set echo=true\nselect 1;>", "exit", "y"))
+        output = capsys.readouterr().out
+    finally:
+        _restore_echo(previous)
+
+    assert output.index("select 1") < output.index("01b0-async")
+    assert "select 1;>" not in output
+
+
+def test_repl_echo_tees_statement_into_spool(compiling_repl, capsys, tmp_path):
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    previous = manager.echo
+    try:
+        run_repl(
+            compiling_repl,
+            (f'!spool "{spool}"\n!set echo=true\nselect 1;', "exit", "y"),
+        )
+        output = capsys.readouterr().out
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        _restore_echo(previous)
+        manager.close_spool()
+
+    assert output.index("select 1;") < output.index("| 1 |")
+    assert contents.index("select 1;") < contents.index("| 1 |")
+
+
+def _json_documents(text: str) -> list:
+    decoder = json.JSONDecoder()
+    index = 0
+    documents = []
+    while index < len(text):
+        while index < len(text) and text[index].isspace():
+            index += 1
+        if index >= len(text):
+            break
+        document, index = decoder.raw_decode(text, index)
+        documents.append(document)
+    return documents
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
+)
+def test_repl_echo_leaves_structured_output_parseable(
+    compiling_repl, capsys, tmp_path, output_format
+):
+    """Echo must not land inside a JSON array or ahead of a CSV header."""
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    previous_echo = manager.echo
+    previous_format = manager.output_format
+    try:
+        run_repl(
+            compiling_repl,
+            (
+                f'!spool "{spool}"',
+                f"!set output_format={output_format.value}",
+                "!set echo=true",
+                "select 1;",
+                "exit",
+                "y",
+            ),
+            monotonic_values=tuple(i * 0.5 for i in range(8)),
+        )
+        output = capsys.readouterr().out
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        _restore_echo(previous_echo)
+        manager.output_format = previous_format
+        manager.close_spool()
+
+    assert "select 1;" not in output
+    assert "select 1;" not in contents
+    if output_format == OutputFormat.CSV:
+        rows = [row for row in csv.reader(io.StringIO(contents)) if row]
+        assert rows == [["1"], ["1"]]
+    else:
+        assert _json_documents(contents)[-1] == [[{"1": "1"}]]
+
+
+def test_repl_echo_off_spool_has_result_only(compiling_repl, capsys, tmp_path):
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    previous = manager.echo
+    try:
+        run_repl(compiling_repl, (f'!spool "{spool}"\nselect 1;', "exit", "y"))
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        _restore_echo(previous)
+        manager.close_spool()
+
+    assert "select 1;" not in contents
+    assert "| 1 |" in contents
+
+
 def test_repl_skips_elapsed_for_async_only_input(compiling_repl, capsys):
     """An async statement only schedules work — the REPL never waits for it."""
     run_repl(compiling_repl, ("select 1;>", "exit", "y"))
@@ -220,10 +403,13 @@ def test_repl_skips_elapsed_when_rendering_is_interrupted(repl, capsys, mock_cur
     """Ctrl-C during result printing is not Exception, so no footer for that query."""
     cursors = [mock_cursor(rows=[("2",)], columns=["2"])]
 
-    with mock.patch(
-        "snowflake.cli._plugins.sql.repl.print_result",
-        side_effect=(KeyboardInterrupt, None),
-    ), mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)):
+    with (
+        mock.patch(
+            "snowflake.cli._plugins.sql.repl.print_result",
+            side_effect=(KeyboardInterrupt, None),
+        ),
+        mock.patch.object(repl, "_execute", return_value=(len(cursors), cursors)),
+    ):
         run_repl(
             repl,
             ("select 1;", "select 2;", "exit", "y"),
@@ -237,8 +423,9 @@ def test_repl_skips_elapsed_when_rendering_is_interrupted(repl, capsys, mock_cur
 
 def test_repl_skips_elapsed_on_ctrl_d(repl, capsys):
     """Ctrl-D at the prompt is EOFError, so the loop prints no elapsed footer."""
-    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
-        repl.session, "prompt", side_effect=EOFError
+    with (
+        mock.patch.object(repl, "_initialize_connection"),
+        mock.patch.object(repl.session, "prompt", side_effect=EOFError),
     ):
         repl.run()
 
@@ -276,12 +463,15 @@ def test_repl_clears_cached_failure_after_query_error(repl):
     re-raise the cached exception until the user relaunches `snow sql`.
     """
     cache = get_cli_context_manager().connection_cache
-    with mock.patch.object(repl, "_initialize_connection"), mock.patch.object(
-        cache, "clear_failures"
-    ) as mock_clear_failures, mock.patch.object(
-        repl, "_execute", side_effect=Exception("transient connect blip")
-    ), mock.patch.object(
-        repl.session, "prompt", side_effect=iter(("select 1;", "exit", "y"))
+    with (
+        mock.patch.object(repl, "_initialize_connection"),
+        mock.patch.object(cache, "clear_failures") as mock_clear_failures,
+        mock.patch.object(
+            repl, "_execute", side_effect=Exception("transient connect blip")
+        ),
+        mock.patch.object(
+            repl.session, "prompt", side_effect=iter(("select 1;", "exit", "y"))
+        ),
     ):
         repl.run()
 
@@ -1273,6 +1463,68 @@ def test_print_sql_elapsed_human_formats_silent(output_format, capsys):
     assert "Time Elapsed" not in capsys.readouterr().out
 
 
+def _attach_spool(timing_in_output_file: bool, timing: bool = True) -> io.StringIO:
+    manager = get_cli_context_manager()
+    manager.timing = timing
+    manager.timing_in_output_file = timing_in_output_file
+    manager.spool_stream = io.StringIO()
+    return manager.spool_stream
+
+
+@pytest.mark.parametrize(
+    "timing, timing_in_output_file, terminal, spooled",
+    (
+        (True, False, True, ""),
+        (True, True, True, "Time Elapsed: 0.123s\n"),
+        (False, True, False, ""),
+    ),
+)
+def test_print_sql_elapsed_timing_flags(
+    timing, timing_in_output_file, terminal, spooled, capsys
+):
+    spool = _attach_spool(timing_in_output_file, timing=timing)
+    with sql_output_settings(OutputFormat.TABLE, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert ("Time Elapsed: 0.123s" in capsys.readouterr().out) is terminal
+    assert spool.getvalue() == spooled
+
+
+@pytest.mark.parametrize(
+    "quiet, silent",
+    ((True, False), (False, True), (True, True)),
+)
+def test_print_sql_elapsed_spool_ignores_quiet_and_silent(quiet, silent, capsys):
+    spool = _attach_spool(timing_in_output_file=True)
+    get_cli_context_manager().quiet = quiet
+    with sql_output_settings(OutputFormat.TABLE, silent=silent):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+    assert spool.getvalue() == "Time Elapsed: 0.123s\n"
+
+
+@pytest.mark.parametrize(
+    "output_format",
+    (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
+)
+def test_print_sql_elapsed_structured_skips_spool(output_format, capsys):
+    spool = _attach_spool(timing_in_output_file=True)
+    with sql_output_settings(output_format, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert "Time Elapsed" not in capsys.readouterr().out
+    assert spool.getvalue() == ""
+
+
+def test_print_sql_elapsed_timing_in_output_file_without_spool(capsys):
+    get_cli_context_manager().timing_in_output_file = True
+    with sql_output_settings(OutputFormat.TABLE, silent=False):
+        _print_sql_elapsed(0.123)
+
+    assert capsys.readouterr().out.count("Time Elapsed: 0.123s") == 1
+
+
 @pytest.mark.parametrize(
     "output_format",
     (OutputFormat.JSON, OutputFormat.JSON_EXT, OutputFormat.CSV),
@@ -1302,6 +1554,168 @@ def test_repl_skips_elapsed_when_silent(output_format, repl, capsys):
         run_repl(repl, ("select 1;", "exit", "y"), monotonic_values=(0.0, 0.123))
 
     assert "Time Elapsed" not in capsys.readouterr().out
+
+
+def test_repl_quiet_hides_result_and_elapsed_keeps_spool(
+    compiling_repl, capsys, tmp_path
+):
+    spool = tmp_path / "out.txt"
+    try:
+        run_repl(
+            compiling_repl,
+            (f'!spool "{spool}"', "!set quiet=true", "select 1;", "exit", "y"),
+            monotonic_values=(0.0, 0.5, 1.0, 1.5, 2.0, 2.5),
+        )
+        output = capsys.readouterr().out
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        get_cli_context_manager().close_spool()
+
+    assert "| 1 |" not in output
+    assert "Time Elapsed" not in output
+    assert "| 1 |" in contents
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_repl_option_output_file_spools_without_spool_command(
+    mock_execute, mock_cursor, runner, tmp_path
+):
+    """-o output_file opens the spool before the REPL starts, with no !spool line."""
+    mock_execute.side_effect = lambda *args, **kwargs: [
+        mock_cursor(rows=[("1",)], columns=["1"])
+    ]
+    spool = tmp_path / "out.txt"
+    prompts = iter(("select 1;", "exit"))
+    manager = get_cli_context_manager()
+    try:
+        with mock.patch(
+            "snowflake.cli._plugins.sql.repl.Repl._initialize_connection"
+        ), mock.patch(
+            "snowflake.cli._plugins.sql.repl.Repl.repl_prompt",
+            side_effect=lambda *args, **kwargs: next(prompts, "exit"),
+        ):
+            result = runner.invoke(
+                [
+                    "sql",
+                    "--no-prompt-exit-repl",
+                    "-o",
+                    f"output_file={spool}",
+                ],
+                env={"SNOWFLAKE_CLI_AUTO_COMPLETION": "false"},
+            )
+        assert result.exit_code == 0, result.output
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert "| 1 |" in result.output
+    assert "| 1 |" in contents
+    assert "!spool" not in result.output
+
+
+def _run_spooled_repl(repl, spool, *inputs):
+    monotonic_values = [0.0, 0.5] * (len(inputs) + 2)
+    try:
+        run_repl(
+            repl,
+            (f'!spool "{spool}"', *inputs, "exit", "y"),
+            monotonic_values=monotonic_values,
+        )
+        return spool.read_text(encoding="utf-8")
+    finally:
+        get_cli_context_manager().close_spool()
+
+
+def test_repl_default_spool_keeps_elapsed_on_terminal_only(
+    compiling_repl, capsys, tmp_path
+):
+    contents = _run_spooled_repl(compiling_repl, tmp_path / "out.txt", "select 1;")
+
+    assert "Time Elapsed: 0.500s" in capsys.readouterr().out
+    assert "| 1 |" in contents
+    assert "Time Elapsed" not in contents
+
+
+def test_repl_timing_in_output_file_writes_elapsed_after_table(
+    compiling_repl, capsys, tmp_path
+):
+    contents = _run_spooled_repl(
+        compiling_repl,
+        tmp_path / "out.txt",
+        "!set timing_in_output_file=true",
+        "select 1;",
+    )
+
+    assert capsys.readouterr().out.count("Time Elapsed: 0.500s") == 1
+    assert contents.count("Time Elapsed") == 1
+    assert contents.splitlines()[-1] == "Time Elapsed: 0.500s"
+    assert contents.rindex("| 1 |") < contents.index("Time Elapsed")
+
+
+def test_repl_quiet_with_timing_in_output_file_spools_elapsed(
+    compiling_repl, capsys, tmp_path
+):
+    contents = _run_spooled_repl(
+        compiling_repl,
+        tmp_path / "out.txt",
+        "!set timing_in_output_file=true",
+        "!set quiet=true",
+        "select 1;",
+    )
+
+    output = capsys.readouterr().out
+    assert "| 1 |" not in output
+    assert "Time Elapsed" not in output
+    assert contents.splitlines()[-1] == "Time Elapsed: 0.500s"
+    assert contents.rindex("| 1 |") < contents.index("Time Elapsed")
+
+
+@pytest.mark.parametrize(
+    "inputs, expected",
+    (
+        (("!set timing_in_output_file=",), False),
+        (("!set timing_in_output_file=true", "!set timing_in_output_file="), True),
+    ),
+)
+def test_repl_empty_timing_in_output_file_keeps_current_value(
+    inputs, expected, compiling_repl, capsys, tmp_path
+):
+    contents = _run_spooled_repl(
+        compiling_repl, tmp_path / "out.txt", *inputs, "select 1;"
+    )
+
+    assert "Invalid value for timing_in_output_file: ''" in capsys.readouterr().out
+    assert get_cli_context().timing_in_output_file is expected
+    assert ("Time Elapsed: 0.500s" in contents) is expected
+
+
+def test_repl_reports_failed_elapsed_spool_write_once(repl, capsys):
+    class FailingElapsedStream(io.StringIO):
+        def write(self, s):
+            if s.startswith("Time Elapsed"):
+                raise OSError(28, "No space left on device")
+            return super().write(s)
+
+    manager = get_cli_context_manager()
+    manager.timing_in_output_file = True
+    manager.spool_stream = FailingElapsedStream()
+    run_repl(repl, ("select 1;", "exit", "y"))
+
+    output = capsys.readouterr().out
+    assert output.count("Time Elapsed: 0.500s") == 1
+    assert output.count("No space left on device") == 1
+
+
+def test_repl_quiet_still_prints_errors(compiling_repl, capsys):
+    run_repl(
+        compiling_repl,
+        ("!set quiet=true", "select <% missing %>;", "exit", "y"),
+        monotonic_values=(0.0, 0.5, 1.0, 1.5),
+    )
+
+    output = capsys.readouterr().out
+    assert "Error occurred: SQL rendering error" in output
+    assert "| 1 |" not in output
 
 
 def test_refresh_completion_catalog_disabled_says_so(capsys):

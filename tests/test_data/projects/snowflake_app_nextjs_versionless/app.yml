@@ -1,0 +1,10 @@
+# created-by: snowflake-apps-create; template=nextjs-template; skill-version=1.0.0
+runtime: node
+install:
+  commands:
+    - ["npm", "ci"]
+build:
+  commands:
+    - ["npm", "run", "build"]
+run:
+  command: ["npm", "start"]

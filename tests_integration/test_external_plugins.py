@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 from pathlib import Path
 
 import pytest
 
+from tests_common.plugin_install import install_test_plugin
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful,
     assert_that_result_is_successful_and_output_json_contains,
@@ -24,28 +26,9 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
 
 @pytest.fixture(scope="module")
 def install_plugins():
-    import subprocess
-    import sys
-
     path = Path(__file__).parent.parent / "test_external_plugins"
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            str(path / "multilingual_hello_command_group"),
-        ]
-    )
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            str(path / "snowpark_hello_single_command"),
-        ]
-    )
+    install_test_plugin(path / "multilingual_hello_command_group")
+    install_test_plugin(path / "snowpark_hello_single_command")
 
 
 @pytest.mark.integration
@@ -118,7 +101,8 @@ def test_loading_of_installed_plugins_if_only_one_plugin_is_enabled(
 ):
     runner.use_config("config_with_enabled_only_one_external_plugin.toml")
 
-    result_of_top_level_help = runner.invoke_with_config(["--help"])
+    with caplog.at_level(logging.INFO, logger="snowflake.cli"):
+        result_of_top_level_help = runner.invoke_with_config(["--help"])
     assert_that_result_is_successful(result_of_top_level_help)
     _assert_that_no_error_logs(caplog)
     assert "Loaded external plugin: snowpark-hello" in caplog.messages

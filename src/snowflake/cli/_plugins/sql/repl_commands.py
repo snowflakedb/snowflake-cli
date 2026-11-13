@@ -446,24 +446,96 @@ class AbortCommand(ReplCommand):
         return CompileCommandResult(command=cls(args[0]))
 
 
-_SET_USAGE = "Usage: `!set output_format=<format>`"
+_SET_USAGE = (
+    "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
+    "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>` | "
+    "`!set echo=<true|false>` | `!set output_file=<path>`"
+)
 _SET_OPTION_OUTPUT_FORMAT = "output_format"
+_SET_OPTION_QUIET = "quiet"
+_SET_OPTION_TIMING = "timing"
+_SET_OPTION_TIMING_IN_OUTPUT_FILE = "timing_in_output_file"
+_SET_OPTION_ECHO = "echo"
+# Free-string path, same file as !spool. Empty is rejected; off is a filename.
+_SET_OPTION_OUTPUT_FILE = "output_file"
+# SnowSQL booleans. An empty value is not false and not a reset to unset.
+_BOOL_TRUE = frozenset({"true", "yes", "on", "1"})
+_BOOL_FALSE = frozenset({"false", "no", "off", "0"})
+_SET_BOOL_OPTIONS = frozenset(
+    {
+        _SET_OPTION_QUIET,
+        _SET_OPTION_TIMING,
+        _SET_OPTION_TIMING_IN_OUTPUT_FILE,
+    }
+)
+_SET_OPTIONS = _SET_BOOL_OPTIONS | {
+    _SET_OPTION_OUTPUT_FORMAT,
+    _SET_OPTION_ECHO,
+    _SET_OPTION_OUTPUT_FILE,
+}
+_SET_SUPPORTED = (
+    "Only output_format, quiet, timing, timing_in_output_file, echo "
+    "and output_file are supported."
+)
+_ECHO_VALUES = frozenset({"true", "false"})
+_OUTPUT_FILE_VALUE_REQUIRED = "You must specify a value for output_file."
+
+
+def parse_bool_value(option: str, value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in _BOOL_TRUE:
+        return True
+    if normalized in _BOOL_FALSE:
+        return False
+    raise ValueError(f"Invalid value for {option}: {value!r}. Use true or false.")
+
+
+def _parse_echo_value(value: str) -> str:
+    normalized = value.lower()
+    if normalized not in _ECHO_VALUES:
+        raise ValueError(f"Invalid value for 'echo': {value!r}. Must be true or false.")
+    return normalized
 
 
 @register_command("!set")
 @dataclass
 class SetCommand(ReplCommand):
-    """Set a session option. Only output_format is supported."""
+    """Set a session option.
+
+    output_format, quiet, timing, timing_in_output_file, echo and output_file
+    are supported.
+    """
 
     option: str
     value: str
 
     def execute(self, connection: SnowflakeConnection):
-        get_cli_context_manager().output_format = OutputFormat.from_string(self.value)
+        manager = get_cli_context_manager()
+        if self.option == _SET_OPTION_OUTPUT_FILE:
+            manager.open_spool(self.value)
+            return
+        if self.option == _SET_OPTION_QUIET:
+            manager.quiet = parse_bool_value(self.option, self.value)
+            return
+        if self.option == _SET_OPTION_TIMING:
+            manager.timing = parse_bool_value(self.option, self.value)
+            return
+        if self.option == _SET_OPTION_TIMING_IN_OUTPUT_FILE:
+            manager.timing_in_output_file = parse_bool_value(self.option, self.value)
+            return
+        if self.option == _SET_OPTION_ECHO:
+            manager.echo = _parse_echo_value(self.value) == "true"
+            return
+        manager.output_format = OutputFormat.from_string(self.value)
 
     @classmethod
     def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
         if isinstance(raw_args, str):
+            # Paths may contain spaces or '='. Do not whitespace-split these.
+            stripped = raw_args.strip()
+            prefix = f"{_SET_OPTION_OUTPUT_FILE}="
+            if stripped.lower().startswith(prefix):
+                return cls._compile_output_file_value(stripped.split("=", 1)[1])
             try:
                 args, kwargs = cls._parse_args(raw_args)
             except ValueError as e:
@@ -471,6 +543,18 @@ class SetCommand(ReplCommand):
         else:
             args, kwargs = raw_args, kwargs or {}
         return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _compile_output_file_value(cls, value: str) -> CompileCommandResult:
+        """Validate a free-string output_file. Does not open or close the spool."""
+        normalized = _strip_matching_quotes(value.strip())
+        if not normalized.strip():
+            return CompileCommandResult(
+                error_message=f"{_OUTPUT_FILE_VALUE_REQUIRED} {_SET_USAGE}"
+            )
+        return CompileCommandResult(
+            command=cls(option=_SET_OPTION_OUTPUT_FILE, value=normalized)
+        )
 
     @classmethod
     def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
@@ -483,31 +567,92 @@ class SetCommand(ReplCommand):
                 error_message=f"No arguments passed to 'set' command. {_SET_USAGE}"
             )
 
-        output_format_keys = [
-            key for key in kwargs if key.lower() == _SET_OPTION_OUTPUT_FORMAT
-        ]
-        if len(output_format_keys) > 1:
-            names = ", ".join(f"{key!r}" for key in output_format_keys)
-            return CompileCommandResult(error_message=f"Duplicated argument {names}")
+        for option in _SET_OPTIONS:
+            keys = [key for key in kwargs if key.lower() == option]
+            if len(keys) > 1:
+                names = ", ".join(f"{key!r}" for key in keys)
+                return CompileCommandResult(
+                    error_message=f"Duplicated argument {names}"
+                )
 
-        unknown = [key for key in kwargs if key.lower() != _SET_OPTION_OUTPUT_FORMAT]
+        unknown = [key for key in kwargs if key.lower() not in _SET_OPTIONS]
         if unknown:
             names = ", ".join(f"{key!r}" for key in unknown)
             return CompileCommandResult(
                 error_message=(
-                    f"Unknown option passed to 'set' command: {names}. "
-                    "Only output_format is supported."
+                    f"Unknown option passed to 'set' command: {names}. {_SET_SUPPORTED}"
                 )
             )
 
-        value = next(iter(kwargs.values()))
+        known = [key for key in kwargs if key.lower() in _SET_OPTIONS]
+        if len(known) > 1:
+            return CompileCommandResult(
+                error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+            )
+
+        option = known[0].lower()
+        value = kwargs[known[0]]
+        if option == _SET_OPTION_OUTPUT_FILE:
+            return cls._compile_output_file_value(value)
         try:
-            OutputFormat.from_string(value)
+            if option in _SET_BOOL_OPTIONS:
+                parse_bool_value(option, value)
+            elif option == _SET_OPTION_ECHO:
+                value = _parse_echo_value(value)
+            else:
+                OutputFormat.from_string(value)
         except ValueError as e:
             return CompileCommandResult(error_message=str(e))
-        return CompileCommandResult(
-            command=cls(option=_SET_OPTION_OUTPUT_FORMAT, value=value)
-        )
+        return CompileCommandResult(command=cls(option=option, value=value))
+
+
+_SPOOL_USAGE = "Usage: `!spool <file>` | `!spool off`"
+_SPOOL_OFF = "off"
+
+
+def _strip_matching_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+@register_command("!spool")
+@dataclass
+class SpoolCommand(ReplCommand):
+    """Append subsequent print_result output to a file until !spool off."""
+
+    path: str | None = None
+
+    def execute(self, connection: SnowflakeConnection):
+        manager = get_cli_context_manager()
+        if self.path is None:
+            manager.close_spool()
+            return
+        manager.open_spool(self.path)
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        if isinstance(raw_args, str):
+            args, kwargs = cls._parse_args(raw_args)
+        else:
+            args, kwargs = raw_args, kwargs or {}
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _parse_args(cls, raw_args: str) -> tuple[List[str], Dict[str, Any]]:
+        return [raw_args] if raw_args else [], {}
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
+        remainder = " ".join(args) if args else ""
+        remainder = _strip_matching_quotes(remainder.strip())
+        if not remainder:
+            return CompileCommandResult(
+                error_message=f"No arguments passed to 'spool' command. {_SPOOL_USAGE}"
+            )
+        if remainder.lower() == _SPOOL_OFF:
+            return CompileCommandResult(command=cls(path=None))
+        return CompileCommandResult(command=cls(path=remainder))
 
 
 @register_command("!edit")

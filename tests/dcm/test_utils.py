@@ -73,7 +73,6 @@ class TestSaveCommandResponse:
 
     def test_fails_when_the_write_fails(self, tmp_path):
         with change_directory(tmp_path):
-
             with mock.patch(
                 "snowflake.cli._plugins.dcm.utils.SecurePath.write_text",
                 side_effect=OSError("disk full"),
@@ -184,7 +183,7 @@ class TestCollectOutput:
 
         stage_manager = stage_manager_cls.return_value
 
-        def fake_get_recursive(stage_path, dest_path):
+        def fake_get_recursive(stage_path, dest_path, **kwargs):
             rendered_dir = dest_path / RENDERED_FOLDER
             rendered_dir.mkdir(parents=True)
             (rendered_dir / "obj.sql").write_text("SELECT 1")
@@ -203,13 +202,16 @@ class TestCollectOutput:
             out_dir = tmp_path / OUTPUT_FOLDER
             assert (out_dir / "plan_result.json").exists()
             assert (out_dir / RENDERED_FOLDER / "obj.sql").exists()
+        assert stage_manager.get_recursive.call_args.kwargs["parallel"] == 1
 
     @mock.patch("snowflake.cli._plugins.dcm.utils.StageManager")
     def test_no_error_when_no_rendered_produced(self, stage_manager_cls, tmp_path):
         from snowflake.cli._plugins.dcm.utils import _collect_output
 
         stage_manager = stage_manager_cls.return_value
-        stage_manager.get_recursive.side_effect = lambda stage_path, dest_path: []
+        stage_manager.get_recursive.side_effect = (
+            lambda stage_path, dest_path, **kwargs: []
+        )
 
         with change_directory(tmp_path):
             prepare_output_folder()
@@ -227,7 +229,7 @@ class TestCollectOutput:
 
         stage_manager = stage_manager_cls.return_value
 
-        def fake_get_recursive(stage_path, dest_path):
+        def fake_get_recursive(stage_path, dest_path, **kwargs):
             (dest_path / "plan_result.json").write_text('{"errors": ["compile"]}')
 
         stage_manager.get_recursive.side_effect = fake_get_recursive

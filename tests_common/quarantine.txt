@@ -1,0 +1,9 @@
+# Tests that already fail on main. On a pull request, each listed node id is
+# xfailed after the deflake retry, unless this PR also changes that test's
+# file. Pushes to main, the daily cron, and fork ok-to-test runs stay strict.
+#
+# One node id per line. A line without parameters also matches that test's
+# parametrized ids. Text after '#' is the reason shown on the XFAIL line.
+# When a listed test passes, the job summary reports XPASS: delete the line.
+#
+# tests_integration/test_example.py::test_example  # 2026-10-26 already red on main

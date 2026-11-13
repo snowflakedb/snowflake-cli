@@ -23,6 +23,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     VersionInfo,
     build_bundle,
     find_events_definitions_in_manifest_file,
+    find_setup_script_file,
     find_version_info_in_manifest_file,
 )
 from snowflake.cli.api.artifacts.common import (
@@ -32,9 +33,11 @@ from snowflake.cli.api.artifacts.common import (
     SourceNotFoundError,
     TooManyFilesError,
 )
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.util import to_identifier
+from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from yaml import safe_dump
 
 from tests.nativeapp.factories import ManifestFactory
@@ -345,3 +348,85 @@ def test_find_events_in_manifest_file(configuration_section, expected_output):
             find_events_definitions_in_manifest_file(deploy_root=deploy_root)
             == expected_output
         )
+
+
+@pytest.mark.parametrize(
+    ("setup_script", "expected_relpath"),
+    [
+        pytest.param("setup.sql", "setup.sql", id="root"),
+        pytest.param("scripts/setup.sql", "scripts/setup.sql", id="nested"),
+        pytest.param("scripts/../setup.sql", "setup.sql", id="normalized"),
+    ],
+)
+def test_find_setup_script_file_returns_in_tree_path(setup_script, expected_relpath):
+    deploy_root_structure = {
+        "manifest.yml": safe_dump(
+            {"manifest_version": 1, "artifacts": {"setup_script": setup_script}}
+        ),
+        "setup.sql": "select 1;",
+        "scripts/setup.sql": "select 1;",
+    }
+    with temp_local_dir(deploy_root_structure) as deploy_root:
+        assert find_setup_script_file(deploy_root) == resolve_without_follow(
+            deploy_root / expected_relpath
+        )
+
+
+def test_find_setup_script_file_rejects_path_outside_deploy_root():
+    with temp_local_dir(
+        {
+            "app/manifest.yml": safe_dump(
+                {
+                    "manifest_version": 1,
+                    "artifacts": {"setup_script": "../outside.sql"},
+                }
+            ),
+            "outside.sql": "select 1;",
+        }
+    ) as root:
+        with pytest.raises(CliError, match="must stay within the deploy root"):
+            find_setup_script_file(root / "app")
+
+
+@pytest.mark.parametrize(
+    "setup_script",
+    [
+        pytest.param("/tmp/outside.sql", id="tmp_absolute"),
+        pytest.param(str(Path.home() / "outside.sql"), id="home_absolute"),
+    ],
+)
+def test_find_setup_script_file_rejects_absolute_path(setup_script):
+    with temp_local_dir(
+        {
+            "manifest.yml": safe_dump(
+                {
+                    "manifest_version": 1,
+                    "artifacts": {"setup_script": setup_script},
+                }
+            ),
+        }
+    ) as deploy_root:
+        with pytest.raises(CliError, match="must stay within the deploy root"):
+            find_setup_script_file(deploy_root)
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
+)
+def test_find_setup_script_file_allows_symlink_inside_deploy_root():
+    with temp_local_dir(
+        {
+            "app/setup.sql": "select 1;",
+            "output/deploy/manifest.yml": safe_dump(
+                {"manifest_version": 1, "artifacts": {"setup_script": "setup.sql"}}
+            ),
+        }
+    ) as project_root:
+        deploy_root = project_root / "output" / "deploy"
+        try:
+            os.symlink(project_root / "app" / "setup.sql", deploy_root / "setup.sql")
+        except OSError:
+            pytest.skip("Symlinks are not available")
+        found = find_setup_script_file(deploy_root)
+        assert found == resolve_without_follow(deploy_root / "setup.sql")
+        assert found.is_symlink()

@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from typing import Any, List, Literal, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli.api.project.schemas.entities.common import (
     Artifacts,
@@ -26,7 +26,10 @@ from snowflake.cli.api.project.schemas.entities.common import (
     ImportsBaseModel,
     reject_backslashes,
 )
-from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
+from snowflake.cli.api.project.schemas.updatable_model import (
+    DiscriminatorField,
+    UpdatableModel,
+)
 
 # SPCS Runtime v2 constants
 SPCS_RUNTIME_V2_NAME = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
@@ -68,6 +71,46 @@ def is_known_runtime_name(runtime_name: Optional[str]) -> bool:
     """True when the CLI will emit this runtime rather than reject it as unknown."""
     normalized = normalize_runtime_name(runtime_name)
     return normalized in KNOWN_RUNTIME_NAMES or is_spcs_container_runtime(normalized)
+
+
+# The maximum number of tasks in SCHEDULED_TASKS.
+MAX_SCHEDULES = 5
+
+
+class Schedules(UpdatableModel):
+    cron_exprs: List[str] = Field(
+        title=f"Cron expressions that start the app. Maximum {MAX_SCHEDULES}",
+        max_length=MAX_SCHEDULES,
+    )
+    timezone: Optional[str] = Field(
+        title="Timezone of the cron expressions. The default is UTC",
+        default=None,
+    )
+
+    @field_validator("cron_exprs", mode="after")
+    @classmethod
+    def strip_cron_exprs(cls, cron_exprs: List[str]) -> List[str]:
+        """Snowflake checks the cron. This only stops a value that breaks the SQL."""
+        stripped = [expr.strip() for expr in cron_exprs]
+        if any(not expr for expr in stripped):
+            raise ValueError("cron_exprs must not contain an empty expression")
+        if any(ch in expr for expr in stripped for ch in "\r\n'\\"):
+            raise ValueError(
+                "cron_exprs must not contain a line break, quote, or backslash"
+            )
+        return stripped
+
+    @field_validator("timezone", mode="after")
+    @classmethod
+    def strip_timezone(cls, timezone: Optional[str]) -> Optional[str]:
+        if timezone is None:
+            return None
+        stripped = timezone.strip()
+        if not stripped or any(ch.isspace() or ch in "'\\" for ch in stripped):
+            raise ValueError(
+                "timezone must be one IANA name, such as UTC or America/Los_Angeles"
+            )
+        return stripped
 
 
 class StreamlitEntityModel(
@@ -115,6 +158,68 @@ class StreamlitEntityModel(
         ),
         default=False,
     )
+    execute_as: Optional[Literal["OWNER", "RESTRICTED CALLER"]] = Field(
+        title=(
+            "The rights that the app's queries use: OWNER or RESTRICTED CALLER. "
+            f"Only for {WAREHOUSE_RUNTIME_NAME}"
+        ),
+        default=None,
+    )
+    app_warehouse: Optional[str] = Field(
+        title=(
+            "Warehouse that runs the app code. It is not query_warehouse. "
+            f"Only for {WAREHOUSE_RUNTIME_NAME}"
+        ),
+        default=None,
+    )
+    artifact_repositories: Optional[List[str]] = Field(
+        title=(
+            "Repositories that the app gets packages from. Only for "
+            f"{SPCS_CONTAINER_RUNTIME_PREFIX}* runtimes"
+        ),
+        default=None,
+    )
+    idle_auto_shutdown_time_seconds: Optional[int] = Field(
+        title="Seconds without viewers, before the app stops",
+        default=None,
+        gt=0,
+    )
+    schedules: Optional[Schedules] = Field(
+        title="Schedules that start the app before users need it",
+        default=None,
+    )
+
+    @field_validator("execute_as", mode="before")
+    @classmethod
+    def canonicalize_execute_as(cls, execute_as: Any) -> Any:
+        """The value goes into the SQL as keywords. The ``Literal`` type stops other text."""
+        if not isinstance(execute_as, str):
+            return execute_as
+        return " ".join(execute_as.split()).upper()
+
+    @field_validator("app_warehouse", mode="before")
+    @classmethod
+    def strip_app_warehouse(cls, app_warehouse: Any) -> Any:
+        if not isinstance(app_warehouse, str):
+            return app_warehouse
+        stripped = app_warehouse.strip()
+        if not stripped:
+            raise ValueError("app_warehouse must not be empty")
+        reject_backslashes("app_warehouse", [stripped])
+        return stripped
+
+    @field_validator("artifact_repositories", mode="after")
+    @classmethod
+    def strip_artifact_repositories(
+        cls, repositories: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        if repositories is None:
+            return None
+        stripped = [repository.strip() for repository in repositories]
+        if any(not repository for repository in stripped):
+            raise ValueError("artifact_repositories must not contain an empty name")
+        reject_backslashes("artifact_repositories", stripped)
+        return stripped
 
     @field_validator("runtime_name", mode="before")
     @classmethod
@@ -155,8 +260,7 @@ class StreamlitEntityModel(
 
         A pool name is an identifier, so surrounding whitespace is never
         meaningful. Trimming also stops a whitespace-only value from being
-        truthy, which would otherwise emit ``COMPUTE_POOL = '   '`` and, because
-        a pool implies the container runtime, infer a runtime_name from nothing.
+        truthy, which would otherwise emit ``COMPUTE_POOL = '   '``.
 
         Like the runtime_name validator, this is a single-field rule kept in a
         field validator so it inherits the template-skip wrap.
@@ -173,29 +277,7 @@ class StreamlitEntityModel(
         reject_backslashes("compute_pool", [stripped])
         return stripped
 
-    @model_validator(mode="after")
-    def validate_spcs_runtime_fields(self):
-        """Infer runtime_name from a compute_pool given without one.
-
-        Only cross-field rules belong here. Single-field rules live in the field
-        validators above, where UpdatableModel's template-skip wrap reaches them.
-        """
-        if self.compute_pool and not self.runtime_name:
-            # A compute pool is only meaningful to the container runtime, so take the
-            # pool as the request it implies and name the runtime explicitly in the
-            # DDL rather than emitting COMPUTE_POOL against whatever runtime the
-            # account happens to default to.
-            #
-            # Assigning here re-enters validation (validate_assignment=True). It
-            # terminates because runtime_name is set on re-entry, so this branch is
-            # not taken again.
-            self.runtime_name = SPCS_RUNTIME_V2_NAME
-
-        # No runtime/compute_pool pairing rules. Snowflake supplies a default compute
-        # pool when the container runtime is named without one, and ignores a pool
-        # given alongside the warehouse runtime, so neither combination is an error.
-        # Requiring a pool for the container runtime used to reject a valid config,
-        # and rejecting one for the warehouse runtime would block the natural
-        # container-to-warehouse migration where only runtime_name changes. Whether
-        # COMPUTE_POOL is emitted is decided at the emission site instead.
-        return self
+    # No cross-field inference. A compute_pool without runtime_name stays unnamed:
+    # a versioned CREATE omits RUNTIME_NAME and Global Services applies the
+    # container default, keeping the pool. Naming SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
+    # here used to freeze the old container constant into the DDL.

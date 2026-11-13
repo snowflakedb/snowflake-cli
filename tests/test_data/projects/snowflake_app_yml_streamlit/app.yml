@@ -1,0 +1,14 @@
+# created-by: snowflake-apps-streamlit; template=streamlit-template; skill-version=1.0.0
+version: 2
+runtime: python
+streamlit: true
+compute_resource: SERVERLESS
+name: ST_APP
+database: DB
+schema: PUBLIC
+query_warehouse: WH
+install:
+  commands:
+    - ["uv", "sync", "--no-dev"]
+run:
+  command: [".venv/bin/python", "launch.py", "run", "streamlit_app.py"]

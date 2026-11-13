@@ -39,6 +39,8 @@ KNOWN_SERVER_ISSUE_FRAGMENTS = (
     "GS instance is still unavailable at",
     "Insufficient resource during interleaved execution",
     "HTTP 429: Too Many Requests",
+    # Connector 5 rate limit on UD Integration (GS 000645).
+    "exceeded number of allowed concurrent requests",
     "HTTP 503: Service Unavailable",
 )
 

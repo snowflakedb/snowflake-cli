@@ -20,7 +20,7 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
-from snowflake.cli._app.printing import print_result
+from snowflake.cli._app.printing import is_structured_format, print_raw, print_result
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
@@ -44,6 +44,26 @@ from snowflake.connector.cursor import SnowflakeCursor
 ExpectedResultsCount = int
 
 logger = logging.getLogger(__name__)
+
+
+def _echo_repl_statement(statement: str | None) -> None:
+    """Print compiled SQL before it runs when the REPL echo option is on.
+
+    Called immediately before each statement, so a ``!set`` earlier in the
+    same submission is already applied. One-shot ``snow sql`` logs statements
+    through ``VerboseCursor`` instead, and that log is not spooled.
+
+    JSON, JSON_EXT, and CSV are left alone. Echo runs when the result printer
+    pulls the next cursor, which is after ``[`` and before a CSV header, so a
+    statement there would make the stream impossible to parse.
+    """
+    if not statement:
+        return
+    context = get_cli_context()
+    if context.is_repl and context.echo_enabled:
+        if is_structured_format(context.output_format):
+            return
+        print_raw(statement)
 
 
 class SqlManager(SqlExecutionMixin):
@@ -176,12 +196,14 @@ class SqlManager(SqlExecutionMixin):
     ) -> Iterable[SnowflakeCursor]:
         for stmt in compiled_statements:
             if stmt.execute_async:
+                _echo_repl_statement(stmt.statement)
                 cursor = self._conn.cursor(cursor_class=cursor_class)
                 cursor.execute_async(stmt.statement)
                 # only log query ID for consistency with SnowSQL
                 logger.info("Async execution id: %s", cursor.sfqid)
                 print_result(CollectionResult([{"scheduled query ID": cursor.sfqid}]))
             elif stmt.statement:
+                _echo_repl_statement(stmt.statement)
                 yield from self.execute_string(
                     stmt.statement, cursor_class=cursor_class
                 )

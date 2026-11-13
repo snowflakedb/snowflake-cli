@@ -172,6 +172,9 @@ def _collect_output(
         stage_manager.get_recursive(
             stage_path=effective_output_path.absolute_path(),
             dest_path=output_dir.path,
+            # Same split as the DCM upload: parallel=1 gives the whole worker
+            # budget to directory fan-out.
+            parallel=1,
         )
 
     try:

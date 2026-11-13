@@ -35,6 +35,8 @@ Cheatsheet: <https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflak
 
 Feel free to file an issue or submit a PR here for general cases. For official support, contact Snowflake support at: https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge
 
+`snow feedback` sends a rating and an optional note to Snowflake. Pass `--rating` from 1 (poor) to 4 (excellent). A note is optional for people and required for an AI agent: name the command you ran, what you expected, and what happened. Pass `--yes` when stdin is not a terminal. Do not include passwords, tokens, private keys, account locators, data from Snowflake accounts, or SQL that contains customer data.
+
 ## Install Snowflake CLI
 
 ### Direct install (recommended)
@@ -53,7 +55,25 @@ Windows (PowerShell):
 irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
 ```
 
-Upgrade later with `snow upgrade` (public preview, same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
+Pin a release with `--version` (or `SNOWFLAKE_CLI_VERSION`). Pass `--no-auto-upgrade` with a pin so later `snow` invocations do not replace it via auto-upgrade. This is the same flag as the root `snow --no-auto-upgrade`:
+
+```bash
+curl -LsS https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.sh | sh -s -- --version 3.29.0 --no-auto-upgrade
+```
+
+```powershell
+.\install.ps1 -Version 3.29.0 -NoAutoUpgrade
+# or, without saving the script first:
+& ([scriptblock]::Create((irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1))) -Version 3.29.0 -NoAutoUpgrade
+```
+
+`irm ... | iex` cannot pass flags. With it, set `$env:SNOWFLAKE_CLI_VERSION` to pin a release. `--no-auto-upgrade` has no environment-variable form.
+
+`--no-auto-upgrade` writes `auto_upgrade = false` under `[cli]` in the `config.toml` the CLI reads. If that file is a symlink, or has a `cli` table the installer cannot edit safely, the installer stops before installing and tells you what to add yourself.
+
+Upgrade later with `snow upgrade` (same-major only). This is the only installer that supports it. `snow --info` reports `installation_source`; `snow --version` does not.
+
+Auto-upgrade is off until you opt in, and it applies only to a direct install. Set `auto_upgrade = true` under `[cli]` in `config.toml`, or `SNOWFLAKE_CLI_AUTO_UPGRADE=1` for one process. Turn it off with `SNOWFLAKE_CLI_AUTO_UPGRADE=0`, `snow --no-auto-upgrade`, or the installer flag `--no-auto-upgrade`.
 
 ### Install with uv (PyPi)
 
@@ -153,7 +173,28 @@ Commands print a table unless you pass `--format`. To change that default, set
 `SNOWFLAKE_CLI_OUTPUT_FORMAT` environment variable. Allowed values are `TABLE`,
 `JSON`, `JSON_EXT`, `CSV`, and `PLAIN`. `--format` on the command line still wins.
 In `snow sql`, `!set output_format=<format>` changes the format for later
-statements in that session.
+statements in that session. `!set timing=false` hides the `Time Elapsed` line
+that follows each statement. `!set timing_in_output_file=true` also writes that
+line into a file opened with `!spool`. Both accept `true`, `yes`, `on`, and `1`,
+or `false`, `no`, `off`, and `0`. An empty value is rejected and leaves the
+current setting unchanged. `timing` is on by default and
+`timing_in_output_file` is off, so a spool file keeps the results only. JSON,
+JSON_EXT, and CSV output never include the line. `!set echo=true` prints each
+statement before its result, on the terminal and in an open `!spool` file. The
+default is `echo=false`. JSON, JSON_EXT, and CSV stay free of that statement so
+the result stays parseable. One `!set` changes one option.
+`!set output_file=<path>` opens the same file as `!spool <path>`, and
+`!spool off` closes it. To spool from the start of a run, pass
+`-o output_file=<path>`.
+To hide query results on the terminal from the start of a run, pass
+`-o quiet=true`. It accepts the same values as `!set quiet`, and an open
+spool file still receives the results.
+To set the output format from the start of a run, pass
+`-o output_format=<format>`. It accepts the same names as
+`!set output_format` and overrides the `output_format` config key and the
+`SNOWFLAKE_CLI_OUTPUT_FORMAT` variable. It cannot be combined with `--format`:
+passing both is an error and no SQL runs. `!set output_format` can still
+change the format later.
 
 ```toml
 [cli]

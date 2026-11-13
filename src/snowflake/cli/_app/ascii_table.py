@@ -266,13 +266,16 @@ class _AsciiTableWriter:
         bold_header: bool,
         flush_chunks: bool,
         plain: bool = False,
+        stream: object | None = None,
     ) -> None:
         self._columns = columns
         self._widths = widths
         self._wrap = wrap
         self._bold_header = bold_header
         self._plain = plain
-        self._out = _ChunkWriter(sys.stdout, flush_chunks=flush_chunks)
+        self._out = _ChunkWriter(
+            stream if stream is not None else sys.stdout, flush_chunks=flush_chunks
+        )
 
     def write_table(
         self,
@@ -378,6 +381,7 @@ def stream_probed_table(
     is_tty: bool,
     on_success: Callable[[], None],
     plain: bool = False,
+    stream: object | None = None,
 ) -> None:
     preferred = preferred_widths(probed.columns, probed.rows)
     if is_tty:
@@ -394,6 +398,7 @@ def stream_probed_table(
         bold_header=bold_header,
         flush_chunks=is_tty,
         plain=plain,
+        stream=stream,
     )
     writer.write_table(probed.rows, probed.pending, probed.rest, on_success)
 

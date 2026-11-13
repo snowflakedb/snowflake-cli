@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
+import re
 import uuid
 from unittest import mock
 
@@ -25,7 +27,7 @@ from snowflake.cli.api.config_provider import (
 )
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
-from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
+from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlag, FeatureFlagMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.version import VERSION as DRIVER_VERSION
 
@@ -34,6 +36,15 @@ from tests_common.feature_flag_utils import with_feature_flags
 
 class _TestFlags(FeatureFlagMixin):
     FOO = BooleanFlag("FOO", False)
+
+
+@pytest.fixture(autouse=True)
+def _no_devin_marker_file(monkeypatch, tmp_path):
+    # Environment patches cannot hide a real marker file on a Devin machine.
+    monkeypatch.setattr(
+        "snowflake.cli._app.telemetry._DEVIN_MARKER_PATH",
+        str(tmp_path / "no-devin-marker"),
+    )
 
 
 @mock.patch(
@@ -62,12 +73,9 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
         assert result.exit_code == 0, result.output
         # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+        telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
         usage_command_event = (
-            mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-                0
-            ]
-            .args[0]
-            .to_dict()
+            telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
         )
 
         del usage_command_event["message"][
@@ -94,6 +102,15 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
         del usage_command_event["message"][
             "command_cortex_terminal_launcher"
         ]  # to avoid side effect from CORTEX_TERMINAL_LAUNCHER_SOURCE
+        del usage_command_event["message"][
+            "command_agent_indicators"
+        ]  # to avoid side effect from agent environment
+        del usage_command_event["message"][
+            "command_stdin_tty"
+        ]  # to avoid side effect from the test runner's terminal
+        del usage_command_event["message"][
+            "command_stdout_tty"
+        ]  # to avoid side effect from the test runner's terminal
         assert usage_command_event == {
             "message": {
                 "driver_type": "PythonConnector",
@@ -108,6 +125,7 @@ def test_executing_command_sends_telemetry_usage_data_legacy_config(
                 "command_execution_id": "8a2225b3800c4017a4a9eab941db58fa",
                 "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
                 "command_output_type": "TABLE",
+                "command_agent_indicators_version": 1,
                 "type": "executing_command",
                 "project_definition_version": "None",
                 "config_feature_flags": {
@@ -147,12 +165,9 @@ def test_executing_command_sends_telemetry_usage_data_ng_config(
         assert result.exit_code == 0, result.output
 
         # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+        telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
         usage_command_event = (
-            mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-                0
-            ]
-            .args[0]
-            .to_dict()
+            telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
         )
 
         del usage_command_event["message"][
@@ -233,12 +248,9 @@ def test_executing_command_sends_ci_usage_data(_, mock_conn, runner, env_var, ci
 
     assert result.exit_code == 0, result.output
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_ci_environment"] == ci_type
@@ -256,12 +268,9 @@ def test_generic_ci_env_variable_returns_unknown_ci(_, mock_conn, runner, ci_val
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_ci_environment"] == "UNKNOWN_CI"
@@ -309,7 +318,25 @@ def test_detect_agent_environment_returns_unknown_when_no_agent():
         ("CLAUDECODE", "1", "CLAUDE_CODE"),
         ("CODEX_API_KEY", "key123", "CODEX"),
         ("OPENCODE", "1", "OPENCODE"),
+        ("OPENCODE_CLIENT", "web", "OPENCODE"),
         ("COPILOT_CLI", "1", "COPILOT_CLI"),
+        ("CURSOR_EXTENSION_HOST_ROLE", "agent-exec", "CURSOR"),
+        ("CLAUDE_CODE", "1", "CLAUDE_CODE"),
+        ("CODEX_SANDBOX", "seatbelt", "CODEX"),
+        ("CODEX_CI", "1", "CODEX"),
+        ("CODEX_THREAD_ID", "thread-1", "CODEX"),
+        ("CODEX_SANDBOX_NETWORK_DISABLED", "1", "CODEX"),
+        ("KIMI_PLUGIN_ROOT", "/plugins/kimi", "KIMI"),
+        ("GROK_AGENT", "1", "GROK"),
+        ("GROK_PLUGIN_ROOT", "/plugins/grok", "GROK"),
+        ("GROK_PLUGIN_DATA", "/data/grok", "GROK"),
+        ("CLINE_ACTIVE", "true", "CLINE"),
+        ("ANTIGRAVITY_AGENT", "1", "ANTIGRAVITY"),
+        ("ANTIGRAVITY_CLI_ALIAS", "agy", "ANTIGRAVITY"),
+        ("AUGMENT_AGENT", "1", "AUGMENT_CLI"),
+        ("GOOSE_TERMINAL", "1", "GOOSE"),
+        ("JUNIE_SHIM_PATH", "/usr/bin/junie", "JUNIE"),
+        ("OPENCLAW_SHELL", "1", "OPENCLAW"),
     ],
 )
 def test_detect_agent_environment_returns_correct_agent(
@@ -322,11 +349,278 @@ def test_detect_agent_environment_returns_correct_agent(
         assert _detect_agent_environment() == expected_agent
 
 
+def test_detect_agent_environment_ignores_empty_marker_values():
+    """Test that presence-based markers need a non-empty value."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"CLINE_ACTIVE": "  "}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+def test_detect_agent_environment_cursor_extension_role_must_be_agent_exec():
+    """Test that other CURSOR_EXTENSION_HOST_ROLE values are not treated as agents."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"CURSOR_EXTENSION_HOST_ROLE": "ui"}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "env, expected_agent",
+    [
+        ({"CLAUDECODE": "1", "CODEX_API_KEY": "key"}, "CLAUDE_CODE"),
+        ({"CLAUDECODE": "1", "GEMINI_CLI": "1"}, "CLAUDE_CODE"),
+        (
+            {"CLAUDECODE": "1", "CURSOR_EXTENSION_HOST_ROLE": "agent-exec"},
+            "CURSOR",
+        ),
+        ({"OPENCODE": "1", "CODEX_API_KEY": "key"}, "OPENCODE"),
+        ({"OPENCODE": "1", "CODEX_SANDBOX": "seatbelt"}, "OPENCODE"),
+        ({"CODEX_API_KEY": "key", "COPILOT_CLI": "1"}, "CODEX"),
+        ({"CODEX_SANDBOX": "seatbelt", "COPILOT_CLI": "1"}, "CODEX"),
+        ({"CLAUDE_CODE": "1", "GEMINI_CLI": "1"}, "CLAUDE_CODE"),
+        ({"CLAUDE_CODE": "1", "CODEX_API_KEY": "key"}, "CLAUDE_CODE"),
+        ({"KIMI_PLUGIN_ROOT": "/k", "GEMINI_CLI": "1"}, "GEMINI_CLI"),
+        ({"GROK_AGENT": "1", "CLAUDECODE": "1"}, "GROK"),
+        ({"GROK_PLUGIN_DATA": "/g", "CLAUDE_CODE": "1"}, "GROK"),
+        (
+            {"GROK_AGENT": "1", "CLAUDECODE": "1", "CLAUDE_CODE_IS_COWORK": "1"},
+            "GROK",
+        ),
+        ({"CURSOR_AGENT": "1", "GROK_AGENT": "1"}, "CURSOR"),
+        ({"COPILOT_MODEL": "gpt-5", "GEMINI_CLI": "1"}, "GEMINI_CLI"),
+    ],
+)
+def test_detect_agent_environment_table_order_wins(env, expected_agent):
+    """Test that the first matching agent in _AGENT_RULES is reported."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        assert _detect_agent_environment() == expected_agent
+
+
+def test_detect_agent_environment_cowork_wins_over_claude_code():
+    """Test that Claude Cowork is reported instead of Claude Code."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(
+        os.environ,
+        {"CLAUDECODE": "1", "CLAUDE_CODE_IS_COWORK": "1"},
+        clear=True,
+    ):
+        assert _detect_agent_environment() == "COWORK"
+
+
+def test_detect_agent_environment_cowork_requires_claude_code_marker():
+    """Test that CLAUDE_CODE_IS_COWORK alone does not identify Cowork."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"CLAUDE_CODE_IS_COWORK": "1"}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "stdin_tty, stdout_tty, expected_agent",
+    [
+        (False, False, "KIRO"),
+        (True, False, "KIRO"),
+        (False, True, "UNKNOWN"),
+        (True, True, "UNKNOWN"),
+    ],
+)
+def test_detect_agent_environment_kiro_requires_stdout_not_a_tty(
+    stdin_tty, stdout_tty, expected_agent
+):
+    """Test that Kiro depends on stdout only, so redirecting stdin does not count."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"TERM_PROGRAM": "kiro"}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry.is_stdin_tty", return_value=stdin_tty
+        ), mock.patch(
+            "snowflake.cli._app.telemetry.is_stdout_tty", return_value=stdout_tty
+        ):
+            assert _detect_agent_environment() == expected_agent
+
+
+def test_detect_agent_environment_detects_pi_from_path():
+    """Test that Pi is detected from a .pi/agent segment in PATH."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(
+        os.environ, {"PATH": "/usr/bin:/home/user/.pi/agent/bin"}, clear=True
+    ):
+        assert _detect_agent_environment() == "PI"
+
+
+def test_detect_agent_environment_detects_devin_from_marker_file():
+    """Test that Devin is detected from its marker file."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry.os.path.exists", return_value=True
+        ):
+            assert _detect_agent_environment() == "DEVIN"
+
+
+@pytest.mark.parametrize(
+    "ai_agent_value",
+    ["my-tool", "my-tool@2.0", "custom agent with spaces"],
+)
+def test_detect_agent_environment_reports_other_for_ai_agent_variable(
+    ai_agent_value,
+):
+    """Test that a custom agent setting AI_AGENT is reported as OTHER.
+
+    The raw value is free text, so it is never returned as the agent name.
+    """
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"AI_AGENT": ai_agent_value}, clear=True):
+        assert _detect_agent_environment() == "OTHER"
+
+
+def test_detect_agent_environment_specific_agent_wins_over_ai_agent():
+    """Test that a specific agent marker is reported instead of AI_AGENT."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(
+        os.environ, {"AI_AGENT": "my-tool", "CLAUDECODE": "1"}, clear=True
+    ):
+        assert _detect_agent_environment() == "CLAUDE_CODE"
+
+
+def test_detect_agent_environment_ignores_empty_ai_agent():
+    """Test that an empty AI_AGENT does not count as an agent."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {"AI_AGENT": ""}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+def test_is_coding_agent_true_for_ai_agent_variable():
+    """Test that AI_AGENT makes is_coding_agent true, and unset makes it false."""
+    from snowflake.cli._app.telemetry import is_coding_agent
+
+    with mock.patch.dict(os.environ, {"AI_AGENT": "my-tool"}, clear=True):
+        assert is_coding_agent() is True
+    with mock.patch.dict(os.environ, {}, clear=True):
+        assert is_coding_agent() is False
+
+
+@pytest.mark.parametrize(
+    "env_var, env_value",
+    [
+        ("CURSOR_TRACE_ID", "1"),
+        # Not checked at all: set for ordinary GitHub authentication.
+        ("COPILOT_GITHUB_TOKEN", "1"),
+        ("COPILOT_MODEL", "gpt-5"),
+        ("COPILOT_ALLOW_ALL", "true"),
+        ("GOOSE_PROVIDER", "openai"),
+        ("JUNIE_DATA", "/home/user/junie"),
+        ("REPL_ID", "repl-123"),
+        ("CLAUDE_CODE_SESSION_ID", "sess"),
+        # Only the value "1" marks an agent terminal.
+        ("GROK_AGENT", "reviewer"),
+        ("GOOSE_TERMINAL", "true"),
+    ],
+)
+def test_detect_agent_environment_skips_markers_present_in_human_sessions(
+    env_var, env_value
+):
+    """Test that markers present in ordinary human sessions are not used for detection."""
+    from snowflake.cli._app.telemetry import _detect_agent_environment
+
+    with mock.patch.dict(os.environ, {env_var: env_value}, clear=True):
+        assert _detect_agent_environment() == "UNKNOWN"
+
+
+@pytest.mark.parametrize(
+    "env, expected_indicator",
+    [
+        ({"CORTEX_SESSION_ID": ""}, "cortex.session_id"),
+        ({"CORTEX_CODE_CLIENT_SURFACE": "coco_cli"}, "cortex.client_surface"),
+        ({"CORTEX_TERMINAL_LAUNCHER_SOURCE": "sandbox"}, "cortex.terminal_launcher"),
+        ({"COCO_AGENT": "true"}, "cortex.coco_agent"),
+        ({"CURSOR_AGENT": "1"}, "cursor.agent"),
+        ({"CURSOR_EXTENSION_HOST_ROLE": "agent-exec"}, "cursor.agent_exec"),
+        ({"CURSOR_TRACE_ID": "trace"}, "cursor.ide_terminal"),
+        ({"CLAUDE_CODE_IS_COWORK": "1"}, "claude_code.cowork"),
+        ({"CLAUDECODE": "1"}, "claude_code.claudecode"),
+        ({"CLAUDE_CODE": "1"}, "claude_code.claude_code"),
+        ({"CLAUDE_CODE_SESSION_ID": "sess"}, "claude_code.session_id"),
+        ({"GEMINI_CLI": "1"}, "gemini_cli.flag"),
+        ({"OPENCODE": "1"}, "opencode.flag"),
+        ({"OPENCODE_CLIENT": "web"}, "opencode.client"),
+        ({"CODEX_API_KEY": ""}, "codex.api_key"),
+        ({"CODEX_SANDBOX": "seatbelt"}, "codex.sandbox"),
+        ({"CODEX_CI": "1"}, "codex.ci"),
+        ({"CODEX_THREAD_ID": "t"}, "codex.thread"),
+        ({"CODEX_SANDBOX_NETWORK_DISABLED": "1"}, "codex.sandbox_network_disabled"),
+        ({"COPILOT_CLI": "1"}, "copilot_cli.flag"),
+        ({"COPILOT_MODEL": "gpt-5"}, "copilot_cli.model_setting"),
+        ({"COPILOT_ALLOW_ALL": "true"}, "copilot_cli.allow_all_setting"),
+        ({"KIMI_PLUGIN_ROOT": "/k"}, "kimi.plugin_hook"),
+        ({"GROK_AGENT": "1"}, "grok.agent_terminal"),
+        ({"GROK_PLUGIN_ROOT": "/g"}, "grok.plugin_root"),
+        ({"GROK_PLUGIN_DATA": "/g"}, "grok.plugin_data"),
+        ({"CLINE_ACTIVE": "true"}, "cline.active"),
+        ({"ANTIGRAVITY_AGENT": "1"}, "antigravity.agent"),
+        ({"ANTIGRAVITY_CLI_ALIAS": "agy"}, "antigravity.cli_alias"),
+        ({"AUGMENT_AGENT": "1"}, "augment.agent"),
+        ({"GOOSE_TERMINAL": "1"}, "goose.terminal"),
+        ({"GOOSE_PROVIDER": "openai"}, "goose.provider_setting"),
+        ({"JUNIE_DATA": "/j"}, "junie.data_setting"),
+        ({"JUNIE_SHIM_PATH": "/j"}, "junie.shim"),
+        ({"PATH": r"C:\Windows;C:\Users\u\.pi\agent\bin"}, "pi.path"),
+        ({"REPL_ID": "r"}, "replit.repl"),
+        ({"TERM_PROGRAM": "Kiro"}, "kiro.term_program"),
+        ({"OPENCLAW_SHELL": "1"}, "openclaw.shell"),
+        ({"AI_AGENT": "my-tool"}, "ai_agent.declared"),
+    ],
+)
+def test_observe_agent_indicators_reports_single_indicator(env, expected_indicator):
+    """Test that each variable produces exactly its own indicator token."""
+    from snowflake.cli._app.telemetry import _observe_agent_indicators
+
+    with mock.patch.dict(os.environ, env, clear=True):
+        assert _observe_agent_indicators() == {expected_indicator}
+
+
+def test_observe_agent_indicators_reports_devin_marker_file():
+    from snowflake.cli._app.telemetry import _observe_agent_indicators
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry.os.path.exists", return_value=True
+        ):
+            assert _observe_agent_indicators() == {"devin.marker_file"}
+
+
+def test_agent_indicator_tokens_are_unique_fixed_names():
+    """Test that tokens are lowercase <agent>.<signal> names, never variable names."""
+    from snowflake.cli._app.telemetry import _AGENT_INDICATORS
+
+    tokens = [token for token, _ in _AGENT_INDICATORS]
+    assert len(tokens) == len(set(tokens))
+    for token in tokens:
+        assert re.fullmatch(r"[a-z0-9_]+\.[a-z0-9_]+", token), token
+
+
 @pytest.mark.parametrize(
     "env, expected",
     [
         ({"CORTEX_SESSION_ID": "abc123"}, "abc123"),
         ({"CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "claude-sess"}, "claude-sess"),
+        (
+            {
+                "CLAUDECODE": "1",
+                "CLAUDE_CODE_IS_COWORK": "1",
+                "CLAUDE_CODE_SESSION_ID": "cowork-sess",
+            },
+            "cowork-sess",
+        ),
         ({}, ""),
         ({"CLAUDECODE": "1"}, ""),
         ({"CLAUDE_CODE_SESSION_ID": "orphan"}, ""),
@@ -374,12 +668,9 @@ def test_agent_session_id_appears_in_telemetry(
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_agent_environment"] == expected_agent
@@ -397,15 +688,135 @@ def test_agent_session_id_empty_in_telemetry_when_unset(_, mock_conn, runner):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_agent_session_id"] == ""
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_indicators_and_tty_appear_in_telemetry(_, mock_conn, runner):
+    """All observed indicators are sent, not only the ones that decide the agent."""
+    from snowflake.cli._app.telemetry import AGENT_INDICATORS_VERSION
+
+    env = {
+        "GROK_AGENT": "1",
+        "CLAUDECODE": "1",
+        "CLAUDE_CODE_SESSION_ID": "parent-session",
+        "COPILOT_MODEL": "gpt-5",
+    }
+    with mock.patch.dict(os.environ, env, clear=True), mock.patch(
+        "snowflake.cli._app.telemetry.is_stdin_tty", return_value=True
+    ), mock.patch("snowflake.cli._app.telemetry.is_stdout_tty", return_value=False):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
+    message = (
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()["message"]
+    )
+    assert message["command_agent_environment"] == "GROK"
+    assert message["command_agent_session_id"] == ""
+    assert message["command_agent_indicators"] == [
+        "claude_code.claudecode",
+        "claude_code.session_id",
+        "copilot_cli.model_setting",
+        "grok.agent_terminal",
+    ]
+    assert message["command_agent_indicators_version"] == AGENT_INDICATORS_VERSION
+    assert message["command_stdin_tty"] is True
+    assert message["command_stdout_tty"] is False
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_indicators_empty_in_telemetry_when_unset(_, mock_conn, runner):
+    with mock.patch.dict(os.environ, {}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
+    message = (
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()["message"]
+    )
+    assert message["command_agent_environment"] == "UNKNOWN"
+    assert message["command_agent_indicators"] == []
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_agent_indicator_values_are_never_sent(_, mock_conn, runner):
+    """No value of a checked variable reaches telemetry.
+
+    Session ID variables are left out: command_agent_session_id sends them on purpose.
+    """
+    from snowflake.cli._app.telemetry import _AGENT_INDICATORS
+
+    free_text_vars = [
+        "CURSOR_TRACE_ID",
+        "CLAUDE_CODE_IS_COWORK",
+        "CLAUDE_CODE",
+        "OPENCODE_CLIENT",
+        "CODEX_API_KEY",
+        "CODEX_SANDBOX",
+        "CODEX_CI",
+        "CODEX_THREAD_ID",
+        "CODEX_SANDBOX_NETWORK_DISABLED",
+        "COPILOT_MODEL",
+        "COPILOT_ALLOW_ALL",
+        "KIMI_PLUGIN_ROOT",
+        "GROK_PLUGIN_ROOT",
+        "GROK_PLUGIN_DATA",
+        "CLINE_ACTIVE",
+        "ANTIGRAVITY_AGENT",
+        "ANTIGRAVITY_CLI_ALIAS",
+        "AUGMENT_AGENT",
+        "GOOSE_PROVIDER",
+        "JUNIE_DATA",
+        "JUNIE_SHIM_PATH",
+        "REPL_ID",
+        "OPENCLAW_SHELL",
+        "AI_AGENT",
+    ]
+    env = {name: f"secret-value-{i}" for i, name in enumerate(free_text_vars)}
+    env.update(
+        {
+            "COCO_AGENT": "1",
+            "CURSOR_AGENT": "1",
+            "CURSOR_EXTENSION_HOST_ROLE": "agent-exec",
+            "CLAUDECODE": "1",
+            "GEMINI_CLI": "1",
+            "OPENCODE": "1",
+            "COPILOT_CLI": "1",
+            "GROK_AGENT": "1",
+            "GOOSE_TERMINAL": "1",
+            "PATH": "/home/secret-value-path/.pi/agent/bin",
+            "TERM_PROGRAM": "kiro-secret-value-term",
+        }
+    )
+    with mock.patch.dict(os.environ, env, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
+    calls = telemetry.try_add_log_to_batch.call_args_list
+    assert calls
+    sent = json.dumps([call.args[0].to_dict() for call in calls], default=str)
+    assert "secret-value" not in sent
+
+    indicators = calls[0].args[0].to_dict()["message"]["command_agent_indicators"]
+    assert indicators == sorted(set(indicators))
+    not_triggered = {
+        "cortex.session_id",
+        "cortex.client_surface",
+        "cortex.terminal_launcher",
+        "claude_code.session_id",
+        "devin.marker_file",
+    }
+    assert set(indicators) == {token for token, _ in _AGENT_INDICATORS} - not_triggered
 
 
 @pytest.mark.parametrize(
@@ -520,12 +931,9 @@ def test_cortex_surface_appears_in_telemetry(
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     message = usage_command_event["message"]
@@ -542,12 +950,9 @@ def test_cortex_surface_empty_in_telemetry_when_unset(_, mock_conn, runner):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert usage_command_event["message"]["command_cortex_client_surface"] == ""
@@ -593,12 +998,9 @@ def test_executing_command_sends_telemetry_result_data(
     assert result.exit_code == 0, result.output
 
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     result_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            1
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[1].args[0].to_dict()
     )
     assert (
         result_command_event["message"]["type"] == "result_executing_command"
@@ -797,12 +1199,9 @@ def test_failing_executing_command_sends_telemetry_data(
         runner.invoke(["app", "run"], catch_exceptions=False)
 
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     result_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            1
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[1].args[0].to_dict()
     )
     assert (
         result_command_event["message"]["type"] == "error_executing_command"
@@ -864,12 +1263,9 @@ def test_ci_integration_version_appears_in_telemetry(_, mock_conn, runner):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert (
@@ -915,12 +1311,9 @@ def test_ci_auth_type_appears_in_telemetry(_, mock_conn, runner):
         result = runner.invoke(["connection", "test"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
+    telemetry = mock_conn.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     assert (
@@ -939,8 +1332,10 @@ def test_ci_auth_type_appears_in_telemetry(_, mock_conn, runner):
         ("SNOWFLAKE_JWT", "key_pair"),
         ("EXTERNALBROWSER", "externalbrowser"),
         ("OAUTH", "oauth"),
-        ("OAUTH_AUTHORIZATION_CODE", "oauth"),
-        ("OAUTH_CLIENT_CREDENTIALS", "oauth"),
+        # Authorization-code without a client id is the custom-client token.
+        # The built-in local client is chosen in _classify_auth_type.
+        ("OAUTH_AUTHORIZATION_CODE", "oauth_authorization_code"),
+        ("OAUTH_CLIENT_CREDENTIALS", "oauth_client_credentials"),
         ("USERNAME_PASSWORD_MFA", "username_password_mfa"),
         ("PROGRAMMATIC_ACCESS_TOKEN", "programmatic_access_token"),
         ("PAT_WITH_EXTERNAL_SESSION", "programmatic_access_token"),
@@ -962,25 +1357,146 @@ def test_normalize_auth_type(authenticator, expected):
     assert _normalize_auth_type(authenticator) == expected
 
 
+class _ConnectionWithoutAuthenticator:
+    """Open connection that has no connector ``_authenticator`` attribute."""
+
+    def __init__(self):
+        self._telemetry = mock.Mock()
+        self.schema = None
+        self.role = None
+        self.database = None
+        self.warehouse = None
+        self.host = "h"
+        self.account = "acct"
+        self.user = "usr"
+
+    def close(self):
+        return None
+
+    @property
+    def _authenticator(self):
+        raise AssertionError(
+            "command_auth_type must not read connection._authenticator"
+        )
+
+
+def _telemetry_messages(connection) -> list[dict]:
+    messages = []
+    for (
+        call
+    ) in connection._telemetry.try_add_log_to_batch.call_args_list:  # noqa: SLF001
+        messages.append(call.args[0].to_dict()["message"])
+    return messages
+
+
+_JWT_CONFIG = """
+[connections.default]
+account = "acct"
+user = "usr"
+authenticator = "SNOWFLAKE_JWT"
+"""
+
+_OAUTH_CODE_CONFIG = """
+[connections.default]
+account = "acct"
+user = "usr"
+authenticator = "OAUTH_AUTHORIZATION_CODE"
+"""
+
+_EXTERNAL_SESSION_CONFIG = """
+[connections.default]
+account = "acct"
+user = "usr"
+authenticator = "SNOWFLAKE_JWT"
+session_token = "sentinel-session-token"
+master_token = "sentinel-master-token"
+"""
+
+
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
-def test_auth_type_appears_in_telemetry(_, mock_conn, runner):
-    """The auth type resolved on the live connection is recorded for any command,
-    independent of the CI/CD environment."""
-    mock_conn.return_value._authenticator = "SNOWFLAKE_JWT"  # noqa: SLF001
-    with mock.patch.dict(os.environ, {}, clear=True):
-        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+def test_auth_type_comes_from_resolved_parameters_not_connector(
+    _, mock_conn, runner, config_file
+):
+    """A connection with no _authenticator still reports the resolved auth type."""
+    mock_conn.return_value = _ConnectionWithoutAuthenticator()
+    with config_file(_JWT_CONFIG) as config:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            result = runner.invoke_with_config_file(config, ["connection", "test"])
 
     assert result.exit_code == 0, result.output
-    usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
-    )
+    connection = mock_conn.return_value
+    messages = _telemetry_messages(connection)
+    assert messages
+    assert {message["command_auth_type"] for message in messages} == {"key_pair"}
+    mock_conn.reset_mock()
+    connection._telemetry.reset_mock()  # noqa: SLF001
+    with config_file(_JWT_CONFIG) as config:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            again = runner.invoke_with_config_file(config, ["connection", "test"])
+    assert again.exit_code == 0, again.output
+    # The cached connection is reused, so the second command does not connect
+    # again and still reports the auth type recorded for that connection.
+    mock_conn.assert_not_called()
+    again_messages = _telemetry_messages(connection)
+    assert again_messages
+    assert {message["command_auth_type"] for message in again_messages} == {"key_pair"}
 
-    assert usage_command_event["message"]["command_auth_type"] == "key_pair"
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_env_only_oauth_client_is_authorization_code_and_secrets_stay_out(
+    _, mock_conn, runner, config_file
+):
+    """Client id and secret set only through the environment select the custom client.
+
+    The sentinel values must not appear in the telemetry payload.
+    """
+    mock_conn.return_value = _ConnectionWithoutAuthenticator()
+    sentinels = ("sentinel-client-id", "sentinel-client-secret")
+    with config_file(_OAUTH_CODE_CONFIG) as config:
+        with mock.patch.dict(
+            os.environ,
+            {
+                "SNOWFLAKE_OAUTH_CLIENT_ID": sentinels[0],
+                "SNOWFLAKE_OAUTH_CLIENT_SECRET": sentinels[1],
+            },
+            clear=True,
+        ):
+            result = runner.invoke_with_config_file(config, ["connection", "test"])
+
+    assert result.exit_code == 0, result.output
+    messages = _telemetry_messages(mock_conn.return_value)
+    assert messages
+    assert {message["command_auth_type"] for message in messages} == {
+        "oauth_authorization_code"
+    }
+    serialized = repr(messages)
+    for sentinel in sentinels:
+        assert sentinel not in serialized
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_external_session_tokens_report_external_session_and_stay_out_of_payload(
+    _, mock_conn, runner, config_file
+):
+    """session_token plus master_token wins over a configured authenticator."""
+    mock_conn.return_value = _ConnectionWithoutAuthenticator()
+    sentinels = ("sentinel-session-token", "sentinel-master-token")
+    with config_file(_EXTERNAL_SESSION_CONFIG) as config:
+        with mock.patch.dict(os.environ, {}, clear=True):
+            result = runner.invoke_with_config_file(config, ["connection", "test"])
+
+    assert result.exit_code == 0, result.output
+    messages = _telemetry_messages(mock_conn.return_value)
+    assert messages
+    assert {message["command_auth_type"] for message in messages} == {
+        "external_session"
+    }
+    serialized = repr(messages)
+    for sentinel in sentinels:
+        assert sentinel not in serialized
 
 
 def test_sf_gitlab_component_takes_priority_over_gitlab_ci():
@@ -1017,12 +1533,9 @@ def test_flags_from_parent_contexts_are_captured(mock_uuid4, mock_connect, runne
 
     assert result.exit_code == 0, result.output
 
+    telemetry = mock_connect.return_value._telemetry  # noqa: SLF001
     usage_command_event = (
-        mock_connect.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
+        telemetry.try_add_log_to_batch.call_args_list[0].args[0].to_dict()
     )
 
     command_flags = usage_command_event["message"]["command_flags"]
@@ -1056,12 +1569,19 @@ def test_telemetry_does_not_open_connection_for_interactive_authenticator(
     for one to get the connector's telemetry channel -- which for externalbrowser
     launched a browser on every command and hung headless/CI runs.
     """
-    with config_file(_INTERACTIVE_CONFIG) as config:
-        with mock.patch.dict(os.environ, {}, clear=True):
-            result = runner.invoke_with_config_file(config, ["connection", "list"])
+    for authenticator in (
+        "externalbrowser",
+        "oauth_authorization_code",
+        "username_password_mfa",
+    ):
+        mock_connect.reset_mock()
+        config_text = _INTERACTIVE_CONFIG.replace("externalbrowser", authenticator)
+        with config_file(config_text) as config:
+            with mock.patch.dict(os.environ, {}, clear=True):
+                result = runner.invoke_with_config_file(config, ["connection", "list"])
 
-    assert result.exit_code == 0, result.output
-    mock_connect.assert_not_called()
+        assert result.exit_code == 0, result.output
+        mock_connect.assert_not_called()
 
 
 @mock.patch("snowflake.connector.connect")
@@ -1125,3 +1645,323 @@ def test_get_auth_type_does_not_open_connection(mock_connect):
 
     assert _get_auth_type() == ""
     mock_connect.assert_not_called()
+
+
+# Resolved connect() parameters after config, flags and SNOWFLAKE_* env merge.
+# Expected tokens are literals from SNOW-4389588, not recomputed by the test.
+_AUTH_TYPE_CASES = [
+    ({"authenticator": "OAUTH"}, "oauth"),
+    ({"authenticator": "oauth"}, "oauth"),
+    ({"authenticator": "OAUTH", "oauth_client_id": "custom-client"}, "oauth"),
+    ({"authenticator": "OAUTH_AUTHORIZATION_CODE"}, "oauth_local_application"),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "",
+            "oauth_client_secret": None,
+        },
+        "oauth_local_application",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "LOCAL_APPLICATION",
+        },
+        "oauth_local_application",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "LOCAL_APPLICATION",
+            "oauth_client_secret": "LOCAL_APPLICATION",
+        },
+        "oauth_local_application",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "LOCAL_APPLICATION",
+            "oauth_client_secret": "",
+        },
+        "oauth_local_application",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "other-client",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_secret": "other-secret",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "LOCAL_APPLICATION",
+            "oauth_client_secret": "other-secret",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "other-client",
+            "oauth_client_secret": "LOCAL_APPLICATION",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {
+            "authenticator": "OAUTH_AUTHORIZATION_CODE",
+            "oauth_client_id": "local_application",
+        },
+        "oauth_authorization_code",
+    ),
+    (
+        {"authenticator": "OAUTH_CLIENT_CREDENTIALS"},
+        "oauth_client_credentials",
+    ),
+    (
+        {"authenticator": "oauth_client_credentials"},
+        "oauth_client_credentials",
+    ),
+    (
+        {"session_token": "session-value", "master_token": "master-value"},
+        "external_session",
+    ),
+    (
+        {
+            "authenticator": "SNOWFLAKE_JWT",
+            "session_token": "session-value",
+            "master_token": "master-value",
+        },
+        "external_session",
+    ),
+    (
+        {
+            "authenticator": "PAT_WITH_EXTERNAL_SESSION",
+            "session_token": "session-value",
+            "master_token": "master-value",
+        },
+        "external_session",
+    ),
+    (
+        {"session_token": "session-value"},
+        "password",
+    ),
+    (
+        {"session_token": "   ", "master_token": "master-value"},
+        "password",
+    ),
+    ({"authenticator": "PAT_WITH_EXTERNAL_SESSION"}, "programmatic_access_token"),
+    ({"authenticator": "SNOWFLAKE"}, "password"),
+    ({}, "password"),
+    ({"authenticator": "SNOWFLAKE_JWT"}, "key_pair"),
+    ({"authenticator": "  SNOWFLAKE_JWT  "}, "key_pair"),
+    ({"authenticator": "EXTERNALBROWSER"}, "externalbrowser"),
+    ({"authenticator": "USERNAME_PASSWORD_MFA"}, "username_password_mfa"),
+    ({"authenticator": "PROGRAMMATIC_ACCESS_TOKEN"}, "programmatic_access_token"),
+    ({"authenticator": "WORKLOAD_IDENTITY"}, "workload_identity"),
+    ({"authenticator": "https://example.okta.com"}, "okta"),
+    ({"authenticator": "SOME_FUTURE_AUTH"}, "some_future_auth"),
+]
+
+
+@pytest.mark.parametrize("parameters, expected", _AUTH_TYPE_CASES)
+def test_resolved_connection_parameters_set_command_auth_type(parameters, expected):
+    """command_auth_type comes from the parameters passed to connect()."""
+    from snowflake.cli._app.telemetry import (
+        _auth_type_by_connection_id,
+        _classify_auth_type,
+        _get_auth_type,
+        bind_connection_auth_type,
+    )
+    from snowflake.connector.connection import SnowflakeConnection
+
+    assert _classify_auth_type(parameters) == expected
+
+    connection = SnowflakeConnection.__new__(SnowflakeConnection)
+    try:
+        bind_connection_auth_type(connection, parameters)
+        context = mock.Mock()
+        context.connection_if_open = connection
+        with mock.patch(
+            "snowflake.cli._app.telemetry.get_cli_context", return_value=context
+        ):
+            assert _get_auth_type() == expected
+        # An uninitialized connection has no _authenticator on connector 4 or 5.
+        assert not hasattr(connection, "_authenticator")
+    finally:
+        _auth_type_by_connection_id.pop(id(connection), None)
+
+
+class _LoginCursor:
+    def __init__(self, user: str):
+        self._user = user
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def execute(self, _query, *_args, **_kwargs):
+        return self
+
+    def fetchone(self):
+        return (self._user,)
+
+
+class _LoginConnection:
+    def __init__(self, user: str):
+        self._user = user
+        self._telemetry = mock.Mock()
+        self.closed = False
+
+    def cursor(self):
+        return _LoginCursor(self._user)
+
+    def close(self):
+        self.closed = True
+
+
+def test_successful_auth_login_reports_local_oauth(runner, config_file, monkeypatch):
+    """A finished snow auth login records oauth_local_application on its events."""
+    users = ["JDOE", "JDOE"]
+    connections: list[_LoginConnection] = []
+
+    def connect(**_kwargs):
+        connection = _LoginConnection(users.pop(0))
+        connections.append(connection)
+        return connection
+
+    monkeypatch.setattr("snowflake.connector.connect", connect)
+    with config_file(_SILENT_CONFIG) as config:
+        with with_feature_flags({FeatureFlag.ENABLE_AUTH_COMMANDS: True}):
+            result = runner.invoke_with_config_file(
+                config, ["auth", "login", "myorg-myacct"]
+            )
+
+    assert result.exit_code == 0, result.output
+    assert len(connections) == 2
+    discovery, caching = connections
+    assert discovery._telemetry.try_add_log_to_batch.call_count == 0  # noqa: SLF001
+    messages = _telemetry_messages(caching)
+    assert messages
+    assert {message["command_auth_type"] for message in messages} == {
+        "oauth_local_application"
+    }
+    assert all(message["command"] == ["auth", "login"] for message in messages)
+    assert discovery.closed
+    assert caching.closed
+
+
+def test_failed_auth_login_does_not_report_local_oauth(
+    runner, config_file, monkeypatch
+):
+    """A rejected snow auth login does not record oauth_local_application."""
+    from snowflake.cli._app.telemetry import CLITelemetryClient
+    from snowflake.connector.errors import Error as SnowflakeError
+
+    recorded: list[str] = []
+    original = CLITelemetryClient.generate_telemetry_data_dict
+
+    def spy(payload, command_info=None):
+        data = original(payload, command_info=command_info)
+        recorded.append(data.get("command_auth_type", ""))
+        return data
+
+    def connect(**_kwargs):
+        raise SnowflakeError("The account refused the sign-in.")
+
+    monkeypatch.setattr("snowflake.connector.connect", connect)
+    monkeypatch.setattr(
+        CLITelemetryClient, "generate_telemetry_data_dict", staticmethod(spy)
+    )
+    with config_file(_SILENT_CONFIG) as config:
+        with with_feature_flags({FeatureFlag.ENABLE_AUTH_COMMANDS: True}):
+            result = runner.invoke_with_config_file(
+                config, ["auth", "login", "myorg-myacct"]
+            )
+
+    assert result.exit_code != 0, result.output
+    assert recorded
+    assert set(recorded) == {""}
+
+
+class TestAppYmlRuntimeTelemetry:
+    """``snow app`` result events carry the app.yml runtime fields."""
+
+    @mock.patch("snowflake.connector.connect")
+    def test_streamlit_app_yml_v2(self, mock_conn, project_directory, runner):
+        with project_directory("snowflake_app_yml_streamlit"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        events = _get_telemetry_events(mock_conn)
+        _assert_executing_event_has_no_app_flow(events)
+        results = [
+            e["message"]
+            for e in events
+            if e["message"]["type"] == "result_executing_command"
+        ]
+        assert results
+        for message in results:
+            assert message["app_flow"] == "snowflake_app"
+            assert message["app_runtime"] == "python"
+            assert message["app_streamlit"] is True
+            for dropped in (
+                "app_runtime_source",
+                "app_template_type",
+                "app_template_version",
+                "app_created_by",
+                "app_template",
+            ):
+                assert dropped not in message
+        for event in events:
+            if event["message"]["type"] == "executing_command":
+                assert "app_runtime" not in event["message"]
+
+    @mock.patch("snowflake.connector.connect")
+    def test_nextjs_versionless_app_yml_with_snowflake_yml(
+        self, mock_conn, project_directory, runner
+    ):
+        with project_directory("snowflake_app_nextjs_versionless"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        events = _get_telemetry_events(mock_conn)
+        results = [
+            e["message"]
+            for e in events
+            if e["message"]["type"] == "result_executing_command"
+        ]
+        assert results
+        for message in results:
+            assert message["app_flow"] == "snowflake_app"
+            assert message["app_runtime"] == "node"
+            assert message["app_streamlit"] is False
+            assert "app_template" not in message
+
+    @mock.patch("snowflake.connector.connect")
+    def test_absent_without_app_yml(self, mock_conn, project_directory, runner):
+        with project_directory("snowflake_app_v2"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        for event in _get_telemetry_events(mock_conn):
+            assert not [
+                k for k in event["message"] if k.startswith("app_") and k != "app_flow"
+            ]
+
+    @mock.patch("snowflake.connector.connect")
+    def test_absent_for_native_app(self, mock_conn, project_directory, runner):
+        with project_directory("napp_post_deploy_missing_file"):
+            runner.invoke(["app", "bundle"], catch_exceptions=False)
+
+        for event in _get_telemetry_events(mock_conn):
+            assert not [
+                k for k in event["message"] if k.startswith("app_") and k != "app_flow"
+            ]

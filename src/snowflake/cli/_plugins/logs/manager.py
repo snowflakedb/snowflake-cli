@@ -1,3 +1,4 @@
+import re
 import time
 from datetime import datetime
 from textwrap import dedent
@@ -14,6 +15,27 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import escape_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
+
+
+def _logs_string_literal(value: str) -> str:
+    """Quote ``value`` so ``execute_stream`` keeps it in one string literal.
+
+    ``split_statements`` reads ``\\'`` as an escaped quote. An odd run of
+    backslashes before ``''`` therefore ends the literal early. One extra
+    backslash makes that run even. Even runs already stay in the literal;
+    leaving them unchanged keeps the query matched to that object name.
+    """
+
+    def _pad_odd_run(match: re.Match[str]) -> str:
+        slashes = match.group(1)
+        if len(slashes) % 2 == 1:
+            slashes += "\\"
+        return slashes + "''"
+
+    escaped = re.sub(r"(\\*)'", _pad_odd_run, value)
+    if (len(escaped) - len(escaped.rstrip("\\"))) % 2 == 1:
+        escaped += "\\"
+    return f"'{escaped}'"
 
 
 class LogsManager(SqlExecutionMixin):
@@ -90,19 +112,14 @@ class LogsManager(SqlExecutionMixin):
 
         table = event_table if event_table else "SNOWFLAKE.TELEMETRY.EVENTS"
 
-        # Escape single quotes in object_name to prevent SQL injection
-        escaped_object_name = str(object_name).replace("'", "''")
-
-        # Build the object name condition based on partial_match flag
+        object_name_text = str(object_name)
         if partial_match:
-            # Use ILIKE for case-insensitive partial matching with wildcards
-            escaped_pattern = escape_like_pattern(
-                escaped_object_name, escape_sequence="\\"
+            like_pattern = (
+                "%" + escape_like_pattern(object_name_text, escape_sequence="\\") + "%"
             )
-            object_condition = f"object_name ILIKE '%{escaped_pattern}%'"
+            object_condition = f"object_name ILIKE {_logs_string_literal(like_pattern)}"
         else:
-            # Use exact match (original behavior)
-            object_condition = f"object_name = '{escaped_object_name}'"
+            object_condition = f"object_name = {_logs_string_literal(object_name_text)}"
 
         query = dedent(
             f"""

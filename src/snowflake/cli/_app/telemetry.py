@@ -20,7 +20,19 @@ import re
 import sys
 import threading
 from enum import Enum, unique
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import click
 import typer
@@ -36,7 +48,11 @@ from snowflake.cli.api.config import get_feature_flags_section
 from snowflake.cli.api.constants import TELEMETRY_PENDING_LIMIT
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.utils.error_handling import ignore_exceptions
-from snowflake.cli.api.utils.tty import is_tty_interactive
+from snowflake.cli.api.utils.tty import (
+    is_stdin_tty,
+    is_stdout_tty,
+    is_tty_interactive,
+)
 from snowflake.connector import ProgrammingError
 from snowflake.connector.telemetry import (
     TelemetryData,
@@ -71,6 +87,12 @@ class CLITelemetryField(Enum):
     COMMAND_AUTH_TYPE = "command_auth_type"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     COMMAND_AGENT_SESSION_ID = "command_agent_session_id"
+    # Observed _AGENT_INDICATORS tokens, never variable values. The version
+    # tells "not observed" apart from "not checked by this CLI version".
+    COMMAND_AGENT_INDICATORS = "command_agent_indicators"
+    COMMAND_AGENT_INDICATORS_VERSION = "command_agent_indicators_version"
+    COMMAND_STDIN_TTY = "command_stdin_tty"
+    COMMAND_STDOUT_TTY = "command_stdout_tty"
     COMMAND_CORTEX_CLIENT_SURFACE = "command_cortex_client_surface"
     COMMAND_CORTEX_TERMINAL_LAUNCHER = "command_cortex_terminal_launcher"
     # Configuration
@@ -109,6 +131,13 @@ class CLITelemetryField(Enum):
     # the flow on the executing_command event should join on
     # COMMAND_EXECUTION_ID across the three events for an invocation.
     APP_FLOW = "app_flow"
+    # Runtime facts from a Snowflake App Runtime ``app.yml``. Emitted next to
+    # APP_FLOW (so, like it, only on result/error events) when app_flow is
+    # "snowflake_app" and an app.yml was loaded:
+    #   app_runtime          "python" | "node"
+    #   app_streamlit        bool, the app.yml ``streamlit`` flag
+    APP_RUNTIME = "app_runtime"
+    APP_STREAMLIT = "app_streamlit"
     # snow upgrade / auto-upgrade (spooled until a connection exists)
     UPGRADE_TRIGGER = "upgrade_trigger"
     UPGRADE_STATUS = "upgrade_status"
@@ -126,6 +155,7 @@ class TelemetryEvent(Enum):
     CMD_EXECUTION_RESULT = "result_executing_command"
     UPGRADE = "upgrade"
     REPL_COMPLETION = "repl_completion"
+    CLI_USER_FEEDBACK = "cli_user_feedback"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -215,6 +245,8 @@ def _find_command_info() -> TelemetryDict:
     app_flow = _get_app_flow()
     if app_flow is not None:
         info[CLITelemetryField.APP_FLOW] = app_flow
+        if app_flow == "snowflake_app":
+            info.update(_get_app_yml_telemetry())
 
     return info
 
@@ -271,6 +303,30 @@ def _get_app_flow() -> str | None:
         # contrived test scenarios where the manager was reset). Treat as
         # "no flow recorded" rather than failing the whole telemetry call.
         return None
+
+
+_APP_YML_RUNTIMES = ("python", "node")
+
+
+def _get_app_yml_telemetry() -> TelemetryDict:
+    """Return the sanitized ``app.yml`` runtime fields for the current command.
+
+    Reads what ``load_app_yml`` recorded on the CLI context; the runtime is
+    checked against a closed set here, at the point of sending. Never raises;
+    returns an empty dict when nothing was recorded.
+    """
+    try:
+        raw = get_cli_context().app_yml_info
+        if not raw:
+            return {}
+        info: TelemetryDict = {}
+        runtime = raw.get("runtime")
+        if runtime in _APP_YML_RUNTIMES:
+            info[CLITelemetryField.APP_RUNTIME] = runtime
+            info[CLITelemetryField.APP_STREAMLIT] = raw.get("streamlit") is True
+        return info
+    except Exception:
+        return {}
 
 
 def _is_env_truthy(name: str) -> bool:
@@ -340,36 +396,50 @@ def _get_ci_auth_type() -> str:
     return os.environ.get("SF_CICD_AUTH_TYPE", "").strip().lower()
 
 
-# Maps the connector's resolved authenticator (SnowflakeConnection._authenticator,
-# a normalized upper-case token) to a stable, low-cardinality telemetry value. The
+# Maps an authenticator token to a stable, low-cardinality telemetry value. The
 # vocabulary is deliberately aligned with the command_ci_auth_type tokens (see
 # _get_ci_auth_type) so the CI-declared and the actually-resolved auth types can be
 # analyzed together. The set is open: an unrecognized non-empty token is passed
 # through lower-cased rather than dropped, mirroring how the CI field treats
 # unknown values.
+#
+# OAUTH_AUTHORIZATION_CODE is absent on purpose. Local OAuth and a custom
+# authorization-code client share that authenticator; _classify_auth_type splits
+# them using the client id and secret. snow auth list (_is_local_oauth) treats
+# the literal LOCAL_APPLICATION as a custom client. Telemetry treats that literal
+# as the connector's built-in client.
+_LOCAL_APPLICATION_CLIENT = "LOCAL_APPLICATION"
 _AUTH_TYPE_BY_AUTHENTICATOR = {
     "SNOWFLAKE": "password",
     "SNOWFLAKE_JWT": "key_pair",
     "EXTERNALBROWSER": "externalbrowser",
     "OAUTH": "oauth",
-    "OAUTH_AUTHORIZATION_CODE": "oauth",
-    "OAUTH_CLIENT_CREDENTIALS": "oauth",
+    "OAUTH_CLIENT_CREDENTIALS": "oauth_client_credentials",
     "USERNAME_PASSWORD_MFA": "username_password_mfa",
     "PROGRAMMATIC_ACCESS_TOKEN": "programmatic_access_token",
     "PAT_WITH_EXTERNAL_SESSION": "programmatic_access_token",
     "WORKLOAD_IDENTITY": "workload_identity",
 }
 
+# Auth type for connections opened by connect_to_snowflake, keyed by id().
+# Connector 5's connection class has __slots__ and no _authenticator, so the
+# value cannot live on the connection object. The entry stays after the
+# command so a cached connection can be reused without connecting again.
+_auth_type_by_connection_id: Dict[int, str] = {}
+
+# snow auth login connects outside the CLI context. The caching connection is
+# held here so the command's own events can leave on it, then closed at flush.
+_login_connection: Any = None
+_login_auth_type: Optional[str] = None
+
 
 def _normalize_auth_type(authenticator: str) -> str:
-    """Normalize a connector authenticator token to a telemetry-safe auth type.
+    """Normalize an authenticator token to a telemetry-safe auth type.
 
-    ``authenticator`` is the value the connector resolved
-    (``SnowflakeConnection._authenticator``). Known tokens map to the shared
-    vocabulary; the Okta authenticator -- whose token is the customer's Okta
-    *URL* -- is collapsed to ``"okta"`` so the URL never reaches telemetry.
-    Unrecognized non-empty tokens are passed through lower-cased; a blank value
-    yields ``""``.
+    Known tokens map to the shared vocabulary; the Okta authenticator, whose
+    token is the customer's Okta URL, is collapsed to ``"okta"`` so the URL
+    never reaches telemetry. Unrecognized non-empty tokens are passed through
+    lower-cased; a blank value yields ``""``.
     """
     token = authenticator.strip()
     if not token:
@@ -384,36 +454,134 @@ def _normalize_auth_type(authenticator: str) -> str:
     return token.lower()
 
 
-def _get_auth_type() -> str:
-    """Get the authentication type actually used for the current command.
+def _parameter_text(value: Any) -> Optional[str]:
+    """Stripped connect parameter, or None when it is unset or not a string."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    return text or None
 
-    Reads the authenticator the connector resolved on the live connection --
-    after config, CLI flags and ``SNOWFLAKE_*`` env vars are merged and the
-    default applied -- so it reflects what was really used rather than only what
-    was explicitly configured (``connection_context.authenticator`` is unset for
-    the default password case and for env-var-driven auth). Unlike
-    ``command_ci_auth_type`` this is not limited to the official CI/CD
-    integrations: it is recorded for every command that opens a connection,
-    which is what telemetry needs to segment auth usage (password vs key_pair vs
-    oauth vs externalbrowser vs ...).
 
-    Reads the connection only if one is *already* open: telemetry must never be
-    the reason the CLI authenticates. ``get_cli_context().connection`` is lazy and
-    would dial on a miss, which for externalbrowser/OAuth means launching a
-    browser -- and the payload is also built for the pre-command event, before the
-    command body has connected. So the field is empty on the pre-command event and
-    populated on the post-command one, where the connection genuinely exists. Any
-    failure, no open connection, or a connection that does not expose a string
-    authenticator yields ``""``.
+def _is_local_application_client(value: Any) -> bool:
+    """True when the client id or secret is unset or exactly LOCAL_APPLICATION."""
+    text = _parameter_text(value)
+    return text is None or text == _LOCAL_APPLICATION_CLIENT
+
+
+def _classify_auth_type(parameters: Mapping[str, Any]) -> str:
+    """Map resolved ``connect()`` parameters to ``command_auth_type``.
+
+    Both ``session_token`` and ``master_token`` set means an externally
+    provided session, whichever authenticator is configured. A missing
+    authenticator is the connector default, password. This runs only after a
+    connection has opened, so the field is not left blank for that default.
+    """
+    if _parameter_text(parameters.get("session_token")) and _parameter_text(
+        parameters.get("master_token")
+    ):
+        return "external_session"
+    authenticator = _parameter_text(parameters.get("authenticator")) or "SNOWFLAKE"
+    if authenticator.upper() == "OAUTH_AUTHORIZATION_CODE":
+        client_id = parameters.get("oauth_client_id")
+        client_secret = parameters.get("oauth_client_secret")
+        if _is_local_application_client(client_id) and _is_local_application_client(
+            client_secret
+        ):
+            return "oauth_local_application"
+        return "oauth_authorization_code"
+    return _normalize_auth_type(authenticator)
+
+
+def bind_connection_auth_type(connection: Any, parameters: Mapping[str, Any]) -> None:
+    """Remember the auth type for a connection ``connect_to_snowflake`` opened.
+
+    Stores only the classified token. The parameters themselves, including
+    tokens and client secrets, are not retained. Failures are ignored so
+    telemetry cannot break the connection.
     """
     try:
+        _auth_type_by_connection_id[id(connection)] = _classify_auth_type(parameters)
+    except Exception:
+        return
+
+
+def hold_login_connection(connection: Any, parameters: Mapping[str, Any]) -> None:
+    """Keep ``snow auth login``'s caching connection until telemetry flushes.
+
+    The login command connects outside the CLI context. Holding this connection
+    lets the command's own events leave on it. ``release_command_connection``
+    closes it.
+    """
+    global _login_connection, _login_auth_type
+    try:
+        auth_type = _classify_auth_type(parameters)
+    except Exception:
+        _close_quietly(connection)
+        return
+    _login_auth_type = auth_type
+    _login_connection = connection
+
+
+def release_command_connection() -> None:
+    """Close a held login connection.
+
+    Auth types for connections opened through ``connect_to_snowflake`` stay
+    recorded. A later command in this process can reuse the cached connection
+    without connecting again, and still needs the type.
+    """
+    global _login_connection, _login_auth_type
+    connection = _login_connection
+    _login_connection = None
+    _login_auth_type = None
+    _close_quietly(connection)
+
+
+def _close_quietly(connection: Any) -> None:
+    if connection is None:
+        return
+    try:
+        connection.close()
+    except Exception:
+        return
+
+
+def _is_auth_login_command() -> bool:
+    try:
+        command = _find_command_info().get(CLITelemetryField.COMMAND)
+    except Exception:
+        return False
+    return command == ["auth", "login"]
+
+
+def _get_auth_type() -> str:
+    """Get the authentication type used for the current command.
+
+    The value is the classification of the parameters passed to
+    ``snowflake.connector.connect()`` after config, flags and ``SNOWFLAKE_*``
+    env vars are merged. It does not read connector attributes, so connector 4
+    and connector 5 report the same token.
+
+    Reads a connection only if one is already open: telemetry must never be
+    the reason the CLI authenticates. ``get_cli_context().connection`` is lazy
+    and would dial on a miss, which for externalbrowser or OAuth means
+    launching a browser. The payload is also built for the pre-command event,
+    before the command body has connected, so the field is empty then and
+    filled on drain once a connection exists. Any failure or no open
+    connection yields ``""``.
+
+    ``snow auth login`` connects outside the CLI context. Until that sign-in
+    succeeds the field stays empty, including when the attempt fails. A
+    success reports the classification of the caching connect.
+    """
+    try:
+        if _is_auth_login_command():
+            return _login_auth_type or ""
         connection = get_cli_context().connection_if_open
+        if connection is None:
+            return ""
+        return _auth_type_by_connection_id.get(id(connection), "")
     except Exception:
         return ""
-    authenticator = getattr(connection, "_authenticator", None)
-    if not isinstance(authenticator, str):
-        return ""
-    return _normalize_auth_type(authenticator)
 
 
 # Authenticators whose login flow needs a human present: opening a connection
@@ -499,43 +667,197 @@ def _get_cortex_terminal_launcher() -> str:
     )
 
 
-def _is_cortex_environment() -> bool:
-    if "CORTEX_SESSION_ID" in os.environ:
-        return True
-    if _get_cortex_client_surface():
-        return True
-    if _get_cortex_terminal_launcher():
-        return True
-    return _is_env_truthy("COCO_AGENT")
+def _is_env_set(name: str) -> bool:
+    """Check if an environment variable is set to a non-empty value."""
+    return bool(os.environ.get(name, "").strip())
+
+
+def _is_env_equal(name: str, value: str) -> bool:
+    return os.environ.get(name, "").strip() == value
+
+
+_PI_AGENT_PATH_RE = re.compile(r"\.pi[\\/]agent")
+_DEVIN_MARKER_PATH = "/opt/.devin"
+
+AGENT_INDICATORS_VERSION = 1
+
+# Dashboards depend on these tokens: do not rename them, and bump
+# AGENT_INDICATORS_VERSION on any change.
+_AGENT_INDICATORS: Tuple[Tuple[str, Callable[[], bool]], ...] = (
+    ("cortex.session_id", lambda: "CORTEX_SESSION_ID" in os.environ),
+    ("cortex.client_surface", lambda: bool(_get_cortex_client_surface())),
+    ("cortex.terminal_launcher", lambda: bool(_get_cortex_terminal_launcher())),
+    ("cortex.coco_agent", lambda: _is_env_truthy("COCO_AGENT")),
+    ("cursor.agent", lambda: _is_env_truthy("CURSOR_AGENT")),
+    (
+        "cursor.agent_exec",
+        lambda: _is_env_equal("CURSOR_EXTENSION_HOST_ROLE", "agent-exec"),
+    ),
+    # Also set in human Cursor IDE terminals.
+    ("cursor.ide_terminal", lambda: _is_env_set("CURSOR_TRACE_ID")),
+    ("claude_code.cowork", lambda: _is_env_set("CLAUDE_CODE_IS_COWORK")),
+    ("claude_code.claudecode", lambda: _is_env_truthy("CLAUDECODE")),
+    ("claude_code.claude_code", lambda: _is_env_set("CLAUDE_CODE")),
+    # Inherited by every process a Claude Code session starts.
+    ("claude_code.session_id", lambda: _is_env_set("CLAUDE_CODE_SESSION_ID")),
+    ("gemini_cli.flag", lambda: _is_env_truthy("GEMINI_CLI")),
+    ("opencode.flag", lambda: _is_env_truthy("OPENCODE")),
+    ("opencode.client", lambda: _is_env_set("OPENCODE_CLIENT")),
+    ("codex.api_key", lambda: "CODEX_API_KEY" in os.environ),
+    ("codex.sandbox", lambda: _is_env_set("CODEX_SANDBOX")),
+    ("codex.ci", lambda: _is_env_set("CODEX_CI")),
+    ("codex.thread", lambda: _is_env_set("CODEX_THREAD_ID")),
+    (
+        "codex.sandbox_network_disabled",
+        lambda: _is_env_set("CODEX_SANDBOX_NETWORK_DISABLED"),
+    ),
+    ("copilot_cli.flag", lambda: _is_env_truthy("COPILOT_CLI")),
+    # *_setting tokens are user settings, often exported in shell profiles.
+    ("copilot_cli.model_setting", lambda: _is_env_set("COPILOT_MODEL")),
+    ("copilot_cli.allow_all_setting", lambda: _is_env_set("COPILOT_ALLOW_ALL")),
+    ("kimi.plugin_hook", lambda: _is_env_set("KIMI_PLUGIN_ROOT")),
+    # Other GROK_AGENT values name an agent definition, not a terminal.
+    ("grok.agent_terminal", lambda: _is_env_equal("GROK_AGENT", "1")),
+    ("grok.plugin_root", lambda: _is_env_set("GROK_PLUGIN_ROOT")),
+    ("grok.plugin_data", lambda: _is_env_set("GROK_PLUGIN_DATA")),
+    ("cline.active", lambda: _is_env_set("CLINE_ACTIVE")),
+    ("antigravity.agent", lambda: _is_env_set("ANTIGRAVITY_AGENT")),
+    ("antigravity.cli_alias", lambda: _is_env_set("ANTIGRAVITY_CLI_ALIAS")),
+    ("augment.agent", lambda: _is_env_set("AUGMENT_AGENT")),
+    ("goose.terminal", lambda: _is_env_equal("GOOSE_TERMINAL", "1")),
+    ("goose.provider_setting", lambda: _is_env_set("GOOSE_PROVIDER")),
+    ("junie.data_setting", lambda: _is_env_set("JUNIE_DATA")),
+    ("junie.shim", lambda: _is_env_set("JUNIE_SHIM_PATH")),
+    ("pi.path", lambda: bool(_PI_AGENT_PATH_RE.search(os.environ.get("PATH", "")))),
+    # Set in every Replit shell, human or agent.
+    ("replit.repl", lambda: _is_env_set("REPL_ID")),
+    ("kiro.term_program", lambda: "kiro" in os.environ.get("TERM_PROGRAM", "").lower()),
+    ("openclaw.shell", lambda: _is_env_set("OPENCLAW_SHELL")),
+    ("devin.marker_file", lambda: os.path.exists(_DEVIN_MARKER_PATH)),
+    ("ai_agent.declared", lambda: _is_env_set("AI_AGENT")),
+)
+
+
+class _AgentSignals(NamedTuple):
+    indicators: FrozenSet[str]
+    stdout_tty: bool
+
+    def has_any(self, *tokens: str) -> bool:
+        return not self.indicators.isdisjoint(tokens)
+
+
+_CLAUDE_CODE_INDICATORS = ("claude_code.claudecode", "claude_code.claude_code")
+
+# First match wins, so more specific rules come first. Indicators also found in
+# human sessions (cursor.ide_terminal, claude_code.session_id, *_setting,
+# replit.repl) are reported but never decide the agent.
+_AGENT_RULES: Tuple[Tuple[str, Callable[[_AgentSignals], bool]], ...] = (
+    (
+        "CORTEX",
+        lambda s: s.has_any(
+            "cortex.session_id",
+            "cortex.client_surface",
+            "cortex.terminal_launcher",
+            "cortex.coco_agent",
+        ),
+    ),
+    ("CURSOR", lambda s: s.has_any("cursor.agent", "cursor.agent_exec")),
+    # Before Claude Code: Grok sessions also carry Claude Code variables.
+    (
+        "GROK",
+        lambda s: s.has_any(
+            "grok.agent_terminal", "grok.plugin_root", "grok.plugin_data"
+        ),
+    ),
+    (
+        "COWORK",
+        lambda s: s.has_any("claude_code.cowork")
+        and s.has_any(*_CLAUDE_CODE_INDICATORS),
+    ),
+    ("CLAUDE_CODE", lambda s: s.has_any(*_CLAUDE_CODE_INDICATORS)),
+    ("GEMINI_CLI", lambda s: s.has_any("gemini_cli.flag")),
+    ("OPENCODE", lambda s: s.has_any("opencode.flag", "opencode.client")),
+    (
+        "CODEX",
+        lambda s: s.has_any(
+            "codex.api_key",
+            "codex.sandbox",
+            "codex.ci",
+            "codex.thread",
+            "codex.sandbox_network_disabled",
+        ),
+    ),
+    ("COPILOT_CLI", lambda s: s.has_any("copilot_cli.flag")),
+    ("KIMI", lambda s: s.has_any("kimi.plugin_hook")),
+    ("CLINE", lambda s: s.has_any("cline.active")),
+    (
+        "ANTIGRAVITY",
+        lambda s: s.has_any("antigravity.agent", "antigravity.cli_alias"),
+    ),
+    ("AUGMENT_CLI", lambda s: s.has_any("augment.agent")),
+    ("GOOSE", lambda s: s.has_any("goose.terminal")),
+    ("JUNIE", lambda s: s.has_any("junie.shim")),
+    ("PI", lambda s: s.has_any("pi.path")),
+    # The Kiro IDE terminal sets TERM_PROGRAM too. Known gap: a person piping
+    # output there counts as Kiro.
+    ("KIRO", lambda s: s.has_any("kiro.term_program") and not s.stdout_tty),
+    ("OPENCLAW", lambda s: s.has_any("openclaw.shell")),
+    ("DEVIN", lambda s: s.has_any("devin.marker_file")),
+    # Generic standard for custom agents: any tool can set AI_AGENT to its name.
+    # Only the fixed "OTHER" value is reported, never the raw name, which is
+    # free text and would make telemetry unbounded.
+    ("OTHER", lambda s: s.has_any("ai_agent.declared")),
+)
+
+
+def _observe_agent_indicators() -> FrozenSet[str]:
+    return frozenset(token for token, check in _AGENT_INDICATORS if check())
+
+
+def _agent_from_signals(signals: _AgentSignals) -> str:
+    for agent, rule in _AGENT_RULES:
+        if rule(signals):
+            return agent
+    return "UNKNOWN"
 
 
 def _detect_agent_environment() -> str:
-    """Detect AI coding agent based on environment variables."""
-    if _is_cortex_environment():
-        return "CORTEX"
-    if _is_env_truthy("CURSOR_AGENT"):
-        return "CURSOR"
-    if _is_env_truthy("CLAUDECODE"):
-        return "CLAUDE_CODE"
-    if _is_env_truthy("GEMINI_CLI"):
-        return "GEMINI_CLI"
-    if _is_env_truthy("OPENCODE"):
-        return "OPENCODE"
-    if "CODEX_API_KEY" in os.environ:
-        return "CODEX"
-    if _is_env_truthy("COPILOT_CLI"):
-        return "COPILOT_CLI"
-    return "UNKNOWN"
+    """Return the first matching agent in _AGENT_RULES, or UNKNOWN."""
+    return _agent_from_signals(
+        _AgentSignals(_observe_agent_indicators(), is_stdout_tty())
+    )
+
+
+def is_coding_agent() -> bool:
+    """True when environment variables indicate an AI coding agent is driving the CLI."""
+    return _detect_agent_environment() != "UNKNOWN"
+
+
+def _session_id_for_agent(agent: str) -> str:
+    if agent == "CORTEX":
+        return os.environ.get("CORTEX_SESSION_ID", "").strip()
+    if agent in ("CLAUDE_CODE", "COWORK"):
+        return os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
+    return ""
 
 
 def _get_agent_session_id() -> str:
     """Return the detected agent's session ID, or empty string."""
-    agent = _detect_agent_environment()
-    if agent == "CORTEX":
-        return os.environ.get("CORTEX_SESSION_ID", "").strip()
-    if agent == "CLAUDE_CODE":
-        return os.environ.get("CLAUDE_CODE_SESSION_ID", "").strip()
-    return ""
+    return _session_id_for_agent(_detect_agent_environment())
+
+
+def _get_agent_telemetry() -> TelemetryDict:
+    indicators = _observe_agent_indicators()
+    stdout_tty = is_stdout_tty()
+    agent = _agent_from_signals(_AgentSignals(indicators, stdout_tty))
+    return {
+        CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: agent,
+        CLITelemetryField.COMMAND_AGENT_SESSION_ID: _session_id_for_agent(agent),
+        CLITelemetryField.COMMAND_AGENT_INDICATORS: sorted(indicators),
+        CLITelemetryField.COMMAND_AGENT_INDICATORS_VERSION: AGENT_INDICATORS_VERSION,
+        CLITelemetryField.COMMAND_STDIN_TTY: is_stdin_tty(),
+        CLITelemetryField.COMMAND_STDOUT_TTY: stdout_tty,
+    }
 
 
 def command_info() -> str:
@@ -632,8 +954,7 @@ class CLITelemetryClient:
             CLITelemetryField.COMMAND_CI_INTEGRATION_VERSION: _get_ci_integration_version(),
             CLITelemetryField.COMMAND_CI_AUTH_TYPE: _get_ci_auth_type(),
             CLITelemetryField.COMMAND_AUTH_TYPE: _get_auth_type(),
-            CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
-            CLITelemetryField.COMMAND_AGENT_SESSION_ID: _get_agent_session_id(),
+            **_get_agent_telemetry(),
             CLITelemetryField.COMMAND_CORTEX_CLIENT_SURFACE: _get_cortex_client_surface(),
             CLITelemetryField.COMMAND_CORTEX_TERMINAL_LAUNCHER: _get_cortex_terminal_launcher(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
@@ -660,6 +981,13 @@ class CLITelemetryClient:
         So prefer a connection that is already open, and only fall back to
         opening one when logging in is silent (_telemetry_may_open_connection).
         """
+        # Login connects outside the CLI context. Do not open the ambient
+        # connection to carry its events, and do not borrow one that is
+        # already open. A failed login therefore sends nothing.
+        if _is_auth_login_command():
+            if _login_connection is None:
+                return None
+            return getattr(_login_connection, "_telemetry", None)
         connection = self._ctx.connection_if_open
         if connection is None and _telemetry_may_open_connection():
             connection = self._ctx.connection
@@ -811,7 +1139,9 @@ class CLITelemetryClient:
             # that never opened a connection and can never be sent. Drop it:
             # this client is a module-level singleton, and leaving events queued
             # would attribute them to whatever command runs next in the same
-            # process.
+            # process. Release the login connection after send_batch so its
+            # channel stays open for the events just queued.
+            release_command_connection()
             with self._lock:
                 self._pending.clear()
 
@@ -881,3 +1211,27 @@ def log_command_execution_error(exception: Exception, execution: ExecutionMetada
 @ignore_exceptions()
 def flush_telemetry():
     _telemetry.flush()
+
+
+def send_cli_user_feedback(payload: Dict[str, Any]) -> None:
+    """Send an opted-in cli_user_feedback event.
+
+    Failures propagate so `snow feedback` can surface send_failed. Unlike
+    log_command_*, this is not wrapped in ignore_exceptions. The caller must
+    open a connection first; with no telemetry channel this raises.
+
+    Connector ``send_batch`` swallows transport errors and disables the
+    channel instead of raising, so we treat a post-flush disabled channel
+    as a failed send.
+    """
+    channel = _telemetry._telemetry  # noqa: SLF001
+    if channel is None:
+        raise RuntimeError("No telemetry channel available")
+    data: TelemetryDict = {
+        TelemetryField.KEY_TYPE: TelemetryEvent.CLI_USER_FEEDBACK.value,
+        **payload,  # type: ignore[dict-item]
+    }
+    _telemetry.send(data)
+    _telemetry.flush()
+    if not channel.is_enabled():
+        raise RuntimeError("Telemetry channel disabled")

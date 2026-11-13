@@ -133,6 +133,15 @@ _CNG_APP_YML = dedent(
     """
 )
 
+# Serverless target that also declares a Postgres binding.
+_CNG_POSTGRES_APP_YML = _CNG_APP_YML.replace(
+    "    health_check: /healthz\n",
+    "    health_check: /healthz\n"
+    "    postgres_instances:\n"
+    "      - instance: NATEST_PG\n"
+    "        name: ORDERS\n",
+)
+
 
 _PYTHON_APP_YML = dedent(
     """\
@@ -144,6 +153,7 @@ _PYTHON_APP_YML = dedent(
     package_name: PY_APP
     code_stage: SNOWFLAKE_APPS.PUBLIC.PY_CODE
     artifact_repo: SNOWFLAKE_APPS.PUBLIC.PY_REPO
+    runtime: python
     install:
       commands:
         - ["uv", "sync"]
@@ -229,47 +239,20 @@ class TestAppYmlDefinition:
         assert set(model.targets) == {"dev", "prod"}
 
     @pytest.mark.parametrize(
-        "phases, expected",
+        "fields, expected",
         [
-            pytest.param({}, False, id="node-defaults"),
+            pytest.param({}, False, id="node-default"),
+            pytest.param({"runtime": "python"}, True, id="declared-python"),
+            pytest.param({"runtime": "node"}, False, id="declared-node"),
             pytest.param(
-                {"install": {"commands": [["pip", "install", "-r", "req.txt"]]}},
-                True,
-                id="pip-install",
-            ),
-            pytest.param(
-                {"install": {"commands": [["npm", "ci"], ["uv", "sync"]]}},
-                True,
-                id="uv-in-later-command",
-            ),
-            pytest.param(
-                {"build": {"commands": [["pip3.12", "install", "."]]}},
-                True,
-                id="versioned-pip-build",
-            ),
-            pytest.param(
-                {"run": {"command": ["/usr/bin/python3", "-m", "app"]}},
-                True,
-                id="python-path-run",
-            ),
-            pytest.param(
-                {"dev": {"command": ["uvx", "fastapi", "dev"]}}, True, id="uvx-dev"
-            ),
-            pytest.param(
-                {"run": {"command": ["node", "pipeline.js"]}},
+                {"install": {"commands": [["uv", "sync"]]}},
                 False,
-                id="python-tool-only-as-argument",
+                id="python-commands-are-not-inspected",
             ),
-            pytest.param(
-                {"install": {"commands": [["pipenv", "install"]]}},
-                False,
-                id="similar-prefix-not-matched",
-            ),
-            pytest.param({"install": {"commands": [[]]}}, False, id="empty-command"),
         ],
     )
-    def test_is_python_runtime(self, phases, expected):
-        assert _definition(**phases).is_python_runtime is expected
+    def test_is_python_runtime(self, fields, expected):
+        assert _definition(**fields).is_python_runtime is expected
 
     def test_legacy_targets_default_key_rejected(self):
         # The pre-release form nested ``default`` under ``targets``; it is now a
@@ -1047,6 +1030,81 @@ class TestBuildServiceSpecification:
             SnowflakeAppManager.build_service_specification(target)
         )
         assert "health_check" not in default
+
+    def test_postgres_instances_emitted_only_when_included(self):
+        target = AppYmlTarget(
+            query_warehouse="WH",
+            postgres_instances=[
+                {"instance": "NATEST_PG", "name": "ORDERS"},
+                {
+                    "instance": "BILLING_PG",
+                    "name": "BILLING",
+                    "authentication_mode": "PASSWORD",
+                },
+            ],
+        )
+        included = yaml.safe_load(
+            SnowflakeAppManager.build_service_specification(
+                target, include_postgres_instances=True
+            )
+        )
+        assert included["postgres_instances"] == [
+            {"instance": "NATEST_PG", "name": "ORDERS"},
+            {
+                "instance": "BILLING_PG",
+                "name": "BILLING",
+                "authentication_mode": "password",
+            },
+        ]
+
+        default = yaml.safe_load(
+            SnowflakeAppManager.build_service_specification(target)
+        )
+        assert "postgres_instances" not in default
+
+    def test_postgres_instances_round_trip_from_yaml(self, tmp_path):
+        (tmp_path / "app.yml").write_text(
+            dedent(
+                """\
+                version: 2
+                name: NATEST_PG_APP
+                database: NATEST_DB
+                schema: NATEST_SCH
+                query_warehouse: NATEST_WH
+                compute_resource: SERVERLESS
+                postgres_instances:
+                  - instance: NATEST_PG
+                    name: ORDERS
+                """
+            )
+        )
+        _, target = resolve_target(load_app_yml(tmp_path), None)
+        spec = yaml.safe_load(
+            SnowflakeAppManager.build_service_specification(
+                target, include_postgres_instances=True
+            )
+        )
+        assert spec["postgres_instances"] == [
+            {"instance": "NATEST_PG", "name": "ORDERS"}
+        ]
+
+    def test_postgres_instance_rejects_unknown_key(self, tmp_path):
+        (tmp_path / APP_YML_FILENAME).write_text(
+            dedent(
+                """\
+                version: 2
+                name: NATEST_PG_APP
+                database: NATEST_DB
+                schema: NATEST_SCH
+                query_warehouse: NATEST_WH
+                postgres_instances:
+                  - instance: NATEST_PG
+                    authentication_modee: password
+                """
+            )
+        )
+        with pytest.raises(CliError, match="Extra inputs are not permitted"):
+            load_app_yml(tmp_path)
 
     def test_empty_target_produces_empty_spec(self):
         spec = yaml.safe_load(
@@ -1919,6 +1977,68 @@ class TestDeployFromAppYml:
         mock_cert.assert_not_called()
         mgr.create_or_alter_app_service.assert_not_called()
 
+    @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_postgres_instances_forwarded_for_serverless(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, mock_cert, tmp_path
+    ):
+        """A serverless target forwards the binding. The server accepts it only
+        when ENABLE_APP_SERVICE_CNG_POSTGRES is on."""
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_POSTGRES_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {"url": "cng.snowflakecomputing.app", "is_upgrading": "false"},
+        ]
+
+        snowflake_app_deploy(
+            None, False, False, False, interactive=False, target="prod"
+        )
+        spec = yaml.safe_load(
+            mgr.create_or_alter_app_service.call_args.kwargs["specification"]
+        )
+        assert spec["postgres_instances"] == [
+            {"instance": "NATEST_PG", "name": "ORDERS"}
+        ]
+
+    @patch(f"{_COMMANDS}._ensure_cng_url_cert_ready")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_postgres_instances_require_serverless(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_cert, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(
+            dedent(
+                """\
+                version: 2
+                name: NEXT_SIMPLE
+                database: TEMP
+                schema: next_simple
+                query_warehouse: DEFAULT
+                postgres_instances:
+                  - instance: NATEST_PG
+                    name: ORDERS
+                """
+            )
+        )
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        _make_manager_mock(mock_mgr_cls)
+
+        with pytest.raises(CliError, match="only valid when compute_resource"):
+            snowflake_app_deploy(
+                None, False, False, True, interactive=False, target=None
+            )
+
     @pytest.mark.parametrize(
         "target, compute_resource",
         [
@@ -2364,38 +2484,76 @@ class TestSharedCommandsFromAppYml:
             call()
 
 
-class TestCngHealthMonitoringDisabled:
-    """Event-table health monitoring is not available for serverless apps."""
+class TestCngHealthMonitoring:
+    """Serverless apps read the event table when the server can serve it."""
 
     @pytest.mark.parametrize(
-        "kwargs",
+        "kwargs, event_table_type",
         [
-            {"event_type": "metric"},
-            {"event_type": "lifecycle"},
-            {"since": "1h"},
-            {"until": "1h"},
-            {"event_type": "log", "since": "30m"},
+            ({"event_type": "metric"}, "METRIC"),
+            ({"event_type": "lifecycle"}, "EVENT"),
+            ({"since": "1h"}, "LOG"),
+            ({"until": "1h"}, "LOG"),
+            ({"event_type": "log", "since": "30m"}, "LOG"),
         ],
     )
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
-    def test_event_table_paths_rejected_for_serverless(
-        self, mock_ctx, mock_mgr_cls, kwargs, tmp_path
+    def test_event_table_paths_query_server_for_serverless(
+        self, mock_ctx, mock_mgr_cls, kwargs, event_table_type, tmp_path
     ):
         from snowflake.cli._plugins.apps.commands import snowflake_app_events
 
         (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
         mock_ctx.return_value = _make_ctx(tmp_path)
         mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.return_value = "[]"
+
+        snowflake_app_events(None, None, target="prod", **kwargs)
+
+        mgr.get_event_table_data.assert_called_once()
+        assert mgr.get_event_table_data.call_args.args[1] == event_table_type
+        mgr.get_service_logs.assert_not_called()
+
+    @pytest.mark.parametrize("errno", [2, 94550])
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_event_table_unavailable_for_serverless(
+        self, mock_ctx, mock_mgr_cls, errno, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+        from snowflake.connector.errors import ProgrammingError
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.side_effect = ProgrammingError(
+            "Event table data is not available", errno=errno
+        )
 
         with pytest.raises(
             CliError,
-            match="Health monitoring is not available for serverless apps",
+            match="Health monitoring is not yet available for serverless apps",
         ):
-            snowflake_app_events(None, None, target="prod", **kwargs)
+            snowflake_app_events(None, None, event_type="metric", target="prod")
 
-        mgr.get_event_table_data.assert_not_called()
-        mgr.get_service_logs.assert_not_called()
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_other_event_table_errors_keep_generic_message(
+        self, mock_ctx, mock_mgr_cls, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_events
+        from snowflake.connector.errors import ProgrammingError
+
+        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mgr.get_event_table_data.side_effect = ProgrammingError(
+            "Insufficient privileges", errno=3001
+        )
+
+        with pytest.raises(CliError, match="Could not retrieve metric data"):
+            snowflake_app_events(None, None, event_type="metric", target="prod")
 
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")
@@ -2432,25 +2590,6 @@ class TestCngHealthMonitoringDisabled:
         mgr.get_service_logs.assert_called_once()
         mgr.get_event_table_data.assert_not_called()
         assert result.message == "cng-live-log"
-
-    @patch(f"{_COMMANDS}.SnowflakeAppManager")
-    @patch(f"{_COMMANDS}.get_cli_context")
-    def test_event_table_allowed_when_serverless_parameters_disabled(
-        self, mock_ctx, mock_mgr_cls, tmp_path
-    ):
-        from snowflake.cli._plugins.apps.commands import snowflake_app_events
-
-        (tmp_path / APP_YML_FILENAME).write_text(_CNG_APP_YML)
-        mock_ctx.return_value = _make_ctx(tmp_path)
-        mgr = _make_manager_mock(mock_mgr_cls)
-        mgr.serverless_account_parameters_enabled.return_value = False
-        mgr.get_event_table_data.return_value = "[]"
-
-        result = snowflake_app_events(None, None, event_type="metric", target="prod")
-
-        mgr.get_event_table_data.assert_called_once()
-        mgr.get_service_logs.assert_not_called()
-        assert list(result.result) == []
 
     @patch(f"{_COMMANDS}.SnowflakeAppManager")
     @patch(f"{_COMMANDS}.get_cli_context")

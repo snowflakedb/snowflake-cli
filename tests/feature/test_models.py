@@ -178,8 +178,8 @@ class TestFSManifestFromDictTypeGuards:
     """A malformed ``manifest.yml`` (wrong YAML *types*) must raise
     ``InvalidManifestError`` — mapped to ``CliError`` by
     ``_resolve_project`` — not leak a raw ``AttributeError`` / ``TypeError``
-    traceback. These run without the ML wheel (``test_models.py`` is in
-    ``conftest._NO_DEP_SAFE``)."""
+    traceback. These exercise pure manifest parsing and do not touch the
+    ML library."""
 
     def _valid_data(self) -> dict:
         return {

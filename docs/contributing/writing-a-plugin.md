@@ -277,7 +277,7 @@ registered in `builtin_plugins.py` (add an import and a dict entry), as describe
 in [Registering the plugin](adding-commands.md#registering-the-plugin). Without
 that step the plugin is valid Python but is never loaded by the CLI.
 
-### CommandDocs {#commanddocs}
+### Writing command docs
 
 The command `help` on `CommandDef` is the short summary in `--help`. For
 [Snowflake CLI command reference](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/overview)
@@ -285,7 +285,7 @@ pages, set `docs=CommandDocs(...)` on **every** `CommandDef`. Each `CommandDocs`
 must include **related topics**, **usage notes**, and **examples**.
 
 Classic in-repo commands use the same `CommandDocs` type on `@app.command()`;
-see [CommandDocs in adding-commands.md](adding-commands.md#commanddocs).
+see [Writing command docs in adding-commands.md](adding-commands.md#writing-command-docs).
 
 ```python
 CommandDef(
@@ -333,12 +333,11 @@ CommandDef(
 
 To preview output, run `snow --docs` and check the generated
 `.mdx` files under `gen_docs/pages/`. The left-hand path in
-`scripts/command_docs_paths.yaml` must match that layout (one `.mdx` per
+`scripts/docs/command_docs_paths.yaml` must match that layout (one `.mdx` per
 terminal command, path segments = `snow` subcommand names).
 
-**Publishing:** add a mapping in `scripts/command_docs_paths.yaml` for each new
-command page before running `scripts/publish_command_docs.py` (see
-`scripts/publish_command_docs.md`).
+**Publishing:** add a mapping in `scripts/docs/command_docs_paths.yaml` for each
+new command page before publishing (see `scripts/docs/README.md`).
 
 ---
 

@@ -31,12 +31,11 @@ from snowflake.cli._plugins.apps.commands import (
     _is_cng_compute_resource,
     _log_service_logs,
     _make_build_log_streamer,
-    _requests_event_table_health_monitoring,
     _utf8_output,
     _warn_if_cng_url_cert_missing,
     snowflake_app_events,
 )
-from snowflake.cli._plugins.apps.events import EventStream, parse_lifecycle_records
+from snowflake.cli._plugins.apps.events import parse_lifecycle_records
 from snowflake.cli._plugins.apps.generate import _generate_app_yml, _yaml_str
 from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_LABEL,
@@ -626,31 +625,6 @@ class TestIsCngComputeResource:
         assert _is_cng_compute_resource(value) is expected
 
 
-class TestRequestsEventTableHealthMonitoring:
-    """Event-table health monitoring is metric, lifecycle, and windowed logs."""
-
-    def test_live_log_tail_is_not_event_table(self):
-        assert (
-            _requests_event_table_health_monitoring(EventStream.LOG, None, None)
-            is False
-        )
-
-    @pytest.mark.parametrize(
-        "stream, since, until",
-        [
-            (EventStream.METRIC, None, None),
-            (EventStream.LIFECYCLE, None, None),
-            (EventStream.LOG, "1h", None),
-            (EventStream.LOG, None, "1h"),
-            (EventStream.METRIC, "1h", "now"),
-        ],
-    )
-    def test_metric_lifecycle_and_windowed_logs_use_event_table(
-        self, stream, since, until
-    ):
-        assert _requests_event_table_health_monitoring(stream, since, until) is True
-
-
 class TestServerlessAccountParameters:
     """SERVERLESS is allowed only when the UI feature parameter is ENABLED."""
 
@@ -891,11 +865,91 @@ class TestPerAccountAppHostname:
             is None
         )
 
-    def test_account_infra_falls_back_to_allowlist_for_regionless_host(self):
-        # The modern account alias has no region in its host; the infra must be
-        # recovered from SYSTEM$ALLOWLIST's regioned host.
+    def _deployment_info_conn(self, host, payload=None, *, raises=False):
+        conn = Mock(host=host)
+        if raises:
+            conn.execute_string.side_effect = RuntimeError("function disabled")
+            return conn
+        cursor = Mock()
+        cursor.fetchone.return_value = {"INFO": payload}
+        conn.execute_string.return_value = (cursor,)
+        return conn
+
+    def test_account_infra_uses_dns_region_id_not_sql_host(self):
+        # The SQL host names one deployment; the shared DNS zone names another.
         mgr = self._manager()
-        conn = Mock(host="myorg-myacct.snowflakecomputing.com")
+        conn = self._deployment_info_conn(
+            "acct.shard2.us-west-2.aws.snowflakecomputing.com",
+            json.dumps({"dnsRegionId": "us-west-2.aws"}),
+        )
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch(
+            "snowflake.cli._plugins.apps.manager.guess_regioned_host_from_allowlist"
+        ) as mock_allowlist:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "us-west-2.aws"  # noqa: SLF001
+        mock_allowlist.assert_not_called()
+
+    def test_account_infra_lowercases_dns_region_id(self):
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "acct.shard1.us-west-2.aws.snowflakecomputing.com",
+            json.dumps({"dnsRegionId": "US-WEST-2.AWS"}),
+        )
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context") as mock_ctx:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "us-west-2.aws"  # noqa: SLF001
+
+    def test_account_infra_appends_privatelink_to_dns_region_id(self):
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "acct.shard2.us-west-2.aws.privatelink.snowflakecomputing.com",
+            json.dumps({"dnsRegionId": "us-west-2.aws"}),
+        )
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context") as mock_ctx:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "us-west-2.aws.privatelink"  # noqa: SLF001
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            None,
+            "",
+            "not-json",
+            json.dumps({"region": "us-west-2"}),
+            json.dumps({"dnsRegionId": "unknownregion.unknowncsp"}),
+            json.dumps({"dnsRegionId": "us-west-2.aws/extra"}),
+            json.dumps({"dnsRegionId": ".us-west-2.aws"}),
+        ],
+    )
+    def test_account_infra_falls_back_to_sql_host_without_dns_region_id(self, payload):
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "acct.shard2.us-west-2.aws.snowflakecomputing.com",
+            payload,
+        )
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context") as mock_ctx:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "shard2.us-west-2.aws"  # noqa: SLF001
+
+    def test_account_infra_falls_back_when_deployment_info_unavailable(self):
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "acct.qa6.us-west-2.aws.snowflakecomputing.com",
+            raises=True,
+        )
+        with patch("snowflake.cli._plugins.apps.manager.get_cli_context") as mock_ctx:
+            mock_ctx.return_value.connection = conn
+            assert mgr._account_infra() == "qa6.us-west-2.aws"  # noqa: SLF001
+
+    def test_account_infra_falls_back_to_allowlist_for_regionless_host(self):
+        # Regionless host and no DNS region: recover infra from the allowlist.
+        mgr = self._manager()
+        conn = self._deployment_info_conn(
+            "myorg-myacct.snowflakecomputing.com",
+            raises=True,
+        )
         with patch(
             "snowflake.cli._plugins.apps.manager.get_cli_context"
         ) as mock_ctx, patch(
@@ -1824,6 +1878,47 @@ class TestSnowflakeAppManager:
         query = mock_execute.call_args[0][0]
         assert "SHOW STAGES LIKE" in query
         assert "IN SCHEMA" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_returns_true(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([{"name": "MY_APP"}]))
+        mock_execute.return_value = mock_cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        assert SnowflakeAppManager().app_service_exists(fqn) is True
+        mock_execute.assert_called_once_with(
+            "SHOW APPLICATION SERVICES LIKE 'MY\\\\_APP' IN SCHEMA DB.SCHEMA",
+            cursor_class=DictCursor,
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_returns_false_without_rows(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = mock_cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        assert SnowflakeAppManager().app_service_exists(fqn) is False
+
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_requires_an_exact_name(self, mock_execute):
+        """``_`` is a LIKE wildcard, so only a row with the exact name counts."""
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([{"name": "MYXAPP"}]))
+        mock_execute.return_value = mock_cursor
+        fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
+        assert SnowflakeAppManager().app_service_exists(fqn) is False
+
+    @patch(EXECUTE_QUERY)
+    def test_app_service_exists_quotes_a_personal_database(self, mock_execute):
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(return_value=iter([]))
+        mock_execute.return_value = mock_cursor
+        fqn = app_fqn(
+            database="USER$first.last@example.com", schema="PUBLIC", name="MY_APP"
+        )
+        SnowflakeAppManager().app_service_exists(fqn)
+        query = mock_execute.call_args[0][0]
+        assert query.endswith('IN SCHEMA "USER$first.last@example.com".PUBLIC')
 
     @patch(EXECUTE_QUERY)
     def test_create_workspace_ensures_live_version(self, mock_execute):
@@ -2948,6 +3043,44 @@ class TestSnowflakeAppManager:
             ["DB.SCHEMA.MY_APP", 500, 0],
         )
 
+    @pytest.mark.parametrize(
+        "name",
+        [
+            # Quote immediately after the opening double quote. Single-quoting
+            # this identifier used to end the literal and leave another statement.
+            '"\', 0); select 1; --"',
+            # A backslash before the quote. The connector splitter treats that
+            # as an escaped quote; the bound value must stay the original name.
+            '"x\\\'; select 1; --"',
+            '"foo\'bar"',
+        ],
+    )
+    @pytest.mark.parametrize(
+        ("last", "instance_id", "sql", "bound_tail"),
+        [
+            (None, None, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?)", []),
+            (100, None, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?)", [100]),
+            (None, 0, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)", [500, 0]),
+            (20, 2, "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS(?, ?, ?)", [20, 2]),
+        ],
+    )
+    @patch(EXECUTE_QUERY_WITH_PARAMS)
+    def test_get_service_logs_binds_quoted_identifier(
+        self, mock_execute, name, last, instance_id, sql, bound_tail
+    ):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("log line",)
+        mock_execute.return_value = cursor
+
+        fqn = app_fqn(database="DB", schema="SC", name=name)
+        logs = SnowflakeAppManager().get_service_logs(
+            fqn, last=last, instance_id=instance_id
+        )
+
+        assert logs == "log line"
+        assert fqn.identifier == f"DB.SC.{name}"
+        mock_execute.assert_called_once_with(sql, [fqn.identifier, *bound_tail])
+
     def test_get_service_logs_rejects_negative_instance(self):
         with pytest.raises(CliError, match="non-negative"):
             snowflake_app_events(
@@ -3018,7 +3151,7 @@ class TestSnowflakeAppManager:
     def test_get_event_table_data_over_cap_pages_via_result_scan(self, mock_execute):
         # Above the inline cap the function is called with its return_uuid flag,
         # then the newest rows are read back via RESULT_SCAN and re-serialized
-        # into the inline JSON tuple layout (oldest-first, epoch timestamps).
+        # into the inline JSON tuple layout (newest-first, epoch timestamps).
         param_cursor = Mock()
         param_cursor.fetchone.return_value = {"value": "500"}
         uuid_cursor = Mock()
@@ -3052,10 +3185,11 @@ class TestSnowflakeAppManager:
         )
 
         rows = json.loads(payload)
-        # Reversed to oldest-first, and the datetime is now an epoch string.
-        assert [r[3] for r in rows] == ["older line", "newer line"]
+        # Same newest-first order as the inline payload; the datetime is now an
+        # epoch string.
+        assert [r[3] for r in rows] == ["newer line", "older line"]
         older_epoch = datetime(2026, 7, 16, 22, 0, 1, tzinfo=timezone.utc).timestamp()
-        assert rows[0][0] == str(older_epoch)
+        assert rows[1][0] == str(older_epoch)
 
     @patch(EXECUTE_QUERY)
     def test_get_event_table_data_over_cap_pages_event_result(self, mock_execute):
@@ -4834,6 +4968,21 @@ class TestAccountCapabilities:
 # ── CLI command tests ─────────────────────────────────────────────────
 
 
+@pytest.fixture
+def no_existing_app_service():
+    """Make ``snow app setup``'s existing-app check find nothing.
+
+    These setup tests replace ``SnowflakeAppManager`` with a ``MagicMock``, whose
+    ``app_service_exists`` would otherwise return a truthy mock.
+    """
+    with patch(
+        "snowflake.cli._plugins.apps.commands._app_service_exists",
+        return_value=False,
+    ):
+        yield
+
+
+@pytest.mark.usefixtures("no_existing_app_service")
 class TestSetupCommand:
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_app_yml",
@@ -4975,12 +5124,16 @@ class TestSetupCommand:
             personal_db_span = _get_completed_span(
                 "snowflake_app.setup.get_personal_database"
             )
+            existing_app_span = _get_completed_span(
+                "snowflake_app.setup.check_existing_app_service"
+            )
             write_span = _get_completed_span("snowflake_app.setup.write_manifest")
 
             # Child spans live underneath the top-level setup span.
             setup_span_id = setup_span[CLIMetricsSpan.ID_KEY]
             assert resolve_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
             assert personal_db_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
+            assert existing_app_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
             assert write_span[CLIMetricsSpan.PARENT_ID_KEY] == setup_span_id
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
@@ -6040,6 +6193,7 @@ class TestSetupCapabilitiesCommand:
 # ── perform_bundle tests ──────────────────────────────────────────────
 
 
+@pytest.mark.usefixtures("no_existing_app_service")
 class TestSetupServerResolvedDefaults:
     """End-to-end ``snow app setup`` coverage of the server-resolved defaults
     returned by ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()``.
@@ -6100,6 +6254,116 @@ class TestSetupServerResolvedDefaults:
         resolved = mock_gen.call_args[0][1]
         assert resolved["database"] == "PARAM_DB"
         assert resolved["schema"] == "PARAM_SCHEMA"
+
+
+class TestSetupExistingAppService:
+    """``snow app setup`` warns when the app it configures already exists,
+    because deploying the project would replace that app."""
+
+    @staticmethod
+    def _configure(mock_mgr_cls, exists):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_app_service_defaults.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        if isinstance(exists, Exception):
+            mock_mgr.app_service_exists.side_effect = exists
+        else:
+            mock_mgr.app_service_exists.return_value = exists
+        return mock_mgr
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_dry_run_warns_about_existing_app(self, mock_mgr_cls, runner, tmp_path):
+        mock_mgr = self._configure(mock_mgr_cls, exists=True)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+            assert result.exit_code == 0, result.output
+            assert not (tmp_path / "app.yml").exists()
+
+        mock_mgr.app_service_exists.assert_called_once_with(
+            FQN(database="PARAM_DB", schema="PARAM_SCHEMA", name="MY_APP")
+        )
+        output = _unwrapped(result.output)
+        assert (
+            "Application service PARAM_DB.PARAM_SCHEMA.MY_APP already exists." in output
+        )
+        assert "replace that app's code and settings" in output
+        assert "pass a different --app-name" in output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_setup_still_writes_manifest_for_existing_app(
+        self, mock_mgr_cls, runner, tmp_path
+    ):
+        """The warning does not block setup: deploying over the existing app
+        on purpose stays possible."""
+        self._configure(mock_mgr_cls, exists=True)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert "name: MY_APP" in (tmp_path / "app.yml").read_text()
+
+        output = _unwrapped(result.output)
+        assert (
+            "Application service PARAM_DB.PARAM_SCHEMA.MY_APP already exists." in output
+        )
+        assert "change name in app.yml" in output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_no_warning_without_existing_app(self, mock_mgr_cls, runner, tmp_path):
+        self._configure(mock_mgr_cls, exists=False)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--app-name", "my_app", "--dry-run"]
+            )
+            assert result.exit_code == 0, result.output
+
+        assert "already exists" not in result.output
+
+    @pytest.mark.parametrize("exists", [True, False])
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_json_output_reports_app_exists(
+        self, mock_mgr_cls, exists, runner, tmp_path
+    ):
+        self._configure(mock_mgr_cls, exists=exists)
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                [
+                    "app",
+                    "setup",
+                    "--app-name",
+                    "my_app",
+                    "--dry-run",
+                    "--format",
+                    "json",
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        assert json.loads(result.output)["app_exists"] is exists
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_failed_lookup_does_not_block_setup(self, mock_mgr_cls, runner, tmp_path):
+        """``SHOW ... IN SCHEMA`` fails on a schema that does not exist yet, such
+        as an App Space schema before the first deploy creates it."""
+        self._configure(
+            mock_mgr_cls,
+            exists=ProgrammingError("Schema does not exist or not authorized."),
+        )
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+            assert (tmp_path / "app.yml").exists()
+
+        assert "already exists" not in result.output
 
 
 class TestPerformBundle:
@@ -7622,12 +7886,12 @@ class TestEventsCommand:
         mock_get_entity.return_value = entity
 
         mock_mgr = mock_manager_cls.return_value
-        # Log payload is oldest-first, as the event table function returns it.
+        # Log payload is newest-first, as the event table function returns it.
         mock_mgr.get_event_table_data.return_value = json.dumps(
             [
-                ["100.0", "0", "runner", "line1", "{}"],
-                ["200.0", "0", "runner", "line2", "{}"],
                 ["300.0", "0", "runner", "line3", "{}"],
+                ["200.0", "0", "runner", "line2", "{}"],
+                ["100.0", "0", "runner", "line1", "{}"],
             ]
         )
 
@@ -7638,8 +7902,7 @@ class TestEventsCommand:
 
         # Only the newest two lines are printed, oldest-first.
         assert "line1" not in result.output
-        assert "line2" in result.output
-        assert "line3" in result.output
+        assert result.output.index("line2") < result.output.index("line3")
 
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     @patch("snowflake.cli._plugins.apps.commands._get_entity")
