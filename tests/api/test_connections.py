@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import threading
+import time
 from dataclasses import asdict
 from unittest import mock
 
@@ -164,6 +166,80 @@ def test_connection_cache_caches_failures(
             assert excinfo.value is cached_exc
 
     assert mock_connect.call_count == 1
+
+
+def test_connection_cache_serializes_first_connect(local_connection_cache):
+    started = threading.Event()
+    conn = mock.Mock()
+    builds = []
+
+    def fake_build(_self):
+        started.set()
+        builds.append(1)
+        time.sleep(0.05)
+        return conn
+
+    ctx = ConnectionContext(connection_name="default")
+    results: list = []
+    errors: list = []
+
+    def lookup():
+        try:
+            results.append(local_connection_cache[ctx])
+        except Exception as exc:
+            errors.append(exc)
+
+    with mock.patch.object(ConnectionContext, "build_connection", fake_build):
+        t1 = threading.Thread(target=lookup)
+        t2 = threading.Thread(target=lookup)
+        t1.start()
+        assert started.wait(timeout=2)
+        t2.start()
+        t1.join()
+        t2.join()
+
+    assert errors == []
+    assert results == [conn, conn]
+    assert len(builds) == 1
+
+
+def test_connection_cache_cached_failure_is_shared_across_threads(
+    local_connection_cache,
+):
+    started = threading.Event()
+    boom = RuntimeError("boom")
+    builds: list[int] = []
+
+    def fail_build(_self):
+        started.set()
+        builds.append(1)
+        time.sleep(0.05)
+        raise boom
+
+    ctx = ConnectionContext(connection_name="default")
+    raised: list = []
+
+    def lookup():
+        try:
+            local_connection_cache[ctx]
+        except Exception as exc:
+            raised.append(exc)
+
+    with mock.patch.object(ConnectionContext, "build_connection", fail_build):
+        t1 = threading.Thread(target=lookup)
+        t2 = threading.Thread(target=lookup)
+        t1.start()
+        assert started.wait(timeout=2)
+        t2.start()
+        t1.join()
+        t2.join()
+
+    assert raised == [boom, boom]
+    assert builds == [1]
+
+
+def test_connection_cache_cleanup_returns_when_key_is_gone(local_connection_cache):
+    local_connection_cache._cleanup("missing-key")  # noqa: SLF001
 
 
 @mock.patch("snowflake.cli._app.snow_connector.command_info")

@@ -861,8 +861,13 @@ def _get_agent_telemetry() -> TelemetryDict:
 
 
 def command_info() -> str:
-    info = _find_command_info()
+    try:
+        info = _find_command_info()
+    except RuntimeError:
+        info = _command_info_without_click()
     command = ".".join(info[CLITelemetryField.COMMAND])
+    if not command:
+        return PARAM_APPLICATION_NAME.upper()
     return f"{PARAM_APPLICATION_NAME}.{command}".upper()
 
 

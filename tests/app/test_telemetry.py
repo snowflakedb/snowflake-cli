@@ -1965,3 +1965,30 @@ class TestAppYmlRuntimeTelemetry:
             assert not [
                 k for k in event["message"] if k.startswith("app_") and k != "app_flow"
             ]
+
+
+def test_command_info_falls_back_without_click_context():
+    from concurrent.futures import ThreadPoolExecutor
+
+    from snowflake.cli._app.telemetry import command_info
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        assert pool.submit(command_info).result() == "SNOWCLI"
+
+
+def test_command_info_uses_click_command_path():
+    import click
+    from snowflake.cli._app.telemetry import command_info
+
+    @click.group()
+    def snow():
+        pass
+
+    @snow.command()
+    def stage():
+        pass
+
+    parent = click.Context(snow, info_name="snow")
+    ctx = click.Context(stage, info_name="stage", parent=parent)
+    with ctx:
+        assert command_info() == "SNOWCLI.STAGE"
