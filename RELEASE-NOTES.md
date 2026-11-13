@@ -27,6 +27,7 @@
 * Upgrading the Snowflake CLI RPM with `rpm -U` or `dnf` keeps `/usr/local/bin/snow` on PATH. The replaced package's uninstall script used to remove that symlink after the new package created it.
 * `snow dcm plan --save-output`, and `snow dcm test --save-output` return sooner after the query when the saved output has many files. `snow stage copy --recursive` and `snow git copy` download a directory of files faster.
 * `snow stage copy --recursive` no longer fails with "There is no active click context" when the connection uses MFA, browser, or OAuth authorization-code authentication. The same applies to `snow spcs service build-image` and `remote-build` when `--stage` is already set.
+* `snow dcm plan` and `snow dcm deploy` now list the grants, tag attachments, data metric functions and policies under a CREATE entry when they are defined in the same deployment as the new object. Previously only the CREATE line was printed and these changes were missing from the output, although they were applied.
 
 
 # v3.33.0
