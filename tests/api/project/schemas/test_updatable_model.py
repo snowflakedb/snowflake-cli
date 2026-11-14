@@ -249,3 +249,59 @@ def test_updatable_model_with_sub_classes_and_template_values_and_custom_validat
 
         result = ChildModel(a="any_value", b="<% sometemplate %>")
         assert result.b == "<% sometemplate %>"
+
+
+def test_updatable_model_injects_wrap_validator_for_every_field():
+    """
+    Every field of a subclass should get a wrap validator injected, which is
+    what allows templates to skip the remaining validation. This guards against
+    annotation collection silently returning no fields (e.g. on Python 3.14,
+    where class annotations are evaluated lazily and are not stored directly
+    in the class __dict__).
+    """
+
+    class TestModel(UpdatableModel):
+        a: str
+        b: int
+
+    wrapped_fields = {
+        field
+        for decorator in TestModel.__pydantic_decorators__.field_validators.values()
+        if decorator.info.mode == "wrap"
+        for field in decorator.info.fields
+    }
+
+    assert wrapped_fields == {"a", "b"}
+
+
+def test_updatable_model_with_static_before_and_after_validators_and_templates():
+    class TestModel(UpdatableModel):
+        a: str
+
+        @field_validator("a", mode="before")
+        @classmethod
+        def validate_a_before(cls, value):
+            if value != "expected_value":
+                raise ValueError("Invalid Value")
+            return value
+
+        @field_validator("a", mode="after")
+        @classmethod
+        def validate_a_after(cls, value):
+            if value != "expected_value":
+                raise ValueError("Invalid Value")
+            return value
+
+    assert TestModel(a="expected_value").a == "expected_value"
+
+    with pytest.raises(ValidationError) as e:
+        TestModel(a="<% sometemplate %>")
+    assert "Invalid Value" in str(e.value)
+
+    with context({"skip_validation_on_templates": True}):
+        with pytest.raises(ValidationError) as e:
+            TestModel(a="abc")
+        assert "Invalid Value" in str(e.value)
+
+        result = TestModel(a="<% sometemplate %>")
+        assert result.a == "<% sometemplate %>"

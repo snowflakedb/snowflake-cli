@@ -107,6 +107,7 @@
 * `snow streamlit deploy --replace` now applies `main_file` changes to existing versioned apps in place, preserving the app, grants and version history. Files are uploaded before the entrypoint changes; `--prune` runs only after the change succeeds. Accounts that reject the update receive an actionable error.
 * Streamlit deploy now refuses to recreate an existing app with no live stage unless a legacy `ROOT_LOCATION` is known, and rejects `--prune` with an unset `main_file` when the active entrypoint is absent from the bundle.
 * Upgraded the Python interpreter embedded in Linux binaries from 3.10.22 to 3.12.15. macOS and Windows binaries now embed Python 3.12 as well.
+* Relaxed the `pydantic` dependency from `==2.12.5` to `>=2.12.5,<3` so the CLI can be packaged on distributions that ship a newer pydantic.
 * Bumped lower bound of certifi to 2026.10.19.
 * The direct install script restricts `connections.toml` and `config.toml` to the current user when that user owns the file. `snow upgrade` does the same before it checks permissions, and again before it points at the new version, so a file left readable by other accounts no longer stops `snow upgrade` or the new `snow` from starting. Symlinks and files owned by someone else are left unchanged.
 * Upgraded pip from 26.2.1 to 26.2.2.
