@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* The Windows direct installer installs the x64 package on ARM64 Windows when the channel has no ARM package. Windows runs that package under emulation.
 
 
 # v3.34.0

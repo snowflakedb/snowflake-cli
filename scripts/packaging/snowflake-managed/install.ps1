@@ -413,6 +413,26 @@ function Get-PackageInfo {
     }
 }
 
+# Windows ARM has no published package. Use the x64 package, which Windows runs
+# under emulation. A windows/arm64 manifest entry is preferred when one exists.
+function Resolve-InstallPackage {
+    param($Manifest, $Platform)
+
+    $packageInfo = Get-PackageInfo $Manifest $Platform.OS $Platform.Arch
+    if ($packageInfo) {
+        return $packageInfo
+    }
+    if ($Platform.OS -eq "windows" -and $Platform.Arch -eq "arm64") {
+        $packageInfo = Get-PackageInfo $Manifest "windows" "amd64"
+        if ($packageInfo) {
+            Write-Host "No Windows ARM package is published. Installing the x64 package."
+            $Platform.Arch = "amd64"
+            return $packageInfo
+        }
+    }
+    return $null
+}
+
 function Test-Checksum {
     param([string]$FilePath, [string]$ExpectedChecksum)
 
@@ -653,7 +673,7 @@ function Invoke-SnowflakeCliInstall {
         Write-Host "Downloading manifest..."
         $manifest = Get-Manifest $version $tempDir
 
-        $packageInfo = Get-PackageInfo $manifest $platform.OS $platform.Arch
+        $packageInfo = Resolve-InstallPackage $manifest $platform
         if (-not $packageInfo) {
             Write-ErrorMsg "Snowflake CLI is not available for your platform: $($platform.OS)-$($platform.Arch)"
             exit 1

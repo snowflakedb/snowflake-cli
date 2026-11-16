@@ -1069,3 +1069,46 @@ def test_install_ps1_rejects_bad_install_args(tmp_path: Path, args: list[str]):
         shell, "Parse-InstallArgs -ArgList $args\n", tmp_path / "profile", args
     )
     assert result.returncode != 0
+
+
+def test_install_ps1_arm64_uses_published_amd64_package(tmp_path: Path):
+    shell = _require_powershell()
+    body = r"""
+function New-WindowsManifest {
+    param([string[]]$Archs)
+    $windows = @{}
+    foreach ($arch in $Archs) {
+        $windows[$arch] = @{
+            name = "snowflake-cli-3.33.0-windows-$arch.tar.gz"
+            checksum = "abc"
+        }
+    }
+    return @{ packages = @{ windows = $windows } }
+}
+
+$arm = @{ OS = "windows"; Arch = "arm64" }
+$fallback = Resolve-InstallPackage (New-WindowsManifest @("amd64")) $arm
+if (-not $fallback) { exit 1 }
+if ($arm.Arch -ne "amd64") { exit 1 }
+"fallback=$($fallback.TarName) arch=$($arm.Arch)"
+
+$prefer = @{ OS = "windows"; Arch = "arm64" }
+$armPackage = Resolve-InstallPackage (New-WindowsManifest @("arm64", "amd64")) $prefer
+if ($prefer.Arch -ne "arm64") { exit 1 }
+"prefer=$($armPackage.TarName) arch=$($prefer.Arch)"
+
+$empty = @{ OS = "windows"; Arch = "arm64" }
+if (Resolve-InstallPackage (New-WindowsManifest @()) $empty) { exit 1 }
+"empty=null arch=$($empty.Arch)"
+
+$amd = @{ OS = "windows"; Arch = "amd64" }
+if (Resolve-InstallPackage (New-WindowsManifest @("arm64")) $amd) { exit 1 }
+"amd64-without-package=null"
+"""
+    result = _run_ps1_functions(shell, body, tmp_path / "profile")
+    assert result.returncode == 0, result.stdout + result.stderr
+    output = result.stdout
+    assert "fallback=snowflake-cli-3.33.0-windows-amd64.tar.gz arch=amd64" in output
+    assert "prefer=snowflake-cli-3.33.0-windows-arm64.tar.gz arch=arm64" in output
+    assert "empty=null arch=arm64" in output
+    assert "amd64-without-package=null" in output

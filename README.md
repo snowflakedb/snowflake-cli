@@ -55,6 +55,8 @@ Windows (PowerShell):
 irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
 ```
 
+On ARM64 Windows, the installer selects the x64 package when the channel has no ARM package. Windows runs that package under emulation.
+
 Pin a release with `--version` (or `SNOWFLAKE_CLI_VERSION`). Pass `--no-auto-upgrade` with a pin so later `snow` invocations do not replace it via auto-upgrade. This is the same flag as the root `snow --no-auto-upgrade`:
 
 ```bash
