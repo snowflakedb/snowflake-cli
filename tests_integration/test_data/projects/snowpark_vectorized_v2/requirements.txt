@@ -1,4 +1,4 @@
 snowflake-snowpark-python
 pandas
-syrupy
+syrupy==6.1.1  # 7.x needs Python 3.11; Snowpark default runtime is 3.10
 numpy>=1.22.2 # not directly required, pinned by Snyk to avoid a vulnerability
