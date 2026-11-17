@@ -88,6 +88,18 @@ def _local_only_callback(value: Optional[bool]) -> bool:
     return value
 
 
+def _wrap_callback(value: Optional[bool]) -> Optional[bool]:
+    """Remember an explicit ``--wrap`` / ``--no-wrap`` choice.
+
+    None means the flag was not used, so the ``cli.wrap`` config value
+    decides.
+    """
+    if value is None:
+        return None
+    get_cli_context_manager().wrap = value
+    return value
+
+
 def _parse_template_syntax_config(
     enabled_syntaxes: List[_EnabledTemplating],
 ) -> SQLTemplateSyntaxConfig:
@@ -123,7 +135,8 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
 _OUTPUT_FILE_OPTION = "output_file"
 _QUIET_OPTION = "quiet"
 _OUTPUT_FORMAT_OPTION = "output_format"
-_SUPPORTED_OPTIONS = "Only output_file, quiet and output_format are supported."
+_WRAP_OPTION = "wrap"
+_SUPPORTED_OPTIONS = "Only output_file, quiet, output_format and wrap are supported."
 
 
 def _strip_matching_quotes(value: str) -> str:
@@ -153,6 +166,7 @@ class _StartupOptions:
     output_file: str | None = None
     quiet: bool | None = None
     output_format: OutputFormat | None = None
+    wrap: bool | None = None
 
 
 def _resolve_startup_options(raw_options: List[str] | None) -> _StartupOptions:
@@ -164,6 +178,7 @@ def _resolve_startup_options(raw_options: List[str] | None) -> _StartupOptions:
     output_file: str | None = None
     quiet: bool | None = None
     output_format: OutputFormat | None = None
+    wrap: bool | None = None
     for raw in raw_options or []:
         key, value = _parse_snowsql_option(raw)
         option = key.lower()
@@ -180,10 +195,18 @@ def _resolve_startup_options(raw_options: List[str] | None) -> _StartupOptions:
                 output_format = OutputFormat.from_string(value)
             except ValueError as e:
                 raise CliArgumentError(str(e)) from e
+        elif option == _WRAP_OPTION:
+            try:
+                wrap = parse_bool_value(_WRAP_OPTION, value)
+            except ValueError as e:
+                raise CliArgumentError(str(e)) from e
         else:
             raise CliArgumentError(f"Unknown option '{key}'. {_SUPPORTED_OPTIONS}")
     return _StartupOptions(
-        output_file=output_file, quiet=quiet, output_format=output_format
+        output_file=output_file,
+        quiet=quiet,
+        output_format=output_format,
+        wrap=wrap,
     )
 
 
@@ -212,6 +235,8 @@ def _apply_startup_options(raw_options: List[str] | None) -> None:
         manager.quiet = resolved.quiet
     if resolved.output_format is not None:
         manager.output_format = resolved.output_format
+    if resolved.wrap is not None:
+        manager.wrap = resolved.wrap
 
 
 @app.command(
@@ -319,6 +344,20 @@ def _apply_startup_options(raw_options: List[str] | None) -> None:
                 code("--format"),
                 ".",
             ),
+            plain_text(
+                "Long values in TABLE output are wrapped onto several terminal "
+                "lines. Use ",
+                code("--no-wrap"),
+                " to keep every record on a single line, ",
+                code("!set wrap=false"),
+                " to change it inside the REPL, or set ",
+                code("wrap = false"),
+                " under ",
+                code("[cli]"),
+                " in ",
+                code("config.toml"),
+                " to make it the default.",
+            ),
             note(
                 "When the query contains characters the shell interprets (for example ",
                 code("$"),
@@ -421,6 +460,18 @@ def execute_sql(
         help="Do not prompt before exiting the REPL.",
         show_default=False,
     ),
+    wrap: Optional[bool] = typer.Option(
+        None,
+        "--wrap/--no-wrap",
+        help=(
+            "Wrap long values of TABLE output onto several terminal lines. "
+            "With --no-wrap every record stays on a single line and the table "
+            "may be wider than the terminal. "
+            "[env var: SNOWFLAKE_CLI_WRAP | config: cli.wrap]"
+        ),
+        callback=_wrap_callback,
+        show_default=False,
+    ),
     prompt_format: Optional[str] = typer.Option(
         None,
         "--prompt-format",
@@ -447,7 +498,7 @@ def execute_sql(
         metavar="KEY=VALUE",
         help=(
             "Sets a SnowSQL-style option for this run. Supported options are "
-            "output_file, quiet and output_format. -o output_file=\\<path\\> appends query "
+            "output_file, quiet, output_format and wrap. -o output_file=\\<path\\> appends query "
             "results to the file and still prints them, like !spool \\<path\\>. "
             "An empty output_file turns spooling off, and output_file=off "
             "writes to a file named off. "
@@ -457,6 +508,9 @@ def execute_sql(
             "!set output_format, and overrides the config key and environment "
             "variable. It cannot be combined with --format, and !set output_format "
             "can still change it later. "
+            "-o wrap=\\<true|false\\> turns wrapping of long values in TABLE "
+            "output on or off, like !set wrap. It overrides --wrap and "
+            "--no-wrap. "
             "Repeat -o to set several options. The last value of an option wins."
         ),
         show_default=False,

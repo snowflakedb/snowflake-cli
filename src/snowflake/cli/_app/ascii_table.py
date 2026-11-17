@@ -382,19 +382,31 @@ def stream_probed_table(
     on_success: Callable[[], None],
     plain: bool = False,
     stream: object | None = None,
+    wrap: bool | None = None,
 ) -> None:
+    """Write the probed rows as an ASCII table.
+
+    ``wrap`` says whether a cell longer than its column may be folded onto
+    several lines. It only matters on a terminal: piped output always keeps a
+    cell on one line. None keeps the default, which is to fold on a terminal.
+    """
     preferred = preferred_widths(probed.columns, probed.rows)
-    if is_tty:
-        widths = allocate_tty_widths(preferred, console.width, plain=plain)
-        wrap = True
-    else:
+    if not is_tty:
         widths = allocate_pipe_widths(preferred)
-        wrap = False
+        fold = False
+    elif wrap is False:
+        # Wrapping is off: keep the natural column widths so the grid stays
+        # aligned while every record keeps a single physical row.
+        widths = preferred
+        fold = False
+    else:
+        widths = allocate_tty_widths(preferred, console.width, plain=plain)
+        fold = True
     bold_header = bool(is_tty and console.color_system and not console.no_color)
     writer = _AsciiTableWriter(
         columns=probed.columns,
         widths=widths,
-        wrap=wrap,
+        wrap=fold,
         bold_header=bold_header,
         flush_chunks=is_tty,
         plain=plain,

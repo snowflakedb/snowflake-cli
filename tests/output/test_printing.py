@@ -778,9 +778,11 @@ def _force_tty(monkeypatch, width: int, *, color: bool):
     monkeypatch.delenv("FORCE_COLOR", raising=False)
     monkeypatch.setattr(printing, "_stdout_is_terminal", lambda: True)
 
-    def _console():
+    def _console(needed_width=None):
+        # needed_width is set when wrapping is off: the table is then as wide
+        # as its content and the console has to grow with it.
         return Console(
-            width=width,
+            width=needed_width or width,
             height=25,
             soft_wrap=True,
             markup=False,

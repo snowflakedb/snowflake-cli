@@ -112,6 +112,9 @@ class _CliGlobalContextManager:
     timing_in_output_file: bool = False
     # REPL-only. One-shot SQL keeps VerboseCursor's own statement logging.
     echo: bool = False
+    # TABLE output: wrap long cell contents onto several terminal lines.
+    # None means "not set explicitly", so the cli.wrap config value applies.
+    wrap: bool | None = None
     spool_path: Path | None = None
     spool_stream: TextIO | None = None
     _spool_stack: ExitStack | None = field(default=None, repr=False, compare=False)
@@ -395,6 +398,15 @@ class _CliGlobalContextAccess:
     def echo_enabled(self) -> bool:
         # Named echo_enabled because the print hook rejects a method named echo.
         return self._manager.echo
+
+    @property
+    def wrap(self) -> bool | None:
+        """Whether TABLE output may wrap cells onto several lines.
+
+        None means nobody picked a value yet, so the ``cli.wrap`` config key
+        decides.
+        """
+        return self._manager.wrap
 
     @property
     def spool_path(self) -> Path | None:

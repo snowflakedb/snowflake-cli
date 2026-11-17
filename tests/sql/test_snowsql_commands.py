@@ -397,10 +397,11 @@ def test_rehash_from_args():
 _SET_USAGE = (
     "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
     "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>` | "
-    "`!set echo=<true|false>` | `!set output_file=<path>`"
+    "`!set echo=<true|false>` | `!set wrap=<true|false>` | "
+    "`!set output_file=<path>`"
 )
 _SET_SUPPORTED = (
-    "Only output_format, quiet, timing, timing_in_output_file, echo "
+    "Only output_format, quiet, timing, timing_in_output_file, echo, wrap "
     "and output_file are supported."
 )
 _OUTPUT_FILE_VALUE_REQUIRED = "You must specify a value for output_file. " + _SET_USAGE
@@ -550,6 +551,39 @@ def test_set_quiet_from_args():
     ) == CompileCommandResult(
         error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
     )
+
+
+def test_set_wrap_from_args():
+    assert SetCommand.from_args("wrap=false") == CompileCommandResult(
+        command=SetCommand(option="wrap", value="false")
+    )
+    assert SetCommand.from_args("WRAP=TRUE") == CompileCommandResult(
+        command=SetCommand(option="wrap", value="TRUE")
+    )
+    assert SetCommand.from_args([], {"wrap": "off"}) == CompileCommandResult(
+        command=SetCommand(option="wrap", value="off")
+    )
+    assert SetCommand.from_args("wrap=") == CompileCommandResult(
+        error_message="Invalid value for wrap: ''. Use true or false."
+    )
+    assert SetCommand.from_args("wrap=maybe") == CompileCommandResult(
+        error_message="Invalid value for wrap: 'maybe'. Use true or false."
+    )
+
+
+def test_set_wrap_changes_the_context():
+    manager = get_cli_context_manager()
+    assert manager.wrap is None
+
+    compiled = SetCommand.from_args("wrap=false")
+    assert compiled.command is not None
+    compiled.command.execute(manager)
+    assert manager.wrap is False
+
+    compiled = SetCommand.from_args("wrap=true")
+    assert compiled.command is not None
+    compiled.command.execute(manager)
+    assert manager.wrap is True
 
 
 def test_set_quiet_empty_does_not_change_an_existing_value():

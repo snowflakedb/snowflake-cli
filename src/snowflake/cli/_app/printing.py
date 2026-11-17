@@ -30,10 +30,12 @@ from rich.live import Live
 from rich.table import Table
 from snowflake.cli._app.ascii_table import (
     maybe_log_large_result,
+    preferred_widths,
     probe_rows,
     stream_probed_table,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.config import get_config_bool_value
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -403,6 +405,19 @@ def _get_format_type() -> OutputFormat:
     return OutputFormat.TABLE
 
 
+def _wrap_enabled() -> bool:
+    """Whether TABLE output may wrap long cell contents onto several lines.
+
+    The ``cli.wrap`` config key (env var ``SNOWFLAKE_CLI_WRAP``) is the
+    default. An explicit choice -- ``--wrap`` / ``--no-wrap``, ``-o
+    wrap=<bool>`` or ``!set wrap=<bool>`` -- wins over the config.
+    """
+    explicit = get_cli_context().wrap
+    if explicit is not None:
+        return explicit
+    return bool(get_config_bool_value("cli", key="wrap", default=True))
+
+
 def _is_plain_format(output_format: OutputFormat | None = None) -> bool:
     fmt = output_format or _get_format_type()
     return fmt is OutputFormat.PLAIN
@@ -430,30 +445,59 @@ def _stdout_is_terminal() -> bool:
         return False
 
 
-def _render_console_for_table() -> Console:
+def _render_console_for_table(width: int | None = None) -> Console:
+    """Console used to render unstructured output.
+
+    ``width`` is the width the table needs when wrapping is off. The table is
+    then as wide as its content, which can be wider than the terminal. Rich
+    crops a cell that does not fit its column, so the console is widened
+    instead of letting the cell shrink.
+    """
     stream = _result_stream()
-    if _stdout_is_terminal():
-        default_console = get_console()
+    if width is None:
+        if _stdout_is_terminal():
+            default_console = get_console()
+            return Console(
+                file=stream,
+                width=default_console.width,
+                height=default_console.height or 25,
+                soft_wrap=True,
+                markup=False,
+            )
+        # Rich ignores a lone Console(width=...) when it classifies the stream as a
+        # dumb terminal (TERM=dumb/unknown together with is_terminal). FORCE_COLOR
+        # set to any value, including "0", makes Rich report is_terminal=True, so
+        # size falls back to 80x25 and many-column tables collapse. Both dimensions
+        # are required for the unlimited width to actually apply (GH#2725).
         return Console(
             file=stream,
-            width=default_console.width,
-            height=default_console.height or 25,
+            width=_NON_TERMINAL_RENDER_WIDTH,
+            height=_NON_TERMINAL_RENDER_WIDTH,
             soft_wrap=True,
             markup=False,
+            force_terminal=False,
         )
-    # Rich ignores a lone Console(width=...) when it classifies the stream as a
-    # dumb terminal (TERM=dumb/unknown together with is_terminal). FORCE_COLOR
-    # set to any value, including "0", makes Rich report is_terminal=True, so
-    # size falls back to 80x25 and many-column tables collapse. Both dimensions
-    # are required for the unlimited width to actually apply (GH#2725).
+    # Wrapping is off: the table may be wider than the terminal. Keep the
+    # terminal look (colors, bold header) but give Rich the room it needs.
     return Console(
         file=stream,
-        width=_NON_TERMINAL_RENDER_WIDTH,
+        width=width,
         height=_NON_TERMINAL_RENDER_WIDTH,
         soft_wrap=True,
         markup=False,
-        force_terminal=False,
+        force_terminal=None if _stdout_is_terminal() else False,
     )
+
+
+def _table_width(columns: list[str], rows: list[list[str]]) -> int:
+    """Width a table needs when no cell may be wrapped.
+
+    Rich pads every column with one space on each side, separates the columns
+    from each other and puts one character around the table. The extra two
+    characters cover a console that reports one column less than it was
+    asked for (legacy Windows).
+    """
+    return sum(preferred_widths(columns, rows)) + 3 * len(columns) + 3
 
 
 def _print_multiple_table_results(
@@ -488,6 +532,7 @@ def _print_multiple_table_results(
         on_success=_trailer,
         plain=_is_plain_format(output_format),
         stream=_result_stream(),
+        wrap=_wrap_enabled(),
     )
 
 
@@ -499,7 +544,10 @@ def _print_rich_table(
     table = _get_table(output_format)
     for column in columns:
         table.add_column(column, overflow="fold")
-    console = _render_console_for_table()
+    # Without wrapping every cell keeps its full length, so the console needs
+    # the whole width of the table.
+    width = None if _wrap_enabled() else _table_width(columns, rows)
+    console = _render_console_for_table(width)
     with Live(table, console=console, refresh_per_second=4):
         for row in rows:
             table.add_row(*row)
@@ -646,11 +694,20 @@ def _print_single_table(obj, output_format: OutputFormat | None = None):
     table = _get_table(output_format)
     table.add_column("key", overflow="fold")
     table.add_column("value", overflow="fold")
-    for key, value in obj.result.items():
-        table.add_row(
-            sanitize_for_terminal(str(key)), sanitize_for_terminal(__to_str(value))
-        )
-    _rich_print(table, flush=True)
+    items = [
+        (sanitize_for_terminal(str(key)), sanitize_for_terminal(__to_str(value)))
+        for key, value in obj.result.items()
+    ]
+    for key, value in items:
+        table.add_row(key, value)
+    if _wrap_enabled():
+        _rich_print(table, flush=True)
+        return
+    # Without wrapping every cell keeps its full length, so the console needs
+    # the whole width of the table.
+    console = _render_console_for_table(_table_width(["key", "value"], items))
+    console.print(table)
+    _result_stream().flush()
 
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):

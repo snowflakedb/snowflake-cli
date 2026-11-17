@@ -494,6 +494,46 @@ def test_sql_option_quiet_invalid_value_runs_no_sql(
     mock_execute.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "arguments, expected",
+    [
+        (["-o", "wrap=false"], False),
+        (["-o", "wrap=true"], True),
+        (["--no-wrap"], False),
+        (["--wrap"], True),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_wrap_option_sets_the_context(
+    mock_execute, mock_connect, runner, mock_cursor, arguments, expected
+):
+    """-o wrap= and --wrap/--no-wrap both reach the renderer."""
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", *arguments])
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().wrap is expected
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_wrap_is_unset_by_default(mock_execute, mock_connect, runner, mock_cursor):
+    """Without a flag or -o, the cli.wrap config value decides."""
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n"])
+    assert result.exit_code == 0, result.output
+    assert get_cli_context().wrap is None
+
+
+@pytest.mark.parametrize("value", ["", "maybe"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_wrap_invalid_value_runs_no_sql(
+    mock_execute, mock_connect, runner, value
+):
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", f"wrap={value}"])
+    assert result.exit_code != 0
+    assert f"Invalid value for wrap: {value!r}. Use true or false." in result.output
+    mock_execute.assert_not_called()
+
+
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_option_quiet_invalid_value_opens_no_spool(
     mock_execute, mock_connect, runner, tmp_path

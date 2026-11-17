@@ -449,13 +449,15 @@ class AbortCommand(ReplCommand):
 _SET_USAGE = (
     "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
     "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>` | "
-    "`!set echo=<true|false>` | `!set output_file=<path>`"
+    "`!set echo=<true|false>` | `!set wrap=<true|false>` | "
+    "`!set output_file=<path>`"
 )
 _SET_OPTION_OUTPUT_FORMAT = "output_format"
 _SET_OPTION_QUIET = "quiet"
 _SET_OPTION_TIMING = "timing"
 _SET_OPTION_TIMING_IN_OUTPUT_FILE = "timing_in_output_file"
 _SET_OPTION_ECHO = "echo"
+_SET_OPTION_WRAP = "wrap"
 # Free-string path, same file as !spool. Empty is rejected; off is a filename.
 _SET_OPTION_OUTPUT_FILE = "output_file"
 # SnowSQL booleans. An empty value is not false and not a reset to unset.
@@ -466,6 +468,7 @@ _SET_BOOL_OPTIONS = frozenset(
         _SET_OPTION_QUIET,
         _SET_OPTION_TIMING,
         _SET_OPTION_TIMING_IN_OUTPUT_FILE,
+        _SET_OPTION_WRAP,
     }
 )
 _SET_OPTIONS = _SET_BOOL_OPTIONS | {
@@ -474,7 +477,7 @@ _SET_OPTIONS = _SET_BOOL_OPTIONS | {
     _SET_OPTION_OUTPUT_FILE,
 }
 _SET_SUPPORTED = (
-    "Only output_format, quiet, timing, timing_in_output_file, echo "
+    "Only output_format, quiet, timing, timing_in_output_file, echo, wrap "
     "and output_file are supported."
 )
 _ECHO_VALUES = frozenset({"true", "false"})
@@ -502,8 +505,8 @@ def _parse_echo_value(value: str) -> str:
 class SetCommand(ReplCommand):
     """Set a session option.
 
-    output_format, quiet, timing, timing_in_output_file, echo and output_file
-    are supported.
+    output_format, quiet, timing, timing_in_output_file, echo, wrap and
+    output_file are supported.
     """
 
     option: str
@@ -525,6 +528,9 @@ class SetCommand(ReplCommand):
             return
         if self.option == _SET_OPTION_ECHO:
             manager.echo = _parse_echo_value(self.value) == "true"
+            return
+        if self.option == _SET_OPTION_WRAP:
+            manager.wrap = parse_bool_value(self.option, self.value)
             return
         manager.output_format = OutputFormat.from_string(self.value)
 
