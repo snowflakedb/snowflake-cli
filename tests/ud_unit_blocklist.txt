@@ -1,0 +1,87 @@
+# Unit tests not yet running on snowflake-connector-python 5.2.0.
+# Groups are in the order to take them on: process internals first, plugins last.
+# The connector 5 job runs tests/ud_unit_paths.txt only. Move a path there
+# after it passes: hatch run ud-local:test-unit
+# One pytest path per line. Blank lines and comments are ignored.
+
+# 1. Process internals. Version, logging, telemetry, and the entry point.
+tests/test_about.py
+tests/test_installation_source.py
+tests/test_logs.py
+tests/test_printing.py
+tests/app
+tests/test_main.py
+
+# 2. Connection management. Config, connector.connect, snow connection, and snow auth.
+tests/test_secret_type.py
+tests/test_config.py
+tests/config_ng
+tests/test_config_provider_integration.py
+tests/test_snow_connector.py
+tests/test_login_retry.py
+tests/test_oauth.py
+tests/test_workload_identity.py
+tests/test_connection.py
+tests/test_connection_diagnostic.py
+tests/auth
+
+# 3. CLI API. The snowflake.cli.api package plugins import.
+# Inside tests/api, run the connector-typed modules first:
+# test_connector_adapter.py, test_connections.py, test_sql_execution.py,
+# test_rest_api.py, then commands/, then the rest of that directory.
+tests/output
+tests/api
+tests/project
+tests/test_utils.py
+tests/test_common_decorators.py
+tests/test_common_global_context.py
+tests/test_command_docs_bridge.py
+tests/test_sql_error_contract.py
+tests/test_project_definition_generate_json_schema.py
+
+# 4. App assembly. These boot every plugin. A failure here is often an import
+# error in one plugin, not a bug in help text.
+tests/test_cli.py
+tests/test_help_messages.py
+tests/test_command_registration.py
+tests/test_experimental_behaviour.py
+tests/test_command_docs_coverage.py
+tests/test_docs_generation_output.py
+tests/test_loaded_modules.py
+
+# 5. Plugins other plugins import.
+# stage and snowpark import each other. workspace, nativeapp, and streamlit cycle.
+tests/object
+tests/sql
+tests/stage
+tests/workspace
+
+# 6. Product plugins. Independent commands first, then the clusters.
+# tests/feature imports snowflake.ml.feature_store.
+# tests/snowpark and tests/test_zipper.py need Snowpark, which does not install
+# next to connector 5. tests/nativeapp/codegen/snowpark imports it too.
+tests/helpers
+tests/logs
+tests/git
+tests/notebook
+tests/bundle
+tests/dbt
+tests/custom_images
+tests/cortex
+tests/feedback
+tests/upgrade
+tests/test_assemble_channel.py
+tests/test_init.py
+tests/ai
+tests/apps
+tests/spcs
+tests/dcm
+tests/feature
+tests/snowpark
+tests/test_zipper.py
+tests/streamlit
+tests/nativeapp
+
+# Left from repo tooling. The default unit markers skip this file, and it
+# shells out to `snow` on PATH rather than this environment.
+tests/test_performance.py

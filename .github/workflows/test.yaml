@@ -112,6 +112,51 @@ jobs:
       - if: needs.changes.outputs.code == 'true' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
         uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
 
+  # Linux unit tests on snowflake-connector-python 5.2.0. The path list is
+  # tests/ud_unit_paths.txt. The job fails when a listed test fails. Same
+  # shape as the UD integration job: create a hatch env pinned to connector 4,
+  # then swap the connector inside the test command. No Snowflake credentials.
+  ud-unit:
+    name: UD unit (ubuntu-latest, py3.11)
+    needs: [changes]
+    runs-on: ubuntu-latest
+    env:
+      SNOWFLAKE_CLI_CHANGED_FILES: ${{ needs.changes.outputs.files }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - if: needs.changes.outputs.code == 'true'
+        name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      # No hatch-env cache: the test script swaps connector 5.2.0 into the env,
+      # so a saved cache would be the post-swap state and hatch would re-sync
+      # to connector 4 on every hit.
+      - if: needs.changes.outputs.code == 'true'
+        name: Install hatch
+        shell: bash
+        env:
+          HATCH_ENV: ud-local
+        run: |
+          python -m pip install -U click==8.2.1 hatch==1.15.1 virtualenv==20.39.1
+          python -m hatch env create "$HATCH_ENV"
+          probe() {
+            python -m hatch run "${HATCH_ENV}:python" -c "import pytest, sys; assert sys.prefix != sys.base_prefix"
+          }
+          if ! probe; then
+            echo "Hatch env '${HATCH_ENV}' is missing pytest; recreating" >&2
+            python -m hatch env remove "$HATCH_ENV" || true
+            python -m hatch env create "$HATCH_ENV"
+            probe
+          fi
+      - if: needs.changes.outputs.code == 'true'
+        name: Test allowlist on connector 5.2.0
+        run: hatch run ud-local:test-unit
+
   # Temporarily disabled; re-enable once config v2 (NG) is ready.
   # tests-config-ng:
   #   needs: define-matrix

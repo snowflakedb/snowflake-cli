@@ -1,0 +1,14 @@
+# Unit tests that pass on snowflake-connector-python 5.2.0.
+# The Linux job "UD unit (ubuntu-latest, py3.11)" runs exactly these paths.
+# Move a path here from tests/ud_unit_blocklist.txt after it passes:
+#   hatch run ud-local:test-unit
+# One pytest path per line. Blank lines and comments are ignored.
+
+tests/scripts
+tests/packaging
+tests/eval
+tests/test_check_release_notes_duplicates.py
+tests/test_deflake.py
+tests/test_quarantine.py
+tests/test_e2e_output_normalization.py
+tests/test_plugin_install_metadata_cache.py
