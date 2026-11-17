@@ -49,6 +49,7 @@ from snowflake.cli._plugins.upgrade.repo import (
     REPO_BASE_ENV,
     HttpRepo,
     _download_file,
+    _package_entry,
     default_repo_base,
     repo_arch,
     repo_os,
@@ -236,6 +237,61 @@ def test_repo_os_arch_mapping():
     assert repo_arch(machine="amd64") == "amd64"
     assert repo_arch(machine="aarch64") == "arm64"
     assert repo_arch(machine="arm64") == "arm64"
+
+
+def _package_manifest(*entries: tuple[str, str, str]) -> dict:
+    packages: dict = {}
+    for os_name, arch, filename in entries:
+        packages.setdefault(os_name, {})[arch] = {
+            "name": filename,
+            "checksum": "a" * 64,
+        }
+    return {"packages": packages}
+
+
+def test_windows_arm64_package_falls_back_to_amd64():
+    manifest = _package_manifest(("windows", "amd64", "cli-windows-amd64.tar.gz"))
+    entry = _package_entry(manifest, "windows", "arm64")
+    assert entry == {
+        "name": "cli-windows-amd64.tar.gz",
+        "checksum": "a" * 64,
+    }
+
+
+def test_windows_arm64_package_prefers_published_arm_package():
+    manifest = _package_manifest(
+        ("windows", "arm64", "cli-windows-arm64.tar.gz"),
+        ("windows", "amd64", "cli-windows-amd64.tar.gz"),
+    )
+    entry = _package_entry(manifest, "windows", "arm64")
+    assert entry["name"] == "cli-windows-arm64.tar.gz"
+
+
+def test_windows_arm64_without_either_package_errors():
+    manifest = _package_manifest()
+    manifest["packages"]["windows"] = {}
+    with pytest.raises(CliError, match="windows/arm64"):
+        _package_entry(manifest, "windows", "arm64")
+
+
+def test_published_windows_arm_package_missing_checksum_does_not_fall_back():
+    manifest = _package_manifest(("windows", "amd64", "cli-windows-amd64.tar.gz"))
+    manifest["packages"]["windows"]["arm64"] = {"name": "cli-windows-arm64.tar.gz"}
+    with pytest.raises(CliError, match="windows/arm64"):
+        _package_entry(manifest, "windows", "arm64")
+
+
+@pytest.mark.parametrize("os_name", ["linux", "darwin"])
+def test_non_windows_arm64_does_not_fall_back_to_amd64(os_name: str):
+    manifest = _package_manifest((os_name, "amd64", f"cli-{os_name}-amd64.tar.gz"))
+    with pytest.raises(CliError, match=f"{os_name}/arm64"):
+        _package_entry(manifest, os_name, "arm64")
+
+
+def test_windows_amd64_does_not_select_arm_package():
+    manifest = _package_manifest(("windows", "arm64", "cli-windows-arm64.tar.gz"))
+    with pytest.raises(CliError, match="windows/amd64"):
+        _package_entry(manifest, "windows", "amd64")
 
 
 def test_default_repo_base_without_override(monkeypatch):

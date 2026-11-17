@@ -223,14 +223,14 @@ def _package_entry(manifest: object, os_name: str, arch: str) -> dict:
     os_entry = packages.get(os_name)
     if not isinstance(os_entry, dict):
         raise CliError(f"{MANIFEST_NAME} has no package for {os_name}/{arch}.")
-    arch_entry = os_entry.get(arch)
+    arch_entry, selected = _select_arch_entry(os_entry, os_name, arch)
     if not isinstance(arch_entry, dict):
         raise CliError(f"{MANIFEST_NAME} has no package for {os_name}/{arch}.")
     name = arch_entry.get("name")
     checksum = arch_entry.get("checksum")
     if not name or not checksum:
         raise CliError(
-            f"{MANIFEST_NAME} package for {os_name}/{arch} is missing name or checksum."
+            f"{MANIFEST_NAME} package for {os_name}/{selected} is missing name or checksum."
         )
     filename = str(name)
     if (
@@ -241,6 +241,26 @@ def _package_entry(manifest: object, os_name: str, arch: str) -> dict:
     ):
         raise CliError(f"Invalid package name in {MANIFEST_NAME}: {filename!r}.")
     return {"name": filename, "checksum": _normalize_checksum(str(checksum))}
+
+
+def _select_arch_entry(os_entry: dict, os_name: str, arch: str) -> tuple[object, str]:
+    """Package for ``os_name``/``arch``, or the Windows x64 package on ARM.
+
+    The channel publishes ``windows/amd64`` and not ``windows/arm64``. An
+    emulated x64 binary on ARM64 Windows can still report ``ARM64`` from
+    ``platform.machine()``, so ``snow upgrade`` and auto-upgrade would ask
+    for a package that is not there. Windows runs the x64 package under
+    emulation. A published ``windows/arm64`` entry is preferred. Other
+    operating systems do not fall back.
+    """
+    arch_entry = os_entry.get(arch)
+    if isinstance(arch_entry, dict) or os_name != "windows" or arch != "arm64":
+        return arch_entry, arch
+    fallback = os_entry.get("amd64")
+    if not isinstance(fallback, dict):
+        return arch_entry, arch
+    log.info("No Windows ARM package is published. Using the x64 package.")
+    return fallback, "amd64"
 
 
 def _normalize_checksum(value: str) -> str:
