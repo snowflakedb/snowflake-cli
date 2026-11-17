@@ -35,14 +35,17 @@ log = logging.getLogger(__name__)
 
 
 def _handle_exception(exception: Exception):
+    from snowflake.cli._plugins.feedback.error_hint import print_armed_feedback_hint
+
     if get_cli_context().enable_tracebacks:
+        print_armed_feedback_hint(exception)
         raise exception
-    else:
-        cli_console.warning(
-            "\nAn unexpected exception occurred. Use --debug option to see the traceback. Exception message:\n\n"
-            + exception.__str__()
-        )
-        raise SystemExit(1)
+    cli_console.warning(
+        "\nAn unexpected exception occurred. Use --debug option to see the traceback. Exception message:\n\n"
+        + exception.__str__()
+    )
+    print_armed_feedback_hint(exception)
+    raise SystemExit(1)
 
 
 def _config_file_argv(*call_args) -> list[str]:

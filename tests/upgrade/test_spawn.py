@@ -27,7 +27,8 @@ from snowflake.cli._plugins.upgrade import layout as layout_mod
 from snowflake.cli._plugins.upgrade import spawn
 from snowflake.cli._plugins.upgrade.controls import AUTO_UPGRADE_DONE_ENV
 from snowflake.cli._plugins.upgrade.layout import MANAGED_HOME_ENV, ManagedLayout
-from snowflake.cli._plugins.upgrade.spawn import run_new_binary
+from snowflake.cli._plugins.upgrade.spawn import run_new_binary, warm_installed_binary
+from snowflake.cli.api.exceptions import CliError
 
 from tests_common import IS_WINDOWS
 
@@ -300,3 +301,72 @@ def test_missing_binary_runs_parent_finally(managed_home, tmp_path):
 
     assert completed.returncode != 0
     assert marker.read_text(encoding="utf-8") == "ran"
+
+
+def test_warm_runs_version_binary_not_the_shim(monkeypatch, managed_home):
+    monkeypatch.setattr(layout_mod.platform, "system", lambda: "Linux")
+    monkeypatch.delenv(AUTO_UPGRADE_DONE_ENV, raising=False)
+    captured: dict = {}
+
+    def fake_run(args, **kwargs):
+        captured["args"] = [str(arg) for arg in args]
+        captured["kwargs"] = kwargs
+        return subprocess.CompletedProcess(list(args), 0)
+
+    monkeypatch.setattr(spawn.subprocess, "run", fake_run)
+    warm_installed_binary("3.13.1")
+
+    binary = ManagedLayout().binary_path("3.13.1")
+    assert captured["args"] == [str(binary), "--no-auto-upgrade", "--version"]
+    assert captured["args"][0] != str(ManagedLayout().unix_shim)
+    assert captured["kwargs"]["env"][AUTO_UPGRADE_DONE_ENV] == "1"
+    assert captured["kwargs"]["stdout"] is subprocess.DEVNULL
+    assert "stderr" not in captured["kwargs"]
+    assert "stdin" not in captured["kwargs"]
+    assert "preexec_fn" not in captured["kwargs"]
+
+
+def test_warm_nonzero_reports_the_installed_version(monkeypatch, managed_home):
+    monkeypatch.setattr(layout_mod.platform, "system", lambda: "Linux")
+
+    def fake_run(args, **kwargs):
+        return subprocess.CompletedProcess(list(args), 3)
+
+    monkeypatch.setattr(spawn.subprocess, "run", fake_run)
+    with pytest.raises(CliError, match=r"Upgraded to 3.13.1.*exit 3"):
+        warm_installed_binary("3.13.1")
+
+
+def test_warm_missing_binary_reports_the_installed_version(monkeypatch, managed_home):
+    monkeypatch.setattr(layout_mod.platform, "system", lambda: "Linux")
+
+    def fake_run(args, **kwargs):
+        raise FileNotFoundError(args[0])
+
+    monkeypatch.setattr(spawn.subprocess, "run", fake_run)
+    with pytest.raises(CliError, match="Upgraded to 3.13.1.*could not be started"):
+        warm_installed_binary("3.13.1")
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="version-dir snow is a Python script")
+def test_warm_executes_version_binary(managed_home):
+    binary = ManagedLayout().binary_path("3.13.1")
+    marker = managed_home / "warm-args"
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    binary.write_text(
+        "\n".join(
+            [
+                "#!/bin/sh",
+                f'printf \'%s\\n\' "$1" "$2" > {shlex.quote(str(marker))}',
+                "exit 0",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+    binary.chmod(0o755)
+
+    warm_installed_binary("3.13.1")
+
+    assert marker.read_text(encoding="utf-8") == "--no-auto-upgrade\n--version\n"

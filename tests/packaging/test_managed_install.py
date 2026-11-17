@@ -26,6 +26,7 @@ import tarfile
 from pathlib import Path
 
 import pytest
+import tomlkit
 from pytest_httpserver import HTTPServer
 from snowflake.cli._plugins.upgrade.trust import MANIFEST_SIG_NAME, sign_manifest
 
@@ -70,7 +71,7 @@ def _tarball_bytes(tmp_path: Path, version: str) -> tuple[bytes, str]:
     return data, hashlib.sha256(data).hexdigest()
 
 
-def _serve_release(
+def _serve_version_package(
     httpserver: HTTPServer,
     tmp_path: Path,
     version: str,
@@ -97,7 +98,6 @@ def _serve_release(
             }
         )
     ).encode()
-    httpserver.expect_request("/stable_version.txt").respond_with_data(f"{version}\n")
     httpserver.expect_request(f"/{version}/manifest.json").respond_with_data(
         body, content_type="application/json"
     )
@@ -117,6 +117,28 @@ def _serve_release(
     return digest
 
 
+def _serve_release(
+    httpserver: HTTPServer,
+    tmp_path: Path,
+    version: str,
+    private_pem: bytes,
+    *,
+    checksum: str | None = None,
+    serve_sig: bool = True,
+    package_name: str | None = None,
+) -> str:
+    httpserver.expect_request("/stable_version.txt").respond_with_data(f"{version}\n")
+    return _serve_version_package(
+        httpserver,
+        tmp_path,
+        version,
+        private_pem,
+        checksum=checksum,
+        serve_sig=serve_sig,
+        package_name=package_name,
+    )
+
+
 def _test_keys(tmp_path: Path) -> tuple[bytes, Path]:
     private_pem, public_pem = generate_test_rsa_keypair()
     pub_file = tmp_path / "test-manifest.pub.pem"
@@ -130,7 +152,9 @@ def _run_install(
     pubkey_file: Path,
     *,
     extra_env: dict[str, str] | None = None,
+    args: list[str] | None = None,
     check: bool = True,
+    cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     home = tmp_path / "home"
     home.mkdir(parents=True, exist_ok=True)
@@ -148,11 +172,13 @@ def _run_install(
     env.pop("XDG_CONFIG_HOME", None)
     env.pop("SKIP_PATH_PROMPT", None)
     env.pop("DOCKER_ENV", None)
+    env.pop("SNOWFLAKE_CLI_VERSION", None)
     if extra_env:
         env.update(extra_env)
     result = subprocess.run(
-        ["sh", str(INSTALL_SH)],
+        ["sh", str(INSTALL_SH), *(args or [])],
         check=False,
+        cwd=cwd,
         capture_output=True,
         text=True,
         env=env,
@@ -538,6 +564,345 @@ def test_install_sh_restricts_platformdirs_config_when_snowflake_home_is_absent(
     assert f"Restricted permissions on {connections}" in result.stdout
 
 
+@requires_posix_shell
+def test_install_sh_pins_version_from_flag(tmp_path: Path, httpserver: HTTPServer):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    _serve_version_package(httpserver, tmp_path, "3.12.0", private_pem)
+    _run_install(tmp_path, httpserver, pub_file, args=["--version", "3.12.0"])
+
+    home = tmp_path / "home"
+    root = home / ".local" / "share" / "snowflake-cli"
+    assert (root / ".current").read_text().strip() == "3.12.0"
+    shim = root / "bin" / "snow"
+    invoked = subprocess.run(
+        [str(shim), "--version"], check=False, capture_output=True, text=True
+    )
+    assert invoked.returncode == 0, invoked.stderr
+    assert "Snowflake CLI version: 3.12.0" in invoked.stdout
+
+
+@requires_posix_shell
+def test_install_sh_pins_version_from_env(tmp_path: Path, httpserver: HTTPServer):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    _serve_version_package(httpserver, tmp_path, "3.12.0", private_pem)
+    _run_install(
+        tmp_path,
+        httpserver,
+        pub_file,
+        extra_env={"SNOWFLAKE_CLI_VERSION": "3.12.0"},
+    )
+    home = tmp_path / "home"
+    root = home / ".local" / "share" / "snowflake-cli"
+    assert (root / ".current").read_text().strip() == "3.12.0"
+
+
+@requires_posix_shell
+def test_install_sh_flag_version_overrides_env(tmp_path: Path, httpserver: HTTPServer):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    _serve_version_package(httpserver, tmp_path, "3.12.0", private_pem)
+    _serve_version_package(httpserver, tmp_path, "3.11.0", private_pem)
+    _run_install(
+        tmp_path,
+        httpserver,
+        pub_file,
+        extra_env={"SNOWFLAKE_CLI_VERSION": "3.11.0"},
+        args=["--version=3.12.0"],
+    )
+    home = tmp_path / "home"
+    root = home / ".local" / "share" / "snowflake-cli"
+    assert (root / ".current").read_text().strip() == "3.12.0"
+
+
+@requires_posix_shell
+def test_install_sh_no_auto_upgrade_writes_config(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    result = _run_install(
+        tmp_path,
+        httpserver,
+        pub_file,
+        args=["--version", "3.13.1", "--no-auto-upgrade"],
+    )
+    home = tmp_path / "home"
+    if platform.system() == "Darwin":
+        config_dir = home / "Library" / "Application Support" / "snowflake"
+    else:
+        config_dir = home / ".config" / "snowflake"
+    config = config_dir / "config.toml"
+    assert not (home / ".snowflake").exists()
+    assert config.is_file()
+    text = config.read_text(encoding="utf-8")
+    assert "[cli]" in text
+    assert "auto_upgrade = false" in text
+    assert _mode(config) == 0o600
+    assert "cli.auto_upgrade = false" in result.stdout
+
+
+@requires_posix_shell
+def test_install_sh_no_auto_upgrade_updates_existing_config(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    snowflake_home = home / ".snowflake"
+    snowflake_home.mkdir(parents=True)
+    config = snowflake_home / "config.toml"
+    config.write_text(
+        'default_connection_name = "ci"\n\n[cli]\nauto_upgrade = true\n',
+        encoding="utf-8",
+    )
+    config.chmod(0o600)
+    _run_install(
+        tmp_path,
+        httpserver,
+        pub_file,
+        args=["--no-auto-upgrade"],
+    )
+    text = config.read_text(encoding="utf-8")
+    assert 'default_connection_name = "ci"' in text
+    assert "auto_upgrade = false" in text
+    assert "auto_upgrade = true" not in text
+
+
+CONFIG_SHAPES = {
+    "cli_header_with_comment": "[cli] # mine\nauto_upgrade = true\n",
+    "cli_header_with_spaces": "[ cli ]\nauto_upgrade = true\n",
+    "root_dotted_key": "cli.auto_upgrade = true\n\n[connections.a]\nuser = 'x'\n",
+    "cli_logs_without_cli": "[cli.logs]\nsave_logs = true\n",
+    "cli_then_subtable": "[cli]\nfoo = 1\n[cli.logs]\nsave_logs = true\n",
+    "connections_only": "[connections.a]\nuser = 'x'\n",
+    "crlf": "[cli]\r\nfoo = 1\r\n[connections.a]\r\nuser = 'x'\r\n",
+    "no_trailing_newline": "[connections.a]\nuser = 'x'",
+    "uppercase_table": "[CLI]\nx = 1\n",
+    "nested_array_value": "[cli]\nv = [\n  [1, 2],\n]\n",
+    "quoted_header_symbols": (
+        "[cli]\nfoo = 1\n[connections.\"me@acme/x#1\"]\nuser = 'x'\n"
+    ),
+    "quoted_header_non_ascii": "[cli]\nfoo = 1\n[connections.\"zażółć\"]\nuser = 'x'\n",
+    "single_quoted_header": "[cli]\nfoo = 1\n[connections.'my conn']\nuser = 'x'\n",
+    "single_quoted_cli": "['cli']\nauto_upgrade = true\n",
+}
+
+UNSAFE_CONFIG_SHAPES = {
+    "array_of_tables": "[[cli]]\nx = 1\n",
+    "root_dotted_other_key": "cli.foo = 1\n",
+}
+
+
+def _assert_auto_upgrade_disabled(config: Path, original: str) -> None:
+    raw = config.read_bytes()
+    assert not raw.startswith(b"\xef\xbb\xbf")
+    doc = tomlkit.loads(raw.decode("utf-8")).unwrap()
+    assert doc["cli"]["auto_upgrade"] is False
+    original_doc = tomlkit.loads(original).unwrap()
+    for key, value in original_doc.items():
+        if key != "cli":
+            assert doc[key] == value
+    for key, value in original_doc.get("cli", {}).items():
+        if key != "auto_upgrade":
+            assert doc["cli"][key] == value
+
+
+def _write_user_config(tmp_path: Path, content: str) -> Path:
+    snowflake_home = tmp_path / "home" / ".snowflake"
+    snowflake_home.mkdir(parents=True)
+    config = snowflake_home / "config.toml"
+    config.write_bytes(content.encode("utf-8"))
+    config.chmod(0o600)
+    return config
+
+
+@requires_posix_shell
+@pytest.mark.parametrize("content", CONFIG_SHAPES.values(), ids=CONFIG_SHAPES.keys())
+def test_install_sh_no_auto_upgrade_handles_config_shapes(
+    tmp_path: Path, httpserver: HTTPServer, content: str
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    config = _write_user_config(tmp_path, content)
+    _run_install(tmp_path, httpserver, pub_file, args=["--no-auto-upgrade"])
+    _assert_auto_upgrade_disabled(config, content)
+    assert _mode(config) == 0o600
+    assert [p.name for p in config.parent.iterdir()] == ["config.toml"]
+
+
+@requires_posix_shell
+@pytest.mark.parametrize(
+    "content", UNSAFE_CONFIG_SHAPES.values(), ids=UNSAFE_CONFIG_SHAPES.keys()
+)
+def test_install_sh_no_auto_upgrade_refuses_unsafe_config(
+    tmp_path: Path, httpserver: HTTPServer, content: str
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    config = _write_user_config(tmp_path, content)
+    result = _run_install(
+        tmp_path, httpserver, pub_file, args=["--no-auto-upgrade"], check=False
+    )
+    assert result.returncode != 0
+    assert "Could not set cli.auto_upgrade" in result.stderr
+    assert config.read_text(encoding="utf-8") == content
+    assert [p.name for p in config.parent.iterdir()] == ["config.toml"]
+    root = tmp_path / "home" / ".local" / "share" / "snowflake-cli"
+    assert not (root / "bin" / "snow").exists()
+
+
+@requires_posix_shell
+def test_install_sh_no_auto_upgrade_refuses_symlinked_config(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    target = tmp_path / "dotfiles" / "config.toml"
+    target.parent.mkdir()
+    target.write_text("[cli]\nauto_upgrade = true\n", encoding="utf-8")
+    snowflake_home = tmp_path / "home" / ".snowflake"
+    snowflake_home.mkdir(parents=True)
+    (snowflake_home / "config.toml").symlink_to(target)
+    result = _run_install(
+        tmp_path, httpserver, pub_file, args=["--no-auto-upgrade"], check=False
+    )
+    assert result.returncode != 0
+    assert "is a symlink" in result.stderr
+    assert (snowflake_home / "config.toml").is_symlink()
+    assert "auto_upgrade = true" in target.read_text(encoding="utf-8")
+
+
+def _platform_default_config_dir(home: Path) -> Path:
+    # platformdirs 4.3.8 ignores XDG_CONFIG_HOME on macOS.
+    if platform.system() == "Darwin":
+        return home / "Library" / "Application Support" / "snowflake"
+    return home / ".config" / "snowflake"
+
+
+@requires_posix_shell
+def test_install_sh_no_auto_upgrade_uses_absolute_xdg_config_home(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    xdg = tmp_path / "xdg"
+    (xdg / "snowflake").mkdir(parents=True)
+    home = tmp_path / "home"
+    _run_install(
+        tmp_path,
+        httpserver,
+        pub_file,
+        extra_env={
+            "SNOWFLAKE_HOME": str(tmp_path / "missing"),
+            "XDG_CONFIG_HOME": str(xdg),
+        },
+        args=["--no-auto-upgrade"],
+    )
+    assert not (tmp_path / "missing").exists()
+    if platform.system() == "Darwin":
+        config = _platform_default_config_dir(home) / "config.toml"
+    else:
+        config = xdg / "snowflake" / "config.toml"
+    assert "auto_upgrade = false" in config.read_text()
+
+
+@requires_posix_shell
+def test_install_sh_no_auto_upgrade_relative_xdg_config_home_matches_platformdirs(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    work = tmp_path / "work"
+    work.mkdir()
+    home = tmp_path / "home"
+    _run_install(
+        tmp_path,
+        httpserver,
+        pub_file,
+        extra_env={"XDG_CONFIG_HOME": "relative"},
+        args=["--no-auto-upgrade"],
+        cwd=work,
+    )
+    if platform.system() == "Darwin":
+        config = _platform_default_config_dir(home) / "config.toml"
+    else:
+        # platformdirs 4.3.8 uses any non-blank value, relative to the cwd.
+        config = work / "relative" / "snowflake" / "config.toml"
+    assert "auto_upgrade = false" in config.read_text()
+
+
+@requires_posix_shell
+def test_install_sh_no_auto_upgrade_blank_xdg_config_home_uses_default(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    home = tmp_path / "home"
+    _run_install(
+        tmp_path,
+        httpserver,
+        pub_file,
+        extra_env={"XDG_CONFIG_HOME": "   "},
+        args=["--no-auto-upgrade"],
+    )
+    config = _platform_default_config_dir(home) / "config.toml"
+    assert "auto_upgrade = false" in config.read_text()
+
+
+@requires_posix_shell
+@pytest.mark.parametrize("args", [["--version="], ["--version", " "]])
+def test_install_sh_rejects_empty_version_flag(
+    tmp_path: Path, httpserver: HTTPServer, args: list[str]
+):
+    _, pub_file = _test_keys(tmp_path)
+    result = _run_install(tmp_path, httpserver, pub_file, args=args, check=False)
+    assert result.returncode != 0
+    assert "--version requires a value" in result.stderr
+
+
+@requires_posix_shell
+def test_install_sh_blank_version_env_installs_stable(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    private_pem, pub_file = _test_keys(tmp_path)
+    _serve_release(httpserver, tmp_path, "3.13.1", private_pem)
+    result = _run_install(
+        tmp_path, httpserver, pub_file, extra_env={"SNOWFLAKE_CLI_VERSION": " "}
+    )
+    assert "(pinned)" not in result.stdout
+    root = tmp_path / "home" / ".local" / "share" / "snowflake-cli"
+    assert (root / ".current").read_text().strip() == "3.13.1"
+
+
+@requires_posix_shell
+def test_install_sh_rejects_unknown_option(tmp_path: Path, httpserver: HTTPServer):
+    _, pub_file = _test_keys(tmp_path)
+    result = _run_install(
+        tmp_path,
+        httpserver,
+        pub_file,
+        args=["--auto-upgrade=false"],
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "Unknown option: --auto-upgrade=false" in (result.stdout + result.stderr)
+    home = tmp_path / "home"
+    assert not (home / ".snowflake" / "config.toml").exists()
+
+
+@requires_posix_shell
+def test_install_sh_help_exits_zero_without_installing(
+    tmp_path: Path, httpserver: HTTPServer
+):
+    _, pub_file = _test_keys(tmp_path)
+    result = _run_install(tmp_path, httpserver, pub_file, args=["--help"])
+    assert "Usage: install.sh" in result.stdout
+    home = tmp_path / "home"
+    assert not (home / ".local" / "share" / "snowflake-cli" / "bin" / "snow").exists()
+
+
 def test_install_ps1_is_snowflake_managed_not_cortex():
     text = INSTALL_PS1.read_text(encoding="utf-8")
     assert "snowflake-cli" in text
@@ -553,8 +918,19 @@ def test_install_ps1_is_snowflake_managed_not_cortex():
     assert "connections.toml" in text
     assert "config.toml" in text
     assert "ManifestSigName" in text
+    assert "Resolve-InstallVersion" in text
+    assert "Disable-AutoUpgradeConfig" in text
+    assert "-NoAutoUpgrade" in text
+    assert "SNOWFLAKE_CLI_VERSION" in text
     assert "native" not in text.lower()
     assert "self-managed" not in text.lower()
+
+
+def test_install_ps1_disables_auto_upgrade_before_installing():
+    text = INSTALL_PS1.read_text(encoding="utf-8")
+    call = text.index("\n            Disable-AutoUpgradeConfig\n")
+    assert text.index("Test-Checksum $tarPath") < call
+    assert call < text.index("$installDir = Join-Path $InstallBaseDir $version")
 
 
 def test_install_ps1_parses():
@@ -579,3 +955,117 @@ def test_install_ps1_parses():
         timeout=30,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _require_powershell() -> str:
+    shell = _powershell_bin()
+    if shell is None:
+        pytest.skip("PowerShell is not installed")
+    assert shell is not None
+    return shell
+
+
+def _run_ps1_functions(
+    shell: str, body: str, user_profile: Path, args: list[str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    ps_path = "'" + str(INSTALL_PS1).replace("'", "''") + "'"
+    loader = (
+        "$tokens = $null; $errors = $null\n"
+        f"$ast = [System.Management.Automation.Language.Parser]::ParseFile("
+        f"{ps_path}, [ref]$tokens, [ref]$errors)\n"
+        "foreach ($f in $ast.FindAll({ param($n) "
+        "$n -is [System.Management.Automation.Language.FunctionDefinitionAst] "
+        "}, $false)) {\n"
+        "  . ([scriptblock]::Create($f.Extent.Text))\n"
+        "}\n"
+        "function Protect-SnowflakeConfigFile { param($Path) }\n"
+        "$script:RequestedVersion = $null; $script:DisableAutoUpgrade = $false\n"
+    )
+    script_file = user_profile.parent / "run.ps1"
+    script_file.write_text(loader + body, encoding="utf-8")
+    env = os.environ.copy()
+    env.pop("SNOWFLAKE_HOME", None)
+    env["USERPROFILE"] = str(user_profile)
+    env["LOCALAPPDATA"] = str(user_profile / "AppData" / "Local")
+    return subprocess.run(
+        [shell, "-NoProfile", "-NonInteractive", "-File", str(script_file)]
+        + (args or []),
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=60,
+    )
+
+
+@pytest.mark.parametrize("content", CONFIG_SHAPES.values(), ids=CONFIG_SHAPES.keys())
+def test_install_ps1_disable_auto_upgrade_handles_config_shapes(
+    tmp_path: Path, content: str
+):
+    shell = _require_powershell()
+    profile = tmp_path / "profile"
+    config = profile / ".snowflake" / "config.toml"
+    config.parent.mkdir(parents=True)
+    config.write_bytes(content.encode("utf-8"))
+    result = _run_ps1_functions(shell, "Disable-AutoUpgradeConfig\n", profile)
+    assert result.returncode == 0, result.stdout + result.stderr
+    _assert_auto_upgrade_disabled(config, content)
+    assert [p.name for p in config.parent.iterdir()] == ["config.toml"]
+
+
+@pytest.mark.parametrize(
+    "content", UNSAFE_CONFIG_SHAPES.values(), ids=UNSAFE_CONFIG_SHAPES.keys()
+)
+def test_install_ps1_disable_auto_upgrade_refuses_unsafe_config(
+    tmp_path: Path, content: str
+):
+    shell = _require_powershell()
+    profile = tmp_path / "profile"
+    config = profile / ".snowflake" / "config.toml"
+    config.parent.mkdir(parents=True)
+    config.write_bytes(content.encode("utf-8"))
+    result = _run_ps1_functions(shell, "Disable-AutoUpgradeConfig\n", profile)
+    assert result.returncode != 0
+    assert "Could not set cli.auto_upgrade" in result.stdout + result.stderr
+    assert config.read_bytes() == content.encode("utf-8")
+
+
+def test_install_ps1_disable_auto_upgrade_preserves_non_ascii(tmp_path: Path):
+    shell = _require_powershell()
+    profile = tmp_path / "profile"
+    config = profile / ".snowflake" / "config.toml"
+    config.parent.mkdir(parents=True)
+    original = "[connections.a]\npassword = 'zażółć'\n".encode("utf-8")
+    config.write_bytes(original)
+    result = _run_ps1_functions(shell, "Disable-AutoUpgradeConfig\n", profile)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert config.read_bytes().startswith(original)
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        (["-Version", "3.29.0", "-NoAutoUpgrade"], "version=[3.29.0] noau=True"),
+        (["--version=3.30.0", "--no-auto-upgrade"], "version=[3.30.0] noau=True"),
+    ],
+)
+def test_install_ps1_parses_install_args(
+    tmp_path: Path, args: list[str], expected: str
+):
+    shell = _require_powershell()
+    body = (
+        "Parse-InstallArgs -ArgList $args\n"
+        '"version=[$script:RequestedVersion] noau=$script:DisableAutoUpgrade"\n'
+    )
+    result = _run_ps1_functions(shell, body, tmp_path / "profile", args)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert expected in result.stdout
+
+
+@pytest.mark.parametrize("args", [["--version="], ["-Version", ""], ["--bogus"]])
+def test_install_ps1_rejects_bad_install_args(tmp_path: Path, args: list[str]):
+    shell = _require_powershell()
+    result = _run_ps1_functions(
+        shell, "Parse-InstallArgs -ArgList $args\n", tmp_path / "profile", args
+    )
+    assert result.returncode != 0

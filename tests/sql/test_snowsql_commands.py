@@ -309,6 +309,43 @@ def test_queries_execute_help(mock_print, mock_ctx):
             ["output_format=plain"],
             SetCommand(option="output_format", value="plain"),
         ),
+        ("!set", ["quiet=true"], SetCommand(option="quiet", value="true")),
+        ("!set", ["timing=on"], SetCommand(option="timing", value="on")),
+        (
+            "!set",
+            ["timing_in_output_file=false"],
+            SetCommand(option="timing_in_output_file", value="false"),
+        ),
+        (
+            "!set",
+            ["output_file=out.txt"],
+            SetCommand(option="output_file", value="out.txt"),
+        ),
+        (
+            "!set",
+            ['output_file="my out.txt"'],
+            SetCommand(option="output_file", value="my out.txt"),
+        ),
+        (
+            "!set",
+            ["output_file=a=b.txt"],
+            SetCommand(option="output_file", value="a=b.txt"),
+        ),
+        (
+            "!set",
+            ["output_file=a b"],
+            SetCommand(option="output_file", value="a b"),
+        ),
+        (
+            "!set",
+            ["OUTPUT_FILE=out.txt"],
+            SetCommand(option="output_file", value="out.txt"),
+        ),
+        (
+            "!set",
+            ["output_file=off"],
+            SetCommand(option="output_file", value="off"),
+        ),
         ("!spool", ["out.txt"], SpoolCommand(path="out.txt")),
         ("!spool", ["off"], SpoolCommand(path=None)),
         (
@@ -357,35 +394,48 @@ def test_rehash_from_args():
     )
 
 
+_SET_USAGE = (
+    "Usage: `!set output_format=<format>` | `!set quiet=<true|false>` | "
+    "`!set timing=<true|false>` | `!set timing_in_output_file=<true|false>` | "
+    "`!set echo=<true|false>` | `!set output_file=<path>`"
+)
+_SET_SUPPORTED = (
+    "Only output_format, quiet, timing, timing_in_output_file, echo "
+    "and output_file are supported."
+)
+_OUTPUT_FILE_VALUE_REQUIRED = "You must specify a value for output_file. " + _SET_USAGE
+
+
 def test_set_from_args():
     assert SetCommand.from_args([], {}) == CompileCommandResult(
-        error_message="No arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+        error_message=f"No arguments passed to 'set' command. {_SET_USAGE}"
     )
     assert SetCommand.from_args("", {}) == CompileCommandResult(
-        error_message="No arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+        error_message=f"No arguments passed to 'set' command. {_SET_USAGE}"
     )
     assert SetCommand.from_args(["output_format", "plain"], {}) == CompileCommandResult(
-        error_message="Too many arguments passed to 'set' command. Usage: `!set output_format=<format>`"
+        error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
     )
     assert SetCommand.from_args([], {"header": "false"}) == CompileCommandResult(
-        error_message="Unknown option passed to 'set' command: 'header'. Only output_format is supported."
+        error_message=f"Unknown option passed to 'set' command: 'header'. {_SET_SUPPORTED}"
     )
     assert SetCommand.from_args(
         [], {"output_format": "plain", "header": "false"}
     ) == CompileCommandResult(
-        error_message="Unknown option passed to 'set' command: 'header'. Only output_format is supported."
+        error_message=f"Unknown option passed to 'set' command: 'header'. {_SET_SUPPORTED}"
     )
     assert SetCommand.from_args(
         [], {"header": "false", "timing": "on"}
     ) == CompileCommandResult(
-        error_message="Unknown option passed to 'set' command: 'header', 'timing'. Only output_format is supported."
+        error_message=(
+            f"Unknown option passed to 'set' command: 'header'. {_SET_SUPPORTED}"
+        )
     )
     csi_key = "\x1b[31mred"
     result = SetCommand.from_args([], {csi_key: "1"})
     assert result == CompileCommandResult(
         error_message=(
-            f"Unknown option passed to 'set' command: {csi_key!r}. "
-            "Only output_format is supported."
+            f"Unknown option passed to 'set' command: {csi_key!r}. {_SET_SUPPORTED}"
         )
     )
     assert "\x1b[31m" not in (result.error_message or "")
@@ -420,6 +470,47 @@ def test_set_from_args():
     )
 
 
+def test_set_echo_from_args():
+    assert SetCommand.from_args("echo=true") == CompileCommandResult(
+        command=SetCommand(option="echo", value="true")
+    )
+    assert SetCommand.from_args("ECHO=FALSE") == CompileCommandResult(
+        command=SetCommand(option="echo", value="false")
+    )
+    assert SetCommand.from_args([], {"echo": "True"}) == CompileCommandResult(
+        command=SetCommand(option="echo", value="true")
+    )
+    assert SetCommand.from_args("echo=") == CompileCommandResult(
+        error_message="Invalid value for 'echo': ''. Must be true or false."
+    )
+    assert SetCommand.from_args("echo=yes") == CompileCommandResult(
+        error_message="Invalid value for 'echo': 'yes'. Must be true or false."
+    )
+    assert SetCommand.from_args("echo=true ECHO=false") == CompileCommandResult(
+        error_message="Duplicated argument 'echo'"
+    )
+    assert SetCommand.from_args(
+        [], {"echo": "true", "ECHO": "false"}
+    ) == CompileCommandResult(error_message="Duplicated argument 'echo', 'ECHO'")
+    assert SetCommand.from_args(
+        "echo=true output_format=plain"
+    ) == CompileCommandResult(
+        error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+    )
+
+
+def test_set_execute_sets_echo():
+    manager = get_cli_context_manager()
+    previous = manager.echo
+    try:
+        SetCommand(option="echo", value="true").execute(mock.Mock())
+        assert get_cli_context().echo_enabled is True
+        SetCommand(option="echo", value="false").execute(mock.Mock())
+        assert get_cli_context().echo_enabled is False
+    finally:
+        manager.echo = previous
+
+
 def test_set_execute_sets_output_format():
     manager = get_cli_context_manager()
     previous = manager.output_format
@@ -432,10 +523,295 @@ def test_set_execute_sets_output_format():
         manager.output_format = previous
 
 
+def test_set_quiet_from_args():
+    assert SetCommand.from_args("quiet=true") == CompileCommandResult(
+        command=SetCommand(option="quiet", value="true")
+    )
+    assert SetCommand.from_args("QUIET=FALSE") == CompileCommandResult(
+        command=SetCommand(option="quiet", value="FALSE")
+    )
+    assert SetCommand.from_args([], {"quiet": "on"}) == CompileCommandResult(
+        command=SetCommand(option="quiet", value="on")
+    )
+    assert SetCommand.from_args("quiet=") == CompileCommandResult(
+        error_message="Invalid value for quiet: ''. Use true or false."
+    )
+    assert SetCommand.from_args("quiet=maybe") == CompileCommandResult(
+        error_message="Invalid value for quiet: 'maybe'. Use true or false."
+    )
+    assert SetCommand.from_args("quiet=true QUIET=false") == CompileCommandResult(
+        error_message="Duplicated argument 'quiet'"
+    )
+    assert SetCommand.from_args(
+        [], {"quiet": "true", "QUIET": "false"}
+    ) == CompileCommandResult(error_message="Duplicated argument 'quiet', 'QUIET'")
+    assert SetCommand.from_args(
+        "output_format=json quiet=true"
+    ) == CompileCommandResult(
+        error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+    )
+
+
+def test_set_quiet_empty_does_not_change_an_existing_value():
+    """Empty is rejected. Unset stays the default, and a prior true stays true."""
+    manager = get_cli_context_manager()
+    assert manager.quiet is False
+    rejected = SetCommand.from_args("quiet=")
+    assert rejected.command is None
+    assert manager.quiet is False
+
+    SetCommand(option="quiet", value="true").execute(mock.Mock())
+    assert manager.quiet is True
+    rejected_again = SetCommand.from_args("quiet=")
+    assert rejected_again.error_message is not None
+    assert manager.quiet is True
+
+
+def test_set_execute_sets_quiet():
+    manager = get_cli_context_manager()
+    assert manager.quiet is False
+    SetCommand(option="quiet", value="true").execute(mock.Mock())
+    assert get_cli_context().quiet is True
+    SetCommand(option="quiet", value="false").execute(mock.Mock())
+    assert get_cli_context().quiet is False
+    SetCommand(option="quiet", value="yes").execute(mock.Mock())
+    assert manager.quiet is True
+    SetCommand(option="quiet", value="0").execute(mock.Mock())
+    assert manager.quiet is False
+
+
+@pytest.mark.parametrize("option", ["timing", "TIMING", "timing_in_output_file"])
+@pytest.mark.parametrize("value", ["true", "Yes", "on", "1", "false", "NO", "off", "0"])
+def test_set_timing_options_accept_snowsql_booleans(option, value):
+    assert SetCommand.from_args(f"{option}={value}") == CompileCommandResult(
+        command=SetCommand(option=option.lower(), value=value)
+    )
+
+
+@pytest.mark.parametrize(
+    "raw_args, error_message",
+    (
+        ("timing=", "Invalid value for timing: ''. Use true or false."),
+        (
+            "timing_in_output_file=",
+            "Invalid value for timing_in_output_file: ''. Use true or false.",
+        ),
+        ("timing=maybe", "Invalid value for timing: 'maybe'. Use true or false."),
+        ("timing=true TIMING=false", "Duplicated argument 'timing'"),
+        (
+            "timing=on timing_in_output_file=true",
+            f"Too many arguments passed to 'set' command. {_SET_USAGE}",
+        ),
+    ),
+)
+def test_set_timing_options_reject_invalid_input(raw_args, error_message):
+    assert SetCommand.from_args(raw_args) == CompileCommandResult(
+        error_message=error_message
+    )
+
+
+def test_set_execute_sets_timing_options():
+    manager = get_cli_context_manager()
+    assert manager.timing is True
+    assert manager.timing_in_output_file is False
+
+    SetCommand(option="timing", value="off").execute(mock.Mock())
+    SetCommand(option="timing_in_output_file", value="on").execute(mock.Mock())
+
+    assert get_cli_context().timing is False
+    assert get_cli_context().timing_in_output_file is True
+
+
+def test_set_usage_and_supported_mention_output_file():
+    assert "`!set output_file=<path>`" in _SET_USAGE
+    assert "output_file" in _SET_SUPPORTED
+    assert "output_file" in (SetCommand.__doc__ or "")
+    missing = SetCommand.from_args([])
+    assert missing.error_message is not None
+    assert "`!set output_file=<path>`" in missing.error_message
+    unknown = SetCommand.from_args([], {"header": "false"})
+    assert unknown.error_message is not None
+    assert "output_file" in unknown.error_message
+
+
+@pytest.mark.parametrize(
+    "raw_args, option, value",
+    (
+        ("output_format=plain", "output_format", "plain"),
+        ("quiet=true", "quiet", "true"),
+        ("timing=on", "timing", "on"),
+        ("timing_in_output_file=false", "timing_in_output_file", "false"),
+        ("OUTPUT_FORMAT=json", "output_format", "json"),
+    ),
+)
+def test_set_existing_options_still_parse(raw_args, option, value):
+    assert SetCommand.from_args(raw_args) == CompileCommandResult(
+        command=SetCommand(option=option, value=value)
+    )
+
+
+def test_set_output_file_from_args():
+    assert SetCommand.from_args("output_file=out.txt") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="out.txt")
+    )
+    assert SetCommand.from_args('output_file="my out.txt"') == CompileCommandResult(
+        command=SetCommand(option="output_file", value="my out.txt")
+    )
+    assert SetCommand.from_args("output_file='my out.txt'") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="my out.txt")
+    )
+    assert SetCommand.from_args("output_file=foo=bar.txt") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="foo=bar.txt")
+    )
+    assert SetCommand.from_args('output_file="a=b c.txt"') == CompileCommandResult(
+        command=SetCommand(option="output_file", value="a=b c.txt")
+    )
+    assert SetCommand.from_args("OUTPUT_FILE=out.txt") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="out.txt")
+    )
+    assert SetCommand.from_args("output_file=a b") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="a b")
+    )
+    assert SetCommand.from_args("output_file=off") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="off")
+    )
+    assert SetCommand.from_args("output_file=false") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="false")
+    )
+    assert SetCommand.from_args("output_file=none") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="none")
+    )
+    assert SetCommand.from_args(
+        [], {"output_file": "my out.txt"}
+    ) == CompileCommandResult(
+        command=SetCommand(option="output_file", value="my out.txt")
+    )
+    assert SetCommand.from_args(
+        [], {"OUTPUT_FILE": "foo=bar.txt"}
+    ) == CompileCommandResult(
+        command=SetCommand(option="output_file", value="foo=bar.txt")
+    )
+    assert SetCommand.from_args(
+        [], {"output_file": "a", "OUTPUT_FILE": "b"}
+    ) == CompileCommandResult(
+        error_message="Duplicated argument 'output_file', 'OUTPUT_FILE'"
+    )
+    assert SetCommand.from_args(
+        "quiet=true output_file=out.txt"
+    ) == CompileCommandResult(
+        error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+    )
+    assert compile_repl_command(
+        '!set output_file="my out.txt"'
+    ) == CompileCommandResult(
+        command=SetCommand(option="output_file", value="my out.txt")
+    )
+    assert compile_repl_command("!set output_file=a=b.txt") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="a=b.txt")
+    )
+    assert compile_repl_command("!set output_file=a b") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="a b")
+    )
+    assert compile_repl_command("!set OUTPUT_FILE=out.txt") == CompileCommandResult(
+        command=SetCommand(option="output_file", value="out.txt")
+    )
+
+
+def _patch_spool(monkeypatch):
+    manager = get_cli_context_manager()
+    open_spool = mock.Mock()
+    close_spool = mock.Mock()
+    monkeypatch.setattr(manager, "open_spool", open_spool)
+    monkeypatch.setattr(manager, "close_spool", close_spool)
+    return open_spool, close_spool
+
+
+@pytest.mark.parametrize(
+    "raw_args",
+    (
+        "output_file=",
+        "output_file=   ",
+        'output_file=""',
+        "output_file=''",
+        'output_file="   "',
+        "OUTPUT_FILE=",
+        "OUTPUT_FILE=   ",
+        'OUTPUT_FILE=""',
+    ),
+)
+def test_set_output_file_rejects_empty_without_touching_spool(raw_args, monkeypatch):
+    open_spool, close_spool = _patch_spool(monkeypatch)
+
+    result = SetCommand.from_args(raw_args)
+    assert result == CompileCommandResult(error_message=_OUTPUT_FILE_VALUE_REQUIRED)
+    assert result.command is None
+    open_spool.assert_not_called()
+    close_spool.assert_not_called()
+
+    compiled = compile_repl_command(f"!set {raw_args}")
+    assert compiled == CompileCommandResult(error_message=_OUTPUT_FILE_VALUE_REQUIRED)
+    open_spool.assert_not_called()
+    close_spool.assert_not_called()
+
+
+@pytest.mark.parametrize("value", ("", "   ", '""', "''"))
+def test_set_output_file_kwargs_empty_does_not_touch_spool(value, monkeypatch):
+    open_spool, close_spool = _patch_spool(monkeypatch)
+
+    result = SetCommand.from_args([], {"output_file": value})
+    assert result == CompileCommandResult(error_message=_OUTPUT_FILE_VALUE_REQUIRED)
+    assert result.command is None
+    open_spool.assert_not_called()
+    close_spool.assert_not_called()
+
+
+@pytest.mark.parametrize("raw_args", ("output_file", "OUTPUT_FILE"))
+def test_set_output_file_without_equals_is_usage_error(raw_args, monkeypatch):
+    open_spool, close_spool = _patch_spool(monkeypatch)
+    expected = CompileCommandResult(
+        error_message=f"Too many arguments passed to 'set' command. {_SET_USAGE}"
+    )
+
+    assert SetCommand.from_args(raw_args) == expected
+    assert compile_repl_command(f"!set {raw_args}") == expected
+    open_spool.assert_not_called()
+    close_spool.assert_not_called()
+
+
+@pytest.mark.parametrize("value", ("off", "false", "none", "out.txt", "a b", "a=b"))
+def test_set_output_file_execute_opens_literal_filename(value, monkeypatch):
+    open_spool, close_spool = _patch_spool(monkeypatch)
+
+    compiled = SetCommand.from_args(f"output_file={value}")
+    assert compiled.command == SetCommand(option="output_file", value=value)
+    open_spool.assert_not_called()
+    close_spool.assert_not_called()
+
+    assert compiled.command is not None
+    compiled.command.execute(mock.Mock())
+    open_spool.assert_called_once_with(value)
+    close_spool.assert_not_called()
+
+
+def test_set_output_file_execute_opens_real_spool(tmp_path):
+    dest = tmp_path / "my out.txt"
+    manager = get_cli_context_manager()
+    manager.close_spool()
+    try:
+        result = SetCommand.from_args(f'output_file="{dest}"')
+        assert result.command == SetCommand(option="output_file", value=str(dest))
+        assert get_cli_context().spool_stream is None
+        assert result.command is not None
+        result.command.execute(mock.Mock())
+        assert get_cli_context().spool_path == dest
+        assert dest.exists()
+    finally:
+        manager.close_spool()
+
+
 def test_spool_from_args():
     usage = (
-        "No arguments passed to 'spool' command. "
-        "Usage: `!spool <file>` | `!spool off`"
+        "No arguments passed to 'spool' command. Usage: `!spool <file>` | `!spool off`"
     )
     assert SpoolCommand.from_args([], {}) == CompileCommandResult(error_message=usage)
     assert SpoolCommand.from_args("", {}) == CompileCommandResult(error_message=usage)

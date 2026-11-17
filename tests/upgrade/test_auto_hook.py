@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -31,11 +32,9 @@ from snowflake.cli.api.config import (
     CLI_SECTION,
     get_env_variable_name,
 )
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
 
 from tests_common import IS_WINDOWS
-from tests_common.feature_flag_utils import with_feature_flags
 
 AUTO_UPGRADE_ENV = get_env_variable_name(CLI_SECTION, key=AUTO_UPGRADE_KEY)
 
@@ -122,7 +121,7 @@ def _app() -> tuple[SnowCliMainTyper, list[str]]:
 
 def _enable(monkeypatch):
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
-    return with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True})
+    return nullcontext()
 
 
 def _binary(path: Path) -> Path:
@@ -155,13 +154,12 @@ def test_pypi_stamp_never_downloads(monkeypatch, managed_home):
     assert "snowflake.cli._plugins.upgrade.auto" not in sys.modules
 
 
-def test_feature_flag_off_is_a_no_op(monkeypatch, managed_home):
+def test_managed_install_without_opt_in_does_not_download(monkeypatch, managed_home):
     http = _forbid_upgrade_http(monkeypatch)
     spawned = _forbid_spawn(monkeypatch)
     monkeypatch.setattr(
         __about__, "INSTALLATION_SOURCE", CLIInstallationSource.SNOWFLAKE_MANAGED
     )
-    monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
     app, ran = _app()
     with pytest.raises(SystemExit) as caught:
         app(["sql"])

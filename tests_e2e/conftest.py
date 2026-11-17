@@ -32,6 +32,7 @@ TEST_DIR = Path(__file__).parent
 
 pytest_plugins = [
     "tests_common",
+    "tests_common.quarantine",
 ]
 
 

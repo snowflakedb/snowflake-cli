@@ -2814,7 +2814,7 @@ def test_analysis_commands_respect_manager_signature_and_output_lifecycle(
     if save_output:
         mock_output_stage.create.assert_called_once()
         mock_output_stage.get_recursive.assert_called_once_with(
-            stage_path=expected_output_path, dest_path=Path("out")
+            stage_path=expected_output_path, dest_path=Path("out"), parallel=1
         )
     else:
         mock_output_stage.create.assert_not_called()

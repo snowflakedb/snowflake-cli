@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from typing import Any, List, Literal, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli.api.project.schemas.entities.common import (
     Artifacts,
@@ -260,8 +260,7 @@ class StreamlitEntityModel(
 
         A pool name is an identifier, so surrounding whitespace is never
         meaningful. Trimming also stops a whitespace-only value from being
-        truthy, which would otherwise emit ``COMPUTE_POOL = '   '`` and, because
-        a pool implies the container runtime, infer a runtime_name from nothing.
+        truthy, which would otherwise emit ``COMPUTE_POOL = '   '``.
 
         Like the runtime_name validator, this is a single-field rule kept in a
         field validator so it inherits the template-skip wrap.
@@ -278,29 +277,7 @@ class StreamlitEntityModel(
         reject_backslashes("compute_pool", [stripped])
         return stripped
 
-    @model_validator(mode="after")
-    def validate_spcs_runtime_fields(self):
-        """Infer runtime_name from a compute_pool given without one.
-
-        Only cross-field rules belong here. Single-field rules live in the field
-        validators above, where UpdatableModel's template-skip wrap reaches them.
-        """
-        if self.compute_pool and not self.runtime_name:
-            # A compute pool is only meaningful to the container runtime, so take the
-            # pool as the request it implies and name the runtime explicitly in the
-            # DDL rather than emitting COMPUTE_POOL against whatever runtime the
-            # account happens to default to.
-            #
-            # Assigning here re-enters validation (validate_assignment=True). It
-            # terminates because runtime_name is set on re-entry, so this branch is
-            # not taken again.
-            self.runtime_name = SPCS_RUNTIME_V2_NAME
-
-        # No runtime/compute_pool pairing rules. Snowflake supplies a default compute
-        # pool when the container runtime is named without one, and ignores a pool
-        # given alongside the warehouse runtime, so neither combination is an error.
-        # Requiring a pool for the container runtime used to reject a valid config,
-        # and rejecting one for the warehouse runtime would block the natural
-        # container-to-warehouse migration where only runtime_name changes. Whether
-        # COMPUTE_POOL is emitted is decided at the emission site instead.
-        return self
+    # No cross-field inference. A compute_pool without runtime_name stays unnamed:
+    # a versioned CREATE omits RUNTIME_NAME and Global Services applies the
+    # container default, keeping the pool. Naming SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
+    # here used to freeze the old container constant into the DDL.

@@ -25,10 +25,11 @@ from snowflake.cli.api.artifacts.common import ArtifactError, DeployRootError
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.util import to_identifier
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli.api.utils.path_utils import delete
+from snowflake.cli.api.utils.path_utils import delete, resolve_without_follow
 from yaml import safe_load
 
 
@@ -133,7 +134,12 @@ def find_setup_script_file(deploy_root: Path) -> Path:
         setup_script in manifest_content[artifacts]
     ):
         setup_script_rel_path = manifest_content[artifacts][setup_script]
-        file_name = Path(deploy_root / setup_script_rel_path)
+        # Lexical on purpose: bundle may place an in-tree symlink here;
+        # do not follow it or a later tighten will reject that case.
+        resolved_root = resolve_without_follow(deploy_root)
+        file_name = resolve_without_follow(deploy_root / setup_script_rel_path)
+        if not file_name.is_relative_to(resolved_root):
+            raise CliError("Setup script path must stay within the deploy root.")
         if file_name.is_file():
             return file_name
         else:

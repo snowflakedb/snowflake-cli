@@ -17,7 +17,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 import pytest
-from snowflake.cli._app.cli_app import CliAppFactory
 from snowflake.cli._plugins.upgrade.controls import (
     AUTO_UPGRADE_DONE_ENV,
     NO_AUTO_UPGRADE_FLAG,
@@ -33,10 +32,6 @@ from snowflake.cli.api.config import (
     config_init,
     get_env_variable_name,
 )
-from snowflake.cli.api.feature_flags import FeatureFlag
-
-from tests.conftest import SnowCLIRunner
-from tests_common.feature_flag_utils import with_feature_flags
 
 AUTO_UPGRADE_ENV = get_env_variable_name(CLI_SECTION, key=AUTO_UPGRADE_KEY)
 ALLOW_MAJOR_ENV = get_env_variable_name(CLI_SECTION, key=AUTO_UPGRADE_ALLOW_MAJOR_KEY)
@@ -57,39 +52,45 @@ def auto_upgrade_config(config_file, monkeypatch):
     return _init
 
 
-def test_feature_flag_off_reader_is_false_even_when_config_and_env_on(
-    auto_upgrade_config, monkeypatch
-):
+def test_config_and_env_on_need_no_feature_flag(auto_upgrade_config, monkeypatch):
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
     with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = true\n"):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: False}):
-            assert is_auto_upgrade_enabled() is False
+        assert is_auto_upgrade_enabled() is True
 
 
-def test_config_on_when_flag_enabled(auto_upgrade_config):
+def test_config_on(auto_upgrade_config):
     with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = true\n"):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            assert is_auto_upgrade_enabled() is True
+        assert is_auto_upgrade_enabled() is True
 
 
-def test_config_off_when_flag_enabled(auto_upgrade_config):
+def test_config_off(auto_upgrade_config):
     with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = false\n"):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            assert is_auto_upgrade_enabled() is False
+        assert is_auto_upgrade_enabled() is False
+
+
+@pytest.mark.parametrize("raw", ["yes", "on", "YES", "On"])
+def test_env_yes_and_on_count_as_opt_in(auto_upgrade_config, monkeypatch, raw):
+    monkeypatch.setenv(AUTO_UPGRADE_ENV, raw)
+    with auto_upgrade_config("[cli]\n"):
+        assert is_auto_upgrade_enabled() is True
+
+
+def test_env_unrecognized_is_off_without_raising(auto_upgrade_config, monkeypatch):
+    monkeypatch.setenv(AUTO_UPGRADE_ENV, "maybe")
+    with auto_upgrade_config("[cli]\n"):
+        assert is_auto_upgrade_enabled() is False
 
 
 def test_env_one_overrides_config_off(auto_upgrade_config, monkeypatch):
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
     with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = false\n"):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            assert is_auto_upgrade_enabled() is True
+        assert is_auto_upgrade_enabled() is True
 
 
 def test_env_zero_overrides_config_on(auto_upgrade_config, monkeypatch):
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "0")
     with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = true\n"):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            assert is_auto_upgrade_enabled() is False
+        assert is_auto_upgrade_enabled() is False
 
 
 def test_already_done_env_does_not_clear_product_opt_in(
@@ -99,24 +100,21 @@ def test_already_done_env_does_not_clear_product_opt_in(
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
     monkeypatch.setenv(AUTO_UPGRADE_DONE_ENV, "1")
     with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = true\n"):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            assert is_auto_upgrade_enabled() is True
+        assert is_auto_upgrade_enabled() is True
 
 
 def test_air_gapped_disables_auto_upgrade(auto_upgrade_config, monkeypatch):
     monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
     monkeypatch.setenv(AUTO_UPGRADE_ENV, "1")
     with auto_upgrade_config(f"[cli]\n{AUTO_UPGRADE_KEY} = true\n"):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            assert is_auto_upgrade_enabled() is False
+        assert is_auto_upgrade_enabled() is False
 
 
 def test_ignore_new_version_warning_does_not_disable_auto_upgrade(auto_upgrade_config):
     with auto_upgrade_config(
         f"[cli]\n{AUTO_UPGRADE_KEY} = true\n{IGNORE_NEW_VERSION_WARNING_KEY} = true\n"
     ):
-        with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-            assert is_auto_upgrade_enabled() is True
+        assert is_auto_upgrade_enabled() is True
 
 
 def test_allow_major_defaults_false(auto_upgrade_config):
@@ -170,17 +168,8 @@ def test_no_auto_upgrade_parsed_as_root_flag_without_running_a_command(runner):
     assert "No such option" not in result.output
 
 
-def test_help_hides_no_auto_upgrade_when_feature_flag_off(runner):
+def test_help_lists_no_auto_upgrade(runner):
     result = runner.invoke(["--help"])
-    assert result.exit_code == 0, result.output
-    assert NO_AUTO_UPGRADE_FLAG not in result.output
-
-
-def test_help_shows_no_auto_upgrade_when_feature_flag_on(test_snowcli_config):
-    with with_feature_flags({FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE: True}):
-        app = CliAppFactory().create_or_get_app()
-        runner = SnowCLIRunner(app, str(test_snowcli_config))
-        result = runner.invoke(["--help"])
     assert result.exit_code == 0, result.output
     assert NO_AUTO_UPGRADE_FLAG in result.output
 

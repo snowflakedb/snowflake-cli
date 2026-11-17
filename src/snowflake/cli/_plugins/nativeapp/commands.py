@@ -321,6 +321,15 @@ def _reject_snowflake_app_options(command: str, **options: object) -> None:
                 " to ship your changes.",
             ),
             plain_text(
+                "If an application service with the same name already exists in "
+                "the resolved database and schema, ",
+                code("snow app setup"),
+                " warns that deploying the project will replace that app. Pass a "
+                "different ",
+                code("--app-name"),
+                " to create a separate app instead.",
+            ),
+            plain_text(
                 "Starting with ",
                 ref("sf-cli"),
                 " version 3.17.0, ",

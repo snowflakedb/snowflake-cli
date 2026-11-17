@@ -24,8 +24,9 @@ from jinja2 import (
     UndefinedError,
     loaders,
 )
+from jinja2.exceptions import TemplateRuntimeError
 from snowflake.cli.api.exceptions import InvalidTemplateError
-from snowflake.cli.api.rendering.jinja import IgnoreAttrEnvironment, env_bootstrap
+from snowflake.cli.api.rendering.jinja import IgnoreAttrEnvironment
 from snowflake.cli.api.secure_path import SecurePath
 
 _VARIABLE_TEMPLATE_START = "<!"
@@ -62,18 +63,17 @@ PROJECT_TEMPLATE_FILTERS = [to_snowflake_identifier]
 
 
 def get_template_cli_jinja_env(template_root: SecurePath) -> Environment:
-    env = env_bootstrap(
-        IgnoreAttrEnvironment(
-            loader=loaders.FileSystemLoader(searchpath=template_root.path),
-            keep_trailing_newline=True,
-            variable_start_string=_VARIABLE_TEMPLATE_START,
-            variable_end_string=_VARIABLE_TEMPLATE_END,
-            block_start_string=_BLOCK_TEMPLATE_START,
-            block_end_string=_BLOCK_TEMPLATE_END,
-            undefined=StrictUndefined,
-        )
+    env = IgnoreAttrEnvironment(
+        loader=loaders.FileSystemLoader(searchpath=template_root.path),
+        keep_trailing_newline=True,
+        variable_start_string=_VARIABLE_TEMPLATE_START,
+        variable_end_string=_VARIABLE_TEMPLATE_END,
+        block_start_string=_BLOCK_TEMPLATE_START,
+        block_end_string=_BLOCK_TEMPLATE_END,
+        undefined=StrictUndefined,
     )
-    env.filters["to_snowflake_identifier"] = to_snowflake_identifier
+    for custom_filter in PROJECT_TEMPLATE_FILTERS:
+        env.filters[custom_filter.__name__] = custom_filter
 
     return env
 
@@ -96,3 +96,7 @@ def render_template_files(
             )
         except UndefinedError as err:
             raise InvalidTemplateError(err.message)
+        except TemplateRuntimeError as err:
+            raise InvalidTemplateError(
+                f"Invalid template syntax in file {path}:\n{err.message}"
+            )

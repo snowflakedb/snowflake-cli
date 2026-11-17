@@ -23,6 +23,83 @@
 ## Fixes and improvements
 
 
+# v3.34.0
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+* `snow sql` accepts `-o quiet=<true|false>`, with the same values and error messages as `!set quiet`. It applies before any SQL runs: `-o quiet=true` hides query results on the terminal, and an open spool file still receives them. An invalid value fails before any SQL runs. When `-o quiet=` is given more than once, the last value wins.
+* `snow sql` accepts `-o output_format=<format>`, with the same format names and error messages as `!set output_format`. It sets the starting format before any SQL runs and overrides the `output_format` config key and `SNOWFLAKE_CLI_OUTPUT_FORMAT`. Combining it with `--format` is an error, even when the values match, and no SQL runs. `!set output_format` can still change the format later. When `-o output_format=` is given more than once, the last value wins.
+* The snowflake-managed installers (`install.sh` and `install.ps1`) accept `--version <version>` (PowerShell: `-Version`) or `SNOWFLAKE_CLI_VERSION` to install a specific release instead of the latest. They also accept `--no-auto-upgrade` (PowerShell: `-NoAutoUpgrade`), which sets `auto_upgrade = false` under `[cli]` in `config.toml`, so auto-upgrade does not replace the pinned version.
+
+## Fixes and improvements
+* Upgrading the Snowflake CLI RPM with `rpm -U` or `dnf` keeps `/usr/local/bin/snow` on PATH. The replaced package's uninstall script used to remove that symlink after the new package created it.
+* `snow dcm plan --save-output`, and `snow dcm test --save-output` return sooner after the query when the saved output has many files. `snow stage copy --recursive` and `snow git copy` download a directory of files faster.
+* `snow stage copy --recursive` no longer fails with "There is no active click context" when the connection uses MFA, browser, or OAuth authorization-code authentication. The same applies to `snow spcs service build-image` and `remote-build` when `--stage` is already set.
+* `snow dcm plan` and `snow dcm deploy` now list the grants, tag attachments, data metric functions and policies under a CREATE entry when they are defined in the same deployment as the new object. Previously only the CREATE line was printed and these changes were missing from the output, although they were applied.
+* Improved handling of expired workload identity tokens.
+
+
+# v3.33.0
+## Backward incompatibility
+* Unquoted `snowflake.yml` values for role, warehouse, schema, database, and v1 package name must be a single identifier. A name that contains a dot, space, or hyphen must be quoted. Application package `stage` and v1 `source_stage` must be `schema.name`. A scratch stage may be a single name or `schema.name`.
+
+## Deprecations
+
+## New additions
+* `snow streamlit status` reports the SPCS service behind a Streamlit app. `service_status` is the service (`NOT_APPLICABLE`, `NOT_STARTED`, `RUNNING`, `SUSPENDED`). `container_status` is one status for the containers inside that service: `READY` means every container is ready, and a mix such as `READY` and `PENDING` rolls up to the non-ready status. The command does not start the app.
+* `snow sql` accepts `!set timing=<true|false>` and `!set timing_in_output_file=<true|false>`. With `timing_in_output_file=true`, the `Time Elapsed` line is also written to an open `!spool` file, even when `quiet=true`. `timing=false` hides it everywhere. By default `timing` is on and `timing_in_output_file` is off. Empty values are rejected and leave the setting unchanged. JSON, JSON_EXT and CSV output never include the line.
+* `app.yml` (version 2) accepts two new top-level keys, `runtime` (`python` or `node`, case-insensitive, default `node`) and `streamlit` (`true` or `false`, default `false`). `streamlit: true` requires `runtime: python`. Both keys apply to the whole file; a `runtime` or `streamlit` key inside a target is ignored. Earlier CLI versions ignore these keys.
+* `snow --structure` prints a JSON catalog of every command, argument, and option (including help text), so agents and scripts can discover the CLI without scraping `--help`. Hidden commands and flags are omitted, matching `--help`.
+* `snow sql` REPL accepts `!set echo=true` and `!set echo=false`. The default is false. With echo on, each SQL statement is printed before its result. An open `!spool` receives that statement too. JSON, JSON_EXT, and CSV omit the statement so the result stays parseable. `!set echo=` is rejected and leaves the previous value in place.
+* `snow sql` accepts `!set output_file=<path>` and `-o output_file=<path>`. Each opens the same file as `!spool <path>`: query results are appended to it and still printed on the terminal. `!spool off` stops writing. An empty `!set output_file=` is rejected and leaves the current file open, and `off` is a filename there. An empty `-o output_file=` turns spooling off. `-o` accepts no other option.
+* Snowflake Apps support Python: `app.yml` `runtime` accepts a list such as `[node, python]`, a Python app must declare `run`, and `snow app setup` writes `runtime: python` and `compute_resource: SERVERLESS` for a Python project.
+
+## Fixes and improvements
+* `snow app events` for Snowflake App Runtime projects now prints historical logs (`--since` or `--until`) oldest first, and `--last` keeps the newest lines. Previously the lines came out newest first and `--last` kept the oldest ones.
+* The CLI recognizes more AI coding agents, including Kimi, Grok Build, Cline, Antigravity, Augment, Goose, Junie, Pi, Claude Cowork, Kiro, OpenClaw, and Devin, and more Codex, Claude Code, and OpenCode sessions. Any other tool that sets the `AI_AGENT` environment variable is also recognized. When `snow feedback` runs under one of these agents, `--message` is required, as it already was for the agents detected before. Tool settings that people keep in their shell, such as `COPILOT_MODEL` or `GOOSE_PROVIDER`, do not count as an agent.
+* The help text for `snow spcs service set` and `snow spcs service unset` now says the current role needs the OWNERSHIP privilege on the service. It previously said OPERATE, which isn't enough to set or unset service properties.
+* The CLI log file (`snowflake-cli.log`) is now always written as UTF-8, regardless of the system locale or code page. On systems where the default encoding isn't UTF-8, such as Windows with cp932, tools that read the log with the system default encoding need to read it as UTF-8 to show non-ASCII characters correctly. Log files written by earlier versions keep their previous encoding.
+* `snow upgrade` unpacks the new direct-install binary before it returns. The next `snow` command is that version and does not show `Unpacking distribution`.
+* Improved path handling in `snow stage execute` and `snow git execute`.
+* Improved validation of identifier fields in `snowflake.yml`.
+* Improved validation of object names.
+* Improved sanitization of user-supplied values in Native App setup-script validation.
+* Improved handling of template prompts in `snow init`.
+* Improved handling of project templates in `snow init`.
+* Improved handling of object names in `snow logs`.
+* Improved sanitization of `--format CSV` output. Numeric values are unchanged.
+* Improved sanitization of string values in JSON output.
+* Improved handling of `!source` and `!load` in `snow sql`.
+* Improved handling of input values in `snow app events`.
+* Improved handling of paths in stage and git copy operations.
+* Improved validation of fields in `snow spcs service create` and `snow spcs service deploy`.
+* Improved validation of the API integration name in `snow git setup`.
+* Improved handling of SQL string literals.
+
+
+# v3.32.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+* `snow dbt execute` now accepts the `check` and `clone` commands. These previously failed with a CLI "No such command" error.
+* `snow sql` accepts `!set quiet=true` and `!set quiet=false`. `quiet=true` hides query results on the terminal, including the elapsed-time footer, and still appends them to an open `!spool` file. Errors still print. Leaving `quiet` unset shows results. An empty `!set quiet=` is rejected and does not change the current setting. `--silent` is unchanged.
+* `snow feedback` is now generally available.
+
+## Fixes and improvements
+* Upgraded the Python interpreter embedded in Linux binaries from 3.12.15 to 3.12.16.
+* Upgraded GitPython from 3.2.0 to 3.2.1.
+* Upgraded snowflake-connector-python from 4.7.5 to 4.8.1.
+* `snow streamlit deploy` revokes `WITH GRANT OPTION` when `with_grant_option` is removed from a Streamlit grant in `snowflake.yml`. The privilege itself stays in place.
+* `snow streamlit deploy --legacy` now always runs on the warehouse runtime and rejects any other `runtime_name`. A versioned deploy that omits `runtime_name` leaves the runtime unset, and applies container-only settings for a `compute_pool` only when creating a new app.
+* `snow app version drop` works with both sync and async drops and says the drop may take a few minutes.
+* `snow app setup` warns when an application service with the same name already exists in the resolved database and schema, because deploying the project would replace that app. `--dry-run` shows the warning too, and `--format json` reports it as `app_exists`. Setup still completes, so you can deploy over the existing app on purpose.
+* Auto-upgrade follows the opt-in in `cli.auto_upgrade` or `SNOWFLAKE_CLI_AUTO_UPGRADE`. It no longer also requires the `ENABLE_SNOW_AUTO_UPGRADE` feature flag. `--no-auto-upgrade` is listed in `snow --help`.
+
+
 # v3.31.0
 ## Backward incompatibility
 * Dropped support for Python 3.10. Snowflake CLI requires Python 3.11, 3.12, or 3.13.
@@ -57,6 +134,7 @@
 * `snow feature` is now generally available. This command group manages declarative feature-store objects in Snowflake (`init`, `sync`, `plan`, `apply`, `list`, `describe`, `online-service` (`status`/`create`/`drop`), `ingest`, `query`). It is now visible by default and no longer requires the `ENABLE_FEATURE_STORE` feature flag. It requires the `snowflake-ml-python[feature_store]` library.
 * Air-gapped mode configures the CLI for isolated environments that cannot reach the public internet. Enable it with `cli.air_gapped` in `config.toml` or `SNOWFLAKE_CLI_AIR_GAPPED`. The environment variable is read at runtime and is not copied into a newly created `config.toml`. Commands that talk to external services may change or refuse to run, including PyPI and Homebrew version checks, `snow upgrade`, auto-upgrade, `snow init` against the public GitHub template default, and pip-backed flows such as `snow snowpark build`. Pip in those flows uses `--isolated` and only `--index-url` or `PIP_INDEX_URL`. When air-gapped mode is set, Snowsight no longer falls back to `app.snowflake.com`. Override remaining defaults with `cli.per_account_app_domain` in `config.toml` or `SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN`, and with `SNOWFLAKE_AUDIENCE` for GitHub OIDC.
 * Override the default `snow init` template repository with `cli.init_template_source` in `config.toml` or `SNOWFLAKE_CLI_INIT_TEMPLATE_SOURCE`. Air-gapped mode requires this override, a local `--template-source`, or an in-region git URL.
+* `snow spcs service remote-build` now accepts `--eai-name` to attach external access integrations to the build job, so builds can reach hosts outside the default remote-build allowlist (for example, a private package registry). The option works for both `--build-type image` and `--build-type app` and may be repeated.
 * `snow dcm plan` and `snow dcm deploy` now accept `--deployment` to plan or deploy from an existing deployment, by name or alias, instead of uploading local files. The deployment is used as stored: the manifest target's configuration and environment variables are not applied again. `--variable` and `--env-file` cannot be combined with `--deployment`.
 
 ## Fixes and improvements

@@ -179,7 +179,8 @@ def test_one_shot_span_on_result_payload_does_not_contain_sql(
     ]
     assert result_messages, events
     message = result_messages[-1]
-    assert message.get(CLITelemetryField.COMMAND_EXECUTION_TIME.value)
+    # A fast command can record 0.0. The field must be present; 0 is a duration.
+    assert message.get(CLITelemetryField.COMMAND_EXECUTION_TIME.value) is not None
     spans = message[CLITelemetryField.SPANS.value][
         CLITelemetryField.COMPLETED_SPANS.value
     ]

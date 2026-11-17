@@ -39,6 +39,8 @@ jobs:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     runs-on: ${{ matrix.os }}
+    env:
+      SNOWFLAKE_CLI_CHANGED_FILES: ${{ needs.changes.outputs.files }}
     steps:
       - uses: actions/checkout@v4
         with:

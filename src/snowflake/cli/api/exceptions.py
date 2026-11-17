@@ -235,6 +235,31 @@ def _write_remediation_commands(
         write_raw_line(command, file=file)
 
 
+_PREVIOUS_ERROR_FORMATTER = "_previous_error_formatter"
+
+
+def error_renderer_already_installed(formatter: Any, flag: str) -> bool:
+    """True when ``flag`` is set on this formatter or one it calls.
+
+    Each installer used to look only at the outermost function. Once the
+    other wrapper sat outside, the flag was hidden and every ``snow``
+    command stacked another pair. Formatting an error then recursed.
+    """
+    seen: set[int] = set()
+    current = formatter
+    while current is not None and id(current) not in seen:
+        if getattr(current, flag, False):
+            return True
+        seen.add(id(current))
+        current = getattr(current, _PREVIOUS_ERROR_FORMATTER, None)
+    return False
+
+
+def link_error_renderer(wrapper: Any, flag: str, previous: Any) -> None:
+    setattr(wrapper, flag, True)
+    setattr(wrapper, _PREVIOUS_ERROR_FORMATTER, previous)
+
+
 def install_plain_remediation_error_renderer() -> None:
     """Append remediation commands after Typer's error panel.
 
@@ -243,7 +268,7 @@ def install_plain_remediation_error_renderer() -> None:
     import typer.rich_utils as rich_utils
 
     current = rich_utils.rich_format_error
-    if getattr(current, "_plain_remediation_renderer", False):
+    if error_renderer_already_installed(current, "_plain_remediation_renderer"):
         return
 
     def _format_error(error: ClickException) -> None:
@@ -251,7 +276,7 @@ def install_plain_remediation_error_renderer() -> None:
         if isinstance(error, ConfigFileTooWidePermissionsError):
             _write_remediation_commands(error)
 
-    setattr(_format_error, "_plain_remediation_renderer", True)
+    link_error_renderer(_format_error, "_plain_remediation_renderer", current)
     rich_utils.rich_format_error = _format_error
 
 

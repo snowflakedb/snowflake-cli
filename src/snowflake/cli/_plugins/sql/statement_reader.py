@@ -4,6 +4,7 @@ import re
 import urllib.error
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import HTTPRedirectHandler, build_opener
 
@@ -14,8 +15,16 @@ from snowflake.cli._plugins.sql.repl_commands import (
     compile_repl_command,
     is_registered_command,
 )
-from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.exceptions import FileTooLargeError
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.util_text import split_statements
+
+# Bounds for !source / !load expansion (DoS: unbounded recursion and reads).
+SQL_SOURCE_MAX_DEPTH = 32
+SQL_SOURCE_MAX_INCLUDES = 32
+SQL_SOURCE_SIZE_LIMIT_MB = DEFAULT_SIZE_LIMIT_MB
+_URL_READ_CHUNK_SIZE = 65536
 
 COMMAND_PATTERN = re.compile(
     r"^!(\w+)\s*[\"']?(.*?)[\"']?\s*(?:;|$)",
@@ -229,12 +238,17 @@ class ParsedStatement:
                     "Use https:// or a local file."
                 )
                 return cls(path_part, StatementType.UNKNOWN, raw_source, error)
-            payload = response.read().decode()
+            payload_bytes = _read_url_bytes(response, _source_size_limit_bytes())
+            if payload_bytes is None:
+                error = f"Could not fetch {path_part}: payload exceeds {SQL_SOURCE_SIZE_LIMIT_MB} MB limit"
+                return cls(path_part, StatementType.URL, raw_source, error)
+            payload = payload_bytes.decode()
             return cls(payload, StatementType.URL, stripped_comments_path_part)
 
+        # _PlaintextRedirectError subclasses URLError, so it must come first.
         except _PlaintextRedirectError as err:
             return cls(path_part, StatementType.UNKNOWN, raw_source, str(err.reason))
-        except urllib.error.HTTPError as err:
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as err:
             error = f"Could not fetch {path_part}: {err}"
             return cls(path_part, StatementType.URL, raw_source, error)
         finally:
@@ -258,7 +272,11 @@ class ParsedStatement:
         path = SecurePath(stripped_comments_path_part)
 
         if path.is_file():
-            payload = path.read_text(file_size_limit_mb=UNLIMITED)
+            try:
+                payload = path.read_text(file_size_limit_mb=SQL_SOURCE_SIZE_LIMIT_MB)
+            except FileTooLargeError:
+                error_msg = f"Could not read: {path_part} (exceeds {SQL_SOURCE_SIZE_LIMIT_MB} MB limit)"
+                return cls(path_part, StatementType.FILE, raw_source, error_msg)
             return cls(payload, StatementType.FILE, path.as_posix())
 
         error_msg = f"Could not read: {path_part}"
@@ -270,6 +288,36 @@ class ParsedStatement:
         )
 
 
+def _source_size_limit_bytes() -> int:
+    return SQL_SOURCE_SIZE_LIMIT_MB * 1024 * 1024
+
+
+def _read_url_bytes(response, max_bytes: int) -> bytes | None:
+    """Read at most *max_bytes* from *response*. Return None if the body is larger."""
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        to_read = min(_URL_READ_CHUNK_SIZE, max_bytes + 1 - total)
+        if to_read <= 0:
+            return None
+        chunk = response.read(to_read)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            return None
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _canonical_source_path(parsed: ParsedStatement) -> str:
+    """Stable identity for cycle detection (resolved files; raw URL strings)."""
+    source_path = parsed.source_path or ""
+    if parsed.statement_type == StatementType.FILE:
+        return str(Path(source_path).resolve())
+    return source_path
+
+
 RecursiveStatementReader = Generator[ParsedStatement, Any, Any]
 
 
@@ -277,10 +325,17 @@ def parse_statement(
     source: str,
     operators: OperatorFunctions,
     disable_url_sources: bool = False,
+    *,
+    load_sources: bool = True,
 ) -> ParsedStatement:
     """Evaluates templating and source commands.
 
-    Returns parsed source according to origin."""
+    Returns parsed source according to origin.
+
+    When ``load_sources`` is False, ``!source`` / ``!load`` of files and URLs
+    are classified only (path/URL recorded, no I/O). Callers that enforce
+    depth and inclusion caps can then load via ``_load_classified_source``.
+    """
     try:
         statement = source
         for operator in operators:
@@ -312,10 +367,18 @@ def parse_statement(
         case "source" | "load", ("", "https", *_):
             if disable_url_sources:
                 return ParsedStatement.from_disabled_url(command_args, statement)
+            if not load_sources:
+                stripped = ParsedStatement.drop_comments_from_path_parts(command_args)
+                return ParsedStatement("", StatementType.URL, stripped)
             return ParsedStatement.from_url(command_args, statement)
 
         # load content from a local file
         case "source" | "load", (str(),):
+            if not load_sources:
+                stripped = ParsedStatement.drop_comments_from_path_parts(command_args)
+                return ParsedStatement(
+                    "", StatementType.FILE, SecurePath(stripped).as_posix()
+                )
             return ParsedStatement.from_file(command_args, statement)
 
         case "source" | "load", _:
@@ -338,6 +401,16 @@ def parse_statement(
     return ParsedStatement(statement, StatementType.UNKNOWN, None, error_msg)
 
 
+def _load_classified_source(
+    parsed: ParsedStatement, raw_source: str
+) -> ParsedStatement:
+    """Fetch or read a ``!source`` / ``!load`` classified without I/O."""
+    path = parsed.source_path or ""
+    if parsed.statement_type == StatementType.URL:
+        return ParsedStatement.from_url(path, raw_source)
+    return ParsedStatement.from_file(path, raw_source)
+
+
 def recursive_statement_reader(
     source: SplitedStatements,
     seen_files: list,
@@ -345,22 +418,47 @@ def recursive_statement_reader(
     remove_comments: bool,
     pre_render: SqlTransformFunc | None = None,
     disable_url_sources: bool = False,
+    *,
+    depth: int = 0,
+    include_count: list[int] | None = None,
 ) -> RecursiveStatementReader:
     """Based on detected source command reads content of the source and tracks for recursion cycles."""
+    if include_count is None:
+        include_count = [0]
+
     for stmt, _ in source:
         if not stmt:
             continue
-        parsed_source = parse_statement(stmt, operators, disable_url_sources)
+        parsed_source = parse_statement(
+            stmt, operators, disable_url_sources, load_sources=False
+        )
 
         match parsed_source:
             case ParsedStatement(StatementType.FILE | StatementType.URL, None):
-                if parsed_source.source_path in seen_files:
+                identity = _canonical_source_path(parsed_source)
+                if identity in seen_files:
                     error = f"Recursion detected: {' -> '.join(seen_files)}"
                     parsed_source.error = error
                     yield parsed_source
                     continue
 
-                seen_files.append(parsed_source.source_path)
+                if depth >= SQL_SOURCE_MAX_DEPTH:
+                    parsed_source.error = f"Maximum !source nesting depth ({SQL_SOURCE_MAX_DEPTH}) exceeded"
+                    yield parsed_source
+                    continue
+
+                if include_count[0] >= SQL_SOURCE_MAX_INCLUDES:
+                    parsed_source.error = f"Maximum number of !source/!load inclusions ({SQL_SOURCE_MAX_INCLUDES}) exceeded"
+                    yield parsed_source
+                    continue
+
+                include_count[0] += 1
+                parsed_source = _load_classified_source(parsed_source, stmt)
+                if parsed_source.error:
+                    yield parsed_source
+                    continue
+
+                seen_files.append(identity)
 
                 content = parsed_source.statement.read()
                 if pre_render:
@@ -373,6 +471,8 @@ def recursive_statement_reader(
                     remove_comments,
                     pre_render,
                     disable_url_sources,
+                    depth=depth + 1,
+                    include_count=include_count,
                 )
 
                 seen_files.pop()
@@ -396,19 +496,29 @@ def files_reader(
 
     Returns a generator with statements."""
     for path in paths:
-        with path.open(read_file_limit_mb=UNLIMITED) as f:
-            content = f.read()
-            if pre_render:
-                content = pre_render(content)
-            stmts = split_statements(io.StringIO(content), remove_comments)
-            yield from recursive_statement_reader(
-                stmts,
-                [path.as_posix()],
-                operators,
-                remove_comments,
-                pre_render,
-                disable_url_sources,
+        try:
+            with path.open(read_file_limit_mb=SQL_SOURCE_SIZE_LIMIT_MB) as f:
+                content = f.read()
+        except FileTooLargeError:
+            yield ParsedStatement(
+                "",
+                StatementType.FILE,
+                path.as_posix(),
+                f"Could not read: {path.as_posix()} (exceeds {SQL_SOURCE_SIZE_LIMIT_MB} MB limit)",
             )
+            continue
+        if pre_render:
+            content = pre_render(content)
+        stmts = split_statements(io.StringIO(content), remove_comments)
+        # per -f file; include budget is not shared across paths
+        yield from recursive_statement_reader(
+            stmts,
+            [str(path.path.resolve())],
+            operators,
+            remove_comments,
+            pre_render,
+            disable_url_sources,
+        )
 
 
 def query_reader(

@@ -230,6 +230,15 @@ class StagePath:
             git_ref=self._git_ref,
         )
 
+    def with_trailing_slash(self) -> StagePath:
+        return StagePath(
+            stage_name=self._stage_name,
+            path=self._path,
+            git_ref=self._git_ref,
+            trailing_slash=True,
+            is_snow_prefixed=self._is_snow_prefixed_stage,
+        )
+
     @property
     def parts(self) -> tuple[str, ...]:
         return self._path.parts

@@ -1,1 +1,1 @@
-snowflake-snowpark-pythonsyrupy
+snowflake-snowpark-pythonsyrupy==6.1.1  # 7.x needs Python 3.11; Snowpark default runtime is 3.10

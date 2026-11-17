@@ -43,12 +43,16 @@ import typer
 from click import ClickException
 from snowflake.cli._plugins.apps.app_yml import (
     APP_YML_FILENAME,
+    PYTHON_REQUIRED_PHASES,
+    RUNTIME_NODE,
+    RUNTIME_PYTHON,
     AppYmlDefinition,
     AppYmlTarget,
     load_app_yml,
     resolve_target,
 )
 from snowflake.cli._plugins.apps.events import (
+    SERVERLESS_EVENT_TABLE_UNAVAILABLE_ERRNOS,
     EventStream,
     MetricCategory,
     format_log_lines,
@@ -58,7 +62,11 @@ from snowflake.cli._plugins.apps.events import (
     parse_metric_records,
     resolve_time_window,
 )
-from snowflake.cli._plugins.apps.generate import _generate_app_yml
+from snowflake.cli._plugins.apps.generate import (
+    _generate_app_yml,
+    detect_python_project,
+    hybrid_app_hint,
+)
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
@@ -136,14 +144,12 @@ _TARGET_REQUIRES_APP_YML = (
     "define deployment targets in app.yml (version 2)."
 )
 
-# Raised when ``snow app events`` would call
-# ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA`` for a serverless (CNG)
-# app. That function is not supported on the CNG backend.
-_CNG_HEALTH_MONITORING_UNSUPPORTED = (
-    "Health monitoring is not available for serverless apps. "
-    "The SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA function is not "
-    "supported. Use snow app events to get live logs. Do not use "
-    "--type metric, --type lifecycle, --since, or --until."
+# Raised when ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA`` cannot serve
+# a serverless (CNG) app's data in this account yet.
+_CNG_HEALTH_MONITORING_UNAVAILABLE = (
+    "Health monitoring is not yet available for serverless apps in this "
+    "account. Use snow app events without --type metric, --type lifecycle, "
+    "--since, or --until to get live logs."
 )
 
 
@@ -1089,6 +1095,24 @@ def _upload_and_build_app(
     return None
 
 
+def _app_service_exists(manager: SnowflakeAppManager, service_fqn: FQN) -> bool:
+    """Return True if an application service already uses *service_fqn*.
+
+    Setup only warns about an existing app, so a failed lookup reports none
+    instead of failing setup. The lookup fails, for example, on an App Space
+    schema that the first deploy has yet to create.
+    """
+    try:
+        return manager.app_service_exists(service_fqn)
+    except ProgrammingError:
+        log.debug(
+            "Could not check whether application service %s exists.",
+            service_fqn,
+            exc_info=True,
+        )
+        return False
+
+
 @_utf8_output
 def snowflake_app_setup(
     app_name: Optional[str],
@@ -1275,6 +1299,20 @@ def snowflake_app_setup(
             use_workspace = is_personal_database(destination_db)
             code_storage = "temporary workspace" if use_workspace else "temporary stage"
 
+            # ── Check for an app that already uses this name ─────────────────
+            # A deploy replaces a service that has the same name. Only warn:
+            # deploying over an existing app on purpose is allowed.
+            service_fqn = app_fqn(
+                database=destination_db,
+                schema=resolved_values["schema"],
+                # Must match the name _generate_app_yml writes.
+                name=resolved_app_name.upper(),
+            )
+            with metrics.span("snowflake_app.setup.check_existing_app_service"):
+                app_exists = _app_service_exists(manager, service_fqn)
+
+            python_project = detect_python_project(Path.cwd())
+
             if not dry_run:
                 with metrics.span("snowflake_app.setup.write_manifest"):
                     project_file.write_text(
@@ -1282,6 +1320,7 @@ def snowflake_app_setup(
                             resolved_app_name,
                             resolved_values,
                             use_workspace=use_workspace,
+                            python_project=python_project,
                         ),
                         encoding=encoding,
                     )
@@ -1292,6 +1331,13 @@ def snowflake_app_setup(
                     {
                         "success": not dry_run,
                         "code_storage": code_storage,
+                        "app_exists": app_exists,
+                        "runtime": python_project.runtime if python_project else "node",
+                        "streamlit": bool(
+                            python_project
+                            and python_project.runtime == "python"
+                            and python_project.streamlit
+                        ),
                         **resolved_values,
                     }
                 )
@@ -1311,6 +1357,30 @@ def snowflake_app_setup(
                     continue
                 cli_console.step(f"  {key}: {value}  ({source})")
             cli_console.step(f"  code storage: {code_storage}")
+            if python_project is not None and python_project.node:
+                cli_console.warning(hybrid_app_hint(python_project.streamlit))
+            elif python_project is not None:
+                kind = "Streamlit " if python_project.streamlit else ""
+                cli_console.step(
+                    f"  runtime: {python_project.runtime}  "
+                    f"(detected {kind}Python project)"
+                )
+                cli_console.warning(
+                    "Python apps have no default commands. Declare `run` in "
+                    f"{APP_YML_FILENAME} before deploying."
+                )
+            if app_exists:
+                rename_hint = (
+                    "pass a different --app-name"
+                    if dry_run
+                    else f"change name in {APP_YML_FILENAME}"
+                )
+                cli_console.warning(
+                    "Application service "
+                    f"{sanitize_for_terminal(service_fqn.identifier)} already "
+                    "exists. Deploying this project will replace that app's code "
+                    f"and settings. To create a separate app, {rename_hint}."
+                )
             return EmptyResult()
 
     try:
@@ -1440,9 +1510,10 @@ def _resolve_validate_target(
     ``snowflake.yml`` project the destination may be unset (offline bundle-only
     validation), so the database/schema can be ``None``.
     """
-    manager = SnowflakeAppManager()
     app_def = _load_app_yml_for_command(target)
     if app_def is not None:
+        _ensure_python_phases_declared(app_def)
+        manager = SnowflakeAppManager()
         dep = _resolve_app_yml_target(app_def, target, manager=manager)
         return (
             manager,
@@ -1454,6 +1525,7 @@ def _resolve_validate_target(
             ),
         )
 
+    manager = SnowflakeAppManager()
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
     fqn = entity.fqn
@@ -1604,10 +1676,6 @@ def snowflake_app_events(
     are always sourced from the event table and default to the last hour when no
     window is given.
 
-    Event-table health monitoring is not available for serverless (CNG) apps:
-    ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA`` is not supported on
-    that backend. Live logs still work.
-
     The application service is resolved from ``app.yml`` (the ``--target``
     target) when present, otherwise from the ``snowflake.yml`` entity.
     """
@@ -1637,7 +1705,6 @@ def snowflake_app_events(
         until=until,
         raw=raw,
         instance=instance,
-        compute_resource=svc.compute_resource,
     )
 
 
@@ -1652,22 +1719,16 @@ def _emit_app_events(
     until: Optional[str],
     raw: bool,
     instance: Optional[int] = None,
-    compute_resource: Optional[str] = None,
 ) -> CommandResult:
     """Fetch and render one observability stream for an application service.
 
     Shared by the ``app.yml`` and ``snowflake.yml`` event flows once the
     service FQN has been resolved.
 
-    Serverless (CNG) apps cannot use the event-table function, so metric,
-    lifecycle, and windowed-log requests raise :class:`CliError`. The live
-    log tail does not use that function and still works.
+    The server decides whether a serverless (CNG) app's event table can be
+    read in this account; when it cannot, metric, lifecycle, and windowed-log
+    requests raise :class:`CliError` pointing at the live log tail.
     """
-    if _requests_event_table_health_monitoring(
-        stream, since, until
-    ) and _is_cng_compute_resource(compute_resource):
-        raise CliError(_CNG_HEALTH_MONITORING_UNSUPPORTED)
-
     metrics = get_cli_context().metrics
 
     # Logs with no window keep the legacy live-container tail.
@@ -1704,6 +1765,8 @@ def _emit_app_events(
                 limit=last,
             )
     except ProgrammingError as err:
+        if err.errno in SERVERLESS_EVENT_TABLE_UNAVAILABLE_ERRNOS:
+            raise CliError(_CNG_HEALTH_MONITORING_UNAVAILABLE) from err
         raise CliError(
             f"Could not retrieve {stream.value} data for '{service_fqn.identifier}'. "
             "Verify that the app is deployed and that the active role can read "
@@ -1777,26 +1840,44 @@ def _is_cng_compute_resource(compute_resource: Optional[str]) -> bool:
 def _effective_compute_resource(
     manager: SnowflakeAppManager,
     compute_resource: Optional[str],
-    *,
-    required: bool,
 ) -> Optional[str]:
-    """Return *compute_resource*, dropping ``SERVERLESS`` when the account disallows it.
-
-    ``required`` raises when ``SERVERLESS`` was requested but the account
-    feature parameter is not enabled. Callers that only observe an existing
-    service pass ``required=False`` and treat that request as unset.
-    """
+    """Return *compute_resource*, raising when the account disallows ``SERVERLESS``."""
     if not _is_cng_compute_resource(compute_resource):
         return compute_resource
     if manager.serverless_account_parameters_enabled():
         return compute_resource
-    if required:
-        raise CliError("compute_resource SERVERLESS is not enabled for this account.")
-    log.debug(
-        "Ignoring compute_resource SERVERLESS; "
-        "the account feature parameter is not enabled."
-    )
-    return None
+    raise CliError("compute_resource SERVERLESS is not enabled for this account.")
+
+
+def _ensure_python_phases_declared(app_def: AppYmlDefinition) -> None:
+    """Raise when an app whose runtime includes python omits a phase it must declare.
+
+    Checked locally, before anything is uploaded: the builder runs a Python
+    app's declared commands and infers none. A ``node`` and ``python`` runtime
+    that omits ``install`` or ``build`` only gets a warning, since neither is
+    required, but no npm command runs without them.
+    """
+    missing = app_def.missing_python_phases()
+    if missing:
+        raise CliError(
+            f"{APP_YML_FILENAME} has a runtime that includes `python` but does not declare "
+            f"{', '.join(f'`{name}`' for name in missing)}. A Python app gets no "
+            f"default commands: declare "
+            f"{', '.join(f'`{name}`' for name in PYTHON_REQUIRED_PHASES)} in "
+            f"{APP_YML_FILENAME} (`install` and `build` are optional)."
+        )
+    if {RUNTIME_NODE, RUNTIME_PYTHON} <= set(app_def.runtime.split(",")):
+        undeclared = [
+            f"`{name}`"
+            for name in ("install", "build")
+            if getattr(app_def, name) is None or not getattr(app_def, name).commands
+        ]
+        if undeclared:
+            cli_console.warning(
+                "`runtime` includes node and python, so no npm defaults apply. "
+                f"Declare {' and '.join(undeclared)} in {APP_YML_FILENAME}, or "
+                f"{'none will run' if len(undeclared) > 1 else 'it will not run'}."
+            )
 
 
 def _ensure_python_runtime_enabled(
@@ -1805,6 +1886,9 @@ def _ensure_python_runtime_enabled(
     compute_resource: Optional[str],
 ) -> None:
     """Raise when *app_def* uses the Python runtime on a compute resource the account does not allow.
+
+    The app uses the Python runtime when its ``app.yml`` runtime includes python
+    (:attr:`AppYmlDefinition.is_python_runtime`).
 
     An unset *compute_resource* is checked as ``MANAGED_COMPUTE_POOL``, the
     backend the server uses by default.
@@ -1816,26 +1900,10 @@ def _ensure_python_runtime_enabled(
         return
     raise CliError(
         f"The Python runtime is not enabled for compute_resource {effective} in "
-        f"this account. This app uses it because an install, build, run, or dev "
-        f"command in {APP_YML_FILENAME} runs pip, python, or uv. Deploy to a "
+        f"this account. This app's runtime in {APP_YML_FILENAME} includes `python`. Deploy to a "
         f"compute_resource that allows the Python runtime, or contact Snowflake "
         f"support to enable it."
     )
-
-
-def _requests_event_table_health_monitoring(
-    stream: EventStream,
-    since: Optional[str],
-    until: Optional[str],
-) -> bool:
-    """Return ``True`` when the request uses the event-table system function.
-
-    The live log tail (``--type log`` and no time window) uses
-    ``SYSTEM$GET_APPLICATION_SERVICE_LOGS``. Metric, lifecycle, and
-    windowed logs use ``SYSTEM$GET_APPLICATION_SERVICE_EVENT_TABLE_DATA``,
-    which is not supported for serverless apps.
-    """
-    return stream is not EventStream.LOG or bool(since) or bool(until)
 
 
 def _ensure_cng_url_cert_ready(
@@ -2134,10 +2202,6 @@ class _ResolvedService(NamedTuple):
     The common result of resolving a command's target from either ``app.yml``
     (the ``--target`` target) or the ``snowflake.yml`` entity, so ``open`` and
     ``events`` share one resolution path instead of each re-deriving it.
-
-    ``compute_resource`` is the backend (``SERVERLESS`` or
-    ``MANAGED_COMPUTE_POOL``) from the ``app.yml`` target, or ``None`` when
-    the project uses ``snowflake.yml``.
     """
 
     manager: SnowflakeAppManager
@@ -2145,7 +2209,6 @@ class _ResolvedService(NamedTuple):
     database: Optional[str]
     schema: Optional[str]
     name: str
-    compute_resource: Optional[str] = None
 
 
 def _resolve_command_service(
@@ -2170,9 +2233,6 @@ def _resolve_command_service(
             dep.database,
             dep.schema,
             dep.service_name,
-            _effective_compute_resource(
-                manager, dep.target.compute_resource, required=False
-            ),
         )
 
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -2437,6 +2497,8 @@ def _deploy_from_app_yml(
     uploaded), and ``promote_only`` skips upload and build and applies the
     deploy phase against the already-built package (``VERSION LATEST``).
     """
+    _ensure_python_phases_declared(app_def)
+
     ctx = get_cli_context()
     metrics = ctx.metrics
     manager = SnowflakeAppManager(interactive=interactive)
@@ -2474,9 +2536,7 @@ def _deploy_from_app_yml(
     # ``compute_resource`` selects the serverless or SPCS backend and is
     # write-once. ``SERVERLESS`` is applied only when the account feature
     # parameter allows it. When it is unset the server defaults the backend.
-    compute_resource = _effective_compute_resource(
-        manager, tgt.compute_resource, required=True
-    )
+    compute_resource = _effective_compute_resource(manager, tgt.compute_resource)
 
     # Probe for the per-account URL certificate up front (see
     # _ensure_cng_url_cert_ready): it needs no built artifact, and issuance is
@@ -2530,15 +2590,22 @@ def _deploy_from_app_yml(
         return result
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
-    # ``url_prefix`` and ``health_check`` are serverless-only fields, so they
-    # are only emitted when ``compute_resource`` is ``SERVERLESS``.
+    # ``url_prefix``, ``health_check``, and ``postgres_instances`` are
+    # serverless-only fields, so they are only emitted when ``compute_resource``
+    # is ``SERVERLESS``. Whether the server accepts ``postgres_instances`` is
+    # decided by the account parameter ENABLE_APP_SERVICE_CNG_POSTGRES.
     is_cng = _is_cng_compute_resource(compute_resource)
+    if tgt.postgres_instances and not is_cng:
+        raise CliError(
+            "postgres_instances is only valid when compute_resource is SERVERLESS."
+        )
     specification = manager.build_service_specification(
         tgt,
         database=database,
         schema=schema,
         include_url_prefix=is_cng,
         include_health_check=is_cng,
+        include_postgres_instances=is_cng,
     )
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step(f"Applying application service {service_fqn.identifier}...")

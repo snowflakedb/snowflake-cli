@@ -24,15 +24,17 @@ example ``2.1`` or ``3``) is rejected rather than parsed against the v2 schema.
 
 This module models the parts the CLI needs to resolve and deploy a target
 (Milestone 1) plus the builder ``install`` / ``build`` / ``run`` / ``dev``
-phases, which are optional and default to Node conventions when omitted. Every
-root field except those four builder phases can be overridden per target.
+phases. A Node app may omit them and gets Node conventions; an app whose
+``runtime`` includes python gets no defaults and must declare ``run`` before it
+deploys. Every root field except those four builder phases can be overridden per
+target.
 """
 
 from __future__ import annotations
 
-import re
-from pathlib import Path, PurePath
-from typing import Dict, List, Optional
+import logging
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import yaml
 from pydantic import ConfigDict, Field, field_validator, model_validator
@@ -40,6 +42,7 @@ from pydantic.json_schema import SkipJsonSchema
 from snowflake.cli._plugins.apps.snowflake_app_entity_model import (
     APP_SERVICE_COMPUTE_RESOURCE_VALUES,
 )
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.config import get_file_io_encoding
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import CliError
@@ -47,7 +50,25 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.secure_path import SecurePath
 
+log = logging.getLogger(__name__)
+
 APP_YML_FILENAME = "app.yml"
+
+# Values accepted for the top-level ``runtime`` key (case-insensitive).
+RUNTIME_PYTHON = "python"
+RUNTIME_NODE = "node"
+APP_YML_RUNTIME_VALUES = (RUNTIME_PYTHON, RUNTIME_NODE)
+
+# Builder phases a ``runtime: node`` app may omit, and the commands it gets.
+NODE_DEFAULT_INSTALL = [["npm", "ci"]]
+NODE_DEFAULT_BUILD = [["npm", "run", "build"]]
+NODE_DEFAULT_RUN = ["npm", "start"]
+NODE_DEFAULT_DEV = ["npm", "run", "dev"]
+
+# Builder phases a ``runtime: python`` app must declare: it gets no defaults and
+# the builder infers none. Like the builder, the CLI requires only ``run``;
+# ``install`` and ``build`` are optional.
+PYTHON_REQUIRED_PHASES = ("run",)
 
 # The one ``app.yml`` schema version this CLI owns. Below it (``version: 1`` or
 # version-less), ``app.yml`` is the legacy build-only manifest (no ``targets``)
@@ -55,11 +76,6 @@ APP_YML_FILENAME = "app.yml"
 # (for example ``2.1`` or ``3``), the manifest is a newer schema this CLI does
 # not understand and is rejected rather than parsed against the v2 model.
 SUPPORTED_APP_YML_VERSION = 2
-
-# Executables that mark a builder phase command as a Python runtime command:
-# ``pip`` / ``pip3`` / ``pip3.12``, ``python`` / ``python3`` / ``python3.12``,
-# ``uv`` and ``uvx``.
-_PYTHON_RUNTIME_EXECUTABLE = re.compile(r"^(pip|python)(\d+(\.\d+)?)?$|^uvx?$")
 
 
 class AppYmlSecret(UpdatableModel):
@@ -102,6 +118,42 @@ class AppYmlEnvVar(UpdatableModel):
         if isinstance(value, (int, float)):
             return str(value)
         return value
+
+
+_POSTGRES_AUTH_MODES = ("password", "token")
+
+
+class AppYmlPostgresInstance(UpdatableModel):
+    """One Snowflake Postgres binding in an application-service specification.
+
+    Mirrors the ``postgres_instances`` entries of the inline ``SPECIFICATION``.
+    ``instance`` is the instance name. ``name``, when set, is the environment
+    variable prefix (``<NAME>_HOST``, ``<NAME>_PORT``, ``<NAME>_SSLROOTCERT``).
+    ``authentication_mode`` is ``token`` or ``password``; omitted means the
+    server default, ``token``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    instance: str = Field(title="Snowflake Postgres instance name")
+    name: Optional[str] = Field(title="Environment variable prefix", default=None)
+    authentication_mode: Optional[str] = Field(
+        title="Authentication mode", default=None
+    )
+
+    @field_validator("authentication_mode", mode="before")
+    @classmethod
+    def _normalize_authentication_mode(cls, value):
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("authentication_mode must be a string")
+        normalized = value.strip().lower()
+        if normalized not in _POSTGRES_AUTH_MODES:
+            raise ValueError(
+                "authentication_mode must be one of: " + ", ".join(_POSTGRES_AUTH_MODES)
+            )
+        return normalized
 
 
 class AppYmlBuildPhase(UpdatableModel):
@@ -280,6 +332,14 @@ class _AppYmlServiceConfig(UpdatableModel):
     environment_variables: Optional[List[AppYmlEnvVar]] = Field(
         title="Plain environment variables for the service", default=None
     )
+    # Serverless-only, and not advertised. The account parameter
+    # ENABLE_APP_SERVICE_CNG_POSTGRES decides whether the server accepts the
+    # field; the CLI forwards the declaration and rejects it locally when
+    # ``compute_resource`` is not ``SERVERLESS``.
+    postgres_instances: SkipJsonSchema[Optional[List[AppYmlPostgresInstance]]] = Field(
+        title="Snowflake Postgres instances bound into the service",
+        default=None,
+    )
 
     @field_validator("compute_resource", mode="before")
     @classmethod
@@ -331,8 +391,11 @@ class AppYmlDefinition(_AppYmlServiceConfig):
     Everything overridable per target is inherited from
     :class:`_AppYmlServiceConfig` (``package_name`` defaults to ``name`` and
     ``artifact_repo`` to ``<name>_repo`` when unset). Only the builder-owned
-    ``install`` / ``build`` / ``run`` / ``dev`` sections are top-level only and
-    optional, defaulting to Node conventions when omitted.
+    ``install`` / ``build`` / ``run`` / ``dev`` sections, plus the ``runtime``
+    and ``streamlit`` keys, are top-level only. For a Node app the phases are
+    optional and default to Node conventions when omitted; for a Python app an
+    omitted phase stays ``None`` (see :meth:`missing_python_phases`). As with
+    the phases, a ``runtime`` / ``streamlit`` key inside a target is ignored.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -351,44 +414,132 @@ class AppYmlDefinition(_AppYmlServiceConfig):
         title="Named deployment targets", default_factory=dict
     )
 
+    # Runtime the app needs, top-level only (like the builder phases below; a
+    # ``runtime`` / ``streamlit`` key inside a target is ignored, as are
+    # per-target phases). ``runtime`` defaults to ``node`` and ``streamlit`` to
+    # ``false``; ``streamlit: true`` requires ``runtime: python``.
+    runtime: str = Field(
+        title="Runtime of the app: python, node, or a list of them",
+        default=RUNTIME_NODE,
+    )
+    streamlit: bool = Field(
+        title="Whether the app is a Streamlit app (requires runtime python)",
+        default=False,
+    )
+
     # Builder phases. Consumed by the builder service (not the CLI); modeled here
-    # so they can be omitted and defaulted to Node conventions.
-    install: AppYmlBuildPhase = Field(
-        title="Install phase commands",
-        default_factory=lambda: AppYmlBuildPhase(commands=[["npm", "ci"]]),
+    # so a Node app can omit them and get Node conventions, and so a Python app
+    # that omits a required one is refused before deploy.
+    install: Optional[AppYmlBuildPhase] = Field(
+        title="Install phase commands", default=None
     )
-    build: AppYmlBuildPhase = Field(
-        title="Build phase commands",
-        default_factory=lambda: AppYmlBuildPhase(commands=[["npm", "run", "build"]]),
+    build: Optional[AppYmlBuildPhase] = Field(
+        title="Build phase commands", default=None
     )
-    run: AppYmlRunPhase = Field(
-        title="Run command",
-        default_factory=lambda: AppYmlRunPhase(command=["npm", "start"]),
+    run: Optional[AppYmlRunPhase] = Field(
+        title="Run command (required for runtime python)", default=None
     )
-    dev: AppYmlRunPhase = Field(
-        title="Dev command",
-        default_factory=lambda: AppYmlRunPhase(command=["npm", "run", "dev"]),
-    )
+    dev: Optional[AppYmlRunPhase] = Field(title="Dev command", default=None)
+
+    @field_validator("runtime", mode="before")
+    @classmethod
+    def _validate_runtime(cls, value):
+        """Normalise ``runtime`` to ``python``, ``node`` or ``node,python``.
+
+        Accepts one value or a list of them, case-insensitive. A list is
+        de-duplicated, sorted and comma-joined, the same label the builder
+        reports. ``None`` / ``"null"`` mean the default, ``node``.
+        """
+        if value is None or value == "null":
+            return RUNTIME_NODE
+        if isinstance(value, str):
+            entries = [value]
+        elif isinstance(value, list) and value:
+            entries = value
+        else:
+            raise ValueError("runtime must be a string, a non-empty list, or null")
+        names = set()
+        for entry in entries:
+            if not isinstance(entry, str):
+                raise ValueError("runtime must be a list of strings")
+            normalized = entry.strip().lower()
+            if normalized not in APP_YML_RUNTIME_VALUES:
+                raise ValueError(
+                    "runtime must be one of: "
+                    + ", ".join(APP_YML_RUNTIME_VALUES)
+                    + " (or a list of them)"
+                )
+            names.add(normalized)
+        return ",".join(sorted(names))
+
+    @field_validator("streamlit", mode="before")
+    @classmethod
+    def _validate_streamlit(cls, value):
+        """Accept only a real boolean (no ``"yes"`` / ``1`` coercion); ``null`` is ``false``."""
+        if value is None:
+            return False
+        if isinstance(value, bool):
+            return value
+        raise ValueError("streamlit must be a boolean (true or false) or null")
+
+    @model_validator(mode="after")
+    def _reject_streamlit_with_node(self):
+        """A Streamlit app runs on Python, so ``streamlit: true`` needs python in ``runtime``."""
+        if self.streamlit and not self.is_python_runtime:
+            raise ValueError(
+                "'streamlit: true' requires 'runtime: python' (or a runtime list "
+                "that includes python); runtime defaults to 'node'."
+            )
+        return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_node_phases(cls, values):
+        """Fill omitted phases with Node conventions, for a Node app only.
+
+        A Python or hybrid app keeps omitted phases as ``None``: the CLI checks them at
+        deploy (see :meth:`missing_python_phases`) rather than here, so loading
+        such a manifest for ``events``, ``open`` or telemetry still works. This
+        runs before ``runtime`` is normalised, so it reads the raw value; an
+        invalid ``runtime`` is rejected by its field validator either way.
+        """
+        if not isinstance(values, dict):
+            return values
+        runtime = values.get("runtime")
+        declared = runtime if isinstance(runtime, list) else [runtime]
+        if any(
+            isinstance(r, str) and r.strip().lower() == RUNTIME_PYTHON for r in declared
+        ):
+            return values
+        defaults = {
+            "install": {"commands": NODE_DEFAULT_INSTALL},
+            "build": {"commands": NODE_DEFAULT_BUILD},
+            "run": {"command": NODE_DEFAULT_RUN},
+            "dev": {"command": NODE_DEFAULT_DEV},
+        }
+        return {
+            **values,
+            **{k: v for k, v in defaults.items() if values.get(k) is None},
+        }
 
     @property
     def is_python_runtime(self) -> bool:
-        """Whether any builder phase runs a Python tool (``pip``, ``python``, ``uv``).
+        """Whether the app needs the Python runtime: python is in ``runtime``."""
+        return RUNTIME_PYTHON in self.runtime.split(",")
 
-        The builder runs the ``install`` / ``build`` / ``run`` / ``dev`` commands
-        as given, and the defaults are Node commands, so a Python executable in
-        any of them means the app needs the Python runtime.
+    def missing_python_phases(self) -> List[str]:
+        """The :data:`PYTHON_REQUIRED_PHASES` a Python app does not declare.
+
+        A phase with an empty command counts as not declared, as in the
+        builder. Always empty for a Node app, whose omitted phases are defaulted.
         """
-        commands = [
-            *self.install.commands,
-            *self.build.commands,
-            self.run.command,
-            self.dev.command,
+        if not self.is_python_runtime:
+            return []
+        return [
+            name
+            for name in PYTHON_REQUIRED_PHASES
+            if getattr(self, name) is None or not getattr(self, name).command
         ]
-        return any(
-            _PYTHON_RUNTIME_EXECUTABLE.match(PurePath(command[0]).name.lower())
-            for command in commands
-            if command
-        )
 
     @field_validator("targets", mode="before")
     @classmethod
@@ -446,12 +597,11 @@ def load_app_yml(project_root: Path) -> Optional[AppYmlDefinition]:
     # otherwise UTF-8), so a non-ASCII manifest round-trips regardless of the
     # host code page.
     encoding = get_file_io_encoding() or "utf-8"
+    text = app_yml_path.read_text(
+        file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding=encoding
+    )
     try:
-        raw = yaml.safe_load(
-            app_yml_path.read_text(
-                file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB, encoding=encoding
-            )
-        )
+        raw = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         raise CliError(f"Could not parse {APP_YML_FILENAME}: {exc}") from exc
 
@@ -461,7 +611,9 @@ def load_app_yml(project_root: Path) -> Optional[AppYmlDefinition]:
     version = _parse_app_yml_version(raw.get("version"))
     if version is None or version < SUPPORTED_APP_YML_VERSION:
         # Absent, non-numeric, or a legacy (v1) build-only manifest: not owned
-        # by the CLI — fall back to ``snowflake.yml``.
+        # by the CLI — fall back to ``snowflake.yml``. Its runtime facts are
+        # still recorded for telemetry, leniently and without validation.
+        _record_app_yml_info(raw, None)
         return None
     if version != SUPPORTED_APP_YML_VERSION:
         # A newer schema (for example ``2.1`` or ``3``) this CLI does not
@@ -476,9 +628,64 @@ def load_app_yml(project_root: Path) -> Optional[AppYmlDefinition]:
     # re-interpret a float/string form.
     raw = {**raw, "version": SUPPORTED_APP_YML_VERSION}
     try:
-        return AppYmlDefinition(**raw)
+        app_def = AppYmlDefinition(**raw)
     except Exception as exc:
         raise CliError(f"Invalid {APP_YML_FILENAME}: {exc}") from exc
+    _record_app_yml_info(raw, app_def)
+    return app_def
+
+
+def _record_app_yml_info(
+    raw: Dict[str, Any], app_def: Optional[AppYmlDefinition]
+) -> None:
+    """Store ``app.yml`` runtime facts on the CLI context for telemetry.
+
+    *app_def* is the validated v2 definition. For a version-less / legacy
+    ``app.yml`` (``None``) the keys are read leniently from *raw*: invalid
+    ``runtime`` / ``streamlit`` values are dropped, never reported as errors.
+    Never raises: telemetry must not fail a command.
+    """
+    try:
+        if app_def is None:
+            app_def = _lenient_definition(raw)
+        get_cli_context_manager().app_yml_info = {
+            "runtime": app_def.runtime,
+            "streamlit": app_def.streamlit is True,
+        }
+    except Exception:
+        log.debug("Could not record %s telemetry info", APP_YML_FILENAME, exc_info=True)
+
+
+def _lenient_definition(raw: Dict[str, Any]) -> AppYmlDefinition:
+    """Best-effort :class:`AppYmlDefinition` from an unvalidated mapping.
+
+    Only ``runtime`` and ``streamlit`` are considered, and any that fail
+    validation are dropped.
+    """
+    candidate: Dict[str, Any] = {}
+    if "runtime" in raw and _runtime_validates(raw["runtime"]):
+        candidate["runtime"] = raw["runtime"]
+    # Type check only: ``streamlit: true`` is valid alongside ``runtime: python``
+    # but not alone, so the combination is checked when building below.
+    if "streamlit" in raw and (
+        raw["streamlit"] is None or isinstance(raw["streamlit"], bool)
+    ):
+        candidate["streamlit"] = raw["streamlit"]
+    try:
+        return AppYmlDefinition(version=SUPPORTED_APP_YML_VERSION, **candidate)
+    except Exception:
+        # ``streamlit: true`` without ``runtime: python``: keep ``runtime`` and
+        # drop ``streamlit``.
+        candidate.pop("streamlit", None)
+        return AppYmlDefinition(version=SUPPORTED_APP_YML_VERSION, **candidate)
+
+
+def _runtime_validates(value: Any) -> bool:
+    try:
+        AppYmlDefinition(version=SUPPORTED_APP_YML_VERSION, runtime=value)
+    except Exception:
+        return False
+    return True
 
 
 def _parse_app_yml_version(value: object) -> Optional[float]:

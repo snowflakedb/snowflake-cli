@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
@@ -70,6 +71,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.util import extract_schema
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
+from snowflake.connector.util_text import split_statements
 
 from tests.conftest import MockConnectionCtx
 from tests.nativeapp.patch_utils import (
@@ -1240,6 +1242,44 @@ def test_validate_passing(mock_execute, temporary_directory, mock_cursor):
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_validate_quotes_stage_subdirectory(
+    mock_execute, temporary_directory, mock_cursor
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temporary_directory,
+        contents=[mock_snowflake_yml_file_v2],
+    )
+
+    success_data = dict(status="SUCCESS")
+    mock_execute.return_value = mock_cursor([[json.dumps(success_data)]], [])
+
+    dm = _get_dm()
+    dm.project_definition.entities["app_pkg"].stage_subdirectory = "v1'); SELECT 1 --"
+    wm = WorkspaceManager(
+        project_definition=dm.project_definition,
+        project_root=dm.project_root,
+    )
+    pkg = wm.get_entity("app_pkg")
+
+    assert (
+        pkg.get_validation_result(
+            action_ctx=wm.action_ctx,
+            use_scratch_stage=False,
+            interactive=False,
+            force=True,
+        )
+        == success_data
+    )
+
+    query = mock_execute.call_args[0][0]
+    assert query == (
+        "call system$validate_native_app_setup('@app_pkg.app_src.stage/v1''); SELECT 1 --')"
+    )
+    assert len([s for s, _ in split_statements(StringIO(query))]) == 1
+
+
+@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch("snowflake.cli._plugins.workspace.manager.cc.warning")
 def test_validate_passing_with_warnings(
     mock_warning, mock_execute, temporary_directory, mock_cursor
@@ -1873,6 +1913,131 @@ def test_get_events_quoted_app_name(
     app = ApplicationEntity(app_model, workspace_context)
     assert app.get_events(package_name=pkg_model.fqn.name) == events
     assert mock_execute.mock_calls == expected
+
+
+@pytest.mark.parametrize(
+    "identifier, expected_clause",
+    [
+        pytest.param(
+            '"app\'); x"',
+            """resource_attributes:"snow.database.name" = 'app''); x'""",
+            id="quote",
+        ),
+        pytest.param(
+            '"x\\\';y"',
+            r"""resource_attributes:"snow.database.name" = 'x\\'';y'""",
+            id="backslash_quote",
+        ),
+    ],
+)
+@mock.patch(
+    SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
+    return_value="db.schema.event_table",
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_events_quotes_application_name(
+    mock_execute,
+    mock_account_event_table,
+    identifier,
+    expected_clause,
+    temporary_directory,
+    mock_cursor,
+    workspace_context,
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temporary_directory,
+        contents=[mock_snowflake_yml_file_v2],
+    )
+    create_named_file(
+        file_name="snowflake.local.yml",
+        dir_name=temporary_directory,
+        contents=[
+            dedent(
+                f"""\
+                entities:
+                    myapp:
+                        identifier: >-
+                            {identifier}
+                """
+            )
+        ],
+    )
+
+    events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")]
+    mock_execute.return_value = mock_cursor(events, [])
+
+    dm = _get_dm()
+    pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["app_pkg"]
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    app = ApplicationEntity(app_model, workspace_context)
+    assert app.get_events(package_name=pkg_model.fqn.name) == events
+
+    query = mock_execute.call_args[0][0]
+    assert expected_clause in query
+    assert len([s for s, _ in split_statements(StringIO(query))]) == 1
+
+
+@mock.patch(
+    SQL_FACADE_GET_ACCOUNT_EVENT_TABLE,
+    return_value="db.schema.event_table",
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_get_events_quotes_filter_values(
+    mock_execute,
+    mock_account_event_table,
+    temporary_directory,
+    mock_cursor,
+    workspace_context,
+):
+    create_named_file(
+        file_name="snowflake.yml",
+        dir_name=temporary_directory,
+        contents=[mock_snowflake_yml_file_v2],
+    )
+
+    events = [dict(TIMESTAMP=datetime(2024, 1, 1), VALUE="test")]
+    mock_execute.return_value = mock_cursor(events, [])
+
+    package_name = "pkg'); x"
+    consumer_org = "org'); x"
+    consumer_account = "acc'); x"
+    consumer_app_hash = "hash'); x"
+    since = "1 hour\\'; x"
+    until = "20 minutes'); x"
+    scopes = ["scope'); x"]
+    record_types = ["log'); x"]
+
+    dm = _get_dm()
+    app_model: ApplicationEntityModel = dm.project_definition.entities["myapp"]
+    app = ApplicationEntity(app_model, workspace_context)
+    assert (
+        app.get_events(
+            package_name=package_name,
+            since=since,
+            until=until,
+            record_types=record_types,
+            scopes=scopes,
+            consumer_org=consumer_org,
+            consumer_account=consumer_account,
+            consumer_app_hash=consumer_app_hash,
+        )
+        == events
+    )
+
+    query = mock_execute.call_args[0][0]
+    for expected in (
+        """resource_attributes:"snow.application.package.name" = 'pkg''); x'""",
+        """resource_attributes:"snow.application.consumer.organization" = 'org''); x'""",
+        """resource_attributes:"snow.application.consumer.name" = 'acc''); x'""",
+        """resource_attributes:"snow.database.hash" = 'hash''); x'""",
+        r"interval '1 hour\\''; x'",
+        "interval '20 minutes''); x'",
+        "scope:name in ('scope''); x')",
+        "record_type in ('log''); x')",
+    ):
+        assert expected in query
+    assert len([s for s, _ in split_statements(StringIO(query))]) == 1
 
 
 @mock.patch(SQL_FACADE_GET_ACCOUNT_EVENT_TABLE)

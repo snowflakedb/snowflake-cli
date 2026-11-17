@@ -30,6 +30,11 @@ def test_setup_capabilities_reports_each_capability(
     result = runner.invoke_with_connection_json(["app", "setup", "--capabilities"])
 
     assert result.exit_code == 0, result.output
-    assert set(result.json) == {"serverless", "python", "python-serverless"}
+    assert set(result.json) == {
+        "serverless",
+        "python",
+        "python-serverless",
+        "streamlit-serverless",
+    }
     assert all(isinstance(value, bool) for value in result.json.values())
     assert not (temporary_working_directory / "app.yml").exists()

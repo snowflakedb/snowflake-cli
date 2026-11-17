@@ -20,7 +20,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator, TextIO
+from typing import TYPE_CHECKING, Any, Iterator, TextIO
 
 import tomlkit
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
@@ -103,6 +103,15 @@ class _CliGlobalContextManager:
     )
 
     output_format: OutputFormat = OutputFormat.TABLE
+    # SnowSQL quiet: hide query results on the terminal. An open spool still
+    # receives them. Errors go through cli_console and are not affected.
+    quiet: bool = False
+    # SnowSQL timing: show the `Time Elapsed` footer.
+    timing: bool = True
+    # SnowSQL timing_in_output_file: also write it to an open spool. Needs timing.
+    timing_in_output_file: bool = False
+    # REPL-only. One-shot SQL keeps VerboseCursor's own statement logging.
+    echo: bool = False
     spool_path: Path | None = None
     spool_stream: TextIO | None = None
     _spool_stack: ExitStack | None = field(default=None, repr=False, compare=False)
@@ -138,6 +147,12 @@ class _CliGlobalContextManager:
     # None for any other command. Set by the routing/decoration helpers in
     # _plugins/nativeapp/v2_conversions/compat.py and read by telemetry.
     app_flow: str | None = None
+
+    # Raw (unsanitized) facts read from a Snowflake App Runtime ``app.yml``:
+    # the declared runtime and the ``streamlit`` flag. Recorded by
+    # ``load_app_yml`` and read by telemetry, which validates each value before
+    # sending it. None until an ``app.yml`` has been loaded.
+    app_yml_info: dict[str, Any] | None = None
 
     _definition_manager: DefinitionManager | None = None
     enhanced_exit_codes: bool = False
@@ -365,6 +380,23 @@ class _CliGlobalContextAccess:
         return self._manager.output_format
 
     @property
+    def quiet(self) -> bool:
+        return self._manager.quiet
+
+    @property
+    def timing(self) -> bool:
+        return self._manager.timing
+
+    @property
+    def timing_in_output_file(self) -> bool:
+        return self._manager.timing_in_output_file
+
+    @property
+    def echo_enabled(self) -> bool:
+        # Named echo_enabled because the print hook rejects a method named echo.
+        return self._manager.echo
+
+    @property
     def spool_path(self) -> Path | None:
         return self._manager.spool_path
 
@@ -417,6 +449,10 @@ class _CliGlobalContextAccess:
     @property
     def app_flow(self) -> str | None:
         return self._manager.app_flow
+
+    @property
+    def app_yml_info(self) -> dict[str, Any] | None:
+        return self._manager.app_yml_info
 
     @property
     def repl(self) -> Repl | None:

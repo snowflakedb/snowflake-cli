@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.auth.commands import register_list
+from snowflake.cli._plugins.auth.commands import register_list, register_login
 from snowflake.cli._plugins.auth.oidc.commands import (
     app as oidc_app,
 )
@@ -35,5 +35,6 @@ app = _AuthTyperFactory(
     help="Manages authentication methods.",
 )
 
+register_login(app)
 register_list(app)
 app.add_typer(oidc_app)

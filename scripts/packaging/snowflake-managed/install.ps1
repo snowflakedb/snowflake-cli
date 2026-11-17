@@ -28,8 +28,15 @@
     Override repo base with SNOWFLAKE_CLI_MANAGED_REPO.
     NON_INTERACTIVE / SKIP_PATH_PROMPT skip the PATH prompt (CI).
 
+    Pin a release with -Version / --version, or SNOWFLAKE_CLI_VERSION.
+    Pass -NoAutoUpgrade / --no-auto-upgrade so a pin is not replaced by
+    auto-upgrade on the next snow invocation (writes cli.auto_upgrade = false).
+
 .EXAMPLE
     irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
+
+.EXAMPLE
+    .\install.ps1 -Version 3.29.0 -NoAutoUpgrade
 #>
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +46,10 @@ $DefaultRepoBase = "https://sfc-repo.snowflakecomputing.com/snowflake-cli"
 $PointerName = "stable_version.txt"
 $ManifestName = "manifest.json"
 $ManifestSigName = "manifest.json.sig"
+# Optional pin. CLI -Version/--version overrides SNOWFLAKE_CLI_VERSION.
+$script:RequestedVersion = $env:SNOWFLAKE_CLI_VERSION
+# $true = write cli.auto_upgrade = false to the user config.toml (-NoAutoUpgrade)
+$script:DisableAutoUpgrade = $false
 # RSA-4096 n/e matching managed_manifest.pub.pem (PowerShell 5.1 has no ImportFromPem).
 $ManifestModulusB64 = "mecfO6u7BbYw16AHXhDyMOGlJop5LZ08eZrsVswXlps+19CtIEJQQJZPjTKDAqDay0+TpNfj0ErberXW4pRlWTHV1IsRrMBZQwj+Rx7wfcIBCnctMvXVinCTQxDCG6QVEIvyntSi/shju7ktWeONGT4deCy7ZnTnE2abtK8sre+sbNAy5UbPiiAWULcoXmmpI/upQhGWDYsugMGdUQAmaA3u/QzoH/PwH8pClZWUJfbid05U51rUV6WzScb6PZP0PK9JYcSVTHZscmGCYkY3LrlCNZ+zMy1JCnp2B0cWzwaHoHFBmAACUMJLHz1NtQyRbHcLekKSgr5CIMMNIZmVrDYYTrGxnqfph6RMCVBd1RuzcXSVZhxTI2o93r0GR/7J+tr1GmY003dfuuWlHsBa+zKA8NyJDCnq7atW96AnnH78VQ+PuwMxEzmkgbi50lmAtGZuBpRtQn5ySWnaVKG1S2qBnPgiPWLJ7r7cViK0ZL5Mk8z0hkLXBDlop9MVea9LV9x1evFDkgoC49Gn5g4ZyqwTODl1tnE7/i47SKfqZl6lTnhbYLlUYYGt1pFmOp8w98ycCNynSFwAKKPr48FJuUCg4ucODyWnSw5d7xVnaUbqiHCj7QgPGWR5ssyFnlYHJD8os319nd/0xgvopeeXnPViy3zvEUsQyDblLYH2jQM="
 $ManifestExponentB64 = "AQAB"
@@ -81,6 +92,79 @@ function Write-Info {
     Write-Host $Message -ForegroundColor Cyan
 }
 
+function Show-Usage {
+    Write-Host @"
+Usage: install.ps1 [options]
+
+Install the snowflake-managed Snowflake CLI distribution.
+
+Options:
+  -Version <ver> / --version <ver>   Install this release (e.g. 3.29.0).
+                                     Default: latest stable. Overrides
+                                     SNOWFLAKE_CLI_VERSION.
+  -NoAutoUpgrade / --no-auto-upgrade Set cli.auto_upgrade = false in the user
+                                     config.toml. Use with -Version so a pin is
+                                     not replaced by auto-upgrade.
+  -h / --help                        Show this help.
+
+Environment:
+  SNOWFLAKE_CLI_VERSION       Default version pin when -Version is omitted.
+  SNOWFLAKE_CLI_MANAGED_HOME  Install root.
+  SNOWFLAKE_CLI_MANAGED_REPO  Repository base URL (tests/support).
+  NON_INTERACTIVE             Skip interactive prompts.
+  SKIP_PATH_PROMPT            Do not edit user PATH.
+
+Examples:
+  irm https://sfc-repo.snowflakecomputing.com/snowflake-cli/install.ps1 | iex
+  .\install.ps1 -Version 3.29.0 -NoAutoUpgrade
+  & ([scriptblock]::Create((irm .../install.ps1))) -Version 3.29.0 -NoAutoUpgrade
+  `$env:SNOWFLAKE_CLI_VERSION='3.29.0'; irm .../install.ps1 | iex
+"@
+}
+
+function Parse-InstallArgs {
+    param([object[]]$ArgList)
+
+    for ($i = 0; $i -lt $ArgList.Count; $i++) {
+        $arg = [string]$ArgList[$i]
+        switch -Regex ($arg) {
+            '^(?i)(-h|--help|/\?)$' {
+                Show-Usage
+                exit 0
+            }
+            '^(?i)(--version|-Version|-v)$' {
+                if ($i + 1 -ge $ArgList.Count) {
+                    Write-ErrorMsg "$arg requires a value"
+                    Show-Usage
+                    exit 1
+                }
+                $script:RequestedVersion = [string]$ArgList[++$i]
+                if ([string]::IsNullOrWhiteSpace($script:RequestedVersion)) {
+                    Write-ErrorMsg "$arg requires a value"
+                    Show-Usage
+                    exit 1
+                }
+            }
+            '^(?i)--version=(.*)$' {
+                $script:RequestedVersion = $Matches[1]
+                if ([string]::IsNullOrWhiteSpace($script:RequestedVersion)) {
+                    Write-ErrorMsg "--version requires a value"
+                    Show-Usage
+                    exit 1
+                }
+            }
+            '^(?i)(--no-auto-upgrade|-NoAutoUpgrade)$' {
+                $script:DisableAutoUpgrade = $true
+            }
+            default {
+                Write-ErrorMsg "Unknown option: $arg"
+                Show-Usage
+                exit 1
+            }
+        }
+    }
+}
+
 function Get-StableVersion {
     $versionUrl = "$RepoBase/$PointerName"
     try {
@@ -92,6 +176,118 @@ function Get-StableVersion {
         Write-ErrorMsg $_.Exception.Message
         exit 1
     }
+}
+
+function Resolve-InstallVersion {
+    if (-not [string]::IsNullOrWhiteSpace($script:RequestedVersion)) {
+        return $script:RequestedVersion.Trim()
+    }
+    return Get-StableVersion
+}
+
+function Write-AutoUpgradeManualHint {
+    param([string]$ConfigFile)
+    Write-ErrorMsg "Add 'auto_upgrade = false' under [cli] in $ConfigFile yourself, or set SNOWFLAKE_CLI_AUTO_UPGRADE=false, and re-run without -NoAutoUpgrade."
+}
+
+# Set [cli].auto_upgrade = false in the config.toml the CLI reads
+# (-NoAutoUpgrade). Fails before installing when the file cannot be edited
+# safely, so a pin is never silently left upgradable.
+function Disable-AutoUpgradeConfig {
+    $Value = 'false'
+    $configDir = Get-SnowflakeConfigDirectory
+    New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+    $configFile = Join-Path $configDir "config.toml"
+    # Latin-1 maps every byte to one char, so existing content round-trips
+    # unchanged whatever its encoding, and no BOM is written (TOML parsers
+    # used by the CLI reject a BOM).
+    $encoding = [System.Text.Encoding]::GetEncoding(28591)
+
+    $item = Get-Item -LiteralPath $configFile -Force -ErrorAction SilentlyContinue
+    if ($item -and $item.LinkType) {
+        Write-ErrorMsg "$configFile is a symlink; not editing it."
+        Write-AutoUpgradeManualHint $configFile
+        exit 1
+    }
+
+    if (-not $item -or $item.Length -eq 0) {
+        [System.IO.File]::WriteAllText($configFile, "[cli]`nauto_upgrade = $Value`n", $encoding)
+        Protect-SnowflakeConfigFile $configFile
+        Write-Success "Set cli.auto_upgrade = $Value in $configFile"
+        return
+    }
+
+    $text = [System.IO.File]::ReadAllText($configFile, $encoding)
+    $eol = if ($text -match "`r`n") { "`r`n" } else { "`n" }
+    $lines = $text -split "`r?`n"
+    if ($lines.Count -gt 0 -and $lines[-1] -eq '') {
+        $lines = $lines[0..($lines.Count - 2)]
+    }
+
+    $out = New-Object System.Collections.Generic.List[string]
+    $inCli = $false
+    $atRoot = $true
+    $sawCli = $false
+    $rootCli = $false
+    $done = $false
+    $bad = $false
+    # Same patterns as install.sh: header keys may be bare, "double" or
+    # 'single' quoted, and never contain an unquoted comma.
+    $q = '["'']?'
+    $cli = "[ \t]*${q}cli${q}[ \t]*"
+    $key = '(?:[^"'',]|"[^"]*"|''[^'']*'')+'
+    $tail = "[ \t]*(?:#.*)?$"
+    $aotRe = "^[ \t]*\[\[$key\]\]$tail"
+    $aotCliRe = "^[ \t]*\[\[$cli\]\]$tail"
+    $cliRe = "^[ \t]*\[$cli\]$tail"
+    $hdrRe = "^[ \t]*\[$key\]$tail"
+    $rootAuRe = "^$cli\.[ \t]*${q}auto_upgrade${q}[ \t]*="
+    $rootCliRe = "^$cli[.=]"
+    $auRe = "^[ \t]*${q}auto_upgrade${q}[ \t]*="
+    foreach ($line in $lines) {
+        if ($line -cmatch $aotRe) {
+            if ($line -cmatch $aotCliRe) { $bad = $true }
+            if ($inCli -and -not $done) { $out.Add("auto_upgrade = $Value"); $done = $true }
+            $inCli = $false; $atRoot = $false
+            $out.Add($line); continue
+        }
+        if ($line -cmatch $cliRe) {
+            $inCli = $true; $atRoot = $false; $sawCli = $true
+            $out.Add($line); continue
+        }
+        if ($line -cmatch $hdrRe) {
+            if ($inCli -and -not $done) { $out.Add("auto_upgrade = $Value"); $done = $true }
+            $inCli = $false; $atRoot = $false
+            $out.Add($line); continue
+        }
+        if ($atRoot -and $line -cmatch $rootAuRe) {
+            $out.Add("cli.auto_upgrade = $Value"); $rootCli = $true; $done = $true
+            continue
+        }
+        if ($atRoot -and $line -cmatch $rootCliRe) { $rootCli = $true }
+        if ($inCli -and $line -cmatch $auRe) {
+            $out.Add("auto_upgrade = $Value"); $done = $true
+            continue
+        }
+        $out.Add($line)
+    }
+    if ($inCli -and -not $done) { $out.Add("auto_upgrade = $Value"); $done = $true }
+    if ($bad -or ($rootCli -and ($sawCli -or -not $done))) {
+        Write-ErrorMsg "Could not set cli.auto_upgrade in $configFile automatically."
+        Write-AutoUpgradeManualHint $configFile
+        exit 1
+    }
+    if (-not $done) {
+        if ($out.Count -gt 0) { $out.Add("") }
+        $out.Add("[cli]")
+        $out.Add("auto_upgrade = $Value")
+    }
+
+    $tmpFile = Join-Path $configDir (".config.toml." + [System.IO.Path]::GetRandomFileName())
+    [System.IO.File]::WriteAllText($tmpFile, (($out -join $eol) + $eol), $encoding)
+    Move-Item -LiteralPath $tmpFile -Destination $configFile -Force
+    Protect-SnowflakeConfigFile $configFile
+    Write-Success "Set cli.auto_upgrade = $Value in $configFile"
 }
 
 # Must match src/snowflake/cli/_plugins/upgrade/layout.py validate_version.
@@ -426,6 +622,8 @@ function Protect-SnowflakeConfigFiles {
 }
 
 function Invoke-SnowflakeCliInstall {
+    Parse-InstallArgs -ArgList $args
+
     Write-Host ""
     Write-Host "Installing snowflake-managed Snowflake CLI for Windows..." -ForegroundColor Cyan
     Write-Host ""
@@ -433,14 +631,19 @@ function Invoke-SnowflakeCliInstall {
     $platform = Get-PlatformInfo
     Write-Host "Platform: $($platform.OS)-$($platform.Arch)"
 
-    Write-Host "Fetching latest version..."
-    $version = Get-StableVersion
+    if (-not [string]::IsNullOrWhiteSpace($script:RequestedVersion)) {
+        Write-Host "Using pinned version $($script:RequestedVersion.Trim())..."
+    }
+    else {
+        Write-Host "Fetching latest version..."
+    }
+    $version = Resolve-InstallVersion
     if ([string]::IsNullOrWhiteSpace($version)) {
-        Write-ErrorMsg "Failed to determine the latest snowflake-managed version of Snowflake CLI"
+        Write-ErrorMsg "Failed to determine the snowflake-managed version of Snowflake CLI to install"
         exit 1
     }
     Assert-ManagedVersion $version
-    Write-Success "Latest version: $version"
+    Write-Success "Version: $version"
 
     $randomNum = Get-Random
     $tempDir = Join-Path (Get-LongPath $env:TEMP) "snowflake-cli-install-$randomNum"
@@ -504,6 +707,10 @@ function Invoke-SnowflakeCliInstall {
         }
         Write-Success "Extracted successfully"
 
+        if ($script:DisableAutoUpgrade) {
+            Disable-AutoUpgradeConfig
+        }
+
         $installDir = Join-Path $InstallBaseDir $version
         Remove-DirectoryBestEffort $installDir
         New-Item -ItemType Directory -Path $InstallBaseDir -Force | Out-Null
@@ -551,4 +758,4 @@ function Invoke-SnowflakeCliInstall {
     }
 }
 
-Invoke-SnowflakeCliInstall
+Invoke-SnowflakeCliInstall @args

@@ -18,7 +18,6 @@ from enum import Enum
 from typing import List, Optional
 
 from pydantic import Field
-from snowflake.cli.api.project.schemas.updatable_model import IdentifierField
 from snowflake.cli.api.project.schemas.v1.snowpark.callable import _CallableBase
 
 
@@ -45,8 +44,8 @@ class NativeAppExtensionFunction(_CallableBase):
         title="List of packages (with optional version constraints) to be loaded for the function",
         default=[],
     )
-    schema_name: Optional[str] = IdentifierField(
-        title=f"Name of the schema for the function",
+    schema_name: Optional[str] = Field(
+        title="Name of the schema for the function",
         default=None,
         alias="schema",
     )

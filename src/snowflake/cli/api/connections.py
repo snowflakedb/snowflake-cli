@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import threading
 import warnings
 from dataclasses import asdict, dataclass, field, fields, replace
 from hashlib import sha256
@@ -301,6 +302,7 @@ class OpenConnectionCache:
         self.connections = {}
         self.cleanup_futures = {}
         self.failures = {}
+        self._lock = threading.RLock()
 
     def __getitem__(self, ctx):
         if not isinstance(ctx, ConnectionContext):
@@ -311,18 +313,19 @@ class OpenConnectionCache:
         # differ only by credentials do not collide. The key itself is never
         # logged — see _insert for the safe variant used in log messages.
         key = ctx._full_cache_key()  # noqa: SLF001
-        if key in self.failures:
-            # A prior attempt for this context already failed; re-raise rather
-            # than dialing again. Without this, every access of the CLI's
-            # global connection (pre-command telemetry, command body, error
-            # handler, post-command telemetry) would trigger an independent
-            # connect() call, producing duplicate LOGIN_HISTORY events on
-            # auth-policy rejection and similar deterministic failures.
-            raise self.failures[key]
-        if not self._has_open_connection(key):
-            self._insert(key, ctx)
-        self._touch(key)
-        return self.connections[key]
+        with self._lock:
+            if key in self.failures:
+                # A prior attempt for this context already failed; re-raise rather
+                # than dialing again. Without this, every access of the CLI's
+                # global connection (pre-command telemetry, command body, error
+                # handler, post-command telemetry) would trigger an independent
+                # connect() call, producing duplicate LOGIN_HISTORY events on
+                # auth-policy rejection and similar deterministic failures.
+                raise self.failures[key]
+            if not self._has_open_connection(key):
+                self._insert(key, ctx)
+            self._touch(key)
+            return self.connections[key]
 
     def get_if_open(self, ctx: ConnectionContext) -> SnowflakeConnection | None:
         """
@@ -344,25 +347,28 @@ class OpenConnectionCache:
             )
         ctx.validate_and_complete()
         key = ctx._full_cache_key()  # noqa: SLF001
-        if not self._has_open_connection(key):
-            return None
-        return self.connections[key]
+        with self._lock:
+            if not self._has_open_connection(key):
+                return None
+            return self.connections[key]
 
     def clear(self):
         """Closes all connections and resets the cache to its initial state."""
-        connection_keys = list(self.connections.keys())
-        for key in connection_keys:
-            self._cleanup(key)
+        with self._lock:
+            connection_keys = list(self.connections.keys())
+            for key in connection_keys:
+                self._cleanup(key)
 
-        # if any orphaned futures still exist, clean them up too
-        for future in self.cleanup_futures.values():
-            future.cancel()
-        self.cleanup_futures.clear()
-        self.failures.clear()
+            # if any orphaned futures still exist, clean them up too
+            for future in self.cleanup_futures.values():
+                future.cancel()
+            self.cleanup_futures.clear()
+            self.failures.clear()
 
     def clear_failures(self):
         """Forgets cached failed-connection attempts so they can be retried."""
-        self.failures.clear()
+        with self._lock:
+            self.failures.clear()
 
     def _has_open_connection(self, key: str):
         return key in self.connections
@@ -397,35 +403,38 @@ class OpenConnectionCache:
         """
         Extend the lifetime of the cached connection at the given key.
         """
-        loop = None
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            # This thread has no event loop the cleanup can be scheduled on.
-            pass
+        with self._lock:
+            loop = None
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # This thread has no event loop the cleanup can be scheduled on.
+                pass
 
-        if not loop:
-            logger.debug(
-                "ConnectionCache: no event loop; connections will close at exit."
+            if not loop:
+                logger.debug(
+                    "ConnectionCache: no event loop; connections will close at exit."
+                )
+                return
+
+            self._cancel_cleanup_future_if_exists(key)
+            self.cleanup_futures[key] = loop.call_later(
+                self.CONNECTION_CLEANUP_SEC, lambda: self._cleanup(key)
             )
-            return
-
-        self._cancel_cleanup_future_if_exists(key)
-        self.cleanup_futures[key] = loop.call_later(
-            self.CONNECTION_CLEANUP_SEC, lambda: self._cleanup(key)
-        )
 
     def _cleanup(self, key: str):
         """Closes the cached connection at the given key."""
-        if key not in self.connections:
-            # The key itself is a SHA256 hash of the context (see
-            # ConnectionContext._full_cache_key) so a short prefix is safe to
-            # log and useful for correlating with the _insert breadcrumb.
-            logger.debug(
-                "Cleaning up connection %s, but not found in cache!",
-                key[:_KEY_FINGERPRINT_LEN],
-            )
-
-        # doesn't cancel in-flight async queries
-        self._cancel_cleanup_future_if_exists(key)
-        self.connections.pop(key).close()
+        with self._lock:
+            # doesn't cancel in-flight async queries
+            self._cancel_cleanup_future_if_exists(key)
+            connection = self.connections.pop(key, None)
+            if connection is None:
+                # The key itself is a SHA256 hash of the context (see
+                # ConnectionContext._full_cache_key) so a short prefix is safe to
+                # log and useful for correlating with the _insert breadcrumb.
+                logger.debug(
+                    "Cleaning up connection %s, but not found in cache!",
+                    key[:_KEY_FINGERPRINT_LEN],
+                )
+                return
+            connection.close()

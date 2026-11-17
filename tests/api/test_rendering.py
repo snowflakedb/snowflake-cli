@@ -18,14 +18,17 @@ from unittest import mock
 import pytest
 from click import ClickException
 from jinja2 import UndefinedError
+from snowflake.cli.api.rendering.jinja import get_basic_jinja_env
 from snowflake.cli.api.rendering.project_definition_templates import (
     has_client_side_templates,
 )
+from snowflake.cli.api.rendering.project_templates import get_template_cli_jinja_env
 from snowflake.cli.api.rendering.sql_templates import (
     SQLTemplateSyntaxConfig,
     has_sql_templates,
     snowflake_sql_jinja_render,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.models import ProjectEnvironment
 
 
@@ -180,6 +183,19 @@ def test_has_client_side_templates():
     assert not has_client_side_templates("<test>")
     assert not has_client_side_templates("{<est}")
     assert not has_client_side_templates("")
+
+
+def test_init_jinja_env_does_not_register_file_read_filters(tmp_path):
+    env = get_template_cli_jinja_env(SecurePath(tmp_path))
+    assert "to_snowflake_identifier" in env.filters
+    assert "read_file_content" not in env.filters
+    assert "procedure_from_js_file" not in env.filters
+
+
+def test_sql_jinja_env_still_registers_file_read_filters():
+    env = get_basic_jinja_env()
+    assert "read_file_content" in env.filters
+    assert "procedure_from_js_file" in env.filters
 
 
 # --- read_file_content / procedure_from_js_file containment tests -----------

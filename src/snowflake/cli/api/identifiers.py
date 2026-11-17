@@ -27,6 +27,7 @@ from snowflake.cli.api.project.schemas.v1.identifier_model import (
 from snowflake.cli.api.project.util import (
     VALID_IDENTIFIER_REGEX,
     identifier_for_url,
+    is_valid_identifier,
     sanitize_identifier,
     to_identifier,
     to_string_literal,
@@ -107,7 +108,14 @@ class FQN:
         """
         Takes in an object name in the form [[database.]schema.]name. Returns a FQN instance.
         """
-        qualifier_pattern = rf"(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})(?P<signature>\(.*\))?"
+        # Signature is one parenthesized type list (e.g. (INT, VARCHAR) or
+        # (NUMBER(38, 2), VARCHAR)).
+        qualifier_pattern = (
+            rf"(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
+            rf"(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
+            rf"(?P<name>{VALID_IDENTIFIER_REGEX})"
+            rf"(?P<signature>\([A-Za-z0-9_$(),.\s]*\))?"
+        )
         result = re.fullmatch(qualifier_pattern, identifier)
 
         if result is None:
@@ -124,6 +132,16 @@ class FQN:
         signature = None
         if result.group("signature"):
             signature = result.group("signature")
+            depth = 0
+            for i, ch in enumerate(signature):
+                if ch == "(":
+                    depth += 1
+                elif ch == ")":
+                    depth -= 1
+                    if depth < 0 or (depth == 0 and i != len(signature) - 1):
+                        raise FQNNameError(identifier)
+            if depth != 0:
+                raise FQNNameError(identifier)
         return cls(
             name=unqualified_name, schema=schema, database=database, signature=signature
         )
@@ -205,6 +223,8 @@ class FQN:
         return self
 
     def set_name(self, name: str) -> "FQN":
+        if not is_valid_identifier(name):
+            raise FQNNameError(name)
         self._name = name
         return self
 

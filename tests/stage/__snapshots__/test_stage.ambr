@@ -4,6 +4,7 @@
   +- Error ----------------------------------------------------------------------+
   | Destination path cannot be a user stage. Please provide a named stage.       |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---
@@ -367,6 +368,7 @@
   +- Error ----------------------------------------------------------------------+
   | Invalid file extension, only .sql, .py files are allowed.                    |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---

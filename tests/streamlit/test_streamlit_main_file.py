@@ -330,7 +330,14 @@ class TestStreamlitMainFile(StreamlitTestClass):
     ):
         entity = self._create_entity(tmp_path, main_file, [])
         assert (
-            entity.get_alter_sql(current={"main_file": "app.py"}, legacy=legacy) is None
+            entity.get_alter_sql(
+                current={
+                    "main_file": "app.py",
+                    "runtime_name": "SYSTEM$WAREHOUSE_RUNTIME",
+                },
+                legacy=legacy,
+            )
+            is None
         )
 
     def test_empty_main_file_fails_before_upload_or_alter(self, tmp_path):

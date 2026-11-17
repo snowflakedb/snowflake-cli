@@ -61,6 +61,7 @@
   +- Error ----------------------------------------------------------------------+
   | Invalid log level. Please choose from TRACE, DEBUG, INFO, WARN, ERROR, FATAL |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---

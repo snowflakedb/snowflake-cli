@@ -19,7 +19,7 @@ opens a single draft PR in the docs repo.
 
 Example::
 
-    hatch run python scripts/publish_prod_docs.py \\
+    hatch run python scripts/docs/publish_prod_docs.py \\
         --docs-repo /path/to/snowflake-prod-docs \\
         --release-date 2026-09-28
 """
@@ -45,7 +45,7 @@ from prod_docs_git import (
 )
 from publish_command_docs import DOCS_REPO_ENV, resolve_docs_repo
 
-CLI_ROOT = Path(__file__).resolve().parents[1]
+CLI_ROOT = Path(__file__).resolve().parents[2]
 
 
 def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:

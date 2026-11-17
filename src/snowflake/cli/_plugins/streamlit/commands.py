@@ -65,6 +65,7 @@ from snowflake.cli.api.exceptions import CliArgumentError, NoProjectDefinitionEr
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
+    CollectionResult,
     CommandResult,
     MessageResult,
     MultipleResults,
@@ -641,6 +642,68 @@ def get_url(
     if open_:
         typer.launch(url)
     return MessageResult(url)
+
+
+_STATUS_DOCS = CommandDocs(
+    related=_STREAMLIT_RELATED,
+    usage_notes=(
+        plain_text(
+            "Reports whether the SPCS service behind a Streamlit app is running. "
+            "The command is read-only: it does not start, resume, or restart the app."
+        ),
+        bullet_list(
+            bullet(
+                code("service_status"),
+                " is the SPCS service. A warehouse runtime uses ",
+                code("NOT_APPLICABLE"),
+                ". ",
+                code("NOT_STARTED"),
+                " means no service is currently attributed to the app. Otherwise "
+                "it is the status from SHOW SERVICES, such as ",
+                code("RUNNING"),
+                " or ",
+                code("SUSPENDED"),
+                ".",
+            ),
+            bullet(
+                code("container_status"),
+                " is one status for the containers inside that service, from ",
+                code("SYSTEM$GET_SERVICE_STATUS"),
+                ". ",
+                code("READY"),
+                " means every container is ready. A mix, such as ",
+                code("READY"),
+                " and ",
+                code("PENDING"),
+                ", rolls up to the non-ready status. It needs the MONITOR privilege. "
+                "Without it, ",
+                code("service_status"),
+                " is still returned.",
+            ),
+        ),
+    ),
+    examples=(
+        Example(
+            description=plain_text(
+                "Return the runtime, the backing service status, and the Snowsight URL:"
+            ),
+            command="snow streamlit status my_streamlit_app",
+        ),
+    ),
+)
+
+
+@app.command(
+    "status",
+    requires_connection=True,
+    docs=_STATUS_DOCS,
+)
+def status(
+    name: FQN = StreamlitNameArgument,
+    **options,
+):
+    """Returns the runtime and backing SPCS service status for a Streamlit app."""
+    return CollectionResult(StreamlitManager().status(name))
 
 
 _LOGS_DOCS = CommandDocs(

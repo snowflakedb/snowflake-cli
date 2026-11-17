@@ -19,9 +19,11 @@ import time
 import typer
 from snowflake.cli._app.version_check import suppress_new_version_banner
 from snowflake.cli._plugins.upgrade.manager import (
+    STATUS_UPGRADED,
     append_upgrade_restriction_note,
     plan_upgrade,
 )
+from snowflake.cli._plugins.upgrade.spawn import warm_installed_binary
 from snowflake.cli._plugins.upgrade.telemetry import (
     TRIGGER_MANUAL,
     record_upgrade_event,
@@ -62,8 +64,8 @@ app = SnowTyperFactory()
                 code("snow upgrade"),
                 " updates a direct install of Snowflake CLI to the latest "
                 "same-major version. It writes a new version directory, verifies "
-                "the signed manifest and tarball checksum, and retargets the shim. "
-                "The next ",
+                "the signed manifest and tarball checksum, retargets the shim, "
+                "and unpacks the new binary before it returns. The next ",
                 code("snow"),
                 " in the same session is the new version.",
             ),
@@ -150,15 +152,22 @@ def upgrade(
     suppress_new_version_banner()
     started = time.monotonic()
     decision = plan_upgrade(dry_run=dry_run, revert=revert)
-    duration_ms = int((time.monotonic() - started) * 1000)
-    payload = decision.payload
-    record_upgrade_event(
-        trigger=TRIGGER_MANUAL,
-        status=str(payload.get("status", "")),
-        duration_ms=duration_ms,
-        from_version=payload.get("from"),
-        to_version=payload.get("to"),
-    )
+    to_version = decision.payload.get("to")
+    upgraded = decision.payload.get("status") == STATUS_UPGRADED
+    try:
+        if upgraded and isinstance(to_version, str):
+            warm_installed_binary(to_version)
+    finally:
+        # The shim has already moved. Record even when the warm-up fails.
+        duration_ms = int((time.monotonic() - started) * 1000)
+        payload = decision.payload
+        record_upgrade_event(
+            trigger=TRIGGER_MANUAL,
+            status=str(payload.get("status", "")),
+            duration_ms=duration_ms,
+            from_version=payload.get("from"),
+            to_version=payload.get("to"),
+        )
     message = append_upgrade_restriction_note(decision.message)
     if get_cli_context().output_format.is_json:
         return ObjectResult(decision.payload)

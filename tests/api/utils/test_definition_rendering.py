@@ -982,16 +982,33 @@ def test_identifier_suffixing_quoted_defaults():
     clear=True,
 )
 def test_identifier_suffixing_quoted_explicit(definition):
+    if definition["definition_version"] == "1.1":
+        # package.name is one identifier. Suffixing appends the resource suffix;
+        # it does not store a qualified name, so an unquoted dotted expansion is rejected.
+        with pytest.raises(SchemaValidationError) as err:
+            render_definition_template(definition, {})
+        assert "native_app.package.name" in err.value.message
+
+        # application.name is not an identifier field and still keeps the explicit value.
+        application_definition = {
+            "definition_version": "1.1",
+            "native_app": {
+                "name": "my.app",
+                "artifacts": [],
+                "application": {"name": "my.app_<% ctx.env.USER %>"},
+            },
+        }
+        rendered = render_definition_template(application_definition, {})
+        assert (
+            rendered.project_definition.native_app.application.name
+            == "my.app_username_suffix!"
+        )
+        return
+
     project_properties = render_definition_template(definition, {})
     project_definition = project_properties.project_definition
-    if definition["definition_version"] == "1.1":
-        # v1
-        app = project_definition.native_app.application.name
-        package = project_definition.native_app.package.name
-    else:
-        # v2+
-        app = project_definition.entities["myapp"].identifier
-        package = project_definition.entities["mypackage"].identifier
+    app = project_definition.entities["myapp"].identifier
+    package = project_definition.entities["mypackage"].identifier
     assert app == "my.app_username_suffix!"
     assert package == "my.app_pkg_username_suffix!"
 

@@ -59,4 +59,5 @@ fpm \
   --prefix /usr/lib/snowflake/snowflake-cli \
   --after-install ${THIS_DIR}/centos/after_install.sh \
   --after-remove ${THIS_DIR}/centos/after_remove.sh \
+  --rpm-posttrans ${THIS_DIR}/centos/after_install.sh \
   --force

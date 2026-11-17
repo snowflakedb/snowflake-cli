@@ -53,6 +53,7 @@
   | Database provided but name                                                   |
   | 'custom_database.custom_schema.fqn_procedure_error' is fully qualified name. |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---
@@ -64,6 +65,7 @@
   | Database provided but name                                                   |
   | 'custom_database.custom_schema.fqn_procedure_error' is fully qualified name. |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---
@@ -75,6 +77,7 @@
   | Schema provided but name 'custom_schema.fqn_procedure_error' is fully        |
   | qualified name.                                                              |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---
@@ -86,6 +89,7 @@
   | Schema provided but name 'custom_schema.fqn_procedure_error' is fully        |
   | qualified name.                                                              |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---
@@ -96,6 +100,7 @@
   +- Error ----------------------------------------------------------------------+
   | procedureName defined with secrets but without external integration.         |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---
@@ -106,6 +111,7 @@
   +- Error ----------------------------------------------------------------------+
   | procedureName defined with secrets but without external integration.         |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---

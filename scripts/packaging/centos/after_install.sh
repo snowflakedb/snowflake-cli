@@ -1,6 +1,9 @@
 #!/bin/bash -e
 #
-# Snowcd after install script
+# RPM %post and %posttrans. %posttrans runs after the previous version's
+# %postun on upgrade, which puts the symlink back when that older script
+# deletes /usr/local/bin/snow unconditionally.
+#
 set -o pipefail
 
 SNOWFLAKE_CLI_LINK=/usr/local/bin/snow

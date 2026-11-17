@@ -304,9 +304,9 @@ def _validate_cli_version(required_version: str) -> None:
                 command=(
                     "snow init new_snowpark_project --template example_snowpark\n"
                     "\n"
-                    "  Project identifier (used to determine artifacts stage path) "
+                    "  From template: Project identifier (used to determine artifacts stage path) "
                     "[my_snowpark_project]:\n"
-                    "  What stage should the procedures and functions be deployed to? "
+                    "  From template: What stage should the procedures and functions be deployed to? "
                     "[dev_deployment]: snowpark"
                 ),
                 output="Initialized the new project in new_snowpark_project",
@@ -325,7 +325,7 @@ def _validate_cli_version(required_version: str) -> None:
                     "--template-source ../local_templates/example_streamlit "
                     "-D query_warehouse=dev_wareshouse -D stage=testing\n"
                     "\n"
-                    "  Name of the streamlit app [streamlit_app]: My streamlit"
+                    "  From template: Name of the streamlit app [streamlit_app]: My streamlit"
                 ),
                 output="Initialized the new project in new_streamlit_project",
             ),

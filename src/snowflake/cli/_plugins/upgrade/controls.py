@@ -21,9 +21,10 @@ from snowflake.cli.api.config import (
     AUTO_UPGRADE_KEY,
     CLI_SECTION,
     get_config_bool_value,
+    get_env_value,
     is_air_gapped,
 )
-from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.utils.types import try_cast_to_bool
 
 NO_AUTO_UPGRADE_FLAG = "--no-auto-upgrade"
 AUTO_UPGRADE_DONE_ENV = "SNOWFLAKE_CLI_AUTO_UPGRADE_DONE"
@@ -32,9 +33,8 @@ AUTO_UPGRADE_DONE_ENV = "SNOWFLAKE_CLI_AUTO_UPGRADE_DONE"
 def is_auto_upgrade_enabled() -> bool:
     """Whether the product opt-in is on (excludes argv and the spawn latch).
 
-    Returns False when ``ENABLE_SNOW_AUTO_UPGRADE`` is off, when the process
-    is air-gapped, or when env/config opt-in is off
-    (``SNOWFLAKE_CLI_AUTO_UPGRADE`` overrides ``cli.auto_upgrade``).
+    Returns False when the process is air-gapped or when the env/config
+    opt-in is off (``SNOWFLAKE_CLI_AUTO_UPGRADE`` overrides ``cli.auto_upgrade``).
 
     ``SNOWFLAKE_CLI_AUTO_UPGRADE_DONE`` is not consulted. That variable only
     stops a second upgrade in the spawned child. The new-version banner uses
@@ -42,14 +42,34 @@ def is_auto_upgrade_enabled() -> bool:
 
     One-run off via ``--no-auto-upgrade`` is handled by ``skip_due_to_cli_flag()``.
     ``cli.ignore_new_version_warning`` does not affect this.
+
+    ``SNOWFLAKE_CLI_AUTO_UPGRADE=yes`` and ``=on`` are on. An unrecognized
+    value is off. Neither raises: ``get_config_bool_value`` would turn
+    ``yes`` / ``on`` into ``ClickException`` and abort the command.
     """
     if is_air_gapped():
         return False
-    if not FeatureFlag.ENABLE_SNOW_AUTO_UPGRADE.is_enabled():
-        return False
+    env_raw = get_env_value(CLI_SECTION, key=AUTO_UPGRADE_KEY)
+    if env_raw not in (None, ""):
+        return env_says_on(env_raw)
     return (
         get_config_bool_value(CLI_SECTION, key=AUTO_UPGRADE_KEY, default=False) is True
     )
+
+
+def env_says_on(raw: str) -> bool:
+    """True for ``true`` / ``1`` / ``yes`` / ``on``. Anything else is off.
+
+    ``try_cast_to_bool`` rejects ``yes`` and ``on`` with ``ValueError``.
+    Letting that escape makes an opt-in look like an engine failure, and
+    ``get_config_bool_value`` turns it into ``ClickException`` on startup.
+    """
+    if raw.strip().lower() in {"yes", "on"}:
+        return True
+    try:
+        return try_cast_to_bool(raw) is True
+    except ValueError:
+        return False
 
 
 def allow_major() -> bool:

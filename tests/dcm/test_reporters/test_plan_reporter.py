@@ -66,6 +66,57 @@ def render_detail_lines(entry: Dict[str, Any], width: int = RENDER_WIDTH) -> Lis
     return [line.rstrip() for line in rendered.split("\n")[1:] if line.strip()]
 
 
+def _dmf_with_expectation_entity(operation: str) -> Dict[str, Any]:
+    """Real-world table entry adding a DMF with a nested expectation."""
+    return {
+        "type": operation,
+        "object_id": {
+            "domain": "TABLE",
+            "name": '"ENRICHED_ORDER_DETAILS"',
+            "fqn": '"DCM_DEMO_1_DEV3"."ANALYTICS"."ENRICHED_ORDER_DETAILS"',
+            "database": '"DCM_DEMO_1_DEV3"',
+            "schema": '"ANALYTICS"',
+        },
+        "changes": [
+            {
+                "kind": "collection",
+                "collection_name": "data_metric_functions",
+                "changes": [
+                    {
+                        "kind": "added",
+                        "item_id": {
+                            "columns": ["CUSTOMER_CITY"],
+                            "desc": "SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)",
+                            "metric_name": (
+                                "SNOWFLAKE.CORE.NULL_COUNT$V1(TABLE(VARCHAR))"
+                            ),
+                        },
+                        "changes": [
+                            {
+                                "kind": "collection",
+                                "collection_name": "expectations",
+                                "changes": [
+                                    {
+                                        "kind": "added",
+                                        "item_id": "NO_MISSING_CITIES",
+                                        "changes": [
+                                            {
+                                                "kind": "set",
+                                                "attribute_name": "expression",
+                                                "value": "value = 0",
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+
 class TestTruncateInline:
     def test_short_value_is_unchanged(self):
         value = "SMALL"
@@ -658,6 +709,10 @@ class TestPlanRow:
         ]
 
     def test_create_hides_policy_settings_with_scalar_values(self):
+        """Object settings whose names also end in ``_policy`` (e.g.
+        ``storage_serialization_policy`` on every new database and schema)
+        have string values and stay hidden; only object references
+        (``{"policy": ...}``) are attached policies."""
         entry = {
             "type": "CREATE",
             "object_id": {"domain": "SCHEMA", "fqn": '"DB"."S"'},
@@ -676,6 +731,78 @@ class TestPlanRow:
         }
 
         assert plan_row(entry).details == []
+
+    def test_create_keeps_nested_relationship_collections_whole(self):
+        """A ``tags``/``grants`` collection below the entry root, e.g. a
+        column-level tag, is kept whole with its column as the path."""
+        entry = {
+            "type": "CREATE",
+            "object_id": {"domain": "TABLE", "fqn": '"DB"."DATA"."T"'},
+            "changes": [
+                {
+                    "kind": "collection",
+                    "collection_name": "columns",
+                    "changes": [
+                        {
+                            "kind": "added",
+                            "item_id": "ID",
+                            "changes": [
+                                {
+                                    "kind": "set",
+                                    "attribute_name": "datatype",
+                                    "value": "NUMBER",
+                                }
+                            ],
+                        },
+                        {
+                            "kind": "added",
+                            "item_id": "EMAIL",
+                            "changes": [
+                                {
+                                    "kind": "set",
+                                    "attribute_name": "datatype",
+                                    "value": "VARCHAR",
+                                },
+                                {
+                                    "kind": "collection",
+                                    "collection_name": "tags",
+                                    "changes": [
+                                        {
+                                            "kind": "added",
+                                            "item_id": "DB.DATA.PII",
+                                            "changes": [
+                                                {
+                                                    "kind": "set",
+                                                    "attribute_name": "value",
+                                                    "value": ["email"],
+                                                }
+                                            ],
+                                        }
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                }
+            ],
+        }
+
+        assert render_detail_lines(entry) == [
+            "└─ columns",
+            "   └─ added EMAIL",
+            "      └─ tags",
+            "         └─ added DB.DATA.PII",
+            '            └─ set VALUE: ["email"]',
+        ]
+
+    def test_create_shows_dmf_with_nested_expectations(self):
+        assert render_detail_lines(_dmf_with_expectation_entity("CREATE")) == [
+            "└─ data_metric_functions",
+            "   └─ added SNOWFLAKE.CORE.NULL_COUNT$V1(CUSTOMER_CITY)",
+            "      └─ expectations",
+            "         └─ added NO_MISSING_CITIES",
+            "            └─ set EXPRESSION: value = 0",
+        ]
 
     def test_create_shows_any_policy_with_object_reference(self):
         entry = {
@@ -1608,63 +1735,7 @@ class TestChangeTreeRendering:
         data = {
             "version": 2,
             "metadata": {},
-            "changeset": [
-                {
-                    "type": "ALTER",
-                    "object_id": {
-                        "domain": "TABLE",
-                        "name": '"ENRICHED_ORDER_DETAILS"',
-                        "fqn": (
-                            '"DCM_DEMO_1_DEV3"."ANALYTICS"."ENRICHED_ORDER_DETAILS"'
-                        ),
-                        "database": '"DCM_DEMO_1_DEV3"',
-                        "schema": '"ANALYTICS"',
-                    },
-                    "changes": [
-                        {
-                            "kind": "collection",
-                            "collection_name": "data_metric_functions",
-                            "changes": [
-                                {
-                                    "kind": "added",
-                                    "item_id": {
-                                        "columns": ["CUSTOMER_CITY"],
-                                        "desc": (
-                                            "SNOWFLAKE.CORE.NULL_COUNT$V1"
-                                            "(CUSTOMER_CITY)"
-                                        ),
-                                        "metric_name": (
-                                            "SNOWFLAKE.CORE.NULL_COUNT$V1"
-                                            "(TABLE(VARCHAR))"
-                                        ),
-                                    },
-                                    "changes": [
-                                        {
-                                            "kind": "collection",
-                                            "collection_name": "expectations",
-                                            "changes": [
-                                                {
-                                                    "kind": "added",
-                                                    "item_id": "NO_MISSING_CITIES",
-                                                    "changes": [
-                                                        {
-                                                            "kind": "set",
-                                                            "attribute_name": (
-                                                                "expression"
-                                                            ),
-                                                            "value": "value = 0",
-                                                        }
-                                                    ],
-                                                }
-                                            ],
-                                        }
-                                    ],
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ],
+            "changeset": [_dmf_with_expectation_entity("ALTER")],
         }
         output = capture_reporter_output(PlanReporter(), FakeCursor(data))
 

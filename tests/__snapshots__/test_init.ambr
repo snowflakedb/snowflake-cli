@@ -10,22 +10,22 @@
 # ---
 # name: test_typechecking
   '''
-  required_project_name: project_name
-  optional_int [4]: 23.1
+  From template: required_project_name: project_name
+  From template: optional_int [4]: 23.1
   Error: '23.1' is not a valid integer.
-  optional_int [4]: 23
-  Testing prompt of a string [default value for string]: custom value for string
-  optional_float [1.5]: 3..14
+  From template: optional_int [4]: 23
+  From template: Testing prompt of a string [default value for string]: custom value for string
+  From template: optional_float [1.5]: 3..14
   Error: '3..14' is not a valid float.
-  optional_float [1.5]: 3.14
-  An optional value with no type checking [5]: another custom value
+  From template: optional_float [1.5]: 3.14
+  From template: An optional value with no type checking [5]: another custom value
   Initialized the new project in project_templating
   
   '''
 # ---
 # name: test_variables_flags
   '''
-  Testing prompt of a string [default value for string]: 
+  From template: Testing prompt of a string [default value for string]: 
   Initialized the new project in project_templating
   
   '''

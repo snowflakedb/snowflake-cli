@@ -486,13 +486,11 @@ def drop(
         project_root=cli_context.project_root,
     )
     package_id = options["package_entity_id"]
-    ws.perform_action(
+    message = ws.perform_action(
         package_id,
         EntityActions.VERSION_DROP,
         version=version,
         interactive=interactive,
         force=force,
     )
-    return MessageResult(
-        "Version drop in progress. This may take a few minutes to complete."
-    )
+    return MessageResult(message)

@@ -34,6 +34,7 @@
   | Database provided but name                                                   |
   | 'custom_database.custom_schema.fqn_function_error' is fully qualified name.  |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---
@@ -45,6 +46,7 @@
   | Schema provided but name 'custom_schema.fqn_function_error' is fully         |
   | qualified name.                                                              |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---
@@ -55,6 +57,7 @@
   +- Error ----------------------------------------------------------------------+
   | func1 defined with secrets but without external integration.                 |
   +------------------------------------------------------------------------------+
+  To send feedback about Snowflake CLI: snow feedback
   
   '''
 # ---

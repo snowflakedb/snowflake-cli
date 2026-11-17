@@ -12,7 +12,128 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Optional, cast
+import re
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, cast
+
+from snowflake.cli.api.exceptions import FileTooLargeError
+from snowflake.cli.api.secure_path import SecurePath
+
+_REQUIREMENTS_FILE = "requirements.txt"
+_PYPROJECT_FILE = "pyproject.toml"
+_PYTHON_DEPENDENCY_FILES = (_PYPROJECT_FILE, _REQUIREMENTS_FILE)
+
+# Dependency files are small; anything larger is not read.
+_DEPENDENCY_FILE_SIZE_LIMIT_MB = 1
+
+# The project name that starts a PEP 508 requirement; extras, version
+# specifiers, markers and URLs follow it.
+_REQUIREMENT_NAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?")
+# Runs that PEP 503 folds into one dash.
+_NAME_SEPARATORS = re.compile(r"[-_.]+")
+
+
+def _requirement_name(requirement: str) -> str:
+    """The PEP 503-normalized project name of a requirement line, or ``""`` for a
+    blank, comment or option line."""
+    match = _REQUIREMENT_NAME.match(requirement.strip())
+    if match is None:
+        return ""
+    return _NAME_SEPARATORS.sub("-", match.group().lower())
+
+
+def _read_dependency_file(path: Path, encoding: str) -> str:
+    """The text of a dependency file, or ``""`` when it can't be read.
+
+    Detection only seeds a new ``app.yml``, so an unreadable or oversized file
+    counts as declaring nothing.
+    """
+    try:
+        return SecurePath(path).read_text(
+            file_size_limit_mb=_DEPENDENCY_FILE_SIZE_LIMIT_MB, encoding=encoding
+        )
+    except (OSError, UnicodeDecodeError, FileTooLargeError):
+        return ""
+
+
+def _has_streamlit_dependency(project_dir: Path) -> bool:
+    """Whether ``requirements.txt`` or the PEP 621 ``[project] dependencies`` of
+    ``pyproject.toml`` name ``streamlit`` itself.
+
+    Mirrors the builder's check, so a manifest generated here passes it: names
+    match exactly after normalization (``streamlit-aggrid`` and the project's own
+    name do not count), and other layouts (``-r`` includes, Poetry, optional
+    dependencies, dependency groups) are not read.
+    """
+    requirements: List[str] = []
+    requirements_file = project_dir / _REQUIREMENTS_FILE
+    if requirements_file.is_file():
+        text = _read_dependency_file(requirements_file, "utf-8-sig")
+        requirements += text.splitlines()
+
+    pyproject_file = project_dir / _PYPROJECT_FILE
+    if pyproject_file.is_file():
+        try:
+            data = tomllib.loads(_read_dependency_file(pyproject_file, "utf-8"))
+        except tomllib.TOMLDecodeError:
+            data = {}
+        project = data.get("project")
+        dependencies = (
+            project.get("dependencies") if isinstance(project, dict) else None
+        )
+        if isinstance(dependencies, list):
+            requirements += [d for d in dependencies if isinstance(d, str)]
+
+    return any(_requirement_name(r) == "streamlit" for r in requirements)
+
+
+@dataclass(frozen=True)
+class PythonProject:
+    """Python dependency files found by ``snow app setup``.
+
+    ``streamlit`` is whether they name streamlit. ``node`` is whether the project
+    also has a ``package.json``: like the builder, setup then treats it as a Node
+    app unless ``app.yml`` declares python, so it writes no ``runtime`` and only
+    explains how to declare a hybrid app (see :func:`hybrid_app_hint`).
+    """
+
+    streamlit: bool
+    node: bool
+
+    @property
+    def runtime(self) -> str:
+        """The ``runtime`` setup writes, or ``node`` when it writes none."""
+        return "node" if self.node else "python"
+
+
+def detect_python_project(project_dir: Path) -> Optional[PythonProject]:
+    """Find Python dependency files (``pyproject.toml`` or ``requirements.txt``)
+    in *project_dir*, or ``None`` when there are none.
+
+    The result only seeds a newly generated ``app.yml``, which the user can edit.
+    """
+    if not any((project_dir / n).is_file() for n in _PYTHON_DEPENDENCY_FILES):
+        return None
+    return PythonProject(
+        streamlit=_has_streamlit_dependency(project_dir),
+        node=(project_dir / "package.json").is_file(),
+    )
+
+
+def hybrid_app_hint(streamlit: bool) -> str:
+    """How to declare a project with a ``package.json`` and Python dependency
+    files as a hybrid app, which builds as Node until ``app.yml`` declares python.
+    """
+    settings = ["`runtime: [node, python]`", "`compute_resource: SERVERLESS`"]
+    if streamlit:
+        settings.append("`streamlit: true`")
+    return (
+        "Found package.json, so the app deploys as Node. If it also runs Python, "
+        f"set {', '.join(settings[:-1])} and {settings[-1]}, and declare "
+        "`install`, `build` and `run`."
+    )
 
 
 def _yaml_str(v: str) -> str:
@@ -31,6 +152,7 @@ def _generate_app_yml(
     resolved: Dict[str, Optional[str]],
     *,
     use_workspace: bool,
+    python_project: Optional[PythonProject] = None,
 ) -> str:
     """Generate ``app.yml`` (Snowflake App Runtime v2) content.
 
@@ -47,7 +169,11 @@ def _generate_app_yml(
     otherwise a ``<name>_CODE`` stage — so the manifest stays minimal and the
     decision follows the role's actual privileges. The builder ``install`` /
     ``build`` / ``run`` phases are likewise omitted; they default to the Node
-    conventions at deploy time.
+    conventions at deploy time. With a Python *python_project*, ``runtime:
+    python``, ``compute_resource: SERVERLESS`` and, for a Streamlit app,
+    ``streamlit: true`` are written, and the user declares ``run``. One that
+    also has a ``package.json`` stays a Node app; setup prints the
+    :func:`hybrid_app_hint` for it instead.
 
     ``use_workspace`` is accepted but unused — the code-storage backend is
     resolved at deploy time rather than baked into ``app.yml``.
@@ -67,6 +193,11 @@ def _generate_app_yml(
     ]
     if build_eai:
         lines.append(f"build_eai: {_yaml_str(build_eai)}")
+    if python_project is not None and not python_project.node:
+        lines += ["", "runtime: python"]
+        if python_project.streamlit:
+            lines.append("streamlit: true")
+        lines.append("compute_resource: SERVERLESS")
     lines += [
         "",
         "ignore:",
