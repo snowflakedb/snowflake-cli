@@ -341,6 +341,7 @@ pace_option = typer.Option(
     help="Minimum seconds between invocation starts. A floor: the run may space starts "
     "wider, never tighter. Requires `--fanout`.",
     show_default=False,
+    hidden=True,
 )
 
 max_inflight_option = typer.Option(
@@ -348,6 +349,7 @@ max_inflight_option = typer.Option(
     "--max-inflight",
     help="Maximum number of invocations running at once. Requires `--fanout`.",
     show_default=False,
+    hidden=True,
 )
 
 calibrate_option = typer.Option(
@@ -357,6 +359,7 @@ calibrate_option = typer.Option(
     "keeping in-flight invocations near `--max-inflight`. On by default. "
     "Requires `--fanout`.",
     show_default=False,
+    hidden=True,
 )
 
 fanout_retries_option = typer.Option(

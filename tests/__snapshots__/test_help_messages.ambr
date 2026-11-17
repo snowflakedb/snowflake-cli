@@ -8562,73 +8562,40 @@
   |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                                  PATH     Local directory path        |
-  |                                                  containing DCM project      |
-  |                                                  files. Omit to use current  |
-  |                                                  directory.                  |
-  | --variable        -D                    TEXT     Variables for the execution |
-  |                                                  context; for example: -D    |
-  |                                                  "<key>=<value>".            |
-  | --alias                                 TEXT     Alias for the deployment.   |
-  | --target                                TEXT     Target profile from         |
-  |                                                  manifest.yml to use. Uses   |
-  |                                                  default_target if not       |
-  |                                                  specified.                  |
-  | --save-output                                    Save command response and   |
-  |                                                  artifacts to local 'out/'   |
-  |                                                  directory.                  |
-  | --deployment                            TEXT     Name or alias of the        |
-  |                                                  deployment. For names       |
-  |                                                  containing '$', use single  |
-  |                                                  quotes to prevent shell     |
-  |                                                  expansion (e.g.,            |
-  |                                                  'DEPLOYMENT$1'). If both    |
-  |                                                  the deployment name and the |
-  |                                                  alias match two different   |
-  |                                                  deployments, the deployment |
-  |                                                  name match has higher       |
-  |                                                  precedence.                 |
-  | --fanout                                TEXT     Run one invocation per      |
-  |                                                  manifest.yml target whose   |
-  |                                                  name matches this pattern,  |
-  |                                                  for example TENANT_*, or *  |
-  |                                                  for every target. Each      |
-  |                                                  target supplies its own     |
-  |                                                  values through              |
-  |                                                  variable_overrides. Starts  |
-  |                                                  are spaced to stay under    |
-  |                                                  the account's concurrent    |
-  |                                                  templating limit.           |
-  | --pace                                  FLOAT    Minimum seconds between     |
-  |                                                  invocation starts. A floor: |
-  |                                                  the run may space starts    |
-  |                                                  wider, never tighter.       |
-  |                                                  Requires --fanout.          |
-  | --max-inflight                          INTEGER  Maximum number of           |
-  |                                                  invocations running at      |
-  |                                                  once. Requires --fanout.    |
-  | --calibrate           --no-calibrate             Adjust the pace during the  |
-  |                                                  run from how long completed |
-  |                                                  invocations take, keeping   |
-  |                                                  in-flight invocations near  |
-  |                                                  --max-inflight. On by       |
-  |                                                  default. Requires --fanout. |
-  | --fanout-retries                        INTEGER  Retry attempts for capacity |
-  |                                                  rejections, per target.     |
-  |                                                  Requires --fanout.          |
-  | --only                                  TEXT     Comma-separated target      |
-  |                                                  names to run, for           |
-  |                                                  re-running a subset.        |
-  |                                                  Requires --fanout.          |
-  | --list-targets                                   Resolve the fan-out         |
-  |                                                  pattern, print the          |
-  |                                                  invocation for each matched |
-  |                                                  target and which project    |
-  |                                                  objects would be created,   |
-  |                                                  then exit without running   |
-  |                                                  anything. Requires          |
-  |                                                  --fanout.                   |
-  | --help            -h                             Show this message and exit. |
+  | --from                    PATH     Local directory path containing DCM       |
+  |                                    project files. Omit to use current        |
+  |                                    directory.                                |
+  | --variable        -D      TEXT     Variables for the execution context; for  |
+  |                                    example: -D "<key>=<value>".              |
+  | --alias                   TEXT     Alias for the deployment.                 |
+  | --target                  TEXT     Target profile from manifest.yml to use.  |
+  |                                    Uses default_target if not specified.     |
+  | --save-output                      Save command response and artifacts to    |
+  |                                    local 'out/' directory.                   |
+  | --deployment              TEXT     Name or alias of the deployment. For      |
+  |                                    names containing '$', use single quotes   |
+  |                                    to prevent shell expansion (e.g.,         |
+  |                                    'DEPLOYMENT$1'). If both the deployment   |
+  |                                    name and the alias match two different    |
+  |                                    deployments, the deployment name match    |
+  |                                    has higher precedence.                    |
+  | --fanout                  TEXT     Run one invocation per manifest.yml       |
+  |                                    target whose name matches this pattern,   |
+  |                                    for example TENANT_*, or * for every      |
+  |                                    target. Each target supplies its own      |
+  |                                    values through variable_overrides. Starts |
+  |                                    are spaced to stay under the account's    |
+  |                                    concurrent templating limit.              |
+  | --fanout-retries          INTEGER  Retry attempts for capacity rejections,   |
+  |                                    per target. Requires --fanout.            |
+  | --only                    TEXT     Comma-separated target names to run, for  |
+  |                                    re-running a subset. Requires --fanout.   |
+  | --list-targets                     Resolve the fan-out pattern, print the    |
+  |                                    invocation for each matched target and    |
+  |                                    which project objects would be created,   |
+  |                                    then exit without running anything.       |
+  |                                    Requires --fanout.                        |
+  | --help            -h               Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+
   | Connection options: --connection, --host, --port, --protocol, --account,     |
@@ -9187,77 +9154,42 @@
   |                                 default_target is defined in the manifest.   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                                  PATH     Local directory path        |
-  |                                                  containing DCM project      |
-  |                                                  files. Omit to use current  |
-  |                                                  directory.                  |
-  | --variable        -D                    TEXT     Variables for the execution |
-  |                                                  context; for example: -D    |
-  |                                                  "<key>=<value>".            |
-  | --target                                TEXT     Target profile from         |
-  |                                                  manifest.yml to use. Uses   |
-  |                                                  default_target if not       |
-  |                                                  specified.                  |
-  | --save-output                                    Save command response and   |
-  |                                                  artifacts to local 'out/'   |
-  |                                                  directory.                  |
-  | --fanout                                TEXT     Run one invocation per      |
-  |                                                  manifest.yml target whose   |
-  |                                                  name matches this pattern,  |
-  |                                                  for example TENANT_*, or *  |
-  |                                                  for every target. Each      |
-  |                                                  target supplies its own     |
-  |                                                  values through              |
-  |                                                  variable_overrides. Starts  |
-  |                                                  are spaced to stay under    |
-  |                                                  the account's concurrent    |
-  |                                                  templating limit.           |
-  | --pace                                  FLOAT    Minimum seconds between     |
-  |                                                  invocation starts. A floor: |
-  |                                                  the run may space starts    |
-  |                                                  wider, never tighter.       |
-  |                                                  Requires --fanout.          |
-  | --max-inflight                          INTEGER  Maximum number of           |
-  |                                                  invocations running at      |
-  |                                                  once. Requires --fanout.    |
-  | --calibrate           --no-calibrate             Adjust the pace during the  |
-  |                                                  run from how long completed |
-  |                                                  invocations take, keeping   |
-  |                                                  in-flight invocations near  |
-  |                                                  --max-inflight. On by       |
-  |                                                  default. Requires --fanout. |
-  | --fanout-retries                        INTEGER  Retry attempts for capacity |
-  |                                                  rejections, per target.     |
-  |                                                  Requires --fanout.          |
-  | --only                                  TEXT     Comma-separated target      |
-  |                                                  names to run, for           |
-  |                                                  re-running a subset.        |
-  |                                                  Requires --fanout.          |
-  | --list-targets                                   Resolve the fan-out         |
-  |                                                  pattern, print the          |
-  |                                                  invocation for each matched |
-  |                                                  target and which project    |
-  |                                                  objects would be created,   |
-  |                                                  then exit without running   |
-  |                                                  anything. Requires          |
-  |                                                  --fanout.                   |
-  | --delta                                          Process only statements     |
-  |                                                  changed since the last      |
-  |                                                  deploy, plus statements     |
-  |                                                  potentially impacted by     |
-  |                                                  those changes.              |
-  | --deployment                            TEXT     Name or alias of the        |
-  |                                                  deployment. For names       |
-  |                                                  containing '$', use single  |
-  |                                                  quotes to prevent shell     |
-  |                                                  expansion (e.g.,            |
-  |                                                  'DEPLOYMENT$1'). If both    |
-  |                                                  the deployment name and the |
-  |                                                  alias match two different   |
-  |                                                  deployments, the deployment |
-  |                                                  name match has higher       |
-  |                                                  precedence.                 |
-  | --help            -h                             Show this message and exit. |
+  | --from                    PATH     Local directory path containing DCM       |
+  |                                    project files. Omit to use current        |
+  |                                    directory.                                |
+  | --variable        -D      TEXT     Variables for the execution context; for  |
+  |                                    example: -D "<key>=<value>".              |
+  | --target                  TEXT     Target profile from manifest.yml to use.  |
+  |                                    Uses default_target if not specified.     |
+  | --save-output                      Save command response and artifacts to    |
+  |                                    local 'out/' directory.                   |
+  | --fanout                  TEXT     Run one invocation per manifest.yml       |
+  |                                    target whose name matches this pattern,   |
+  |                                    for example TENANT_*, or * for every      |
+  |                                    target. Each target supplies its own      |
+  |                                    values through variable_overrides. Starts |
+  |                                    are spaced to stay under the account's    |
+  |                                    concurrent templating limit.              |
+  | --fanout-retries          INTEGER  Retry attempts for capacity rejections,   |
+  |                                    per target. Requires --fanout.            |
+  | --only                    TEXT     Comma-separated target names to run, for  |
+  |                                    re-running a subset. Requires --fanout.   |
+  | --list-targets                     Resolve the fan-out pattern, print the    |
+  |                                    invocation for each matched target and    |
+  |                                    which project objects would be created,   |
+  |                                    then exit without running anything.       |
+  |                                    Requires --fanout.                        |
+  | --delta                            Process only statements changed since the |
+  |                                    last deploy, plus statements potentially  |
+  |                                    impacted by those changes.                |
+  | --deployment              TEXT     Name or alias of the deployment. For      |
+  |                                    names containing '$', use single quotes   |
+  |                                    to prevent shell expansion (e.g.,         |
+  |                                    'DEPLOYMENT$1'). If both the deployment   |
+  |                                    name and the alias match two different    |
+  |                                    deployments, the deployment name match    |
+  |                                    has higher precedence.                    |
+  | --help            -h               Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+
   | Connection options: --connection, --host, --port, --protocol, --account,     |
