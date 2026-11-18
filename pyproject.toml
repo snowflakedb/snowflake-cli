@@ -202,6 +202,12 @@ test_container_services = [
 test_qa = [
   "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/ {args}",
 ]
+# hatch integration:test_gov. Suite shape only — no -k.
+# SPCS --ignore matches commercial `test` (preprod collection parity).
+# --maxfail=0 -n6 match the current gov runner. Extra args via {args}.
+test_gov = [
+  'pytest -m "integration and not no_qa and not qa_only" --maxfail=0 -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services --durations=25 tests_integration/ {args}',
+]
 # Passthrough for a single nodeid. `python -m pytest` avoids hatch expanding
 # a script named pytest into itself. Omit --deflake-test-type so the first
 # failure stays visible during diagnosis.

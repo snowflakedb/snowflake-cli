@@ -179,6 +179,7 @@ hatch run integration:test_core                # same, also ignores nativeapp/
 hatch run integration:test_nativeapp           # nativeapp/ only
 hatch run integration:test_container_services  # tests_using_container_services/
 hatch run integration:test_qa                  # integration and not no_qa (includes qa_only)
+hatch run integration:test_gov                 # integration, not no_qa, not qa_only
 ```
 
 Tests that already fail on `main` go in `tests_common/quarantine.txt`, one node id per line, with the date and reason after `#`. On a pull request the listed test is xfailed after the deflake retry, and the job stays green. The daily cron and pushes to `main` do not read the list, so `main` stays red until the test is fixed. A pull request that edits the test's file does not get the xfail. A listed test that passes is reported as XPASS and does not fail the job; delete that line.
@@ -190,7 +191,7 @@ hatch run integration:pytest -vv -n0 \
   tests_integration/test_dbt.py::test_dbt_deploy_with_external_access_integrations
 ```
 
-`qa_only` tests are excluded from `integration:test` / GitHub Actions and included in `integration:test_qa` (Jenkins QA). `no_qa` tests are excluded from `integration:test_qa`. The session fixture `_warm_up_spcs_compute_pool` runs only when `SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST` contains `qa` (`IS_QA`).
+`qa_only` tests are excluded from `integration:test` / GitHub Actions and included in `integration:test_qa` (Jenkins QA). `no_qa` tests are excluded from `integration:test_qa`. Hatch `integration:test_gov` (`scripts/run_tests_gov.sh`, Python 3.11) is the gov suite shape: the same marker intersection as QA ∩ commercial, plus the SPCS `--ignore` used by commercial `integration:test` / preprod. Extra pytest args can be passed as `PYTEST_ARGS`. The session fixture `_warm_up_spcs_compute_pool` runs only when `SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST` contains `qa` (`IS_QA`).
 
 GitHub Actions uses org secrets against a non-QA account (`integration:test_core` / `test_nativeapp`, plus a separate container-services workflow). The Jenkins RT job uses the team's QA account. Host, account, user, and credential access for that job live on the internal [Snowflake CLI Jenkins](https://snowflakecomputing.atlassian.net/wiki/spaces/EN/pages/3622371345) page — do not copy those identifiers or keys into this repository.
 
