@@ -956,6 +956,49 @@ class TestDCMDeploy:
         assert [step.label for step in server_steps] == expected_labels
         assert f"Step 1/{len(expected_labels) + 1} - UPLOAD" in result.output
 
+    @pytest.mark.parametrize(
+        "flag_enabled,expected_labels",
+        [
+            (True, ["RENDER", "COMPILE", "PLAN", "DEPLOY", "POST HOOK"]),
+            (False, ["RENDER", "COMPILE", "PLAN", "DEPLOY"]),
+        ],
+    )
+    def test_deploy_tracks_post_hook_step_only_with_feature_flag(
+        self,
+        mock_dcm_manager,
+        mock_manifest_load,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_server_poll,
+        flag_enabled,
+        expected_labels,
+    ):
+        mock_dcm_manager().deploy_async.return_value = TEST_SFQID
+        mock_server_poll.return_value.run.return_value = _plan_cursor(mock_cursor)
+        mock_dcm_manager().sync_local_files.return_value = "TMP_STAGE"
+        mock_manifest_load.return_value = DCMManifest.from_dict(
+            {
+                "manifest_version": 2,
+                "type": "dcm_project",
+                "default_target": "dev",
+                "run_post_hooks": True,
+                "targets": {
+                    "dev": {"project_name": "ignored", **_DEFAULT_TARGET_FIELDS}
+                },
+            }
+        )
+
+        with project_directory("dcm_project"), with_feature_flags(
+            {FeatureFlag.ENABLE_DCM_POST_HOOKS: flag_enabled}
+        ):
+            result = runner.invoke(["dcm", "deploy", "fooBar"])
+
+        assert result.exit_code == 0, result.output
+        server_steps = mock_server_poll.call_args.args[2]
+        assert [step.label for step in server_steps] == expected_labels
+
 
 class TestDCMPurge:
     @pytest.mark.parametrize(

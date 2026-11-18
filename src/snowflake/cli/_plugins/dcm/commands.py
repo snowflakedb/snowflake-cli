@@ -40,6 +40,7 @@ from snowflake.cli._plugins.dcm.progress import (
     DEPLOY,
     EXPECTATIONS,
     PLAN,
+    POST_HOOK,
     PREVIEW,
     PURGE,
     REFRESH,
@@ -387,6 +388,10 @@ def _resolve_target_context(
         configuration=effective_target.templating_config,
         declared_variable_names=manifest.templating.declared_variable_names,
         assets=list(manifest.assets.values()),
+        # The server reports POST_HOOK only when its own gates are on; without
+        # this flag the CLI would wait on a step that never arrives.
+        run_post_hooks=FeatureFlag.ENABLE_DCM_POST_HOOKS.is_enabled()
+        and manifest.run_post_hooks,
     )
 
 
@@ -664,7 +669,10 @@ def deploy(
         project_id = context.project_identifier
         env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-        server_steps = _server_steps([RENDER, COMPILE, PLAN, DEPLOY], skip_plan)
+        deploy_phases = [RENDER, COMPILE, PLAN, DEPLOY]
+        if context.run_post_hooks:
+            deploy_phases.append(POST_HOOK)
+        server_steps = _server_steps(deploy_phases, skip_plan)
         client_steps = [] if deployment else [UPLOAD]
         progress = MultiStepProgress(client_steps + server_steps)
         with progress_session(progress):

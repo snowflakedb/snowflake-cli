@@ -56,6 +56,7 @@ RENDER = StepDefinition("RENDER", "RENDER")
 COMPILE = StepDefinition("COMPILE", "COMPILE")
 PLAN = StepDefinition("PLAN", "PLAN")
 DEPLOY = StepDefinition("DEPLOY", "DEPLOY")
+POST_HOOK = StepDefinition("POST_HOOK", "POST HOOK")
 PREVIEW = StepDefinition("PREVIEW", "PREVIEW")
 REFRESH = StepDefinition("REFRESH", "REFRESH")
 # The server reports the purge execution phase as "DEPLOY" in

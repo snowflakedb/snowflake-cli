@@ -54,6 +54,22 @@ class TestDCMManifest:
         assert manifest.templating.env_secrets == []
         assert manifest.templating.declared_variable_names == set()
         assert manifest.assets == {}
+        assert manifest.run_post_hooks is False
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            (True, True),
+            (False, False),
+            ("true", False),
+            (1, False),
+            (None, False),
+        ],
+    )
+    def test_manifest_run_post_hooks_is_literal_true(self, raw, expected):
+        data = {"manifest_version": 2, "type": "dcm_project", "run_post_hooks": raw}
+        manifest = DCMManifest.from_dict(data)
+        assert manifest.run_post_hooks is expected
 
     def test_manifest_from_dict_with_targets(self):
         data = {
