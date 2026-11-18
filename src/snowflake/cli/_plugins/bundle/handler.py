@@ -27,6 +27,7 @@ from snowflake.cli._plugins.bundle.manager import CodeBundleManager
 from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
+from snowflake.cli.api.secure_path import SecurePath
 
 
 class CodeBundleHandler(BundleHandler):
@@ -100,8 +101,19 @@ class CodeBundleHandler(BundleHandler):
         entrypoint: str,
         execution_name: Optional[str],
         is_async: bool,
+        overrides: Optional[str],
         arguments: Optional[List[str]],
     ) -> CommandResult:
+        specification: Optional[str] = None
+        if overrides is not None:
+            try:
+                specification = SecurePath(overrides).read_text(
+                    file_size_limit_mb=1, encoding="utf-8"
+                )
+            except OSError as e:
+                raise CliError(
+                    f"Could not read overrides file '{overrides}': {e}"
+                ) from e
         # Click hands over an empty tuple when nothing was forwarded; the
         # manager distinguishes "no ARGUMENTS clause" by None.
         cursor = CodeBundleManager().execute(
@@ -110,6 +122,7 @@ class CodeBundleHandler(BundleHandler):
             execution_name=execution_name,
             arguments=list(arguments) if arguments else None,
             run_async=is_async,
+            specification=specification,
         )
         if is_async:
             return MessageResult(f"Request submitted. Query ID: {cursor.sfqid}")

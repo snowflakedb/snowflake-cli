@@ -273,6 +273,18 @@ BUNDLE_SPEC = CommandGroupSpec(
                     is_flag=True,
                     default=False,
                 ),
+                ParamDef(
+                    name="overrides",
+                    type=Optional[str],
+                    kind=ParamKind.OPTION,
+                    cli_names=("--overrides",),
+                    help=(
+                        "Path to a YAML file that replaces the code bundle "
+                        "configuration file."
+                    ),
+                    default=None,
+                    show_default=False,
+                ),
                 # Declared last so Click collects leftover tokens here, after the
                 # bundle identifier has been consumed.
                 ParamDef(
@@ -485,6 +497,7 @@ class BundleHandler(CommandHandler):
         entrypoint: str,
         execution_name: Optional[str],
         is_async: bool,
+        overrides: Optional[str],
         arguments: Optional[List[str]],
     ) -> CommandResult:
         ...

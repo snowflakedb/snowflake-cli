@@ -3725,6 +3725,8 @@
   |                                    execution.                                |
   |    --async                         Run the bundle execution asynchronously   |
   |                                    and return the query ID immediately.      |
+  |    --overrides               TEXT  Path to a YAML file that replaces the     |
+  |                                    code bundle configuration file.           |
   |    --help            -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+

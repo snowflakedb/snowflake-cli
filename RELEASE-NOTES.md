@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `--overrides` option to `snow bundle execute`. It takes a path to a YAML file that replaces the code bundle configuration file.
 
 ## Fixes and improvements
 * The Windows direct installer installs the x64 package on ARM64 Windows when the channel has no ARM package. Windows runs that package under emulation.

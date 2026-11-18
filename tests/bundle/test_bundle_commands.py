@@ -669,6 +669,7 @@ def test_execute_calls_manager(mock_execute, runner, mock_statement_success):
         execution_name=None,
         arguments=None,
         run_async=False,
+        specification=None,
     )
 
 
@@ -700,6 +701,7 @@ def test_execute_calls_manager_with_arguments(
         execution_name=None,
         arguments=["--custom-arg", "value", "--another-flag"],
         run_async=False,
+        specification=None,
     )
 
 
@@ -730,6 +732,7 @@ def test_execute_forwards_arguments_without_a_separator(
         execution_name=None,
         arguments=["--custom-arg", "value"],
         run_async=False,
+        specification=None,
     )
 
 
@@ -802,6 +805,7 @@ def test_execute_calls_manager_with_execution_name(
         execution_name="my_run",
         arguments=None,
         run_async=False,
+        specification=None,
     )
 
 
@@ -1967,3 +1971,113 @@ def test_upload_directory_plain_name_stays_unquoted(mock_execute_query, tmp_path
         f"put file://{tmp_path / 'app.py'} @my_stage "
         "auto_compress=false parallel=4 overwrite=False"
     )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_query_with_overrides(mock_connector, mock_ctx, runner, tmp_path):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    overrides_file = tmp_path / "overrides.yaml"
+    overrides_file.write_text(
+        "bundle:\n  type: spark\n  language: python\n", encoding="utf-8"
+    )
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--overrides",
+            str(overrides_file),
+            "--",
+            "--custom-arg",
+            "value",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "EXECUTE CODE BUNDLE IDENTIFIER('MockDatabase.MockSchema.my_bundle') "
+        "ENTRYPOINT='src/main.py' "
+        "ARGUMENTS=('--custom-arg', 'value') "
+        "WITH SPECIFICATION $$\n"
+        "bundle:\n  type: spark\n  language: python\n"
+        "$$"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_overrides_missing_file(mock_connector, mock_ctx, runner, tmp_path):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    missing_file = tmp_path / "missing.yaml"
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--overrides",
+            str(missing_file),
+        ]
+    )
+
+    assert result.exit_code != 0
+    assert "Could not read overrides file" in result.output
+    assert ctx.get_query() == ""
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_overrides_rejects_dollar_quote(
+    mock_connector, mock_ctx, runner, tmp_path
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    overrides_file = tmp_path / "overrides.yaml"
+    overrides_file.write_text("key: $$value$$\n", encoding="utf-8")
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--overrides",
+            str(overrides_file),
+        ]
+    )
+
+    assert result.exit_code != 0
+    assert "must not contain '$$'" in result.output
+    assert ctx.get_query() == ""
+
+
+@mock.patch("snowflake.connector.connect")
+def test_execute_overrides_rejects_oversized_file(
+    mock_connector, mock_ctx, runner, tmp_path
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    overrides_file = tmp_path / "overrides.yaml"
+    overrides_file.write_text("key: " + "x" * (2 * 1024 * 1024) + "\n")
+
+    result = runner.invoke(
+        [
+            "bundle",
+            "execute",
+            "my_bundle",
+            "--entrypoint",
+            "src/main.py",
+            "--overrides",
+            str(overrides_file),
+        ]
+    )
+
+    assert result.exit_code != 0
+    assert "is too large" in result.output
+    assert ctx.get_query() == ""

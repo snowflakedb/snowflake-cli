@@ -106,6 +106,7 @@ class CodeBundleManager(SqlExecutionMixin):
         execution_name: Optional[str] = None,
         arguments: Optional[List[str]] = None,
         run_async: bool = False,
+        specification: Optional[str] = None,
     ) -> SnowflakeCursor:
         if name is None or not name.name:
             raise CliError("Code bundle name is required.")
@@ -121,6 +122,12 @@ class CodeBundleManager(SqlExecutionMixin):
         if arguments:
             formatted_args = ", ".join(to_string_literal(arg) for arg in arguments)
             query += f" ARGUMENTS=({formatted_args})"
+        if specification is not None:
+            # The specification is a dollar-quoted block, so a literal "$$"
+            # in it would close the block early and corrupt the statement.
+            if "$$" in specification:
+                raise CliError("Overrides file must not contain '$$'.")
+            query += f" WITH SPECIFICATION $$\n{specification.rstrip()}\n$$"
         return self.execute_query(query, _exec_async=run_async)
 
     def get_status(self, query_id: str) -> str:

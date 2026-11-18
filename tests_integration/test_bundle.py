@@ -735,6 +735,77 @@ def test_execute_unknown_entrypoint_fails(runner, bundle_schema, local_bundle_so
 
 
 @pytest.mark.integration
+def test_execute_with_overrides_attaches_specification(
+    runner, bundle_schema, local_bundle_source, tmp_path
+):
+    """`--overrides` sends the YAML file as a WITH SPECIFICATION clause."""
+    bundle = f"{bundle_schema}.overrides_cb"
+    result_table = f"{bundle_schema}.overrides_result"
+    execution_name = f"cli_it_overrides_{uuid.uuid4().hex[:8]}"
+    overrides_file = tmp_path / "overrides.yaml"
+    overrides_file.write_text(
+        "bundle:\n"
+        "  type: spark\n"
+        "  compute_type: warehouse\n"
+        "  language: python\n"
+        "  compute_options:\n"
+        "    runtime_version: '1.29'\n"
+    )
+
+    result = runner.invoke_with_connection(
+        ["bundle", "create", bundle, "--source", str(local_bundle_source)]
+    )
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke_passthrough_with_connection(
+        [
+            "bundle",
+            "execute",
+            bundle,
+            "--entrypoint",
+            "main.py",
+            "--execution-name",
+            execution_name,
+            "--overrides",
+            str(overrides_file),
+            "--async",
+        ],
+        passthrough_args=["--", result_table],
+    )
+    assert result.exit_code == 0, result.output
+    query_id = _query_id_from_async_output(result.output)
+
+    assert _wait_for_terminal_status(runner, query_id) == "SUCCESS"
+    rows = _sql(runner, f"select result from {result_table}")
+    assert [row["RESULT"] for row in rows] == ["CLI_IT_OK"]
+
+
+@pytest.mark.integration
+def test_execute_missing_overrides_file_fails_before_running(
+    runner, bundle_schema, local_bundle_source, tmp_path
+):
+    bundle = f"{bundle_schema}.missing_overrides_cb"
+    result = runner.invoke_with_connection(
+        ["bundle", "create", bundle, "--source", str(local_bundle_source)]
+    )
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke_with_connection(
+        [
+            "bundle",
+            "execute",
+            bundle,
+            "--entrypoint",
+            "main.py",
+            "--overrides",
+            str(tmp_path / "does_not_exist.yaml"),
+        ]
+    )
+    assert result.exit_code == 1, result.output
+    assert "Could not read overrides file" in _error_text(result.output)
+
+
+@pytest.mark.integration
 def test_execute_async_status_history_and_result(
     runner, bundle_schema, local_bundle_source
 ):
