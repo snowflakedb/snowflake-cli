@@ -31,7 +31,11 @@ import pytest
 from rich.console import Console, RenderableType
 from rich.spinner import Spinner
 from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
-from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
+from snowflake.cli._plugins.dcm.models import (
+    MANIFEST_FILE_NAME,
+    POST_HOOKS_FOLDER,
+    SOURCES_FOLDER,
+)
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
@@ -43,6 +47,7 @@ from snowflake.cli._plugins.dcm.progress import (
     DEPLOY,
     DETAIL_BULLET,
     PLAN,
+    POST_HOOK,
     PURGE,
     RENDER,
     FileUploadProgress,
@@ -61,7 +66,7 @@ from snowflake.connector import SnowflakeConnection
 from snowflake.connector.constants import QueryStatus
 from snowflake.connector.errors import ProgrammingError
 
-from tests.dcm.multi_step_progress_capture import find_line
+from tests.dcm.multi_step_progress_capture import capture_rendered, find_line
 
 _SLEEP = "snowflake.cli._plugins.dcm.progress.time.sleep"
 _SPINNER_FRAMES = Spinner("dots").frames
@@ -440,6 +445,175 @@ class TestServerPoll:
         assert progress.step_state("DEPLOY") == StepState.FAILED
 
 
+class TestServerPollErrorDetailSteps:
+    """``deploy`` opts POST_HOOK in: a post-hook failure is settled on that step
+    and the server error is shown beneath it."""
+
+    _STEPS = [RENDER, COMPILE, PLAN, DEPLOY, POST_HOOK]
+    _MESSAGE = "Post-hook script failed at statement 2 on line 2 at position 14"
+
+    def _failed_poll(self, final_row: Optional[list]) -> Tuple[MagicMock, MagicMock]:
+        # The query has already ended when its status is first read, so no poll
+        # ever saw a phase; the only progress row is the one read after failure.
+        conn, cursor = _conn(
+            still_running=[False],
+            is_error=True,
+            query_error=ProgrammingError(msg=self._MESSAGE),
+        )
+        cursor.fetchone.side_effect = [final_row]
+        return conn, cursor
+
+    def test_failure_unseen_by_polls_settles_earlier_steps_as_done(self) -> None:
+        # given
+        conn, _ = self._failed_poll(
+            ['{"status": "POST_HOOK_FAILED", "phase": "POST_HOOK", "progress": 50}']
+        )
+        progress = MultiStepProgress(self._STEPS)
+        poll = ServerPoll(
+            conn, progress, self._STEPS, TEST_SFQID, error_detail_steps=[POST_HOOK]
+        )
+
+        # when
+        with pytest.raises(ProgrammingError, match=self._MESSAGE):
+            poll.run()
+
+        # then
+        for step in [RENDER, COMPILE, PLAN, DEPLOY]:
+            assert progress.step_state(step.key) == StepState.DONE
+        assert progress.step_state(POST_HOOK.key) == StepState.FAILED
+
+    def test_server_error_is_shown_beneath_the_failed_step(self) -> None:
+        # given
+        conn, _ = self._failed_poll(['{"phase": "POST_HOOK", "progress": 50}'])
+        progress = MultiStepProgress(self._STEPS)
+        poll = ServerPoll(
+            conn, progress, self._STEPS, TEST_SFQID, error_detail_steps=[POST_HOOK]
+        )
+
+        # when
+        with pytest.raises(ProgrammingError):
+            poll.run()
+
+        # then
+        lines = capture_rendered(progress).splitlines()
+        post_hook_row = next(
+            i for i, line in enumerate(lines) if line.startswith(POST_HOOK.label)
+        )
+        assert self._MESSAGE in lines[post_hook_row + 1]
+
+    def test_failure_in_an_untracked_step_carries_no_detail(self) -> None:
+        # given: the server stopped in DEPLOY, which is not opted in
+        conn, _ = self._failed_poll(['{"phase": "DEPLOY", "progress": 0}'])
+        progress = MultiStepProgress(self._STEPS)
+        poll = ServerPoll(
+            conn, progress, self._STEPS, TEST_SFQID, error_detail_steps=[POST_HOOK]
+        )
+
+        # when
+        with pytest.raises(ProgrammingError):
+            poll.run()
+
+        # then
+        assert progress.step_state(PLAN.key) == StepState.DONE
+        assert progress.step_state(DEPLOY.key) == StepState.FAILED
+        assert progress.step_state(POST_HOOK.key) == StepState.FAILED
+        assert self._MESSAGE not in capture_rendered(progress)
+
+    def test_unusable_final_poll_keeps_the_default_failure_display(self) -> None:
+        # given
+        conn, _ = self._failed_poll(None)
+        progress = MultiStepProgress(self._STEPS)
+        poll = ServerPoll(
+            conn, progress, self._STEPS, TEST_SFQID, error_detail_steps=[POST_HOOK]
+        )
+
+        # when
+        with pytest.raises(ProgrammingError):
+            poll.run()
+
+        # then
+        for step in self._STEPS:
+            assert progress.step_state(step.key) == StepState.FAILED
+        assert self._MESSAGE not in capture_rendered(progress)
+
+    def test_without_error_detail_steps_no_poll_follows_the_failure(self) -> None:
+        # given
+        conn, cursor = self._failed_poll(['{"phase": "POST_HOOK", "progress": 50}'])
+        progress = MultiStepProgress(self._STEPS)
+        poll = ServerPoll(conn, progress, self._STEPS, TEST_SFQID)
+
+        # when
+        with pytest.raises(ProgrammingError):
+            poll.run()
+
+        # then
+        cursor.execute.assert_not_called()
+        for step in self._STEPS:
+            assert progress.step_state(step.key) == StepState.FAILED
+
+
+class TestServerPollPostHookProgress:
+    """POST_HOOK starts out reporting the finished DEPLOY's 100%; that value is
+    drawn as no progress until a statement-based share below 100 arrives."""
+
+    _STEPS = [RENDER, COMPILE, PLAN, DEPLOY, POST_HOOK]
+
+    def _post_hook_lines(self, *progress_values: int) -> list:
+        rows = [
+            [f'{{"phase": "POST_HOOK", "progress": {value}}}']
+            for value in progress_values
+        ]
+        conn, _ = _conn(
+            still_running=[True] * len(rows) + [False], is_error=False, rows=rows
+        )
+        progress = MultiStepProgress(self._STEPS)
+        lines: list = []
+
+        def _capture(*_args: object) -> None:
+            lines.append(find_line(progress, POST_HOOK.label))
+
+        with patch(_SLEEP, side_effect=_capture):
+            ServerPoll(conn, progress, self._STEPS, TEST_SFQID).run()
+        return lines
+
+    def test_carried_over_full_progress_is_drawn_as_a_spinner(self) -> None:
+        # given / when
+        lines = self._post_hook_lines(100, 100)
+
+        # then
+        assert all("%" not in line for line in lines)
+
+    def test_statement_progress_is_drawn_once_below_full(self) -> None:
+        # given / when
+        lines = self._post_hook_lines(100, 25, 50, 100)
+
+        # then
+        assert "%" not in lines[0]
+        assert "25%" in lines[1]
+        assert "50%" in lines[2]
+        assert "100%" in lines[3]
+
+    def test_other_phases_draw_full_progress_as_reported(self) -> None:
+        # given
+        conn, _ = _conn(
+            still_running=[True, False],
+            is_error=False,
+            rows=[['{"phase": "DEPLOY", "progress": 100}']],
+        )
+        progress = MultiStepProgress(self._STEPS)
+        lines: list = []
+
+        def _capture(*_args: object) -> None:
+            lines.append(find_line(progress, DEPLOY.label))
+
+        # when
+        with patch(_SLEEP, side_effect=_capture):
+            ServerPoll(conn, progress, self._STEPS, TEST_SFQID).run()
+
+        # then
+        assert "100%" in lines[0]
+
+
 class TestServerPollPurgePhases:
     """``purge`` tracks PLAN and DEPLOY only - it uploads nothing, so there is
     no UPLOAD, RENDER or COMPILE - and displays the DEPLOY phase as PURGE."""
@@ -673,6 +847,32 @@ class TestUploadDetails:
             "     └─ definitions (2 files)",
         ]
 
+    def test_post_hook_file_is_named_beside_counted_folders(self):
+        # given
+        stage = FQN.from_string("MY_DB.MY_SCHEMA.DCM_PROJECT_P_123_TMP_STAGE")
+
+        # when
+        lines = _rendered_lines(
+            *upload_details(
+                stage,
+                _relative_paths(
+                    MANIFEST_FILE_NAME,
+                    f"{SOURCES_FOLDER}/definitions/a.sql",
+                    f"{SOURCES_FOLDER}/{POST_HOOKS_FOLDER}/post_hook.sql",
+                ),
+            )
+        )
+
+        # then
+        assert lines[1:] == [
+            f"{DETAIL_BULLET}Upload files",
+            f"  ├─ {MANIFEST_FILE_NAME}",
+            f"  └─ {SOURCES_FOLDER}",
+            "     ├─ definitions (1 file)",
+            f"     └─ {POST_HOOKS_FOLDER}",
+            "        └─ post_hook.sql",
+        ]
+
 
 class TestUploadFolders:
     """Grouping of upload paths into the two-level folder structure.
@@ -772,6 +972,47 @@ class TestUploadFolders:
         # then
         assert [folder.name for folder in folders] == ["alpha", "zebra"]
         assert [sub.name for sub in folders[0].subfolders] == ["bee", "yak"]
+
+    def test_post_hook_files_are_named_instead_of_counted(self):
+        # given / when
+        folders = _upload_folders(
+            _relative_paths(
+                f"{SOURCES_FOLDER}/definitions/a.sql",
+                f"{SOURCES_FOLDER}/{POST_HOOKS_FOLDER}/post_hook.sql",
+                f"{SOURCES_FOLDER}/{POST_HOOKS_FOLDER}/notes/readme.md",
+            )
+        )
+
+        # then
+        assert folders == [
+            UploadFolder(
+                name=SOURCES_FOLDER,
+                count=0,
+                subfolders=[
+                    UploadFolder(name="definitions", count=1),
+                    UploadFolder(
+                        name=POST_HOOKS_FOLDER,
+                        count=0,
+                        files=("notes/readme.md", "post_hook.sql"),
+                    ),
+                ],
+            )
+        ]
+
+    def test_a_post_hooks_folder_outside_sources_is_counted(self):
+        # given / when
+        folders = _upload_folders(
+            _relative_paths(f"assets/{POST_HOOKS_FOLDER}/post_hook.sql")
+        )
+
+        # then
+        assert folders == [
+            UploadFolder(
+                name="assets",
+                count=0,
+                subfolders=[UploadFolder(name=POST_HOOKS_FOLDER, count=1)],
+            )
+        ]
 
 
 class TestDetailText:

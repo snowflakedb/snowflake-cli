@@ -13,7 +13,7 @@
 # limitations under the License.
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import typer
 import yaml
@@ -57,6 +57,7 @@ from snowflake.cli._plugins.dcm.progress import (
     DEPLOY,
     EXPECTATIONS,
     PLAN,
+    POST_HOOK,
     PREVIEW,
     PURGE,
     REFRESH,
@@ -539,6 +540,9 @@ def _resolve_target_context(
         declared_variable_names=manifest.templating.declared_variable_names,
         assets=list(manifest.assets.values()),
         variable_overrides=effective_target.variable_arguments(),
+        # Early-access builds target accounts with FEATURE_DCM_EARLY_ACCESS on,
+        # so the manifest alone decides; ENABLE_DCM_POST_HOOKS gates this on main.
+        run_post_hooks=manifest.run_post_hooks,
     )
 
 
@@ -685,8 +689,15 @@ def _run_server_poll(
     progress: MultiStepProgress,
     server_steps: List[StepDefinition],
     sfqid: str,
+    error_detail_steps: Sequence[StepDefinition] = (),
 ) -> SnowflakeCursor:
-    return ServerPoll(manager.connection, progress, server_steps, sfqid).run()
+    return ServerPoll(
+        manager.connection,
+        progress,
+        server_steps,
+        sfqid,
+        error_detail_steps=error_detail_steps,
+    ).run()
 
 
 @app.command(
@@ -867,7 +878,10 @@ def deploy(
         project_id = context.project_identifier
         env_vars = resolve_declared_env_vars(context.declared_variable_names, env_file)
 
-        server_steps = _server_steps([RENDER, COMPILE, PLAN, DEPLOY], skip_plan)
+        deploy_phases = [RENDER, COMPILE, PLAN, DEPLOY]
+        if context.run_post_hooks:
+            deploy_phases.append(POST_HOOK)
+        server_steps = _server_steps(deploy_phases, skip_plan)
         client_steps = [] if deployment else [UPLOAD]
         progress = MultiStepProgress(client_steps + server_steps)
         with progress_session(progress):
@@ -892,7 +906,15 @@ def deploy(
                 env_vars=env_vars,
                 deployment_name=deployment,
             )
-            result = _run_server_poll(manager, progress, server_steps, sfqid)
+            # A post-hook fails after DEPLOY has succeeded, so its error belongs
+            # under the POST HOOK step rather than only after the checklist.
+            result = _run_server_poll(
+                manager,
+                progress,
+                server_steps,
+                sfqid,
+                error_detail_steps=[POST_HOOK] if context.run_post_hooks else [],
+            )
 
         reporter = PlanReporter(
             save_output=save_output,

@@ -28,6 +28,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
+from snowflake.cli._plugins.dcm.models import POST_HOOKS_FOLDER, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
@@ -56,6 +57,7 @@ RENDER = StepDefinition("RENDER", "RENDER")
 COMPILE = StepDefinition("COMPILE", "COMPILE")
 PLAN = StepDefinition("PLAN", "PLAN")
 DEPLOY = StepDefinition("DEPLOY", "DEPLOY")
+POST_HOOK = StepDefinition("POST_HOOK", "POST HOOK")
 PREVIEW = StepDefinition("PREVIEW", "PREVIEW")
 REFRESH = StepDefinition("REFRESH", "REFRESH")
 # The server reports the purge execution phase as "DEPLOY" in
@@ -102,12 +104,14 @@ class UploadFolder:
 
     ``_upload_folders`` only ever nests one level: a root folder's ``count`` is
     the files directly inside it, and each subfolder's ``count`` is everything
-    beneath it.
+    beneath it. A subfolder whose files are named instead lists them in
+    ``files``, relative to itself, and carries no count.
     """
 
     name: str
     count: int
     subfolders: Sequence["UploadFolder"] = ()
+    files: Sequence[str] = ()
 
 
 def _folder_label(name: str, count: int) -> str:
@@ -136,12 +140,24 @@ def _detail_text(text: str) -> Text:
     return Text(sanitize_for_terminal(text) or "", no_wrap=True, overflow="ellipsis")
 
 
+def _error_detail(err: BaseException) -> Text:
+    """A server error shown beneath its step, wrapped rather than cropped.
+
+    ``raw_msg`` is the server's text without the error-code prefix the
+    connector adds; the error panel after the checklist still shows that.
+    """
+    message = getattr(err, "raw_msg", None) or str(err)
+    return Text(sanitize_for_terminal(message) or "", style="red")
+
+
 def _add_folders(node: Tree, folders: Sequence[UploadFolder]) -> None:
-    """Adds each folder as a branch, then its subfolders beneath it."""
+    """Adds each folder as a branch, then its subfolders and named files beneath it."""
     for folder in folders:
         label = _folder_label(_printable_filename(folder.name), folder.count)
         branch = node.add(_detail_text(label))
         _add_folders(branch, folder.subfolders)
+        for name in folder.files:
+            branch.add(_detail_text(_printable_filename(name)))
 
 
 def upload_tree(
@@ -191,6 +207,9 @@ class ServerPoll:
     A long-running operation is waited on for as long as it takes; only a
     query whose status Snowflake never reports (``NO_DATA``) ends the wait,
     since without a status there is nothing to wait for.
+
+    When the query fails in one of ``error_detail_steps``, the server error is
+    also shown beneath that step, and every step before it is marked done.
     """
 
     def __init__(
@@ -199,12 +218,17 @@ class ServerPoll:
         progress: MultiStepProgress,
         server_steps: Sequence[StepDefinition],
         sfqid: str,
+        error_detail_steps: Sequence[StepDefinition] = (),
     ) -> None:
         self._conn = conn
         self._progress = progress
         self._server_steps = server_steps
         self._server_step_keys = frozenset(step.key for step in server_steps)
+        self._error_detail_step_keys = frozenset(
+            step.key for step in error_detail_steps
+        )
         self._sfqid = sfqid
+        self._post_hook_progress_started = False
 
     def run(self) -> SnowflakeCursor:
         start = time.monotonic()
@@ -223,19 +247,42 @@ class ServerPoll:
             status = self._conn.get_query_status(self._sfqid)
 
         if self._conn.is_an_error(status):
+            failed_step_key = self._settle_failed_step()
             self._finalize_failure()
-            self._abandon_failed_query()
+            self._abandon_failed_query(failed_step_key)
 
         self._finalize_success()
         result_cursor = self._conn.cursor()
         result_cursor.query_result(self._sfqid)
         return result_cursor
 
-    def _abandon_failed_query(self) -> NoReturn:
-        self._conn.get_query_status_throw_if_error(self._sfqid)
-        raise CliError(
-            f"Query {self._sfqid} failed, but Snowflake reported no error for it."
-        )
+    def _settle_failed_step(self) -> Optional[str]:
+        """The ``error_detail_steps`` key the query failed in, if any.
+
+        A phase that starts and fails between two polls is never seen running,
+        so the steps before it would be marked failed along with it. The server
+        keeps reporting the phase it stopped in after the query has ended, so one
+        more poll settles the earlier steps as done. Other commands do not opt
+        in, which keeps their failure display unchanged.
+        """
+        if not self._error_detail_step_keys:
+            return None
+        result = self._poll_progress()
+        self._update_from_poll(result)
+        if result is not None and result.phase in self._error_detail_step_keys:
+            return result.phase
+        return None
+
+    def _abandon_failed_query(self, detail_step_key: Optional[str] = None) -> NoReturn:
+        try:
+            self._conn.get_query_status_throw_if_error(self._sfqid)
+            raise CliError(
+                f"Query {self._sfqid} failed, but Snowflake reported no error for it."
+            )
+        except Exception as err:
+            if detail_step_key:
+                self._progress.set_step_details(detail_step_key, [_error_detail(err)])
+            raise
 
     def _abandon_unavailable_status(self) -> NoReturn:
         """Stops waiting on a query whose status Snowflake does not report.
@@ -291,12 +338,13 @@ class ServerPoll:
             return
 
         found_current = False
+        progress = self._shown_progress(result)
         for step in self._server_steps:
             if step.key == result.phase:
                 found_current = True
-                if result.progress:
+                if progress:
                     self._progress.start_step(step.key, total=100)
-                    self._progress.update(step.key, completed=result.progress)
+                    self._progress.update(step.key, completed=progress)
                 else:
                     self._progress.start_step(step.key)
             elif (
@@ -304,6 +352,20 @@ class ServerPoll:
                 and not self._progress.step_state(step.key).is_terminal()
             ):
                 self._progress.complete_step(step.key)
+
+    def _shown_progress(self, result: _DcmProjectProgressResult) -> int:
+        """The percentage to draw for the reported phase.
+
+        Until its first statement commits, POST_HOOK is reported with the
+        finished DEPLOY's 100%, which would draw the step as complete before it
+        has run anything. That value is drawn as no progress until POST_HOOK
+        reports a share below 100.
+        """
+        if result.phase != POST_HOOK.key:
+            return result.progress
+        if 0 < result.progress < 100:
+            self._post_hook_progress_started = True
+        return result.progress if self._post_hook_progress_started else 0
 
     def _finalize(self, mark_step: Callable[[str], None]) -> None:
         for step in self._server_steps:
@@ -325,7 +387,8 @@ def upload_details(
     Files in the project root are named individually. Deeper files are
     counted two levels deep at most: each root folder shows how many files
     sit directly inside it, and each of its direct subfolders shows how many
-    files it holds in total, however deeply nested.
+    files it holds in total, however deeply nested. The post-hook folder is
+    the exception: its files are named, because deploy runs the script by name.
     """
     stage_scope = f" inside {stage_fqn.prefix}" if stage_fqn.prefix else ""
     root_files = sorted(str(rel) for rel in relative_paths if len(rel.parts) == 1)
@@ -338,15 +401,26 @@ def upload_details(
     return [_bulleted(detail) for detail in details]
 
 
+# Subfolders, as (root folder, subfolder), whose files are named rather than counted.
+_NAMED_FILE_SUBFOLDERS = frozenset({(SOURCES_FOLDER, POST_HOOKS_FOLDER)})
+
+
 def _upload_folders(relative_paths: Sequence[PurePath]) -> List[UploadFolder]:
     direct_counts: Counter = Counter()
     subfolder_counts: Dict[str, Counter] = defaultdict(Counter)
+    subfolder_files: Dict[str, Dict[str, List[str]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for rel in relative_paths:
         folders = rel.parts[:-1]
         if not folders:
             continue
         if len(folders) == 1:
             direct_counts[folders[0]] += 1
+        elif (folders[0], folders[1]) in _NAMED_FILE_SUBFOLDERS:
+            subfolder_files[folders[0]][folders[1]].append(
+                PurePath(*rel.parts[2:]).as_posix()
+            )
         else:
             subfolder_counts[folders[0]][folders[1]] += 1
 
@@ -355,9 +429,17 @@ def _upload_folders(relative_paths: Sequence[PurePath]) -> List[UploadFolder]:
             name=name,
             count=direct_counts[name],
             subfolders=[
-                UploadFolder(name=subfolder, count=count)
-                for subfolder, count in sorted(subfolder_counts[name].items())
+                UploadFolder(
+                    name=subfolder,
+                    count=subfolder_counts[name][subfolder],
+                    files=tuple(sorted(subfolder_files[name][subfolder])),
+                )
+                for subfolder in sorted(
+                    set(subfolder_counts[name]) | set(subfolder_files[name])
+                )
             ],
         )
-        for name in sorted(set(direct_counts) | set(subfolder_counts))
+        for name in sorted(
+            set(direct_counts) | set(subfolder_counts) | set(subfolder_files)
+        )
     ]

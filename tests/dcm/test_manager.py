@@ -1271,6 +1271,22 @@ def test_add_sources_records_paths_for_folder_grouping(tmp_path):
     ]
 
 
+def test_add_sources_includes_the_post_hook_file(tmp_path):
+    # given
+    plan = UploadPlan()
+    post_hooks = tmp_path / SOURCES_FOLDER / "post_hooks"
+    post_hooks.mkdir(parents=True)
+    (post_hooks / "post_hook.sql").touch()
+
+    # when
+    DCMProjectManager._add_sources(plan, tmp_path, "@stage")  # noqa: SLF001
+
+    # then
+    assert [rel.parts for rel in plan.relative_paths_to_upload] == [
+        (SOURCES_FOLDER, "post_hooks", "post_hook.sql")
+    ]
+
+
 def test_windows_relative_path_is_recorded_as_parts():
     # given: a relative path shaped the way Windows produces one
     relative = PureWindowsPath("definitions") / "deeper" / "a.sql"

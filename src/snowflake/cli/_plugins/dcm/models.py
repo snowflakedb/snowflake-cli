@@ -31,6 +31,7 @@ MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
 SOURCES_FOLDER = "sources"
 DEFINITIONS_FOLDER = "definitions"
+POST_HOOKS_FOLDER = "post_hooks"
 DEFAULT_DEFINITION_FILE_NAME = "raw.sql"
 SUPPORTED_MANIFEST_VERSION = 2
 DEFAULT_TARGET_NAME = "dev"
@@ -427,6 +428,7 @@ class DCMManifest:
     targets: Dict[str, DCMTarget] = field(default_factory=dict)
     templating: DCMTemplating = field(default_factory=DCMTemplating)
     assets: Dict[str, DCMAsset] = field(default_factory=dict)
+    run_post_hooks: bool = False
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "DCMManifest":
@@ -480,6 +482,7 @@ class DCMManifest:
             targets=targets,
             templating=DCMTemplating.from_dict(data.get("templating")),
             assets=assets,
+            run_post_hooks=data.get("run_post_hooks") is True,
         )
         manifest.validate()
         return manifest
@@ -581,3 +584,4 @@ class TargetContext:
     declared_variable_names: Set[str] = field(default_factory=set)
     assets: List[DCMAsset] = field(default_factory=list)
     variable_overrides: List[str] = field(default_factory=list)
+    run_post_hooks: bool = False
