@@ -8595,6 +8595,7 @@
   |                                    which project objects would be created,   |
   |                                    then exit without running anything.       |
   |                                    Requires --fanout.                        |
+  | --skip-plan                        Skips planning step.                      |
   | --help            -h               Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+
@@ -9407,6 +9408,7 @@
   |                                              want perform potentially        |
   |                                              destructive actions. Defaults   |
   |                                              to unset.                       |
+  | --skip-plan                                  Skips planning step.            |
   | --help         -h                            Show this message and exit.     |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+
