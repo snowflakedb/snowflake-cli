@@ -13,7 +13,7 @@
 # limitations under the License.
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 import typer
 import yaml
@@ -689,14 +689,14 @@ def _run_server_poll(
     progress: MultiStepProgress,
     server_steps: List[StepDefinition],
     sfqid: str,
-    error_detail_steps: Sequence[StepDefinition] = (),
+    settle_failed_phase: bool = False,
 ) -> SnowflakeCursor:
     return ServerPoll(
         manager.connection,
         progress,
         server_steps,
         sfqid,
-        error_detail_steps=error_detail_steps,
+        settle_failed_phase=settle_failed_phase,
     ).run()
 
 
@@ -906,14 +906,14 @@ def deploy(
                 env_vars=env_vars,
                 deployment_name=deployment,
             )
-            # A post-hook fails after DEPLOY has succeeded, so its error belongs
-            # under the POST HOOK step rather than only after the checklist.
+            # A post-hook fails after DEPLOY has succeeded, so DEPLOY stays
+            # marked done when the failure is in POST HOOK.
             result = _run_server_poll(
                 manager,
                 progress,
                 server_steps,
                 sfqid,
-                error_detail_steps=[POST_HOOK] if context.run_post_hooks else [],
+                settle_failed_phase=context.run_post_hooks,
             )
 
         reporter = PlanReporter(

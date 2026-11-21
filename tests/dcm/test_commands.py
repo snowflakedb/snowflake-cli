@@ -1004,9 +1004,8 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
         server_steps = mock_server_poll.call_args.args[2]
         assert [step.label for step in server_steps] == expected_labels
-        error_detail_steps = mock_server_poll.call_args.kwargs["error_detail_steps"]
-        assert [step.label for step in error_detail_steps] == (
-            ["POST HOOK"] if run_post_hooks else []
+        assert (
+            mock_server_poll.call_args.kwargs["settle_failed_phase"] is run_post_hooks
         )
 
 

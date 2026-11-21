@@ -31,11 +31,7 @@ import pytest
 from rich.console import Console, RenderableType
 from rich.spinner import Spinner
 from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
-from snowflake.cli._plugins.dcm.models import (
-    MANIFEST_FILE_NAME,
-    POST_HOOKS_FOLDER,
-    SOURCES_FOLDER,
-)
+from snowflake.cli._plugins.dcm.models import MANIFEST_FILE_NAME, SOURCES_FOLDER
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
@@ -445,9 +441,10 @@ class TestServerPoll:
         assert progress.step_state("DEPLOY") == StepState.FAILED
 
 
-class TestServerPollErrorDetailSteps:
-    """``deploy`` opts POST_HOOK in: a post-hook failure is settled on that step
-    and the server error is shown beneath it."""
+class TestServerPollSettleFailedPhase:
+    """``deploy`` opts in when a post-hook is configured: a failure is settled on
+    the phase the server stopped in, and the server error is left to the error
+    panel after the checklist."""
 
     _STEPS = [RENDER, COMPILE, PLAN, DEPLOY, POST_HOOK]
     _MESSAGE = "Post-hook script failed at statement 2 on line 2 at position 14"
@@ -470,7 +467,7 @@ class TestServerPollErrorDetailSteps:
         )
         progress = MultiStepProgress(self._STEPS)
         poll = ServerPoll(
-            conn, progress, self._STEPS, TEST_SFQID, error_detail_steps=[POST_HOOK]
+            conn, progress, self._STEPS, TEST_SFQID, settle_failed_phase=True
         )
 
         # when
@@ -482,12 +479,12 @@ class TestServerPollErrorDetailSteps:
             assert progress.step_state(step.key) == StepState.DONE
         assert progress.step_state(POST_HOOK.key) == StepState.FAILED
 
-    def test_server_error_is_shown_beneath_the_failed_step(self) -> None:
+    def test_server_error_is_not_repeated_in_the_checklist(self) -> None:
         # given
         conn, _ = self._failed_poll(['{"phase": "POST_HOOK", "progress": 50}'])
         progress = MultiStepProgress(self._STEPS)
         poll = ServerPoll(
-            conn, progress, self._STEPS, TEST_SFQID, error_detail_steps=[POST_HOOK]
+            conn, progress, self._STEPS, TEST_SFQID, settle_failed_phase=True
         )
 
         # when
@@ -495,18 +492,14 @@ class TestServerPollErrorDetailSteps:
             poll.run()
 
         # then
-        lines = capture_rendered(progress).splitlines()
-        post_hook_row = next(
-            i for i, line in enumerate(lines) if line.startswith(POST_HOOK.label)
-        )
-        assert self._MESSAGE in lines[post_hook_row + 1]
+        assert self._MESSAGE not in capture_rendered(progress)
 
-    def test_failure_in_an_untracked_step_carries_no_detail(self) -> None:
-        # given: the server stopped in DEPLOY, which is not opted in
+    def test_failure_in_deploy_marks_deploy_failed(self) -> None:
+        # given: the server stopped in DEPLOY
         conn, _ = self._failed_poll(['{"phase": "DEPLOY", "progress": 0}'])
         progress = MultiStepProgress(self._STEPS)
         poll = ServerPoll(
-            conn, progress, self._STEPS, TEST_SFQID, error_detail_steps=[POST_HOOK]
+            conn, progress, self._STEPS, TEST_SFQID, settle_failed_phase=True
         )
 
         # when
@@ -517,14 +510,13 @@ class TestServerPollErrorDetailSteps:
         assert progress.step_state(PLAN.key) == StepState.DONE
         assert progress.step_state(DEPLOY.key) == StepState.FAILED
         assert progress.step_state(POST_HOOK.key) == StepState.FAILED
-        assert self._MESSAGE not in capture_rendered(progress)
 
     def test_unusable_final_poll_keeps_the_default_failure_display(self) -> None:
         # given
         conn, _ = self._failed_poll(None)
         progress = MultiStepProgress(self._STEPS)
         poll = ServerPoll(
-            conn, progress, self._STEPS, TEST_SFQID, error_detail_steps=[POST_HOOK]
+            conn, progress, self._STEPS, TEST_SFQID, settle_failed_phase=True
         )
 
         # when
@@ -534,9 +526,8 @@ class TestServerPollErrorDetailSteps:
         # then
         for step in self._STEPS:
             assert progress.step_state(step.key) == StepState.FAILED
-        assert self._MESSAGE not in capture_rendered(progress)
 
-    def test_without_error_detail_steps_no_poll_follows_the_failure(self) -> None:
+    def test_without_opting_in_no_poll_follows_the_failure(self) -> None:
         # given
         conn, cursor = self._failed_poll(['{"phase": "POST_HOOK", "progress": 50}'])
         progress = MultiStepProgress(self._STEPS)
@@ -847,7 +838,7 @@ class TestUploadDetails:
             "     └─ definitions (2 files)",
         ]
 
-    def test_post_hook_file_is_named_beside_counted_folders(self):
+    def test_post_hook_folder_is_counted_like_definitions(self):
         # given
         stage = FQN.from_string("MY_DB.MY_SCHEMA.DCM_PROJECT_P_123_TMP_STAGE")
 
@@ -858,7 +849,7 @@ class TestUploadDetails:
                 _relative_paths(
                     MANIFEST_FILE_NAME,
                     f"{SOURCES_FOLDER}/definitions/a.sql",
-                    f"{SOURCES_FOLDER}/{POST_HOOKS_FOLDER}/post_hook.sql",
+                    f"{SOURCES_FOLDER}/post_hooks/post_hook.sql",
                 ),
             )
         )
@@ -869,8 +860,7 @@ class TestUploadDetails:
             f"  ├─ {MANIFEST_FILE_NAME}",
             f"  └─ {SOURCES_FOLDER}",
             "     ├─ definitions (1 file)",
-            f"     └─ {POST_HOOKS_FOLDER}",
-            "        └─ post_hook.sql",
+            "     └─ post_hooks (1 file)",
         ]
 
 
@@ -972,47 +962,6 @@ class TestUploadFolders:
         # then
         assert [folder.name for folder in folders] == ["alpha", "zebra"]
         assert [sub.name for sub in folders[0].subfolders] == ["bee", "yak"]
-
-    def test_post_hook_files_are_named_instead_of_counted(self):
-        # given / when
-        folders = _upload_folders(
-            _relative_paths(
-                f"{SOURCES_FOLDER}/definitions/a.sql",
-                f"{SOURCES_FOLDER}/{POST_HOOKS_FOLDER}/post_hook.sql",
-                f"{SOURCES_FOLDER}/{POST_HOOKS_FOLDER}/notes/readme.md",
-            )
-        )
-
-        # then
-        assert folders == [
-            UploadFolder(
-                name=SOURCES_FOLDER,
-                count=0,
-                subfolders=[
-                    UploadFolder(name="definitions", count=1),
-                    UploadFolder(
-                        name=POST_HOOKS_FOLDER,
-                        count=0,
-                        files=("notes/readme.md", "post_hook.sql"),
-                    ),
-                ],
-            )
-        ]
-
-    def test_a_post_hooks_folder_outside_sources_is_counted(self):
-        # given / when
-        folders = _upload_folders(
-            _relative_paths(f"assets/{POST_HOOKS_FOLDER}/post_hook.sql")
-        )
-
-        # then
-        assert folders == [
-            UploadFolder(
-                name="assets",
-                count=0,
-                subfolders=[UploadFolder(name=POST_HOOKS_FOLDER, count=1)],
-            )
-        ]
 
 
 class TestDetailText:
