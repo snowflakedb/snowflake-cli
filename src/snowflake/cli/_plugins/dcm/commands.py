@@ -843,6 +843,7 @@ def deploy(
         False,
         "--skip-plan",
         help="Skips planning step.",
+        hidden=True,
     ),
     **options,
 ):
@@ -1043,6 +1044,7 @@ def purge(
         False,
         "--skip-plan",
         help="Skips planning step.",
+        hidden=True,
     ),
     **options,
 ):
