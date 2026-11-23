@@ -24,6 +24,16 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import List, Optional, Tuple
 
+from snowflake.cli._plugins.bundle.docs import (
+    ALTER_DOCS,
+    CANCEL_DOCS,
+    CREATE_DOCS,
+    DELETE_DOCS,
+    EXECUTE_DOCS,
+    HISTORY_DOCS,
+    LIST_DOCS,
+    STATUS_DOCS,
+)
 from snowflake.cli.api.commands.flags import IdentifierType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult
@@ -66,6 +76,7 @@ BUNDLE_SPEC = CommandGroupSpec(
             handler_method="create",
             requires_connection=True,
             output_type="MessageResult",
+            docs=CREATE_DOCS,
             params=(
                 _IDENTIFIER,
                 ParamDef(
@@ -140,6 +151,7 @@ BUNDLE_SPEC = CommandGroupSpec(
             handler_method="list_bundles",
             requires_connection=True,
             output_type="QueryResult",
+            docs=LIST_DOCS,
             params=(
                 ParamDef(
                     name="like",
@@ -183,6 +195,7 @@ BUNDLE_SPEC = CommandGroupSpec(
             handler_method="delete",
             requires_connection=True,
             output_type="MessageResult",
+            docs=DELETE_DOCS,
             params=(
                 _IDENTIFIER,
                 ParamDef(
@@ -202,6 +215,7 @@ BUNDLE_SPEC = CommandGroupSpec(
             handler_method="alter",
             requires_connection=True,
             output_type="MessageResult",
+            docs=ALTER_DOCS,
             params=(
                 _IDENTIFIER,
                 ParamDef(
@@ -239,6 +253,7 @@ BUNDLE_SPEC = CommandGroupSpec(
             handler_method="execute",
             requires_connection=True,
             output_type="MessageResult",
+            docs=EXECUTE_DOCS,
             # Unrecognised arguments are forwarded to the bundle rather than
             # rejected, and land in the variadic `arguments` parameter below.
             context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
@@ -303,6 +318,7 @@ BUNDLE_SPEC = CommandGroupSpec(
             handler_method="status",
             requires_connection=True,
             output_type="MessageResult",
+            docs=STATUS_DOCS,
             params=(_QUERY_ID,),
         ),
         CommandDef(
@@ -311,6 +327,7 @@ BUNDLE_SPEC = CommandGroupSpec(
             handler_method="cancel",
             requires_connection=True,
             output_type="MessageResult",
+            docs=CANCEL_DOCS,
             params=(_QUERY_ID,),
         ),
         CommandDef(
@@ -319,6 +336,7 @@ BUNDLE_SPEC = CommandGroupSpec(
             handler_method="history",
             requires_connection=True,
             output_type="QueryResult",
+            docs=HISTORY_DOCS,
             params=(
                 ParamDef(
                     name="bundle_name",

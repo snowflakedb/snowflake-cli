@@ -58,15 +58,6 @@ _COMMAND_DOCS_MIGRATION_PENDING_PATHS: frozenset[tuple[str, ...]] = frozenset(
         ("app", "open"),
         ("app", "teardown"),
         ("app", "validate"),
-        # bundle
-        ("bundle", "alter"),
-        ("bundle", "cancel"),
-        ("bundle", "create"),
-        ("bundle", "delete"),
-        ("bundle", "execute"),
-        ("bundle", "history"),
-        ("bundle", "list"),
-        ("bundle", "status"),
         # feature — prod-docs pages are authored in a separate Snowflake docs
         # change; remove these when that migration PR lands.
         ("feature", "apply"),
@@ -154,7 +145,7 @@ def _iter_terminal_commands(
         (("cortex", "complete"), False),
         (("git", "setup"), False),
         (("app", "deploy"), True),
-        (("bundle", "create"), True),
+        (("bundle", "create"), False),
         (("spcs", "service", "remote-build"), True),
         (("spcs", "service", "list"), False),
         (("upgrade",), False),

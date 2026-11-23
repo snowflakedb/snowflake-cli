@@ -33,6 +33,14 @@ app/version/create.mdx: content/en/developer-guide/snowflake-cli/command-referen
 app/version/drop.mdx: content/en/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-drop.mdx
 app/version/list.mdx: content/en/developer-guide/snowflake-cli/command-reference/native-apps-commands/version/app-version-list.mdx
 auth/oidc/read-token.mdx: content/en/developer-guide/snowflake-cli/command-reference/auth-commands/read-token.mdx
+bundle/alter.mdx: content/en/developer-guide/snowflake-cli/command-reference/bundle-commands/alter.mdx
+bundle/cancel.mdx: content/en/developer-guide/snowflake-cli/command-reference/bundle-commands/cancel.mdx
+bundle/create.mdx: content/en/developer-guide/snowflake-cli/command-reference/bundle-commands/create.mdx
+bundle/delete.mdx: content/en/developer-guide/snowflake-cli/command-reference/bundle-commands/delete.mdx
+bundle/execute.mdx: content/en/developer-guide/snowflake-cli/command-reference/bundle-commands/execute.mdx
+bundle/history.mdx: content/en/developer-guide/snowflake-cli/command-reference/bundle-commands/history.mdx
+bundle/list.mdx: content/en/developer-guide/snowflake-cli/command-reference/bundle-commands/list.mdx
+bundle/status.mdx: content/en/developer-guide/snowflake-cli/command-reference/bundle-commands/status.mdx
 connection/add.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/add-connection.mdx
 connection/generate-jwt.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/generate-jwt.mdx
 connection/generate-workload-identity-token.mdx: content/en/developer-guide/snowflake-cli/command-reference/connection-commands/generate-workload-identity-token.mdx
