@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import codecs
 import functools
+import locale
 import logging
 import os
 import re
@@ -48,16 +50,61 @@ _SYSTEM32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
 _WHOAMI = str(_SYSTEM32 / "whoami.exe")
 _ICACLS = str(_SYSTEM32 / "icacls.exe")
 
+# icacls prints the account name for this Windows locale (French: "Système",
+# "Administrateurs"). It has no /sid switch. These SIDs do not change with the
+# locale; LookupAccountSid turns them into the short names this install prints.
+_WINDOWS_LOCAL_SYSTEM_SID = "S-1-5-18"
+_WINDOWS_ADMINISTRATORS_SID = "S-1-5-32-544"
+_WINDOWS_ACCOUNT_NAME_FALLBACK = {
+    _WINDOWS_LOCAL_SYSTEM_SID: "SYSTEM",
+    _WINDOWS_ADMINISTRATORS_SID: "Administrators",
+}
+
+
+def _windows_oem_encoding() -> str:
+    # icacls and whoami write the system OEM code page when stdout is a pipe
+    # (cp850 on French Windows). Python text mode uses the ANSI code page
+    # (cp1252), and OEM byte 0x90 is É, which cp1252 rejects. The reader thread
+    # then raises UnicodeDecodeError and leaves stdout as None. PYTHONUTF8,
+    # [cli.encoding], and `chcp` do not change bytes written to a pipe.
+    # GetConsoleOutputCP follows `chcp`, so it is the wrong code page here.
+    if not IS_WINDOWS:
+        return locale.getpreferredencoding(False) or "utf-8"
+    try:
+        from ctypes import windll  # type: ignore
+
+        code_page = int(windll.kernel32.GetOEMCP())
+    except (AttributeError, OSError, TypeError, ValueError):
+        code_page = 0
+    if code_page <= 0:
+        return locale.getpreferredencoding(False) or "utf-8"
+    encoding = f"cp{code_page}"
+    try:
+        codecs.lookup(encoding)
+    except LookupError:
+        return "utf-8"
+    return encoding
+
+
+def _decode_windows_tool_output(
+    data: bytes | None, *, encoding: str | None = None
+) -> str:
+    # errors='replace' so one unexpected byte cannot raise UnicodeDecodeError.
+    # None is what a text-mode reader leaves behind after that error; an empty
+    # string keeps re.finditer from raising TypeError.
+    if not data:
+        return ""
+    chosen = encoding if encoding is not None else _windows_oem_encoding()
+    return data.decode(chosen, errors="replace")
+
 
 @functools.lru_cache(maxsize=None)
 def _get_windows_username() -> str:
     import subprocess
 
     try:
-        result = subprocess.run(
-            [_WHOAMI], capture_output=True, text=True, check=True, timeout=10
-        )
-        return result.stdout.strip()
+        result = subprocess.run([_WHOAMI], capture_output=True, check=True, timeout=10)
+        return _decode_windows_tool_output(result.stdout).strip()
     except subprocess.TimeoutExpired as e:
         raise CliError(
             f"whoami.exe timed out while determining the current Windows username. "
@@ -83,10 +130,95 @@ def _strip_windows_domain_prefix(name: str) -> str:
     return name.rsplit("\\", 1)[-1]
 
 
+@functools.lru_cache(maxsize=None)
+def _lookup_windows_account_name(sid: str) -> str | None:
+    # ConvertStringSidToSid + LookupAccountSid. icacls prints this name, not the SID.
+    if not IS_WINDOWS:
+        return None
+    try:
+        return _lookup_windows_account_name_ctypes(sid)
+    except (AttributeError, OSError, TypeError, ValueError):
+        log.debug("Could not resolve Windows account name for %s", sid, exc_info=True)
+        return None
+
+
+def _lookup_windows_account_name_ctypes(sid: str) -> str | None:
+    from ctypes import POINTER, byref, create_unicode_buffer, windll  # type: ignore
+    from ctypes.wintypes import BOOL, DWORD, LPCWSTR, LPVOID, LPWSTR
+
+    convert = windll.advapi32.ConvertStringSidToSidW
+    convert.argtypes = [LPCWSTR, POINTER(LPVOID)]
+    convert.restype = BOOL
+    lookup = windll.advapi32.LookupAccountSidW
+    lookup.argtypes = [
+        LPCWSTR,
+        LPVOID,
+        LPWSTR,
+        POINTER(DWORD),
+        LPWSTR,
+        POINTER(DWORD),
+        POINTER(DWORD),
+    ]
+    lookup.restype = BOOL
+    local_free = windll.kernel32.LocalFree
+    local_free.argtypes = [LPVOID]
+    local_free.restype = LPVOID
+
+    sid_ptr = LPVOID()
+    if not convert(sid, byref(sid_ptr)) or not sid_ptr:
+        return None
+    try:
+        name_len = DWORD(0)
+        domain_len = DWORD(0)
+        sid_use = DWORD(0)
+        lookup(
+            None,
+            sid_ptr,
+            None,
+            byref(name_len),
+            None,
+            byref(domain_len),
+            byref(sid_use),
+        )
+        if name_len.value <= 0:
+            return None
+        name_size = int(name_len.value)
+        domain_size = max(int(domain_len.value), 1)
+        name_buf = create_unicode_buffer(name_size)
+        domain_buf = create_unicode_buffer(domain_size)
+        name_len = DWORD(name_size)
+        domain_len = DWORD(domain_size)
+        if not lookup(
+            None,
+            sid_ptr,
+            name_buf,
+            byref(name_len),
+            domain_buf,
+            byref(domain_len),
+            byref(sid_use),
+        ):
+            return None
+        name = name_buf.value.strip()
+        return name or None
+    finally:
+        local_free(sid_ptr)
+
+
+def _windows_account_name(sid: str) -> str:
+    name = _lookup_windows_account_name(sid)
+    if name:
+        return name
+    return _WINDOWS_ACCOUNT_NAME_FALLBACK[sid]
+
+
 def _get_windows_whitelisted_users():
     # Only principals whose access is unavoidable belong here: SYSTEM and the
     # Administrators group can bypass the ACL anyway (take-ownership,
     # SeBackupPrivilege), so reporting them would be noise nobody can act on.
+    #
+    # icacls prints localized short names. Resolve S-1-5-18 and S-1-5-32-544
+    # on this install and allow those names. English names are the fallback
+    # when LookupAccountSid is unavailable.
     #
     # This list originally came from a consultation with prodsec (CASEC-9627) and also
     # contained "Domain Users" and "Network"; both were dropped for SNOW-3649686.
@@ -96,8 +228,8 @@ def _get_windows_whitelisted_users():
     # ACL-bypassing authority, so a read ACE for either is a real and revocable
     # exposure of the cleartext credentials in the config file.
     return [
-        "SYSTEM",
-        "Administrators",
+        _windows_account_name(_WINDOWS_LOCAL_SYSTEM_SID),
+        _windows_account_name(_WINDOWS_ADMINISTRATORS_SID),
         "Administrator",
         "Domain Admins",
         _strip_windows_domain_prefix(_get_windows_username()),
@@ -111,7 +243,6 @@ def _icacls(path: Path, *args: str, failure_msg: str | None = None) -> str:
         result = subprocess.run(
             [_ICACLS, str(path), *args],
             capture_output=True,
-            text=True,
             timeout=10,
         )
     except subprocess.TimeoutExpired as e:
@@ -126,14 +257,16 @@ def _icacls(path: Path, *args: str, failure_msg: str | None = None) -> str:
             f"Config file permission checks require icacls.exe to be available."
         ) from e
     if result.returncode != 0:
-        detail = sanitize_for_terminal(result.stderr.strip())
+        detail = sanitize_for_terminal(
+            _decode_windows_tool_output(result.stderr).strip()
+        )
         msg = (
             f"{failure_msg}: {detail}"
             if failure_msg
             else f"icacls.exe failed on {path}: {detail}"
         )
         raise CliError(msg)
-    return result.stdout
+    return _decode_windows_tool_output(result.stdout)
 
 
 def _windows_permissions_are_denied(permission_codes: str) -> bool:

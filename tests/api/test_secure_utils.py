@@ -20,9 +20,12 @@ import pytest
 from snowflake.cli.api.constants import IS_WINDOWS
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.secure_utils import (
+    _decode_windows_tool_output,
     _get_windows_username,
     _get_windows_whitelisted_users,
     _icacls,
+    _lookup_windows_account_name,
+    _windows_account_name,
     _windows_restrict_file_permissions,
     get_windows_permission_warning,
     windows_get_not_whitelisted_users_with_access,
@@ -47,6 +50,17 @@ def _mock_username(name: str = r"CONTOSO\bob"):
     # tests exercising the real whitelist have to stub it out.
     return patch(
         "snowflake.cli.api.secure_utils._get_windows_username", return_value=name
+    )
+
+
+def _mock_account_names(system: str = "SYSTEM", administrators: str = "Administrators"):
+    mapping = {
+        "S-1-5-18": system,
+        "S-1-5-32-544": administrators,
+    }
+    return patch(
+        "snowflake.cli.api.secure_utils._lookup_windows_account_name",
+        side_effect=lambda sid: mapping.get(sid),
     )
 
 
@@ -78,8 +92,10 @@ def _build_icacls_output(*aces: str) -> str:
 @pytest.fixture()
 def clear_username_cache():
     _get_windows_username.cache_clear()
+    _lookup_windows_account_name.cache_clear()
     yield
     _get_windows_username.cache_clear()
+    _lookup_windows_account_name.cache_clear()
 
 
 @pytest.mark.parametrize(
@@ -127,14 +143,14 @@ def test_icacls_raises_cli_error_when_not_found():
 def test_icacls_raises_cli_error_on_nonzero_exit():
     with patch(
         "subprocess.run",
-        return_value=MagicMock(returncode=1, stderr="Access denied"),
+        return_value=MagicMock(returncode=1, stderr=b"Access denied"),
     ):
         with pytest.raises(CliError, match="Access denied"):
             _icacls(_FILE_PATH)
 
 
 def test_icacls_strips_ansi_from_stderr():
-    ansi_stderr = "\x1B[31mAccess denied\x1B[0m"
+    ansi_stderr = b"\x1B[31mAccess denied\x1B[0m"
     with patch(
         "subprocess.run",
         return_value=MagicMock(returncode=1, stderr=ansi_stderr),
@@ -145,11 +161,126 @@ def test_icacls_strips_ansi_from_stderr():
     assert "Access denied" in str(exc_info.value)
 
 
+def test_decode_windows_tool_output_oem_eacute_rejected_by_cp1252():
+    # French icacls prints AUTORITÉ; É is byte 0x90 in OEM cp850 and undefined in cp1252.
+    raw = "AUTORITÉ NT\\Système".encode("cp850")
+    assert b"\x90" in raw
+    with pytest.raises(UnicodeDecodeError):
+        raw.decode("cp1252")
+    assert _decode_windows_tool_output(raw, encoding="cp850") == "AUTORITÉ NT\\Système"
+
+
+def test_decode_windows_tool_output_replaces_undefined_bytes():
+    assert _decode_windows_tool_output(b"\x90", encoding="cp1252") == "\ufffd"
+    assert _decode_windows_tool_output(None) == ""
+
+
+def test_icacls_decodes_piped_oem_output():
+    raw = f"{_FILE_PATH} AUTORITÉ NT\\Système:(F)\r\n".encode("cp850")
+    completed = subprocess.CompletedProcess(["icacls"], 0, stdout=raw, stderr=b"")
+    with (
+        patch(
+            "snowflake.cli.api.secure_utils._windows_oem_encoding",
+            return_value="cp850",
+        ),
+        patch("subprocess.run", return_value=completed) as mock_run,
+    ):
+        output = _icacls(_FILE_PATH)
+    assert "AUTORITÉ NT\\Système:(F)" in output
+    assert mock_run.call_args.kwargs.get("text") is None
+    assert mock_run.call_args.kwargs.get("encoding") is None
+
+
+def test_icacls_none_stdout_does_not_raise():
+    with patch(
+        "subprocess.run",
+        return_value=MagicMock(returncode=0, stdout=None, stderr=None),
+    ):
+        assert _icacls(_FILE_PATH) == ""
+
+
+def test_localized_system_and_administrators_stay_whitelisted():
+    # French icacls prints names, not SIDs. Everyone, Domain Users, and Network
+    # stay unauthorized. icacls has no /sid switch.
+    output = _build_icacls_output(
+        "AUTORITÉ NT\\Système:(F)",
+        "BUILTIN\\Administrateurs:(F)",
+        "Everyone:(R)",
+        "CONTOSO\\Domain Users:(RX)",
+        "NT AUTHORITY\\NETWORK:(R)",
+    )
+    raw = output.encode("cp850")
+    completed = subprocess.CompletedProcess(["icacls"], 0, stdout=raw, stderr=b"")
+    with (
+        _mock_username(),
+        _mock_account_names(system="Système", administrators="Administrateurs"),
+        patch(
+            "snowflake.cli.api.secure_utils._windows_oem_encoding",
+            return_value="cp850",
+        ),
+        patch("subprocess.run", return_value=completed) as mock_run,
+    ):
+        result = windows_get_not_whitelisted_users_with_access(_FILE_PATH)
+    assert result == ["Domain Users", "Everyone", "NETWORK"]
+    assert "/sid" not in mock_run.call_args.args[0]
+    assert mock_run.call_args.args[0][1:] == [str(_FILE_PATH)]
+
+
+def test_whitelist_uses_lookup_names_not_english_or_sids():
+    with (
+        _mock_username(),
+        _mock_account_names(system="Système", administrators="Administrateurs"),
+    ):
+        whitelisted = _get_windows_whitelisted_users()
+    assert "Système" in whitelisted
+    assert "Administrateurs" in whitelisted
+    assert "SYSTEM" not in whitelisted
+    assert "Administrators" not in whitelisted
+    assert "S-1-5-18" not in whitelisted
+
+
+def test_account_name_falls_back_when_lookup_returns_none():
+    with patch(
+        "snowflake.cli.api.secure_utils._lookup_windows_account_name",
+        return_value=None,
+    ):
+        assert _windows_account_name("S-1-5-18") == "SYSTEM"
+        assert _windows_account_name("S-1-5-32-544") == "Administrators"
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="LookupAccountSid is available on Windows")
+def test_lookup_windows_account_name_is_none_off_windows(clear_username_cache):
+    assert _lookup_windows_account_name("S-1-5-18") is None
+
+
+@pytest.mark.skipif(not IS_WINDOWS, reason="requires LookupAccountSid")
+def test_lookup_windows_account_name_resolves_well_known_sids(clear_username_cache):
+    system = _lookup_windows_account_name("S-1-5-18")
+    administrators = _lookup_windows_account_name("S-1-5-32-544")
+    assert system
+    assert administrators
+    assert not system.upper().startswith("S-1-")
+    assert not administrators.upper().startswith("S-1-")
+
+
+def test_get_windows_username_decodes_oem(clear_username_cache):
+    raw = "CONTOSO\\Élodie\r\n".encode("cp850")
+    completed = subprocess.CompletedProcess(["whoami"], 0, stdout=raw, stderr=b"")
+    with (
+        patch(
+            "snowflake.cli.api.secure_utils._windows_oem_encoding",
+            return_value="cp850",
+        ),
+        patch("subprocess.run", return_value=completed),
+    ):
+        assert _get_windows_username() == "CONTOSO\\Élodie"
+
+
 def test_windows_restrict_file_permissions_raises_on_icacls_failure(tmp_path):
     test_file = tmp_path / "config.toml"
     test_file.touch()
     with _mock_username(), patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=1, stderr="Access denied")
+        mock_run.return_value = MagicMock(returncode=1, stderr=b"Access denied")
         with pytest.raises(CliError, match="Failed to set strict permissions"):
             _windows_restrict_file_permissions(test_file)
 
@@ -166,8 +297,8 @@ def test_restrict_file_permissions_remove_acl_raises_on_failure(tmp_path):
         patch("subprocess.run") as mock_run,
     ):
         mock_run.side_effect = [
-            MagicMock(returncode=0, stderr=""),  # /inheritance:r /grant
-            MagicMock(returncode=1, stderr="Access denied"),  # /remove:g
+            MagicMock(returncode=0, stdout=b"", stderr=b""),  # /inheritance:r /grant
+            MagicMock(returncode=1, stderr=b"Access denied"),  # /remove:g
         ]
         with pytest.raises(CliError, match="Failed to remove ACE for Everyone"):
             _windows_restrict_file_permissions(test_file)
@@ -319,12 +450,17 @@ def test_broad_principals_are_not_whitelisted():
     Re-adding either silently restores the finding, so pin their absence against the
     real whitelist rather than the _WHITELISTED stub.
     """
-    with _mock_username():
+    with _mock_username(), _mock_account_names():
         whitelisted = _get_windows_whitelisted_users()
 
     assert "bob" in whitelisted, "current user must stay whitelisted"
+    assert "SYSTEM" in whitelisted
+    assert "Administrators" in whitelisted
+    assert "S-1-5-18" not in whitelisted
+    assert "S-1-5-32-544" not in whitelisted
     assert "Domain Users" not in whitelisted
     assert "Network" not in whitelisted
+    assert "S-1-5-2" not in whitelisted
 
 
 def test_domain_users_ace_is_reported():
@@ -338,7 +474,7 @@ def test_domain_users_ace_is_reported():
         r"NT AUTHORITY\SYSTEM:(F)",
         r"CONTOSO\Domain Users:(RX)",
     )
-    with _mock_icacls(output), _mock_username():
+    with _mock_icacls(output), _mock_username(), _mock_account_names():
         result = windows_get_not_whitelisted_users_with_access(_FILE_PATH)
     assert result == ["Domain Users"]
 
@@ -379,7 +515,7 @@ def test_whitelist_check_is_case_insensitive(
     # flagged as unauthorized regardless of which casing whoami vs icacls use.
     # The last case guards that a genuinely different user is still reported.
     config = tmp_path / "config.toml"
-    with _mock_username(whoami_output):
+    with _mock_username(whoami_output), _mock_account_names():
         with _mock_icacls(_build_icacls_output_for_path(config, icacls_ace)):
             result = windows_get_not_whitelisted_users_with_access(config)
     assert result == expected
@@ -399,7 +535,7 @@ def test_get_windows_permission_warning_file(tmp_path):
     config = tmp_path / "config.toml"
     config.touch()
     output = _build_icacls_output_for_path(config, "Everyone:(R)")
-    with _mock_icacls(output), _mock_username(r"CONTOSO\bob"):
+    with _mock_icacls(output), _mock_username(r"CONTOSO\bob"), _mock_account_names():
         result = get_windows_permission_warning(config)
     assert " * Users with unauthorized access: Everyone" in result
     assert " * To restrict permissions, run:" in result
@@ -411,7 +547,7 @@ def test_get_windows_permission_warning_file(tmp_path):
 
 def test_get_windows_permission_warning_directory(tmp_path):
     output = _build_icacls_output_for_path(tmp_path, "Everyone:(R)")
-    with _mock_icacls(output), _mock_username(r"CONTOSO\bob"):
+    with _mock_icacls(output), _mock_username(r"CONTOSO\bob"), _mock_account_names():
         result = get_windows_permission_warning(tmp_path)
     assert " * Users with unauthorized access: Everyone" in result
     assert " * To restrict permissions, run:" in result
@@ -425,7 +561,11 @@ def test_get_windows_permission_warning_strips_ansi(tmp_path):
     config.touch()
     ansi_user = "\x1B[31mEveryone\x1B[0m"
     output = _build_icacls_output_for_path(config, f"{ansi_user}:(R)")
-    with _mock_icacls(output), _mock_username("\x1B[32mCONTOSO\\bob\x1B[0m"):
+    with (
+        _mock_icacls(output),
+        _mock_username("\x1B[32mCONTOSO\\bob\x1B[0m"),
+        _mock_account_names(),
+    ):
         result = get_windows_permission_warning(config)
     assert "\x1B" not in result
     assert "Everyone" in result
