@@ -211,8 +211,10 @@ shared helpers such as `add_object_command_aliases` where applicable). Each
 `CommandDocs` must include **related topics**, **usage notes**, and
 **examples**.
 
-Define `CommandDocs` in the same `commands.py` or in a sibling module; reuse
-shared constants for related links across subcommands. See
+We recommend defining `CommandDocs` inline, directly in the `docs=` argument of
+the command, so that anyone changing the command, human or agent, sees what it
+does and what the docs say about it in one place. Reuse shared constants for
+related links across subcommands. See
 `src/snowflake/cli/_plugins/git/commands.py` and
 `src/snowflake/cli/_plugins/stage/commands.py` for patterns.
 

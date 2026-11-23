@@ -282,7 +282,10 @@ that step the plugin is valid Python but is never loaded by the CLI.
 The command `help` on `CommandDef` is the short summary in `--help`. For
 [Snowflake CLI command reference](https://docs.snowflake.com/en/developer-guide/snowflake-cli/command-reference/overview)
 pages, set `docs=CommandDocs(...)` on **every** `CommandDef`. Each `CommandDocs`
-must include **related topics**, **usage notes**, and **examples**.
+must include **related topics**, **usage notes**, and **examples**. We recommend
+defining `CommandDocs` inline on the `CommandDef` in `interface.py`, so that
+anyone changing the command, human or agent, sees what it does and what the
+docs say about it in one place.
 
 Classic in-repo commands use the same `CommandDocs` type on `@app.command()`;
 see [Writing command docs in adding-commands.md](adding-commands.md#writing-command-docs).
