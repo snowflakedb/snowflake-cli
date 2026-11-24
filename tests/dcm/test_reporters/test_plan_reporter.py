@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from typing import Any, Dict, List
+from unittest.mock import patch
 
 import pytest
 from rich.style import Style
@@ -32,6 +33,11 @@ from snowflake.cli._plugins.dcm.tree import CompactTree
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 
+from tests.dcm.encoding_console import (
+    cp1252_text_console,
+    encoded_console,
+    written_bytes,
+)
 from tests.dcm.test_reporters.utils import (
     RENDER_WIDTH,
     FakeCursor,
@@ -215,6 +221,27 @@ class TestTruncateValuePair:
             "…" + "L" * _DIFF_CONTEXT + "1" + "T" * window_tail + "…",
             "…" + "L" * _DIFF_CONTEXT + "2" + "T" * window_tail + "…",
         )
+
+    def test_windowed_pair_uses_ascii_ellipsis_on_cp1252(self):
+        # given
+        lead, tail = "L" * 60, "T" * 60
+        prev = lead + "1" + tail
+        new = lead + "2" + tail
+        console = encoded_console("cp1252")
+
+        # when
+        with patch(
+            "snowflake.cli._plugins.dcm.glyphs.get_console", return_value=console
+        ):
+            result = _truncate_value_pair(prev, new)
+
+        # then
+        window_tail = _MAX_VALUE_LEN - _DIFF_CONTEXT - 1
+        assert result == (
+            "..." + "L" * _DIFF_CONTEXT + "1" + "T" * window_tail + "...",
+            "..." + "L" * _DIFF_CONTEXT + "2" + "T" * window_tail + "...",
+        )
+        assert "…" not in "".join(result)
 
     def test_only_one_value_exceeds_limit(self):
         prev = "SHORT"
@@ -1297,6 +1324,36 @@ class TestChangeTreeRendering:
             "├─ changed WAREHOUSE_SIZE: SMALL → LARGE",
             "└─ changed AUTO_SUSPEND: 60 → 120",
         ]
+
+    def test_changed_tree_encodes_as_cp1252(self):
+        # given
+        entry = {
+            "type": "ALTER",
+            "object_id": {"domain": "WAREHOUSE", "fqn": '"WH"'},
+            "changes": [
+                {
+                    "kind": "changed",
+                    "attribute_name": "warehouse_size",
+                    "prev_value": "SMALL",
+                    "value": "LARGE",
+                },
+            ],
+        }
+        console = cp1252_text_console(width=RENDER_WIDTH)
+
+        # when
+        with patch(
+            "snowflake.cli._plugins.dcm.glyphs.get_console", return_value=console
+        ):
+            tree = detail_tree(entry)
+        console.print(tree, soft_wrap=False)
+
+        # then
+        text = written_bytes(console).decode("cp1252")
+        assert "SMALL -> LARGE" in text
+        assert "→" not in text
+        assert "├" not in text
+        assert "└" not in text
 
     def test_changed_dict_value_renders_json_transition(self):
         """A ``changed`` on a dict-valued attribute serializes both sides to JSON

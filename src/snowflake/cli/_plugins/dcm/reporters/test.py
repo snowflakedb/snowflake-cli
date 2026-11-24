@@ -18,6 +18,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
+from snowflake.cli._plugins.dcm.glyphs import fail_mark, pass_mark, tree_leaf
 from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -123,10 +124,10 @@ class TestReporter(Reporter[TestRow]):
     def print_renderables(self, data: Iterator[TestRow]) -> None:
         for row in data:
             if row.status == TestStatus.PASS:
-                status_text = "✓ PASS"
+                status_text = f"{pass_mark()} PASS"
                 style = styles.PASS_STYLE
             elif row.status == TestStatus.FAIL:
-                status_text = "✗ FAIL"
+                status_text = f"{fail_mark()} FAIL"
                 style = styles.FAIL_STYLE
             else:
                 status_text = "? UNKNOWN"
@@ -142,7 +143,7 @@ class TestReporter(Reporter[TestRow]):
 
             if row.status == TestStatus.FAIL:
                 cli_console.styled_message(
-                    f"  └─ Expected: {row.expectation_expression}, "
+                    f"  {tree_leaf()} Expected: {row.expectation_expression}, "
                     f"Got: {row.actual_value} (Metric: {row.metric_name})\n"
                 )
 

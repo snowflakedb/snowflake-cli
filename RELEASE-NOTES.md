@@ -24,6 +24,7 @@
 ## Fixes and improvements
 * The Windows direct installer installs the x64 package on ARM64 Windows when the channel has no ARM package. Windows runs that package under emulation.
 * On Windows, permission checks decode `icacls` and `whoami` output with the OEM code page and allow the local names of SYSTEM and Administrators. `snow dcm plan --save-output` no longer crashes on a French locale when that output contains `É`, and those accounts are not reported as unauthorized.
+* `snow dcm` commands no longer crash on Windows when stdout is redirected to a file whose encoding cannot represent progress and plan glyphs. ASCII stand-ins are used instead. Set `cli.encoding.stdout` to `utf-8` to keep the original symbols in captured logs.
 
 
 # v3.34.0

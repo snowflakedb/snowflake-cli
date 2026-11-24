@@ -22,6 +22,7 @@ from snowflake.cli._plugins.dcm.exceptions import (
     ManifestConfigurationError,
     ManifestNotFoundError,
 )
+from snowflake.cli._plugins.dcm.glyphs import warning_mark
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.models import (
     DCMAsset,
@@ -278,7 +279,7 @@ _ROLE_GUIDANCE = (
 
 def _warn_cannot_validate(thing_name: str, reason: str, guidance: str) -> None:
     cli_console.warning(
-        f"⚠️  Cannot validate target's {thing_name}: {reason}. {guidance}"
+        f"{warning_mark()}  Cannot validate target's {thing_name}: {reason}. {guidance}"
     )
 
 
@@ -303,7 +304,7 @@ def _check_account_identifier(target: DCMTarget) -> None:
 
     if current_account != AccountIdentifier.from_string(target.account_identifier):
         cli_console.warning(
-            f"⚠️  Account mismatch: manifest target specifies account_identifier "
+            f"{warning_mark()}  Account mismatch: manifest target specifies account_identifier "
             f"'{sanitize_for_terminal(target.account_identifier)}', "
             f"but the current session account is '{sanitize_for_terminal(str(current_account))}'."
         )
@@ -338,7 +339,7 @@ def _check_project_owner(target: DCMTarget) -> None:
 
     if not same_identifiers(current_role, target.project_owner):
         cli_console.warning(
-            f"⚠️  Role mismatch: manifest target specifies project_owner "
+            f"{warning_mark()}  Role mismatch: manifest target specifies project_owner "
             f"'{sanitize_for_terminal(target.project_owner)}', "
             f"but the current session role is '{sanitize_for_terminal(current_role)}'."
         )
@@ -712,7 +713,7 @@ _PURGE_CANCEL_COMMAND = "CANCEL"
 
 def _confirm_purge(project_id: FQN) -> None:
     cli_console.warning(
-        f"⚠️  DANGER: This operation will DROP ALL objects managed by DCM Project {project_id}  ⚠️"
+        f"{warning_mark()}  DANGER: This operation will DROP ALL objects managed by DCM Project {project_id}  {warning_mark()}"
     )
     expected_identifier = str(project_id)
     while True:
@@ -1896,7 +1897,7 @@ def test(
             if use_expectations:
                 if FeatureFlag.ENABLE_DCM_UNIT_TEST_FEATURES.is_enabled():
                     cli_console.warning(
-                        "⚠️  This checks expectations against already-deployed "
+                        f"{warning_mark()}  This checks expectations against already-deployed "
                         "objects. The newer --script/--all-scripts option runs "
                         "test scripts against a fresh, isolated data branch "
                         "instead, and will eventually replace this check."

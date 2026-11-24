@@ -28,6 +28,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 from snowflake.cli._plugins.dcm.exceptions import QueryStatusUnavailableCliError
+from snowflake.cli._plugins.dcm.glyphs import bullet
 from snowflake.cli._plugins.dcm.multistep_progress import (
     MultiStepProgress,
     StepDefinition,
@@ -93,7 +94,7 @@ def _bulleted(renderable: RenderableType) -> RenderableType:
     which sizes its columns to the console and would pad every row out to it.
     """
     row = Table.grid(padding=0)
-    row.add_row(DETAIL_BULLET, renderable)
+    row.add_row(bullet(), renderable)
     return row
 
 

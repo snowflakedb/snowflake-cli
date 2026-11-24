@@ -18,6 +18,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
+from snowflake.cli._plugins.dcm.glyphs import fail_mark, pass_mark, tree_leaf
 from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -114,10 +115,10 @@ class UnitTestReporter(Reporter[UnitTestScriptRow]):
     def print_renderables(self, data: Iterator[UnitTestScriptRow]) -> None:
         for row in data:
             if row.status == UnitTestScriptStatus.PASS:
-                status_text = "✓ PASS"
+                status_text = f"{pass_mark()} PASS"
                 style = styles.PASS_STYLE
             else:
-                status_text = "✗ FAIL"
+                status_text = f"{fail_mark()} FAIL"
                 style = styles.FAIL_STYLE
 
             cli_console.styled_message(
@@ -128,7 +129,7 @@ class UnitTestReporter(Reporter[UnitTestScriptRow]):
             cli_console.styled_message("\n")
 
             if row.status == UnitTestScriptStatus.FAIL and row.error_message:
-                cli_console.styled_message(f"  └─ {row.error_message}\n")
+                cli_console.styled_message(f"  {tree_leaf()} {row.error_message}\n")
 
     def _generate_summary_renderables(self) -> List[Text]:
         total = self._summary.total

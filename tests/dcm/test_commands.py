@@ -16,6 +16,7 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN, AccountIdentifier
 from snowflake.cli.api.utils.path_utils import change_directory
 
+from tests.dcm.encoding_console import encoded_console
 from tests_common.feature_flag_utils import with_feature_flags
 
 TEST_SFQID = "af72f4cc-107c-4f1b-b8a9-7a9811203bc5"
@@ -4642,6 +4643,29 @@ def test_check_account_identifier_warns_when_target_account_identifier_is_empty(
     warning_message = mock_console.warning.call_args[0][0]
     assert "account_identifier is not specified" in warning_message
     assert "The current session account is required to match" in warning_message
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.cli_console")
+def test_cannot_validate_warning_encodes_as_cp1252(mock_console):
+    # given
+    target = DCMTarget(
+        name="DEV",
+        project_name="P1",
+        account_identifier="",
+        project_owner="MY_ROLE",
+    )
+    console = encoded_console("cp1252")
+
+    # when
+    with mock.patch(
+        "snowflake.cli._plugins.dcm.glyphs.get_console", return_value=console
+    ):
+        _check_account_identifier(target)
+
+    # then
+    text = mock_console.warning.call_args[0][0]
+    assert text.startswith("!  Cannot validate")
+    assert "⚠" not in text
 
 
 @pytest.mark.parametrize(

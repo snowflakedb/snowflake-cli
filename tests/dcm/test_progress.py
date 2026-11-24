@@ -61,6 +61,7 @@ from snowflake.connector import SnowflakeConnection
 from snowflake.connector.constants import QueryStatus
 from snowflake.connector.errors import ProgrammingError
 
+from tests.dcm.encoding_console import cp1252_text_console, written_bytes
 from tests.dcm.multi_step_progress_capture import find_line
 
 _SLEEP = "snowflake.cli._plugins.dcm.progress.time.sleep"
@@ -672,6 +673,28 @@ class TestUploadDetails:
             f"  └─ {SOURCES_FOLDER} (1 file)",
             "     └─ definitions (2 files)",
         ]
+
+    def test_upload_details_encode_as_cp1252(self):
+        # given
+        stage = FQN.from_string("MY_DB.MY_SCHEMA.DCM_PROJECT_P_123_TMP_STAGE")
+        console = cp1252_text_console(width=200)
+
+        # when
+        with patch(
+            "snowflake.cli._plugins.dcm.glyphs.get_console", return_value=console
+        ):
+            details = upload_details(
+                stage, _relative_paths(MANIFEST_FILE_NAME, f"{SOURCES_FOLDER}/a.sql")
+            )
+        for detail in details:
+            console.print(detail)
+
+        # then
+        text = written_bytes(console).decode("cp1252")
+        assert "* " in text
+        assert "•" not in text
+        assert "├" not in text
+        assert "└" not in text
 
 
 class TestUploadFolders:

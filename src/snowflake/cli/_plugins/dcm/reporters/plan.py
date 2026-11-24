@@ -22,6 +22,7 @@ from rich.style import Style
 from rich.text import Text
 from rich.tree import Tree
 from snowflake.cli._plugins.dcm import styles
+from snowflake.cli._plugins.dcm.glyphs import arrow, ellipsis
 from snowflake.cli._plugins.dcm.reporters.base import Reporter, cli_console
 from snowflake.cli._plugins.dcm.tree import CompactTree
 from snowflake.cli.api.exceptions import CliError, FQNNameError
@@ -138,8 +139,11 @@ def _window_value(txt: str, start: int) -> str:
     """
     end = start + _MAX_VALUE_LEN
     segment = txt[start:end]
-    prefix = "…" if start > 0 else ""
-    suffix = "…" if end < len(txt) else ""
+    needs_prefix = start > 0
+    needs_suffix = end < len(txt)
+    mark = ellipsis() if needs_prefix or needs_suffix else ""
+    prefix = mark if needs_prefix else ""
+    suffix = mark if needs_suffix else ""
     if prefix:
         segment = segment.lstrip()
     if suffix:
@@ -212,7 +216,7 @@ def _append_transition(text: Text, prev_str: str, new_str: str) -> None:
     text.append(": ")
     text.append(prev_str, styles.VALUE_STYLE)
     text.append(" ")
-    text.append("→", styles.ALTER_STYLE)
+    text.append(arrow(), styles.ALTER_STYLE)
     text.append(" ")
     text.append(new_str, styles.VALUE_STYLE)
 

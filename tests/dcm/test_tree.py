@@ -22,6 +22,8 @@ from rich.text import Text
 from rich.tree import Tree
 from snowflake.cli._plugins.dcm.tree import CompactTree
 
+from tests.dcm.encoding_console import cp1252_text_console, written_bytes
+
 
 def _rendered_lines(guide_style: Style) -> List[str]:
     tree = CompactTree(Text("root"), guide_style=guide_style)
@@ -62,3 +64,18 @@ class TestCompactTreeGuides:
     def test_ascii_fallback_is_also_three_columns(self) -> None:
         assert all(len(guide) == 3 for guide in CompactTree.ASCII_GUIDES)
         assert set("".join(CompactTree.ASCII_GUIDES)) <= set("".join(Tree.ASCII_GUIDES))
+
+    def test_cp1252_console_uses_ascii_guides_and_encodes(self) -> None:
+        # given
+        tree = CompactTree(Text("root"))
+        tree.add(Text("branch")).add(Text("leaf"))
+        console = cp1252_text_console(width=40)
+
+        # when
+        console.print(tree, soft_wrap=False)
+
+        # then
+        text = written_bytes(console).decode("cp1252")
+        assert "`-" in text
+        assert "├" not in text
+        assert "└" not in text

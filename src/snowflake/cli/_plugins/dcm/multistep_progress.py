@@ -46,10 +46,17 @@ from rich.progress import (
     TaskProgressColumn,
     TimeElapsedColumn,
 )
-from rich.spinner import Spinner
 from rich.styled import Styled
 from rich.table import Table
 from rich.text import Text
+from snowflake.cli._plugins.dcm.glyphs import (
+    ascii_only,
+    fail_mark,
+    pass_mark,
+    pending_mark,
+    running_mark,
+    step_prefix,
+)
 from snowflake.cli.api.console.console import cli_console
 
 _T = TypeVar("_T")
@@ -83,10 +90,6 @@ _LABEL_COL_PADDING = 3
 _MIN_LABEL_COL_WIDTH = 10
 _BAR_WIDTH = 40
 _ACTIVE_COLOR = "bright_blue"
-_DONE_SYMBOL = "✓"
-_FAILED_SYMBOL = "✗"
-_PENDING_SYMBOL = "·"
-_RUNNING_SYMBOL = Spinner("dots").frames[0]
 _DETAIL_INDENT = 2
 _DETAIL_STYLE = "dim"
 
@@ -153,7 +156,10 @@ class _ChecklistProgress(Progress):
         self._percent = TaskProgressColumn(
             text_format="{task.percentage:>3.0f}%", style=_ACTIVE_COLOR
         )
-        self._spinner = SpinnerColumn(spinner_name="dots", style=_ACTIVE_COLOR)
+        self._spinner = SpinnerColumn(
+            spinner_name="line" if ascii_only(self.console) else "dots",
+            style=_ACTIVE_COLOR,
+        )
         self._elapsed = _ElapsedColumn()
 
     def elapsed_text(self, task: Task) -> str:
@@ -175,11 +181,11 @@ class _ChecklistProgress(Progress):
         cells = [Text(label, style=style)]
 
         if state == StepState.DONE:
-            cells.append(Text(_DONE_SYMBOL, style=style))
+            cells.append(Text(pass_mark(self.console), style=style))
         elif state == StepState.FAILED:
-            cells.append(Text(_FAILED_SYMBOL, style=style))
+            cells.append(Text(fail_mark(self.console), style=style))
         elif state == StepState.PENDING:
-            cells.append(Text(_PENDING_SYMBOL, style=style))
+            cells.append(Text(pending_mark(self.console), style=style))
         else:
             cells.append(self._spinner.render(task))
             if task.total is not None:
@@ -250,7 +256,7 @@ class MultiStepProgress:
             return
         step = self._steps[key]
         cli_console.step(
-            f"❯ Step {step.index}/{self._step_count} - {step.label} - {verb}"
+            f"{step_prefix(self._progress.console)} Step {step.index}/{self._step_count} - {step.label} - {verb}"
         )
 
     def _print_step_details(self, details: Sequence[RenderableType]) -> None:
@@ -274,7 +280,9 @@ class MultiStepProgress:
         step.state = StepState.RUNNING
         self._progress.update(step.task_id, total=total, state=StepState.RUNNING)
         if not already_running:
-            self._print_step_line(key, f"{_RUNNING_SYMBOL} Running...")
+            self._print_step_line(
+                key, f"{running_mark(self._progress.console)} Running..."
+            )
 
     def update(self, key: str, completed: float) -> None:
         self._progress.update(self._steps[key].task_id, completed=completed)
@@ -302,7 +310,8 @@ class MultiStepProgress:
         step.state = StepState.DONE
         self._progress.stop_task(step.task_id)
         self._print_step_line(
-            key, f"{_DONE_SYMBOL} Completed{self._elapsed_suffix(key)}"
+            key,
+            f"{pass_mark(self._progress.console)} Completed{self._elapsed_suffix(key)}",
         )
 
     def fail_step(self, key: str) -> None:
@@ -311,7 +320,8 @@ class MultiStepProgress:
         step.state = StepState.FAILED
         self._progress.stop_task(step.task_id)
         self._print_step_line(
-            key, f"{_FAILED_SYMBOL} Failed{self._elapsed_suffix(key)}"
+            key,
+            f"{fail_mark(self._progress.console)} Failed{self._elapsed_suffix(key)}",
         )
 
     def run_step(self, key: str, fn: Callable[[StepProgressUpdater], _T]) -> _T:

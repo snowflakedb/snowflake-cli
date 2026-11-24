@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 from snowflake.cli._plugins.dcm.reporters.unit_test import (
@@ -21,6 +22,7 @@ from snowflake.cli._plugins.dcm.reporters.unit_test import (
 )
 from snowflake.cli.api.exceptions import CliError
 
+from tests.dcm.encoding_console import encoded_console
 from tests.dcm.test_reporters.utils import (
     CLI_CONSOLE_PATH,
     FakeCursor,
@@ -56,6 +58,34 @@ class TestUnitTestReporter:
         assert "FAIL" in output
         assert "expected 10 rows, got 3" in output
         assert "1 failed" in output
+
+    def test_mixed_status_uses_ascii_chrome(self):
+        # given
+        data = {
+            "status": "FAILED",
+            "scripts": [
+                {"script_name": "script_a", "passed": True},
+                {
+                    "script_name": "script_b",
+                    "passed": False,
+                    "error_message": "boom",
+                },
+            ],
+        }
+        console = encoded_console("cp1252")
+
+        # when
+        with patch(
+            "snowflake.cli._plugins.dcm.glyphs.get_console", return_value=console
+        ):
+            output = capture_reporter_output(UnitTestReporter(), FakeCursor(data))
+
+        # then
+        assert "v PASS" in output
+        assert "x FAIL" in output
+        assert "`-" in output
+        assert "✓" not in output
+        assert "✗" not in output
 
     def test_script_with_unrecognized_passed_value_counts_and_renders_as_failure(self):
         """An UNKNOWN status (missing/non-boolean 'passed') is not a clean

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 from snowflake.cli._plugins.dcm.reporters.test import (
@@ -21,6 +22,7 @@ from snowflake.cli._plugins.dcm.reporters.test import (
 )
 from snowflake.cli.api.exceptions import CliError
 
+from tests.dcm.encoding_console import encoded_console
 from tests.dcm.test_reporters.utils import (
     CLI_CONSOLE_PATH,
     FakeCursor,
@@ -66,6 +68,41 @@ class TestTestReporter:
             FakeCursor(data),
         )
         assert output == snapshot
+
+    def test_mixed_status_uses_ascii_chrome(self):
+        # given
+        data = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.TABLE_A",
+                    "expectation_name": "unique_check",
+                    "expectation_violated": False,
+                },
+                {
+                    "table_name": "DB.SCHEMA.TABLE_B",
+                    "expectation_name": "not_null",
+                    "expectation_violated": True,
+                    "expectation_expression": "= 0",
+                    "metric_name": "null_count",
+                    "value": "42",
+                },
+            ]
+        }
+        console = encoded_console("cp1252")
+
+        # when
+        with patch(
+            "snowflake.cli._plugins.dcm.glyphs.get_console", return_value=console
+        ):
+            output = capture_reporter_output(TestReporter(), FakeCursor(data))
+
+        # then
+        assert "v PASS" in output
+        assert "x FAIL" in output
+        assert "`-" in output
+        assert "✓" not in output
+        assert "✗" not in output
+        assert "└" not in output
 
     def test_multiple_expectations_mixed_status(self, snapshot):
         data = {

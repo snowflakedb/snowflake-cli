@@ -32,6 +32,7 @@ from snowflake.cli._plugins.dcm.multistep_progress import (
     progress_session,
 )
 
+from tests.dcm.encoding_console import encoded_console, written_bytes
 from tests.dcm.multi_step_progress_capture import ANSI_RE, capture_rendered, find_line
 
 _CONTROL_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
@@ -602,6 +603,66 @@ class TestNonTtyStepLines:
         lines = [ln for ln in capsys.readouterr().out.split("\n") if ln]
         assert lines[0] == f"❯ Step 1/1 - RENDER - {_SPINNER_FRAMES[0]} Running..."
         assert re.fullmatch(r"❯ Step 1/1 - RENDER - ✓ Completed \(\d+s\)", lines[1])
+
+
+class TestEncodingStepLines:
+    def test_non_tty_step_lines_are_ascii(self, capsys) -> None:
+        # given
+        console = encoded_console("cp1252", force_terminal=False)
+        with patch.object(progress_module, "get_console", return_value=console):
+            progress = MultiStepProgress(
+                [StepDefinition("a", "UPLOAD"), StepDefinition("b", "RENDER")]
+            )
+            with progress.display():
+                # when
+                progress.start_step("a")
+                progress.complete_step("a")
+                progress.start_step("b")
+                progress.fail_step("b")
+
+        printed = _CONTROL_RE.sub("", capsys.readouterr().out)
+
+        # then
+        assert "> Step 1/2 - UPLOAD - * Running...\n" in printed
+        assert re.search(r"> Step 1/2 - UPLOAD - v Completed \(\d+s\)\n", printed)
+        assert "> Step 2/2 - RENDER - * Running...\n" in printed
+        assert re.search(r"> Step 2/2 - RENDER - x Failed \(\d+s\)\n", printed)
+        assert "❯" not in printed
+        assert "✓" not in printed
+        assert "✗" not in printed
+
+    def test_live_checklist_encodes_as_cp932(self) -> None:
+        # given
+        console = encoded_console("cp932", force_terminal=True)
+        with patch.object(progress_module, "get_console", return_value=console):
+            progress = MultiStepProgress(
+                [
+                    StepDefinition("a", "UPLOAD"),
+                    StepDefinition("b", "RENDER"),
+                    StepDefinition("c", "COMPILE"),
+                ]
+            )
+            progress.start_step("b")
+            progress.start_step("c")
+            progress.fail_step("c")
+            # when
+            console.print(progress.get_renderable())
+            progress.complete_step("b")
+            console.print(progress.get_renderable())
+
+        # then
+        text = written_bytes(console).decode("cp932")
+        assert "UPLOAD" in text
+        assert "RENDER" in text
+        assert "COMPILE" in text
+        assert "." in text
+        assert "·" not in text
+        assert any(frame in text for frame in Spinner("line").frames)
+        assert "⠋" not in text
+        assert "x" in text
+        assert "✗" not in text
+        assert "v" in text
+        assert "✓" not in text
 
 
 class TestStepDetails:
