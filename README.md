@@ -197,6 +197,10 @@ To set the output format from the start of a run, pass
 `SNOWFLAKE_CLI_OUTPUT_FORMAT` variable. It cannot be combined with `--format`:
 passing both is an error and no SQL runs. `!set output_format` can still
 change the format later.
+`-o timing=false` and `-o timing_in_output_file=true` set the matching `!set`
+options from the start of a run. Only the interactive REPL prints the
+`Time Elapsed` line, so with `-q`, `-f`, or `-i` a false value changes nothing
+and a true value prints a warning.
 
 ```toml
 [cli]

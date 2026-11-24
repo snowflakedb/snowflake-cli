@@ -16357,8 +16357,10 @@
   |                                                             run. Supported   |
   |                                                             options are      |
   |                                                             output_file,     |
-  |                                                             quiet and        |
-  |                                                             output_format.   |
+  |                                                             quiet,           |
+  |                                                             output_format,   |
+  |                                                             timing and       |
+  |                                                             timing_in_outpu… |
   |                                                             -o               |
   |                                                             output_file=<pa… |
   |                                                             appends query    |
@@ -16397,8 +16399,25 @@
   |                                                             !set             |
   |                                                             output_format    |
   |                                                             can still change |
-  |                                                             it later. Repeat |
-  |                                                             -o to set        |
+  |                                                             it later. -o     |
+  |                                                             timing=false     |
+  |                                                             hides the Time   |
+  |                                                             Elapsed line,    |
+  |                                                             and -o           |
+  |                                                             timing_in_outpu… |
+  |                                                             also writes it   |
+  |                                                             to the output    |
+  |                                                             file, like the   |
+  |                                                             matching !set    |
+  |                                                             options. That    |
+  |                                                             line is printed  |
+  |                                                             only in the      |
+  |                                                             interactive      |
+  |                                                             REPL, so a true  |
+  |                                                             value with -q,   |
+  |                                                             -f or -i prints  |
+  |                                                             a warning.       |
+  |                                                             Repeat -o to set |
   |                                                             several options. |
   |                                                             The last value   |
   |                                                             of an option     |
@@ -16461,7 +16480,9 @@
   | Append query results to a file with -o output_file=<path> (results are still |
   | printed). !spool off stops writing. -o quiet=true hides query results on the |
   | terminal from the start of a run. -o output_format=<format> sets the         |
-  | starting output format. It cannot be combined with --format.                 |
+  | starting output format. It cannot be combined with --format. -o timing=false |
+  | and -o timing_in_output_file=true control the Time Elapsed line, which only  |
+  | the interactive REPL prints.                                                 |
   |                                                                              |
   | Note: When the query contains characters the shell interprets (for example $ |
   | in SYSTEM$CLIENT_VERSION_INFO() functions), wrap the query in single quotes: |

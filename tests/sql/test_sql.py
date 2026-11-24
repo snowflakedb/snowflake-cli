@@ -757,6 +757,114 @@ def test_sql_set_output_format_still_changes_format_after_option(
     assert "| 1 |" in result.output
 
 
+_TIMING_WARNING = "no effect with -q, -f or -i"
+
+
+def _collapse_whitespace(text: str) -> str:
+    """Undo Rich line wrapping so a long warning can be matched as one line."""
+    return " ".join(text.split())
+
+
+@pytest.mark.parametrize("option", ["timing", "timing_in_output_file"])
+@pytest.mark.parametrize(
+    "value,expected", [("false", False), ("NO", False), ("off", False), ("0", False)]
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_timing_false_is_accepted_silently_in_one_shot(
+    mock_execute, mock_connect, runner, mock_cursor, option, value, expected
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", f"{option}={value}"])
+    assert result.exit_code == 0, result.output
+    assert "| 1 |" in result.output
+    assert _TIMING_WARNING not in result.output
+    assert getattr(get_cli_context(), option) is expected
+
+
+@pytest.mark.parametrize("option", ["timing", "timing_in_output_file"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_timing_true_warns_in_one_shot(
+    mock_execute, mock_connect, runner, mock_cursor, option
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(["sql", "-q", "select 1 as n", "-o", f"{option}=yes"])
+    assert result.exit_code == 0, result.output
+    assert f"-o {option}=true has {_TIMING_WARNING}" in _collapse_whitespace(
+        result.output
+    )
+    assert "| 1 |" in result.output
+    mock_execute.assert_called_once()
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_timing_warning_names_both_options(
+    mock_execute, mock_connect, runner, mock_cursor
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            "timing=true",
+            "-o",
+            "timing_in_output_file=true",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert (
+        f"-o timing=true and -o timing_in_output_file=true have {_TIMING_WARNING}"
+        in _collapse_whitespace(result.output)
+    )
+
+
+@pytest.mark.parametrize("option", ["timing", "timing_in_output_file"])
+@pytest.mark.parametrize("value", ["", "maybe"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_timing_invalid_value_runs_no_sql(
+    mock_execute, mock_connect, runner, tmp_path, option, value
+):
+    spool = tmp_path / "out.txt"
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            f"output_file={spool}",
+            "-o",
+            f"{option}={value}",
+        ]
+    )
+    assert result.exit_code != 0
+    assert f"Invalid value for {option}: {value!r}. Use true or false." in result.output
+    assert not spool.exists()
+    mock_execute.assert_not_called()
+
+
+@pytest.mark.parametrize("option", ["timing", "timing_in_output_file"])
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_option_timing_last_wins(
+    mock_execute, mock_connect, runner, mock_cursor, option
+):
+    mock_execute.return_value = (mock_cursor([(1,)], ["n"]) for _ in range(1))
+    result = runner.invoke(
+        [
+            "sql",
+            "-q",
+            "select 1 as n",
+            "-o",
+            f"{option}=true",
+            "-o",
+            f"{option}=false",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert getattr(get_cli_context(), option) is False
+    assert _TIMING_WARNING not in result.output
+
+
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
 def test_sql_option_output_file_unwritable_path(
     mock_execute, mock_connect, runner, tmp_path

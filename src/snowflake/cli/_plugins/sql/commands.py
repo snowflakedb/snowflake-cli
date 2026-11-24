@@ -123,7 +123,13 @@ def _warn_unknown_prompt_tokens(template: str | None) -> None:
 _OUTPUT_FILE_OPTION = "output_file"
 _QUIET_OPTION = "quiet"
 _OUTPUT_FORMAT_OPTION = "output_format"
-_SUPPORTED_OPTIONS = "Only output_file, quiet and output_format are supported."
+_TIMING_OPTION = "timing"
+_TIMING_IN_OUTPUT_FILE_OPTION = "timing_in_output_file"
+_STARTUP_BOOL_OPTIONS = (_QUIET_OPTION, _TIMING_OPTION, _TIMING_IN_OUTPUT_FILE_OPTION)
+_SUPPORTED_OPTIONS = (
+    "Only output_file, quiet, output_format, timing and timing_in_output_file "
+    "are supported."
+)
 
 
 def _strip_matching_quotes(value: str) -> str:
@@ -153,6 +159,8 @@ class _StartupOptions:
     output_file: str | None = None
     quiet: bool | None = None
     output_format: OutputFormat | None = None
+    timing: bool | None = None
+    timing_in_output_file: bool | None = None
 
 
 def _resolve_startup_options(raw_options: List[str] | None) -> _StartupOptions:
@@ -162,17 +170,17 @@ def _resolve_startup_options(raw_options: List[str] | None) -> _StartupOptions:
     a spool. There is no config key or environment variable for output_file.
     """
     output_file: str | None = None
-    quiet: bool | None = None
     output_format: OutputFormat | None = None
+    bools: dict[str, bool] = {}
     for raw in raw_options or []:
         key, value = _parse_snowsql_option(raw)
         option = key.lower()
         if option == _OUTPUT_FILE_OPTION:
             normalized = _normalize_output_file_value(value)
             output_file = normalized if normalized.strip() else None
-        elif option == _QUIET_OPTION:
+        elif option in _STARTUP_BOOL_OPTIONS:
             try:
-                quiet = parse_bool_value(_QUIET_OPTION, value)
+                bools[option] = parse_bool_value(option, value)
             except ValueError as e:
                 raise CliArgumentError(str(e)) from e
         elif option == _OUTPUT_FORMAT_OPTION:
@@ -183,7 +191,11 @@ def _resolve_startup_options(raw_options: List[str] | None) -> _StartupOptions:
         else:
             raise CliArgumentError(f"Unknown option '{key}'. {_SUPPORTED_OPTIONS}")
     return _StartupOptions(
-        output_file=output_file, quiet=quiet, output_format=output_format
+        output_file=output_file,
+        quiet=bools.get(_QUIET_OPTION),
+        output_format=output_format,
+        timing=bools.get(_TIMING_OPTION),
+        timing_in_output_file=bools.get(_TIMING_IN_OUTPUT_FILE_OPTION),
     )
 
 
@@ -202,9 +214,34 @@ def _reject_format_flag_conflict(resolved: _StartupOptions) -> None:
         )
 
 
-def _apply_startup_options(raw_options: List[str] | None) -> None:
+def _warn_timing_outside_repl(resolved: _StartupOptions) -> None:
+    """The Time Elapsed line is printed only by the REPL loop.
+
+    False values already match -q, -f and -i output, so SnowSQL scripts that
+    pass them keep working silently. A true value cannot take effect there.
+    """
+    enabled = [
+        name
+        for name, value in (
+            (_TIMING_OPTION, resolved.timing),
+            (_TIMING_IN_OUTPUT_FILE_OPTION, resolved.timing_in_output_file),
+        )
+        if value
+    ]
+    if enabled:
+        options = " and ".join(f"-o {name}=true" for name in enabled)
+        verb = "has" if len(enabled) == 1 else "have"
+        cli_console.stderr_warning(
+            f"{options} {verb} no effect with -q, -f or -i. The Time Elapsed line "
+            "is printed only in the interactive REPL."
+        )
+
+
+def _apply_startup_options(raw_options: List[str] | None, is_repl: bool) -> None:
     resolved = _resolve_startup_options(raw_options)
     _reject_format_flag_conflict(resolved)
+    if not is_repl:
+        _warn_timing_outside_repl(resolved)
     manager = get_cli_context_manager()
     if resolved.output_file:
         manager.open_spool(resolved.output_file)
@@ -212,6 +249,10 @@ def _apply_startup_options(raw_options: List[str] | None) -> None:
         manager.quiet = resolved.quiet
     if resolved.output_format is not None:
         manager.output_format = resolved.output_format
+    if resolved.timing is not None:
+        manager.timing = resolved.timing
+    if resolved.timing_in_output_file is not None:
+        manager.timing_in_output_file = resolved.timing_in_output_file
 
 
 @app.command(
@@ -317,7 +358,11 @@ def _apply_startup_options(raw_options: List[str] | None) -> None:
                 code("-o output_format=<format>"),
                 " sets the starting output format. It cannot be combined with ",
                 code("--format"),
-                ".",
+                ". ",
+                code("-o timing=false"),
+                " and ",
+                code("-o timing_in_output_file=true"),
+                " control the Time Elapsed line, which only the interactive REPL prints.",
             ),
             note(
                 "When the query contains characters the shell interprets (for example ",
@@ -447,7 +492,8 @@ def execute_sql(
         metavar="KEY=VALUE",
         help=(
             "Sets a SnowSQL-style option for this run. Supported options are "
-            "output_file, quiet and output_format. -o output_file=\\<path\\> appends query "
+            "output_file, quiet, output_format, timing and timing_in_output_file. "
+            "-o output_file=\\<path\\> appends query "
             "results to the file and still prints them, like !spool \\<path\\>. "
             "An empty output_file turns spooling off, and output_file=off "
             "writes to a file named off. "
@@ -457,6 +503,10 @@ def execute_sql(
             "!set output_format, and overrides the config key and environment "
             "variable. It cannot be combined with --format, and !set output_format "
             "can still change it later. "
+            "-o timing=false hides the Time Elapsed line, and "
+            "-o timing_in_output_file=true also writes it to the output file, "
+            "like the matching !set options. That line is printed only in the "
+            "interactive REPL, so a true value with -q, -f or -i prints a warning. "
             "Repeat -o to set several options. The last value of an option wins."
         ),
         show_default=False,
@@ -502,7 +552,7 @@ def execute_sql(
 
     # Leave the spool open. In -q mode MultipleResults is printed after this
     # function returns, and a later !spool / !set output_file replaces it.
-    _apply_startup_options(option)
+    _apply_startup_options(option, is_repl=no_source_provided)
 
     if no_source_provided:
         from snowflake.cli._plugins.sql.repl import Repl

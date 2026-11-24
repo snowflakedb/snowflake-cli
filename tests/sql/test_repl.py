@@ -2037,3 +2037,72 @@ def test_repl_loop_drains_completion_telemetry_before_prompt():
         with pytest.raises(EOFError):
             repl._repl_loop()  # noqa: SLF001
     drain.assert_not_called()
+
+
+def _run_repl_with_options(runner, mock_cursor, *options):
+    prompts = iter(("select 1;", "exit"))
+    with mock.patch(
+        "snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string",
+        side_effect=lambda *args, **kwargs: [mock_cursor(rows=[("1",)], columns=["1"])],
+    ), mock.patch(
+        "snowflake.cli._plugins.sql.repl.Repl._initialize_connection"
+    ), mock.patch(
+        "snowflake.cli._plugins.sql.repl.Repl.repl_prompt",
+        side_effect=lambda *args, **kwargs: next(prompts, "exit"),
+    ):
+        return runner.invoke(
+            ["sql", "--no-prompt-exit-repl", *options],
+            env={"SNOWFLAKE_CLI_AUTO_COMPLETION": "false"},
+        )
+
+
+def test_repl_option_timing_false_hides_elapsed(runner, mock_cursor):
+    result = _run_repl_with_options(runner, mock_cursor, "-o", "timing=false")
+    assert result.exit_code == 0, result.output
+    assert "| 1 |" in result.output
+    assert "Time Elapsed" not in result.output
+    assert "no effect with -q" not in result.output
+
+
+def test_repl_option_timing_true_prints_elapsed_without_warning(runner, mock_cursor):
+    result = _run_repl_with_options(runner, mock_cursor, "-o", "timing=true")
+    assert result.exit_code == 0, result.output
+    assert "Time Elapsed" in result.output
+    assert "no effect with -q" not in result.output
+
+
+@pytest.mark.parametrize(
+    "timing, quiet, terminal_elapsed, spooled_elapsed",
+    (
+        ("true", "false", True, True),
+        ("true", "true", False, True),
+        ("false", "false", False, False),
+    ),
+)
+def test_repl_option_timing_in_output_file_with_output_file_and_quiet(
+    runner, mock_cursor, tmp_path, timing, quiet, terminal_elapsed, spooled_elapsed
+):
+    spool = tmp_path / "out.txt"
+    manager = get_cli_context_manager()
+    try:
+        result = _run_repl_with_options(
+            runner,
+            mock_cursor,
+            "-o",
+            f"output_file={spool}",
+            "-o",
+            "timing_in_output_file=true",
+            "-o",
+            f"timing={timing}",
+            "-o",
+            f"quiet={quiet}",
+        )
+        assert result.exit_code == 0, result.output
+        contents = spool.read_text(encoding="utf-8")
+    finally:
+        manager.close_spool()
+
+    assert ("Time Elapsed" in result.output) is terminal_elapsed
+    assert "no effect with -q" not in result.output
+    assert "| 1 |" in contents
+    assert ("Time Elapsed" in contents) is spooled_elapsed

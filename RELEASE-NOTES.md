@@ -20,6 +20,7 @@
 
 ## New additions
 * Added `--overrides` option to `snow bundle execute`. It takes a path to a YAML file that replaces the code bundle configuration file.
+* `snow sql` accepts `-o timing=<true|false>` and `-o timing_in_output_file=<true|false>`, with the same values and error messages as the matching `!set` options. They apply before any SQL runs. Only the interactive REPL prints the `Time Elapsed` line, so with `-q`, `-f`, or `-i` a false value changes nothing and a true value prints a warning. An invalid value fails before any SQL runs. When an option is given more than once, the last value wins.
 
 ## Fixes and improvements
 * The Windows direct installer installs the x64 package on ARM64 Windows when the channel has no ARM package. Windows runs that package under emulation.
