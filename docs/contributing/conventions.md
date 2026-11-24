@@ -275,6 +275,43 @@ with cc.phase("Building...", "Done."): # grouped output block
     cc.step("Step B")
 ```
 
+## Trace span names
+
+Command traces use `get_cli_context().metrics.span(name)` (a context manager)
+or `@span(name)` (a decorator). The name is the only free-form field on a span,
+so it must be a **string literal** — never an f-string, and never an object
+name, path, id, or message. A unit test (`tests/api/test_span_names.py`) walks
+every `span(...)` call and rejects names that break these rules.
+
+New names follow one of two grammars. Tokens are `[a-z][a-z0-9_]*`. CLI dashes
+become underscores (`build-image` → `build_image`).
+
+| Namespace | Grammar | Example |
+|---|---|---|
+| Shared framework work | `core.<area>.<step>[.<substep>]` | `core.connection.authenticate` |
+| Work that belongs to one command | `cmd.<group>[.<subgroup>].<command>.<phase>[.<step>]` | `cmd.snowpark.deploy.upload` |
+
+`area` is one of `startup`, `config`, `plugins`, `project`, `connection`,
+`output`. `phase` is one of:
+
+| Phase | Work |
+|---|---|
+| `validate` | local checks, no Snowflake I/O |
+| `resolve` | read remote state (SHOW, DESCRIBE, SELECT) |
+| `build` | produce local artifacts (bundle, zip, image) |
+| `provision` | DDL and grants |
+| `upload` | PUT or stage sync |
+| `process` | the command's main action |
+| `wait` | polling |
+| `fetch` | results, logs, files, URLs |
+| `cleanup` | best-effort teardown |
+| `confirm` | an interactive prompt |
+
+Names that already exist outside these grammars (`bundle`, `sql.client_query`,
+`action.app_pkg.deploy`, `snowflake_app.*`, …) stay as they are. Do not add new
+names in those families; add the new name to the test's legacy allowlist only
+when an existing call must keep a frozen name.
+
 ## Linting and formatting
 
 Linting and formatting run automatically on commit via pre-commit. Most issues
