@@ -9,6 +9,7 @@ from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import HTTPRedirectHandler, build_opener
 
 from jinja2 import UndefinedError
+from snowflake.cli._plugins.sql.inline_dcm import split_sql_statements
 from snowflake.cli._plugins.sql.repl_commands import (
     ReplCommand,
     UnknownCommandError,
@@ -465,7 +466,7 @@ def recursive_statement_reader(
                     content = pre_render(content)
 
                 yield from recursive_statement_reader(
-                    split_statements(io.StringIO(content), remove_comments),
+                    split_sql_statements(content, remove_comments),
                     seen_files,
                     operators,
                     remove_comments,
@@ -509,7 +510,7 @@ def files_reader(
             continue
         if pre_render:
             content = pre_render(content)
-        stmts = split_statements(io.StringIO(content), remove_comments)
+        stmts = split_sql_statements(content, remove_comments)
         # per -f file; include budget is not shared across paths
         yield from recursive_statement_reader(
             stmts,
@@ -535,10 +536,12 @@ def query_reader(
     # when the line starts with a command:
     # '!queries amount=3; select 3;'
     # it is treated as a single statement
+    # Inline DCM (BEGIN ... END) is kept whole by split_sql_statements.
+    # Do not teach split_statements about that block.
     content = source
     if pre_render:
         content = pre_render(content)
-    stmts = split_statements(io.StringIO(content), remove_comments)
+    stmts = split_sql_statements(content, remove_comments)
     yield from recursive_statement_reader(
         stmts, [], operators, remove_comments, pre_render, disable_url_sources
     )

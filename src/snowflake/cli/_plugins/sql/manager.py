@@ -18,9 +18,11 @@ import logging
 import sys
 from functools import partial
 from pathlib import Path
+from textwrap import dedent
 from typing import Dict, Iterable, List, Tuple
 
 from snowflake.cli._app.printing import is_structured_format, print_raw, print_result
+from snowflake.cli._plugins.sql.inline_dcm import is_inline_dcm_statement
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
@@ -204,12 +206,25 @@ class SqlManager(SqlExecutionMixin):
                 print_result(CollectionResult([{"scheduled query ID": cursor.sfqid}]))
             elif stmt.statement:
                 _echo_repl_statement(stmt.statement)
-                yield from self.execute_string(
-                    stmt.statement, cursor_class=cursor_class
-                )
+                if is_inline_dcm_statement(stmt.statement):
+                    # execute_string -> execute_stream splits on ';' again.
+                    # The server parses this BEGIN/END script as one statement.
+                    yield self._execute_inline_dcm(stmt.statement, cursor_class)
+                else:
+                    yield from self.execute_string(
+                        stmt.statement, cursor_class=cursor_class
+                    )
                 self._notify_compiled_success(stmt.statement)
             if stmt.command:
                 stmt.command.execute(self._conn)
+
+    def _execute_inline_dcm(self, statement: str, cursor_class) -> SnowflakeCursor:
+        """Send one inline DCM script without a second semicolon split."""
+        sql_text = dedent(statement)
+        logger.debug("Executing %s", sql_text)
+        cursor = self._conn.cursor(cursor_class=cursor_class)
+        cursor.execute(sql_text)
+        return cursor
 
     def _notify_compiled_success(self, statement: str) -> None:
         hook = getattr(self, "on_compiled_success", None)
