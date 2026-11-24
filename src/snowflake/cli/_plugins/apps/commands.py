@@ -27,6 +27,7 @@ import json
 import logging
 import re
 import sys
+from contextlib import AbstractContextManager
 from pathlib import Path
 from types import SimpleNamespace
 from typing import (
@@ -37,6 +38,7 @@ from typing import (
     Literal,
     NamedTuple,
     Optional,
+    cast,
 )
 
 import typer
@@ -84,6 +86,12 @@ from snowflake.cli._plugins.apps.manager import (
     is_personal_database,
     perform_bundle,
 )
+from snowflake.cli._plugins.apps.templates import (
+    TEMPLATES_REPOSITORY,
+    TemplateRepository,
+    readable_label,
+    render_app_yml,
+)
 from snowflake.cli._plugins.apps.upload_errors import (
     UploadPhase,
     classify_upload_error,
@@ -96,9 +104,15 @@ from snowflake.cli.api.config import (
     get_file_io_encoding,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES
-from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
+from snowflake.cli.api.exceptions import (
+    CliArgumentError,
+    CliError,
+    IncompatibleParametersError,
+)
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.metrics import CLIMetricsSpan
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -108,6 +122,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.util import identifier_for_url, unquote_identifier
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.errors import OperationalError, ProgrammingError
 
 if TYPE_CHECKING:
@@ -1113,6 +1128,154 @@ def _app_service_exists(manager: SnowflakeAppManager, service_fqn: FQN) -> bool:
         return False
 
 
+def _resolve_app_name(
+    app_name: Optional[str], directory_name: str, directory_description: str
+) -> str:
+    """Return *app_name*, or one derived from *directory_name*, after validating it."""
+    resolved_app_name = app_name
+    if resolved_app_name is None:
+        # For implicit names, normalize directory strings into a valid
+        # identifier by mapping common separators to "_" and stripping
+        # all other disallowed characters.
+        resolved_app_name = re.sub(
+            r"[^a-zA-Z0-9_]",
+            "",
+            directory_name.replace(" ", "_").replace("-", "_"),
+        )
+
+    if not resolved_app_name:
+        raise CliArgumentError(
+            f"Could not derive app name from {directory_description}. "
+            "Please provide --app-name."
+        )
+
+    if not re.fullmatch(r"[a-zA-Z0-9_]+", resolved_app_name):
+        raise CliArgumentError(
+            f"Invalid app name '{sanitize_for_terminal(resolved_app_name)}'. "
+            "Only letters, digits, and underscores are allowed."
+        )
+    return resolved_app_name
+
+
+def _resolve_deploy_location(
+    manager: SnowflakeAppManager,
+    app_name: str,
+    build_eai: Optional[str],
+    defaults_span: AbstractContextManager[CLIMetricsSpan],
+    personal_database_span: AbstractContextManager[CLIMetricsSpan],
+) -> dict[str, tuple[Optional[str], str]]:
+    """Resolve where the app named *app_name* deploys, and where each value came from.
+
+    Returns ``(value, source)`` for ``database``, ``schema``, ``warehouse``, and
+    ``build_eai``, and raises when any of the first three can't be resolved.
+    *defaults_span* and *personal_database_span* time the two account lookups, so
+    each command reports them under its own span names.
+    """
+    ctx = get_cli_context()
+    connection_name = (
+        ctx.connection_context.connection_name or get_default_connection_name()
+    )
+    conn_config = get_connection_dict(connection_name)
+
+    with defaults_span:
+        params = manager.fetch_app_service_defaults(app_name)
+
+    def _resolve(
+        user_input=None,
+        account_param=None,
+        default_value=None,
+        current_session=None,
+    ):
+        """Return (value, source) using a fixed resolution order.
+
+        Resolution: user_input > account_param > default_value > current_session.
+        """
+        if user_input is not None:
+            return user_input, SOURCE_USER_INPUT
+        if account_param is not None:
+            return account_param, SOURCE_ACCOUNT_PARAM
+        if default_value is not None:
+            return default_value, SOURCE_DEFAULT
+        if current_session is not None:
+            return current_session, SOURCE_CURRENT_SESSION
+        return None, SOURCE_MISSING
+
+    # ── Pre-compute current session values ─────────────────────────────
+    conn = ctx.connection_context
+    # ``conn.warehouse/database/schema`` are only non-None when the user
+    # explicitly passed the corresponding connection-override flag on the
+    # command line (e.g. ``--warehouse MY_WH``).  Values from the
+    # connection config file come through ``conn_config`` instead.
+    cli_wh = getattr(conn, "warehouse", None) or None
+    cli_db = getattr(conn, "database", None) or None
+    cli_schema = getattr(conn, "schema", None) or None
+
+    # A user-supplied database must be paired with an explicit schema: schema
+    # resolution would otherwise fall back to an account parameter or the
+    # personal-database default, silently placing the app in a schema that does
+    # not belong to the requested database.
+    if cli_db and not cli_schema:
+        raise CliError(
+            "--schema is required when --database is specified. "
+            "Provide --schema to select the schema within the requested database."
+        )
+
+    session_wh = conn_config.get("warehouse") or None
+    session_db = conn_config.get("database") or None
+    session_schema = conn_config.get("schema") or None
+
+    with personal_database_span:
+        personal_db = manager.get_personal_database()
+    personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
+
+    # ── Resolve each field ────────────────────────────────────────────
+    resolved = {
+        "database": _resolve(
+            user_input=cli_db,
+            account_param=params.get("database"),
+            default_value=personal_db,
+            current_session=session_db,
+        ),
+        "schema": _resolve(
+            user_input=cli_schema,
+            account_param=params.get("schema"),
+            default_value=personal_schema,
+            current_session=session_schema,
+        ),
+        "warehouse": _resolve(
+            user_input=cli_wh,
+            account_param=params.get("query_warehouse"),
+            current_session=session_wh,
+        ),
+        # Compute pools are intentionally not resolved or written: app
+        # services always run on server-managed compute pools, so
+        # ``snow app setup`` never configures ``build_compute_pool`` /
+        # ``service_compute_pool``. The (hidden) ``--compute-pool`` flag is
+        # accepted for backward compatibility but no longer has any effect.
+        # TODO: Remove --build-eai argument once the builder service no longer
+        # requires an external access integration.
+        "build_eai": _resolve(
+            user_input=build_eai,
+            account_param=params.get("build_eai"),
+        ),
+    }
+
+    # ── Validate required values ─────────────────────────────────────
+    if not resolved["database"][0]:
+        raise CliError(
+            "Missing database. Provide --database, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter, or check your connection."
+        )
+    if not resolved["schema"][0]:
+        raise CliError(
+            "Missing schema. Provide --schema, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter, or check your connection."
+        )
+    if not resolved["warehouse"][0]:
+        raise CliError(
+            "Missing warehouse. Provide --warehouse, set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter, or check your connection."
+        )
+    return resolved
+
+
 @_utf8_output
 def snowflake_app_setup(
     app_name: Optional[str],
@@ -1140,29 +1303,9 @@ def snowflake_app_setup(
 
     def _run() -> CommandResult:
         with metrics.span("snowflake_app.setup"):
-            resolved_app_name = app_name
-            if resolved_app_name is None:
-                derived_app_name = Path.cwd().name
-                # For implicit names, normalize directory strings into a valid
-                # identifier by mapping common separators to "_" and stripping
-                # all other disallowed characters.
-                resolved_app_name = re.sub(
-                    r"[^a-zA-Z0-9_]",
-                    "",
-                    derived_app_name.replace(" ", "_").replace("-", "_"),
-                )
-
-            if not resolved_app_name:
-                raise ClickException(
-                    "Could not derive app name from the current directory. "
-                    "Please provide --app-name."
-                )
-
-            if not re.fullmatch(r"[a-zA-Z0-9_]+", resolved_app_name):
-                raise ClickException(
-                    f"Invalid app name '{resolved_app_name}'. "
-                    "Only letters, digits, and underscores are allowed."
-                )
+            resolved_app_name = _resolve_app_name(
+                app_name, Path.cwd().name, "the current directory"
+            )
             # app.yml is a CLI-owned manifest that the ``snow app`` commands read
             # back with the same encoding policy (see _app_group_callback): an explicit
             # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
@@ -1180,108 +1323,16 @@ def snowflake_app_setup(
                             f"{existing} already exists. Skipping initialization."
                         )
 
-            connection_name = (
-                ctx.connection_context.connection_name or get_default_connection_name()
-            )
-            conn_config = get_connection_dict(connection_name)
-
             manager = SnowflakeAppManager()
-            with metrics.span("snowflake_app.setup.resolve_defaults"):
-                params = manager.fetch_app_service_defaults(resolved_app_name)
-
-            def _resolve(
-                user_input=None,
-                account_param=None,
-                default_value=None,
-                current_session=None,
-            ):
-                """Return (value, source) using a fixed resolution order.
-
-                Resolution: user_input > account_param > default_value > current_session.
-                """
-                if user_input is not None:
-                    return user_input, SOURCE_USER_INPUT
-                if account_param is not None:
-                    return account_param, SOURCE_ACCOUNT_PARAM
-                if default_value is not None:
-                    return default_value, SOURCE_DEFAULT
-                if current_session is not None:
-                    return current_session, SOURCE_CURRENT_SESSION
-                return None, SOURCE_MISSING
-
-            # ── Pre-compute current session values ─────────────────────────────
-            conn = ctx.connection_context
-            # ``conn.warehouse/database/schema`` are only non-None when the user
-            # explicitly passed the corresponding connection-override flag on the
-            # command line (e.g. ``--warehouse MY_WH``).  Values from the
-            # connection config file come through ``conn_config`` instead.
-            cli_wh = getattr(conn, "warehouse", None) or None
-            cli_db = getattr(conn, "database", None) or None
-            cli_schema = getattr(conn, "schema", None) or None
-
-            # A user-supplied database must be paired with an explicit schema: schema
-            # resolution would otherwise fall back to an account parameter or the
-            # personal-database default, silently placing the app in a schema that does
-            # not belong to the requested database.
-            if cli_db and not cli_schema:
-                raise CliError(
-                    "--schema is required when --database is specified. "
-                    "Provide --schema to select the schema within the requested database."
-                )
-
-            session_wh = conn_config.get("warehouse") or None
-            session_db = conn_config.get("database") or None
-            session_schema = conn_config.get("schema") or None
-
-            with metrics.span("snowflake_app.setup.get_personal_database"):
-                personal_db = manager.get_personal_database()
-            personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
-
-            # ── Resolve each field ────────────────────────────────────────────
-            resolved = {
-                "database": _resolve(
-                    user_input=cli_db,
-                    account_param=params.get("database"),
-                    default_value=personal_db,
-                    current_session=session_db,
+            resolved = _resolve_deploy_location(
+                manager,
+                resolved_app_name,
+                build_eai,
+                defaults_span=metrics.span("snowflake_app.setup.resolve_defaults"),
+                personal_database_span=metrics.span(
+                    "snowflake_app.setup.get_personal_database"
                 ),
-                "schema": _resolve(
-                    user_input=cli_schema,
-                    account_param=params.get("schema"),
-                    default_value=personal_schema,
-                    current_session=session_schema,
-                ),
-                "warehouse": _resolve(
-                    user_input=cli_wh,
-                    account_param=params.get("query_warehouse"),
-                    current_session=session_wh,
-                ),
-                # Compute pools are intentionally not resolved or written: app
-                # services always run on server-managed compute pools, so
-                # ``snow app setup`` never configures ``build_compute_pool`` /
-                # ``service_compute_pool``. The (hidden) ``--compute-pool`` flag is
-                # accepted for backward compatibility but no longer has any effect.
-                # TODO: Remove --build-eai argument once the builder service no longer
-                # requires an external access integration.
-                "build_eai": _resolve(
-                    user_input=build_eai,
-                    account_param=params.get("build_eai"),
-                ),
-            }
-
-            # ── Validate required values ─────────────────────────────────────
-            if not resolved["database"][0]:
-                raise ClickException(
-                    "Missing database. Provide --database, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter, or check your connection."
-                )
-            if not resolved["schema"][0]:
-                raise ClickException(
-                    "Missing schema. Provide --schema, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter, or check your connection."
-                )
-            if not resolved["warehouse"][0]:
-                raise ClickException(
-                    "Missing warehouse. Provide --warehouse, set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter, or check your connection."
-                )
+            )
 
             resolved_values = {k: v[0] for k, v in resolved.items()}
 
@@ -1423,6 +1474,167 @@ def _report_account_capabilities(
         with metrics.span("snowflake_app.setup.fetch_capabilities"):
             capabilities = SnowflakeAppManager().fetch_account_capabilities()
         return ObjectResult(capabilities)
+
+
+@_utf8_output
+@span("cmd.app.templates.fetch")
+def snowflake_app_templates(ref: Optional[str] = None) -> CommandResult:
+    """List the Snowflake App Runtime project templates.
+
+    Reads the template catalog at *ref*, or at the templates release tag. See
+    the ``snow app templates`` command in
+    :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
+    """
+    with TemplateRepository(ref) as repository:
+        source = repository.load()
+    if get_cli_context().output_format.is_json:
+        return CollectionResult(
+            template.model_dump(exclude={"path", "digest", "files"})
+            for template in source.templates
+        )
+    return CollectionResult(
+        {
+            "id": template.id,
+            "title": template.title,
+            "runtime": template.runtime,
+            "default": template.default,
+            "summary": template.summary,
+        }
+        for template in source.templates
+    )
+
+
+@_utf8_output
+def snowflake_app_init(
+    path: str,
+    template_id: Optional[str],
+    app_name: Optional[str],
+    ref: Optional[str] = None,
+) -> CommandResult:
+    """Create a Snowflake App Runtime project from a template.
+
+    The project is assembled in a temporary directory: the template's files at
+    *ref* (or at the templates release tag), each checked against the catalog,
+    and its ``app.yml`` filled in from the account's deployment defaults. Only
+    then is it copied to *path*, which must not exist or be an empty directory.
+    See the ``snow app init`` command in
+    :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
+    """
+    destination = SecurePath(path)
+    if destination.exists() and (
+        not destination.is_dir() or any(destination.iterdir())
+    ):
+        raise CliError(
+            f"{sanitize_for_terminal(path)} already exists and is not an empty "
+            "directory. Choose a new directory for the project."
+        )
+    directory_name = destination.path.resolve().name
+    resolved_app_name = _resolve_app_name(
+        app_name, directory_name, "the project directory"
+    )
+    name = resolved_app_name.upper()
+    metrics = get_cli_context().metrics
+
+    with TemplateRepository(ref) as repository:
+        manager = SnowflakeAppManager()
+        # Telemetry goes out over the Snowflake connection, and the CLI opens one
+        # just for telemetry only when logging in is silent. Connecting before
+        # reading the templates reports a GitHub failure for every user.
+        resolved = _resolve_deploy_location(
+            manager,
+            resolved_app_name,
+            None,
+            defaults_span=metrics.span("cmd.app.init.resolve.defaults"),
+            personal_database_span=metrics.span(
+                "cmd.app.init.resolve.personal_database"
+            ),
+        )
+        values = {key: value for key, (value, _source) in resolved.items()}
+        source = repository.load()
+        template = source.get(template_id)
+        with SecurePath.temporary_directory() as tmp:
+            project = tmp / "project"
+            project.mkdir()
+            with metrics.span("cmd.app.init.fetch.template"):
+                repository.download(source, template, project)
+            app_yml = project / APP_YML_FILENAME
+            rendered = render_app_yml(
+                app_yml.read_text(DEFAULT_SIZE_LIMIT_MB, encoding="utf-8"),
+                template=template,
+                ref=source.ref,
+                commit=source.commit,
+                name=name,
+                label=readable_label(app_name or directory_name),
+                database=cast(str, values["database"]),
+                schema=cast(str, values["schema"]),
+                warehouse=cast(str, values["warehouse"]),
+                build_eai=values["build_eai"],
+            )
+            with app_yml.open("wb") as fd:
+                fd.write(rendered.encode("utf-8"))
+            destination.mkdir(parents=True, exist_ok=True)
+            for child in project.iterdir():
+                child.copy(destination.path / child.name)
+
+    service_fqn = app_fqn(
+        database=cast(str, values["database"]),
+        schema=cast(str, values["schema"]),
+        name=name,
+    )
+    with metrics.span("cmd.app.init.validate.existing_app_service"):
+        app_exists = _app_service_exists(manager, service_fqn)
+    missing_capabilities: list[str] = []
+    if template.requires:
+        with metrics.span("cmd.app.init.fetch.capabilities"):
+            capabilities = manager.fetch_account_capabilities()
+        # A capability this CLI doesn't know can't be checked, so it isn't reported.
+        missing_capabilities = [
+            capability
+            for capability in template.requires
+            if capabilities.get(capability) is False
+        ]
+
+    if get_cli_context().output_format.is_json:
+        return ObjectResult(
+            {
+                "path": str(destination.path),
+                "template": template.id,
+                "ref": source.ref,
+                "commit": source.commit,
+                "digest": template.digest,
+                "name": name,
+                **values,
+                "app_exists": app_exists,
+                "missing_capabilities": missing_capabilities,
+            }
+        )
+
+    cli_console.step(
+        f"Created {sanitize_for_terminal(path)} from the {template.id} template "
+        f"({TEMPLATES_REPOSITORY} {source.ref}, commit {source.commit[:12]})."
+    )
+    cli_console.step(f"  name: {name}")
+    for key, (value, value_source) in resolved.items():
+        if value is None and value_source == SOURCE_MISSING:
+            continue
+        cli_console.step(f"  {key}: {sanitize_for_terminal(value)}  ({value_source})")
+    if missing_capabilities:
+        cli_console.warning(
+            f"The {template.id} template needs "
+            f"{', '.join(missing_capabilities)}, which this account doesn't "
+            "report as enabled. The app can't deploy until they are."
+        )
+    if app_exists:
+        cli_console.warning(
+            "Application service "
+            f"{sanitize_for_terminal(service_fqn.identifier)} already exists. "
+            "Deploying this project will replace that app's code and settings. "
+            f"To create a separate app, change name in {APP_YML_FILENAME}."
+        )
+    return MessageResult(
+        f"Read {APP_YML_FILENAME} and README.md in {sanitize_for_terminal(path)}, "
+        "then run `snow app deploy` there to deploy the app."
+    )
 
 
 @_utf8_output

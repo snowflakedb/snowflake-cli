@@ -29,10 +29,17 @@ from snowflake.cli._plugins.apps.commands import (
     snowflake_app_bundle,
     snowflake_app_deploy,
     snowflake_app_events,
+    snowflake_app_init,
     snowflake_app_open,
     snowflake_app_setup,
     snowflake_app_teardown,
+    snowflake_app_templates,
     snowflake_app_validate,
+)
+from snowflake.cli._plugins.apps.feature_flags import SnowflakeAppFeatureFlag
+from snowflake.cli._plugins.apps.templates import (
+    TEMPLATES_RELEASE_TAG,
+    TEMPLATES_REPOSITORY,
 )
 from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.common_flags import ValidateOption
@@ -426,6 +433,173 @@ def app_setup(
     return snowflake_app_setup(
         app_name, dry_run, compute_pool, build_eai, capabilities=capabilities
     )
+
+
+_APP_TEMPLATES_RELATED = (
+    link("/developer-guide/snowflake-cli/index"),
+    link(
+        "/developer-guide/snowflake-cli/command-reference/overview",
+        "Snowflake CLI command reference",
+    ),
+)
+
+_TemplatesRefOption = typer.Option(
+    None,
+    "--ref",
+    help=f"Branch, tag, or commit of {TEMPLATES_REPOSITORY} to read the templates "
+    f"from. Defaults to the {TEMPLATES_RELEASE_TAG} release tag.",
+    show_default=False,
+)
+
+
+@app.command(
+    "templates",
+    requires_connection=False,
+    hidden=not SnowflakeAppFeatureFlag.ENABLE_APP_TEMPLATES.is_enabled(),
+    rich_help_panel=SNOWFLAKE_APP_PANEL,
+    docs=CommandDocs(
+        related=_APP_TEMPLATES_RELATED,
+        usage_notes=(
+            plain_text(
+                "The templates come from the ",
+                code(TEMPLATES_RELEASE_TAG),
+                " release tag of the public ",
+                code(TEMPLATES_REPOSITORY),
+                " repository on GitHub, so the command needs HTTPS access to ",
+                code("github.com"),
+                " and ",
+                code("raw.githubusercontent.com"),
+                ". It doesn't connect to Snowflake. Pass ",
+                code("--ref"),
+                " to read another branch, tag, or commit, such as the unreleased "
+                "templates on ",
+                code("main"),
+                ".",
+            ),
+            plain_text(
+                "With ",
+                code("--format json"),
+                ", each template also lists when to use it, when not to, and "
+                "the account capabilities it needs.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text("List the templates:"),
+                command="snow app templates",
+            ),
+            Example(
+                description=plain_text("List the templates with all their details:"),
+                command="snow app templates --format json",
+            ),
+            Example(
+                description=plain_text(
+                    "List the unreleased templates on ", code("main"), ":"
+                ),
+                command="snow app templates --ref main",
+            ),
+        ),
+    ),
+)
+def app_templates(
+    ref: Optional[str] = _TemplatesRefOption,
+    **options,
+) -> CommandResult:
+    """
+    (Snowflake App Runtime only) Lists the templates for new Snowflake App Runtime projects.
+    """
+    set_app_flow(AppFlow.SNOWFLAKE_APP)
+    return snowflake_app_templates(ref)
+
+
+@app.command(
+    "init",
+    requires_connection=True,
+    hidden=not SnowflakeAppFeatureFlag.ENABLE_APP_TEMPLATES.is_enabled(),
+    rich_help_panel=SNOWFLAKE_APP_PANEL,
+    docs=CommandDocs(
+        related=_APP_TEMPLATES_RELATED,
+        usage_notes=(
+            plain_text(
+                "The ",
+                code("snow app init"),
+                " command creates a project from a template in the public ",
+                code(TEMPLATES_REPOSITORY),
+                " repository on GitHub, at its ",
+                code(TEMPLATES_RELEASE_TAG),
+                " release tag, or at the branch, tag, or commit you pass with ",
+                code("--ref"),
+                ". Every file is checked against the template catalog before "
+                "the project is written. Run ",
+                code("snow app templates"),
+                " to list the templates.",
+            ),
+            plain_text(
+                "The project's ",
+                code("app.yml"),
+                " says where the app deploys: its ",
+                code("database"),
+                ", ",
+                code("schema"),
+                ", and ",
+                code("query_warehouse"),
+                " are resolved the way ",
+                code("snow app setup"),
+                " resolves them. Its first line records the template, ref, and "
+                "commit the project came from. Run ",
+                code("snow app deploy"),
+                " in the project directory to deploy the app.",
+            ),
+        ),
+        examples=(
+            Example(
+                description=plain_text(
+                    "Create a project in ",
+                    code("my-app"),
+                    " from the default template:",
+                ),
+                command="snow app init my-app",
+            ),
+            Example(
+                description=plain_text("Create a project from a specific template:"),
+                command="snow app init sales-dashboard --template nextjs",
+            ),
+            Example(
+                description=plain_text(
+                    "Create a project from the unreleased templates on ",
+                    code("main"),
+                    ":",
+                ),
+                command="snow app init my-app --ref main",
+            ),
+        ),
+    ),
+)
+def app_init(
+    path: str = typer.Argument(
+        ...,
+        help="Directory to create the project in. It must not exist, or must be empty.",
+        show_default=False,
+    ),
+    template: Optional[str] = typer.Option(
+        None,
+        "--template",
+        help="Template to create the project from, as listed by `snow app templates`. "
+        "Defaults to the default template.",
+    ),
+    app_name: Optional[str] = typer.Option(
+        None,
+        "--app-name",
+        help="Name of the app. Defaults to the project directory's name.",
+    ),
+    ref: Optional[str] = _TemplatesRefOption,
+    **options,
+) -> CommandResult:
+    """
+    (Snowflake App Runtime only) Creates a Snowflake App Runtime project from a template.
+    """
+    set_app_flow(AppFlow.SNOWFLAKE_APP)
+    return snowflake_app_init(path, template, app_name, ref)
 
 
 @app.command("bundle", rich_help_panel=COMMON_PANEL)

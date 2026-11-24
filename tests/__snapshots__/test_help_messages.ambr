@@ -1005,6 +1005,79 @@
   
   '''
 # ---
+# name: test_help_messages[app.init]
+  '''
+                                                                                  
+   Usage: root app init [OPTIONS] PATH [global options] [connection options]      
+                                                                                  
+   (Snowflake App Runtime only) Creates a Snowflake App Runtime project from a    
+   template.                                                                      
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    path      TEXT  Directory to create the project in. It must not exist,  |
+  |                      or must be empty.                                       |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --template          TEXT  Template to create the project from, as listed by  |
+  |                           snow app templates. Defaults to the default        |
+  |                           template.                                          |
+  | --app-name          TEXT  Name of the app. Defaults to the project           |
+  |                           directory's name.                                  |
+  | --ref               TEXT  Branch, tag, or commit of snowflakedb/sar-sdk to   |
+  |                           read the templates from. Defaults to the           |
+  |                           templates-v1 release tag.                          |
+  | --help      -h            Show this message and exit.                        |
+  +------------------------------------------------------------------------------+
+  +- Global and connection options ----------------------------------------------+
+  | Connection options: --connection, --host, --port, --protocol, --account,     |
+  | --user, --password, --authenticator, --workload-identity-provider,           |
+  | --private-key-file, --token, --token-file-path, --database, --schema,        |
+  | --role, --warehouse, --temporary-connection, --mfa-passcode, --enable-diag,  |
+  | --diag-log-path, --diag-allowlist-path, --oauth-client-id,                   |
+  | --oauth-client-secret, --oauth-authorization-url, --oauth-token-request-url, |
+  | --oauth-redirect-uri, --oauth-scope, --oauth-disable-pkce,                   |
+  | --oauth-enable-refresh-tokens, --oauth-enable-single-use-refresh-tokens,     |
+  | --client-store-temporary-credential, --secondary-roles,                      |
+  | --server-session-keep-alive                                                  |
+  | Global options: --format, --verbose, --debug, --silent,                      |
+  | --enhanced-exit-codes, --decimal-precision                                   |
+  |                                                                              |
+  | Run `snow --help` for full descriptions, or use `--help-all` on this         |
+  | command.                                                                     |
+  +------------------------------------------------------------------------------+
+  +- Usage notes ----------------------------------------------------------------+
+  | The snow app init command creates a project from a template in the public    |
+  | snowflakedb/sar-sdk repository on GitHub, at its templates-v1 release tag,   |
+  | or at the branch, tag, or commit you pass with --ref. Every file is checked  |
+  | against the template catalog before the project is written. Run snow app     |
+  | templates to list the templates.                                             |
+  |                                                                              |
+  | The project's app.yml says where the app deploys: its database, schema, and  |
+  | query_warehouse are resolved the way snow app setup resolves them. Its first |
+  | line records the template, ref, and commit the project came from. Run snow   |
+  | app deploy in the project directory to deploy the app.                       |
+  +------------------------------------------------------------------------------+
+  +- Examples -------------------------------------------------------------------+
+  | Create a project in my-app from the default template:                        |
+  | snow app init my-app                                                         |
+  |                                                                              |
+  | Create a project from a specific template:                                   |
+  | snow app init sales-dashboard --template nextjs                              |
+  |                                                                              |
+  | Create a project from the unreleased templates on main:                      |
+  | snow app init my-app --ref main                                              |
+  +------------------------------------------------------------------------------+
+  +- Related topics -------------------------------------------------------------+
+  | • https://docs.snowflake.com/en/developer-guide/snowflake-cli/index          |
+  | • Snowflake CLI command reference                                            |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/overview                                                 |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[app.open]
   '''
                                                                                   
@@ -2788,6 +2861,57 @@
   |                                                                              |
   | Run `snow --help` for full descriptions, or use `--help-all` on this         |
   | command.                                                                     |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[app.templates]
+  '''
+                                                                                  
+   Usage: root app templates [OPTIONS] [global options]                           
+                                                                                  
+   (Snowflake App Runtime only) Lists the templates for new Snowflake App Runtime 
+   projects.                                                                      
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --ref           TEXT  Branch, tag, or commit of snowflakedb/sar-sdk to read  |
+  |                       the templates from. Defaults to the templates-v1       |
+  |                       release tag.                                           |
+  | --help  -h            Show this message and exit.                            |
+  +------------------------------------------------------------------------------+
+  +- Global options -------------------------------------------------------------+
+  | Global options: --format, --verbose, --debug, --silent,                      |
+  | --enhanced-exit-codes, --decimal-precision                                   |
+  |                                                                              |
+  | Run `snow --help` for full descriptions, or use `--help-all` on this         |
+  | command.                                                                     |
+  +------------------------------------------------------------------------------+
+  +- Usage notes ----------------------------------------------------------------+
+  | The templates come from the templates-v1 release tag of the public           |
+  | snowflakedb/sar-sdk repository on GitHub, so the command needs HTTPS access  |
+  | to github.com and raw.githubusercontent.com. It doesn't connect to           |
+  | Snowflake. Pass --ref to read another branch, tag, or commit, such as the    |
+  | unreleased templates on main.                                                |
+  |                                                                              |
+  | With --format json, each template also lists when to use it, when not to,    |
+  | and the account capabilities it needs.                                       |
+  +------------------------------------------------------------------------------+
+  +- Examples -------------------------------------------------------------------+
+  | List the templates:                                                          |
+  | snow app templates                                                           |
+  |                                                                              |
+  | List the templates with all their details:                                   |
+  | snow app templates --format json                                             |
+  |                                                                              |
+  | List the unreleased templates on main:                                       |
+  | snow app templates --ref main                                                |
+  +------------------------------------------------------------------------------+
+  +- Related topics -------------------------------------------------------------+
+  | • https://docs.snowflake.com/en/developer-guide/snowflake-cli/index          |
+  | • Snowflake CLI command reference                                            |
+  |   https://docs.snowflake.com/en/developer-guide/snowflake-cli/               |
+  |   command-reference/overview                                                 |
   +------------------------------------------------------------------------------+
   
   
