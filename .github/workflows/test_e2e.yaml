@@ -16,7 +16,7 @@ on:
     - cron: "0 8 * * *"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'schedule' || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -43,7 +43,8 @@ jobs:
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     if: |
       (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'schedule'
     uses: ./.github/workflows/test_trusted.yaml
     with:
       runs-on: ${{ matrix.os }}
