@@ -28,9 +28,14 @@ from snowflake.cli._plugins.stage.manager import (
     TemporaryDirectory,
     _resolve_upload_workers,
 )
-from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
+    INSUFFICIENT_PRIVILEGES,
+)
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.project.util import to_string_literal
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import to_string_literal, unquote_identifier
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
@@ -840,6 +845,82 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(
         """create stage if not exists IDENTIFIER('"stage name"') encryption = (type = 'SNOWFLAKE_FULL')"""
     )
+
+
+@pytest.mark.parametrize(
+    "fqn, expected_query",
+    [
+        (FQN.from_string("stagename"), "show stages like 'STAGENAME'"),
+        (
+            FQN.from_string("myschema.stagename"),
+            "show stages like 'STAGENAME' in schema myschema",
+        ),
+        (
+            FQN.from_string("mydb.myschema.stagename"),
+            "show stages like 'STAGENAME' in schema mydb.myschema",
+        ),
+        (
+            FQN.from_string('"Mixed Case"'),
+            "show stages like 'Mixed Case'",
+        ),
+        # underscores in the name must be escaped so LIKE treats them literally
+        (
+            FQN.from_string("stage_name"),
+            r"show stages like 'STAGE\\_NAME'",
+        ),
+        (
+            FQN.from_string('"My DB"."My Schema".stage_name'),
+            'show stages like \'STAGE\\\\_NAME\' in schema "My DB"."My Schema"',
+        ),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_exists_returns_true_when_row_found(
+    mock_execute, mock_cursor, fqn, expected_query
+):
+    mock_execute.return_value = mock_cursor(
+        [{"name": unquote_identifier(fqn.name)}], ["name"]
+    )
+    assert StageManager().stage_exists(fqn) is True
+    mock_execute.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_exists_returns_false_when_no_rows(mock_execute, mock_cursor):
+    mock_execute.return_value = mock_cursor([], [])
+    assert StageManager().stage_exists(FQN.from_string("stageName")) is False
+
+
+@pytest.mark.parametrize(
+    "stage_name, returned_name",
+    [
+        ('"foo"', "FOO"),
+        ("foo", "foo"),
+    ],
+)
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_exists_returns_false_when_show_name_case_differs(
+    mock_execute, mock_cursor, stage_name, returned_name
+):
+    """SHOW LIKE is case-insensitive, so a different-case row is not this stage."""
+    mock_execute.return_value = mock_cursor([{"name": returned_name}], ["name"])
+    assert StageManager().stage_exists(FQN.from_string(stage_name)) is False
+
+
+@pytest.mark.parametrize(
+    "errno", [DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED, INSUFFICIENT_PRIVILEGES]
+)
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_exists_returns_false_on_expected_errors(mock_execute, errno):
+    mock_execute.side_effect = ProgrammingError(msg="boom", errno=errno)
+    assert StageManager().stage_exists(FQN.from_string("stageName")) is False
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_exists_reraises_unexpected_errors(mock_execute):
+    mock_execute.side_effect = ProgrammingError(msg="boom", errno=999)
+    with pytest.raises(ProgrammingError):
+        StageManager().stage_exists(FQN.from_string("stageName"))
 
 
 @mock.patch("snowflake.cli._plugins.object.commands.ObjectManager.execute_query")

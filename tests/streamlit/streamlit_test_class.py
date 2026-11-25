@@ -101,6 +101,13 @@ class StreamlitTestClass:
             "snowflake.cli._plugins.stage.manager.StageManager.create",
         ).start()
 
+        # Default mock cursors return a row, so an unpatched existence check
+        # would skip create and break assertions that the stage is created.
+        self.mock_stage_exists = mock.patch(
+            "snowflake.cli._plugins.stage.manager.StageManager.stage_exists",
+            return_value=False,
+        ).start()
+
         self.mock_list_files = mock.patch(
             "snowflake.cli._plugins.stage.manager.StageManager.list_files",
             return_value=MockCursor.from_input([], []),

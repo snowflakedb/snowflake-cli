@@ -109,13 +109,14 @@ def test_deploy_default_stage_paths(
     mock_make_url,
     mock_connector,
     mock_ctx,
+    mock_cursor,
     runner,
     project_directory,
     snapshot,
     notebook_id,
 ):
     """Deploy two different notebooks with the same notebook file name."""
-    ctx = mock_ctx()
+    ctx = mock_ctx(mock_cursor([{"name": "NOTEBOOKS"}], ["name"]))
     mock_connector.return_value = ctx
     mock_make_url.return_value = "http://the.notebook.url.mock"
     with project_directory("notebooks_multiple_v2") as project_path:
@@ -142,13 +143,15 @@ def test_deploy_single_notebook(
     mock_make_url,
     mock_connector,
     mock_ctx,
+    mock_cursor,
     runner,
     project_directory,
     project_name,
     snapshot,
 ):
     """Deploy single notebook with custom identifier and stage path."""
-    ctx = mock_ctx()
+    stage_name = "CUSTOM_STAGE" if project_name == "notebook_v2" else "NOTEBOOKS"
+    ctx = mock_ctx(mock_cursor([{"name": stage_name}], ["name"]))
     mock_connector.return_value = ctx
     mock_make_url.return_value = "http://the.notebook.url.mock"
     with project_directory(project_name) as project_root:
@@ -235,11 +238,12 @@ def test_deploy_notebook_with_runtime_environment_version_sql(
     mock_make_url,
     mock_connector,
     mock_ctx,
+    mock_cursor,
     runner,
     project_directory,
 ):
     """Test that runtime_environment_version field generates correct SQL for warehouse-only notebooks."""
-    ctx = mock_ctx()
+    ctx = mock_ctx(mock_cursor([{"name": "NOTEBOOKS"}], ["name"]))
     mock_connector.return_value = ctx
     mock_make_url.return_value = "http://the.notebook.url.mock"
 

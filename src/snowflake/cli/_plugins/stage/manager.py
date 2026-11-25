@@ -40,18 +40,26 @@ from snowflake.cli.api.commands.common import (
 )
 from snowflake.cli.api.config import get_config_value
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.errno import (
+    DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    INSUFFICIENT_PRIVILEGES,
+)
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
     VALID_IDENTIFIER_REGEX,
+    identifier_to_show_like_pattern,
     is_valid_quoted_identifier,
     is_valid_string_literal,
+    to_identifier,
     to_string_literal,
+    unquote_identifier,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.cli.api.utils.path_utils import path_resolver, resolve_without_follow
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -841,6 +849,47 @@ class StageManager(SqlExecutionMixin):
         with self.use_role(role) if role else nullcontext():
             stage_path = self.build_path(stage_name) / path
             return self.execute_query(f"remove {stage_path.path_for_sql()}")
+
+    def stage_exists(self, fqn: FQN) -> bool:
+        """Return True when ``SHOW STAGES`` can see a stage named ``fqn``.
+
+        ``CREATE STAGE IF NOT EXISTS`` requires ``CREATE STAGE`` on the schema
+        even when the stage is already there. Callers that only have
+        ``USAGE``, ``READ``, and ``WRITE`` on a pre-provisioned stage skip
+        create when this returns True. A missing schema or a hidden stage
+        returns False so the caller still attempts create.
+
+        ``SHOW STAGES LIKE`` is case-insensitive. Quoted stage names are not,
+        so a returned row counts only when its ``name`` equals the unquoted
+        identifier exactly.
+        """
+        pattern = identifier_to_show_like_pattern(fqn.name)
+        if fqn.database and fqn.schema:
+            in_clause = (
+                f" in schema {to_identifier(fqn.database)}.{to_identifier(fqn.schema)}"
+            )
+        elif fqn.schema:
+            in_clause = f" in schema {to_identifier(fqn.schema)}"
+        elif fqn.database:
+            in_clause = f" in database {to_identifier(fqn.database)}"
+        else:
+            in_clause = ""
+        try:
+            result = self.execute_query(
+                f"show stages like {pattern}{in_clause}",
+                cursor_class=DictCursor,
+            )
+        except ProgrammingError as err:
+            if err.errno in (
+                DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+                INSUFFICIENT_PRIVILEGES,
+            ):
+                return False
+            raise
+        expected_name = unquote_identifier(fqn.name)
+        return (
+            find_first_row(result, lambda row: row["name"] == expected_name) is not None
+        )
 
     def create(
         self,
