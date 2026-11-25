@@ -84,6 +84,7 @@
 * Improved validation of fields in `snow spcs service create` and `snow spcs service deploy`.
 * Improved validation of the API integration name in `snow git setup`.
 * Improved handling of SQL string literals.
+* Errors are emitted in the same structured format as successful output when `--format JSON` or `--format CSV` is set — including via `SNOWFLAKE_CLI_OUTPUT_FORMAT` or `cli.output_format`, and for an unknown command — instead of a Rich Error panel. Agents and scripts can parse the failure from stderr as `{"error": "...", "type": "...", "exit_code": ...}` (or a one-row CSV). `--debug` adds a `traceback` field to that document and does not prefix it with log lines. Table format is unchanged.
 
 
 # v3.32.1

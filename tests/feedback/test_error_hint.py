@@ -23,6 +23,7 @@ import click
 import pytest
 import typer.rich_utils as rich_utils
 from snowflake.cli._app.main_typer import _handle_exception
+from snowflake.cli._app.printing import install_structured_error_rendering
 from snowflake.cli._plugins.feedback.error_hint import (
     FEEDBACK_HINT,
     arm_feedback_hint,
@@ -211,18 +212,19 @@ def test_renderer_install_is_idempotent():
 
 
 def test_paired_renderer_install_does_not_stack(monkeypatch):
-    """create_or_get_app installs both wrappers on every lookup.
+    """create_or_get_app installs every error renderer on every lookup.
 
-    The permissions wrapper hides this one, and the next lookup used to
-    wrap the pair again. A few hundred commands then recurse in
-    rich_format_error.
+    A guard that only sees the outermost function stacks another pair per
+    command until rich_format_error recurses.
     """
     install_plain_remediation_error_renderer()
     install_feedback_error_hint()
+    install_structured_error_rendering()
     first = rich_utils.rich_format_error
     for _ in range(1000):
         install_plain_remediation_error_renderer()
         install_feedback_error_hint()
+        install_structured_error_rendering()
     assert rich_utils.rich_format_error is first
 
     exc = CliError("compilation failed")

@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import logging
 import logging.config
+import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 import typer
 from snowflake.cli.api.exceptions import InvalidLogsConfigurationError
@@ -160,6 +161,80 @@ def create_initial_loggers():
         pass
 
 
+def _structured_output_format() -> bool:
+    """True when stdout is a JSON or CSV document."""
+    from snowflake.cli.api.cli_global_context import get_cli_context
+    from snowflake.cli.api.output.formats import OutputFormat
+
+    output_format = get_cli_context().output_format
+    if not isinstance(output_format, OutputFormat):
+        return False
+    return output_format.is_json or output_format == OutputFormat.CSV
+
+
+class _DeferredConsoleHandler(logging.Handler):
+    """Hold console records until the command succeeds.
+
+    A JSON or CSV failure must be the whole stderr document. Records emitted
+    while the command runs stay in memory. ``flush_deferred_console_logs``
+    writes them after a successful command. ``discard_deferred_console_logs``
+    drops them before the structured error is printed.
+    """
+
+    terminator = "\n"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.buffer: List[logging.LogRecord] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.buffer.append(record)
+
+    def discard(self) -> None:
+        self.buffer.clear()
+
+    def write_buffer(self) -> None:
+        pending = self.buffer
+        self.buffer = []
+        if not pending:
+            return
+        stream = sys.stderr
+        for record in pending:
+            try:
+                stream.write(self.format(record) + self.terminator)
+            except Exception:
+                self.handleError(record)
+        try:
+            stream.flush()
+        except Exception:
+            self.handleError(pending[-1])
+
+
+def _deferred_console_handlers() -> Iterator[_DeferredConsoleHandler]:
+    seen: set[int] = set()
+    loggers = [logging.getLogger()]
+    for logger in logging.Logger.manager.loggerDict.values():
+        if isinstance(logger, logging.Logger):
+            loggers.append(logger)
+    for logger in loggers:
+        for handler in logger.handlers:
+            if isinstance(handler, _DeferredConsoleHandler) and id(handler) not in seen:
+                seen.add(id(handler))
+                yield handler
+
+
+def flush_deferred_console_logs() -> None:
+    """Write buffered console logs. No-op when the console handler is live."""
+    for handler in _deferred_console_handlers():
+        handler.write_buffer()
+
+
+def discard_deferred_console_logs() -> None:
+    """Drop buffered console logs so a structured error stays one document."""
+    for handler in _deferred_console_handlers():
+        handler.discard()
+
+
 def create_loggers(verbose: bool, debug: bool):
     """Creates a logger depending on the SnowCLI parameters and config file.
     verbose == True - print info and higher logs in default format
@@ -179,6 +254,15 @@ def create_loggers(verbose: bool, debug: bool):
         config.loggers["snowflake"].handlers = ["file", "console"]
     elif verbose:
         config.handlers["console"].update(level=logging.INFO)
+
+    # A live console handler writes log lines in front of a JSON/CSV error
+    # and ``json.loads`` fails. Buffer those lines instead of dropping the
+    # sink: a successful command still prints them (``app run --debug``),
+    # and ``print_structured_error`` discards them on failure.
+    if _structured_output_format():
+        config.handlers["console"][
+            "class"
+        ] = "snowflake.cli._app.loggers._DeferredConsoleHandler"
 
     global_log_level = config.handlers["console"]["level"]
 

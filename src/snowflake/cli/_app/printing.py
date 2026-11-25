@@ -15,7 +15,10 @@
 from __future__ import annotations
 
 import json
+import logging
+import re
 import sys
+import traceback
 from datetime import date, datetime, time
 from decimal import Decimal
 from json import JSONEncoder
@@ -33,7 +36,11 @@ from snowflake.cli._app.ascii_table import (
     probe_rows,
     stream_probed_table,
 )
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import (
+    get_cli_context,
+    get_cli_context_manager,
+)
+from snowflake.cli.api.config import get_config_value
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -45,6 +52,8 @@ from snowflake.cli.api.output.types import (
     StreamResult,
 )
 from snowflake.cli.api.sanitizers import sanitize_for_csv, sanitize_for_terminal
+
+log = logging.getLogger(__name__)
 
 NO_ITEMS_FOUND: str = "No data"
 
@@ -361,8 +370,10 @@ def _csv_field(value: str) -> str:
     return value
 
 
-def _write_csv_dict(fieldnames: list[str], row: Dict[str, str]) -> None:
-    _result_stream().write(
+def _write_csv_dict(
+    fieldnames: list[str], row: Dict[str, str], stream: TextIO | None = None
+) -> None:
+    (stream or _result_stream()).write(
         ",".join(_csv_field(row.get(name, "")) for name in fieldnames) + "\n"
     )
 
@@ -394,6 +405,165 @@ def _write_csv_row(fieldnames: list[str], row_data: Dict[str, Any]) -> None:
             processed_row[key] = sanitize_for_csv(str(value))
 
     _write_csv_dict(fieldnames, processed_row)
+
+
+def _argv_matches_option(arg: str, option: str) -> bool:
+    return arg == option or arg.startswith(f"{option}=")
+
+
+_NO_SUCH_COMMAND = re.compile(r"No such command '([^']+)'\.")
+
+
+def _unknown_command_name(exception: BaseException) -> str | None:
+    """Command token from Click's ``No such command 'name'.`` message."""
+    message = getattr(exception, "message", None)
+    if not isinstance(message, str):
+        message = str(exception)
+    match = _NO_SUCH_COMMAND.search(message)
+    if match is None:
+        return None
+    return match.group(1)
+
+
+def _output_format_from_argv(
+    argv: list[str] | None = None,
+    *,
+    unknown_option: str | None = None,
+    stop_at_positional: bool = False,
+    bound_positional: str | None = None,
+) -> OutputFormat | None:
+    """Read ``--format`` from argv when Click never ran its callback.
+
+    ``NoSuchOption`` and ``BadOptionUsage`` are raised while tokenizing.
+    A plain ``UsageError`` (``No such command``) is raised before the
+    subcommand that owns ``--format`` is parsed. The parsed context still
+    has the TABLE default in both cases.
+
+    A typo of a Snowflake CLI flag still raises ``NoSuchOption`` even when
+    later tokens are meant for a nested tool — ``--dbt-version`` lives on the
+    parent ``execute`` callback, which does not ignore unknown options, so
+    ``snow dbt execute --format table --dbt-versoin 1.7 pipeline compile
+    --format=json`` errors before ``compile`` can swallow leftover args.
+    Stop at ``--`` and at the first positional after ``unknown_option`` so
+    that passthrough ``--format`` cannot win. ``stop_at_positional`` is the
+    same bound for errors that have no option name.
+
+    ``bound_positional`` is that unknown command name. Flags before it and
+    flags after it, until the next positional, are CLI-owned — so
+    ``snow nosuchcommand --format JSON`` and
+    ``snow connection nosuch --format JSON`` honor the flag, while a
+    ``--format`` after a later positional (dbt passthrough) does not. If the
+    token never appears, ignore every ``--format`` in argv. Among CLI-owned
+    flags, the last ``--format`` wins (Click semantics).
+    """
+    args = sys.argv if argv is None else argv
+    found: str | None = None
+    seen_unknown = False
+    seen_bound = False
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg == "--":
+            break
+        if unknown_option and _argv_matches_option(arg, unknown_option):
+            seen_unknown = True
+            # Consume a following value so ``--dbt-versoin 1.7 --format JSON``
+            # still sees the CLI flag; the next positional starts extra args.
+            if (
+                "=" not in arg
+                and index + 1 < len(args)
+                and not args[index + 1].startswith("-")
+            ):
+                index += 2
+                continue
+            index += 1
+            continue
+        if arg == "--format":
+            if index + 1 < len(args) and not args[index + 1].startswith("-"):
+                found = args[index + 1]
+                index += 2
+                continue
+        elif arg.startswith("--format="):
+            found = arg.split("=", 1)[1]
+        elif seen_unknown and not arg.startswith("-"):
+            break
+        elif bound_positional is not None and not arg.startswith("-"):
+            if not seen_bound and arg == bound_positional:
+                seen_bound = True
+            elif seen_bound:
+                break
+        elif stop_at_positional and not arg.startswith("-"):
+            break
+        index += 1
+    if bound_positional is not None and not seen_bound:
+        return None
+    if not found:
+        return None
+    try:
+        return OutputFormat.from_string(found)
+    except ValueError:
+        return None
+
+
+def _output_format_from_config() -> OutputFormat | None:
+    """Read ``cli.output_format`` / ``SNOWFLAKE_CLI_OUTPUT_FORMAT``.
+
+    Same source as ``_output_format_callback``: env wins over config.toml.
+    Used when ``--format``'s callback never ran, so the parsed context still
+    has the TABLE default.
+    """
+    try:
+        configured = get_config_value("cli", key="output_format", default=None)
+    except Exception:
+        return None
+    if configured is None:
+        return None
+    if hasattr(configured, "unwrap"):
+        configured = configured.unwrap()
+    if isinstance(configured, OutputFormat):
+        return configured
+    if isinstance(configured, str):
+        try:
+            return OutputFormat.from_string(configured)
+        except ValueError:
+            return None
+    return None
+
+
+def _output_format_for_unparsed_invocation(
+    exception: BaseException,
+) -> OutputFormat | None:
+    """Argv, then env/config, when ``--format``'s callback never ran.
+
+    Restricted to tokenizer failures and a plain ``UsageError``. Subclasses
+    such as ``BadParameter`` are raised after callbacks; sniffing argv for
+    those would let a passthrough ``--format`` on ``snow dbt execute``
+    replace the format Click already parsed.
+    """
+    name = type(exception).__name__
+    if name in {"NoSuchOption", "BadOptionUsage"}:
+        unknown_option = getattr(exception, "option_name", None)
+        if not isinstance(unknown_option, str):
+            unknown_option = None
+        return (
+            _output_format_from_argv(unknown_option=unknown_option)
+            or _output_format_from_config()
+        )
+    if name == "UsageError":
+        # Stop at the unknown command, not argv[0]. ``snow nosuchcommand
+        # --format JSON`` puts the flag after that token; stopping at the
+        # program name never sees it. A command name that is not in argv
+        # (a passthrough ``--format`` on ``snow dbt execute ...``) still
+        # yields no flag, so env/config is the only fallback.
+        unknown_command = _unknown_command_name(exception)
+        return (
+            _output_format_from_argv(
+                bound_positional=unknown_command,
+                stop_at_positional=unknown_command is None,
+            )
+            or _output_format_from_config()
+        )
+    return None
 
 
 def _get_format_type() -> OutputFormat:
@@ -669,3 +839,159 @@ def print_result(cmd_result: CommandResult, output_format: OutputFormat | None =
         case _:
             raise ValueError(f"Unexpected type {type(cmd_result)}")
     _result_stream().flush()
+
+
+def exception_payload(exception: BaseException) -> Dict[str, Any]:
+    """Build a structured representation of a CLI failure.
+
+    ``error`` is the user-facing message, ``type`` is the exception class name,
+    and ``exit_code`` is the process status Click/Typer will use. When
+    ``--debug`` is on, ``traceback`` is included so agents can parse it from
+    the same document instead of scraping a Rich panel.
+    """
+    payload: Dict[str, Any] = {
+        "error": sanitize_for_terminal(_exception_message(exception)) or "",
+        "type": type(exception).__name__,
+        "exit_code": _exception_exit_code(exception),
+    }
+    if _debug_enabled():
+        payload["traceback"] = (
+            sanitize_for_terminal(
+                "".join(
+                    traceback.format_exception(
+                        type(exception), exception, exception.__traceback__
+                    )
+                )
+            )
+            or ""
+        )
+    return payload
+
+
+def _exception_exit_code(exception: BaseException) -> int:
+    raw = getattr(exception, "exit_code", None)
+    if raw is None:
+        return 1
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 1
+
+
+def print_structured_error(
+    exception: BaseException, file: TextIO | None = None
+) -> bool:
+    """Print ``exception`` as JSON or CSV when ``--format`` is structured.
+
+    Returns True if this function handled rendering (caller must not print the
+    Rich Error panel). Returns False when the current format is TABLE, so the
+    existing human-readable path is unchanged.
+    """
+    if exception.__class__.__name__ == "NoArgsIsHelpError":
+        return False
+
+    # Trust the already-parsed context for body errors (including failing
+    # passthrough commands). Sniff argv / env / config only when Click never
+    # ran --format's callback: tokenizer failures (``NoSuchOption``,
+    # ``BadOptionUsage``) and a plain ``UsageError`` such as an unknown
+    # command. Command-line ``--format`` still wins over env and config.
+    output_format = (
+        _output_format_for_unparsed_invocation(exception) or _get_format_type()
+    )
+    if not is_structured_format(output_format):
+        return False
+
+    # Command logs were buffered so a successful --debug run can still print
+    # them. Drop that buffer before the error document, or json.loads fails.
+    from snowflake.cli._app.loggers import discard_deferred_console_logs
+
+    discard_deferred_console_logs()
+
+    stream = file or sys.stderr
+    payload = exception_payload(exception)
+    if output_format == OutputFormat.CSV:
+        _print_error_as_csv(payload, stream)
+    else:
+        json.dump(payload, stream, cls=CustomJSONEncoder, indent=4)
+        stream.write("\n")
+        stream.flush()
+    return True
+
+
+def install_structured_error_rendering() -> None:
+    """Make Typer's ClickException path honor ``--format JSON`` / ``CSV``.
+
+    Typer does not call ``ClickException.show()`` when Rich markup is enabled
+    (the default): it calls ``typer.rich_utils.rich_format_error`` instead.
+    Patching that function is the one place every command-body ClickException
+    and UsageError goes through.
+    """
+    # ``enable_tracebacks`` defaults to True and is otherwise cleared only by
+    # ``_run_cli_invocation``'s argv pre-sniff. ``typer.get_command(app).main()``
+    # (CliRunner and library embeds) never reaches that pre-sniff, so a
+    # tokenizer error would include a traceback without ``--debug``.
+    # ``_run_cli_invocation`` calls this and then ``DebugOption.callback``,
+    # which turns the flag back on when ``--debug`` is actually present.
+    # Clear it on every call, including when this wrapper is already linked.
+    get_cli_context_manager().enable_tracebacks = False
+
+    from snowflake.cli.api.exceptions import (
+        error_renderer_already_installed,
+        link_error_renderer,
+    )
+    from typer import rich_utils
+
+    current = getattr(rich_utils, "rich_format_error", None)
+    if not callable(current):
+        log.warning(
+            "typer.rich_utils.rich_format_error is missing; "
+            "falling back to default Rich error rendering"
+        )
+        return
+
+    # Walk the whole formatter chain. create_or_get_app installs the
+    # permissions renderer and the feedback hint on every lookup; a flag
+    # only on the outermost function stacks a new pair until formatting
+    # recurses.
+    if error_renderer_already_installed(current, "_structured_error_renderer"):
+        return
+
+    def wrapped(self: Any) -> None:
+        if print_structured_error(self):
+            return
+        current(self)
+
+    link_error_renderer(wrapped, "_structured_error_renderer", current)
+    rich_utils.rich_format_error = wrapped  # type: ignore[assignment]
+
+
+def _exception_message(exception: BaseException) -> str:
+    format_message = getattr(exception, "format_message", None)
+    if callable(format_message):
+        try:
+            return str(format_message())
+        except Exception:
+            pass
+    return str(exception)
+
+
+def _debug_enabled() -> bool:
+    try:
+        return bool(get_cli_context().enable_tracebacks)
+    except Exception:
+        return False
+
+
+def _print_error_as_csv(payload: Dict[str, Any], stream: TextIO) -> None:
+    fieldnames = ["error", "type", "exit_code"]
+    if "traceback" in payload:
+        fieldnames.append("traceback")
+    _write_csv_dict(
+        fieldnames, {name: sanitize_for_csv(name) for name in fieldnames}, stream
+    )
+    _write_csv_dict(
+        fieldnames,
+        {key: sanitize_for_csv(str(payload.get(key, ""))) for key in fieldnames},
+        stream,
+    )
+    stream.flush()

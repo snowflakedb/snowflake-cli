@@ -549,6 +549,12 @@ OutputFormatOption = typer.Option(
     case_sensitive=False,
     callback=_output_format_callback,
     rich_help_panel=GLOBAL_CONFIGURATION_PANEL,
+    # Eager so a later option's type error still sees --format. Click raises
+    # NoSuchOption and BadOptionUsage before any callback, and a plain
+    # UsageError for an unknown command before the subcommand is parsed.
+    # print_structured_error peeks argv then env/config only for those,
+    # not for every exception.
+    is_eager=True,
 )
 
 

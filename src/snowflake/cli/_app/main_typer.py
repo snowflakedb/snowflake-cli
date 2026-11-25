@@ -21,6 +21,10 @@ from pathlib import Path
 import typer
 from snowflake.cli import __about__
 from snowflake.cli.__about__ import CLIInstallationSource
+from snowflake.cli._app.printing import (
+    install_structured_error_rendering,
+    print_structured_error,
+)
 from snowflake.cli._app.version_check import (
     maybe_show_new_version_banner,
     reset_banner_display_state,
@@ -37,6 +41,8 @@ log = logging.getLogger(__name__)
 def _handle_exception(exception: Exception):
     from snowflake.cli._plugins.feedback.error_hint import print_armed_feedback_hint
 
+    if print_structured_error(exception):
+        raise SystemExit(1)
     if get_cli_context().enable_tracebacks:
         print_armed_feedback_hint(exception)
         raise exception
@@ -102,6 +108,9 @@ def _maybe_auto_upgrade(argv: list[str]) -> None:
 
 def _run_cli_invocation(self, run):
     """Shared startup/teardown for both ``__call__`` and ``main`` entry points."""
+    # Production entry: ``snow`` goes through SnowCliMainTyper.__call__/main.
+    # Tests go through CliAppFactory + typer.get_command and install there.
+    install_structured_error_rendering()
     argv = sys.argv[1:]
     if "--agent-args" in argv:
         argv = argv[: argv.index("--agent-args")]

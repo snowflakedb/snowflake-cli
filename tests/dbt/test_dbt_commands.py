@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -1102,6 +1103,17 @@ class TestDBTExecute:
                 [
                     "dbt",
                     "execute",
+                    "pipeline_name",
+                    "compile",
+                    "--format=json",
+                ],
+                "EXECUTE DBT PROJECT pipeline_name args='compile --format=json'",
+                id="with-dbt-format-json-passthrough",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
                     "--format=JSON",
                     "pipeline_name",
                     "compile",
@@ -1259,6 +1271,137 @@ class TestDBTExecute:
         assert result.exit_code == 0, result.output
         assert mock_connect.mocked_ctx.kwargs[0]["_exec_async"] is False
         assert mock_connect.mocked_ctx.get_query() == expected_query
+
+    def test_dbt_passthrough_format_json_does_not_hijack_cli_output(
+        self, mock_connect, mock_cursor, runner, monkeypatch
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        argv = [
+            "snow",
+            "dbt",
+            "execute",
+            "pipeline_name",
+            "compile",
+            "--format=json",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
+
+        result = runner.invoke(argv[1:])
+
+        assert result.exit_code == 0, result.output
+        assert result.output.strip() == "very detailed logs"
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name args='compile --format=json'"
+        )
+
+    def test_dbt_typoed_option_does_not_use_passthrough_format(
+        self, runner, monkeypatch
+    ):
+        argv = [
+            "snow",
+            "dbt",
+            "execute",
+            "--format",
+            "table",
+            "--dbt-versoin",
+            "1.7",
+            "pipeline_name",
+            "compile",
+            "--format=json",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
+
+        result = runner.invoke(argv[1:])
+
+        assert result.exit_code != 0
+        assert "dbt-versoin" in result.output
+        assert '"type"' not in result.output
+        assert "NoSuchOption" not in result.output
+
+    def test_dbt_typoed_option_does_not_use_lone_passthrough_format(
+        self, runner, monkeypatch
+    ):
+        argv = [
+            "snow",
+            "dbt",
+            "execute",
+            "--dbt-versoin",
+            "1.7",
+            "pipeline_name",
+            "compile",
+            "--format=json",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
+
+        result = runner.invoke(argv[1:])
+
+        assert result.exit_code != 0
+        assert "dbt-versoin" in result.output
+        assert '"type"' not in result.output
+        assert "NoSuchOption" not in result.output
+
+    def test_dbt_passthrough_format_json_does_not_hijack_error_output(
+        self, mock_connect, mock_cursor, runner, monkeypatch
+    ):
+        cursor = mock_cursor(
+            rows=[(False, "1 of 4 FAIL 1 not_null_my_first_dbt_model_id")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        argv = [
+            "snow",
+            "dbt",
+            "execute",
+            "--format",
+            "table",
+            "pipeline_name",
+            "compile",
+            "--format=json",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
+
+        result = runner.invoke(argv[1:])
+
+        assert result.exit_code == 1, result.output
+        assert "1 of 4 FAIL 1 not_null_my_first_dbt_model_id" in result.output
+        assert '"type"' not in result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name args='compile --format=json'"
+        )
+
+    def test_dbt_cli_format_json_still_structures_error_with_passthrough_format(
+        self, mock_connect, mock_cursor, runner, monkeypatch
+    ):
+        cursor = mock_cursor(
+            rows=[(False, "1 of 4 FAIL 1 not_null_my_first_dbt_model_id")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+        argv = [
+            "snow",
+            "dbt",
+            "execute",
+            "--format",
+            "JSON",
+            "pipeline_name",
+            "compile",
+            "--format=csv",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
+
+        result = runner.invoke(argv[1:])
+
+        assert result.exit_code == 1, result.output
+        payload = json.loads(result.output)
+        assert payload["type"] == "CliError"
+        assert "1 of 4 FAIL" in payload["error"]
+        assert "Error ---" not in result.output
 
     def test_execute_async(self, mock_connect, runner):
         result = runner.invoke(

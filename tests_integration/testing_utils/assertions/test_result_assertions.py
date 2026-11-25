@@ -20,13 +20,24 @@ from tests_common.sql_error_contract import output_contains_snowflake_sql_error
 from tests_integration.conftest import CommandResult
 from tests_integration.test_utils import contains_row_with
 
-
 _BOX_LINE_PATTERN = re.compile(r"\s*\u2502(?P<content>.*)\u2502\s*")
+
+
+def _error_from_structured_json(payload: object) -> Optional[str]:
+    if isinstance(payload, dict) and isinstance(payload.get("error"), str):
+        return payload["error"]
+    return None
 
 
 def extract_error_box_message(raw_output: Optional[str]) -> str:
     if not raw_output:
         return ""
+    try:
+        json_error = _error_from_structured_json(json.loads(raw_output))
+    except json.JSONDecodeError:
+        json_error = None
+    if json_error is not None:
+        return json_error
     raw_lines = raw_output.splitlines()
     in_box = False
     error_lines: List[str] = []
@@ -124,7 +135,13 @@ def assert_that_result_failed_with_message_containing(
     result: CommandResult, msg: str
 ) -> None:
     assert result.exit_code != 0, result.output
-    assert msg in extract_error_box_message(result.output)
+    json_error = _error_from_structured_json(result.json)
+    haystack = (
+        json_error
+        if json_error is not None
+        else extract_error_box_message(result.output)
+    )
+    assert msg in haystack, result.output
 
 
 def assert_that_result_failed_with_sql_error(

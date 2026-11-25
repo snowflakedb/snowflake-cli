@@ -137,19 +137,31 @@ class SnowTyper(typer.Typer):
                 """Wrapper around command callable. This is what happens at "runtime"."""
                 execution = ExecutionMetadata()
                 self.pre_execute(execution, require_warehouse=require_warehouse)
+                succeeded = False
                 try:
                     result = command_callable(*args, **kw)
                     self.process_result(result)
                     execution.complete(ExecutionStatus.SUCCESS)
+                    succeeded = True
                 except BaseException as err:
                     if isinstance(err, click.exceptions.Exit) and err.exit_code == 0:
                         execution.complete(ExecutionStatus.SUCCESS)
+                        succeeded = True
                         raise
                     execution.complete(ExecutionStatus.FAILURE)
                     exception = self.exception_handler(err, execution)
                     raise exception
                 finally:
                     self.post_execute(execution)
+                    # JSON/CSV console logs stay buffered so a failure can drop
+                    # them. Release only after a successful command, once
+                    # post-execute has logged too.
+                    if succeeded:
+                        from snowflake.cli._app.loggers import (
+                            flush_deferred_console_logs,
+                        )
+
+                        flush_deferred_console_logs()
 
             return super(SnowTyper, self).command(name=name, **kwargs)(
                 command_callable_decorator

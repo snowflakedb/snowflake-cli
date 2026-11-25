@@ -121,6 +121,9 @@ def reset_global_context_and_setup_config_and_logging_levels(
             "SNOWSQL_CONNECTIONS_"
         ):
             monkeypatch.delenv(key, raising=False)
+    # An ambient structured format would turn TABLE-format assertions into
+    # JSON/CSV. Tests that need the variable set it themselves.
+    monkeypatch.delenv("SNOWFLAKE_CLI_OUTPUT_FORMAT", raising=False)
 
     with fork_cli_context():
         connection_cache = OpenConnectionCache()

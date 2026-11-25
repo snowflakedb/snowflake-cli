@@ -35,7 +35,11 @@ from snowflake.cli._app.dev.pycharm_remote_debug import (
     setup_pycharm_remote_debugger_if_provided,
 )
 from snowflake.cli._app.main_typer import SnowCliMainTyper
-from snowflake.cli._app.printing import MessageResult, print_result
+from snowflake.cli._app.printing import (
+    MessageResult,
+    install_structured_error_rendering,
+    print_result,
+)
 from snowflake.cli._app.version_check import show_new_version_banner_callback
 from snowflake.cli._plugins.feedback.error_hint import install_feedback_error_hint
 from snowflake.cli.api.commands.docs_help import render_shared_configuration_panels
@@ -324,6 +328,11 @@ class CliAppFactory:
 
         self._validate_internal_flags_excluded_from_telemetry(default)
 
+        # CliRunner uses typer.get_command(app).main(), which never reaches
+        # SnowCliMainTyper.main. Install here so tests (and any get_command
+        # caller) still wrap rich_format_error. Production also installs from
+        # _run_cli_invocation; the helper is idempotent.
+        install_structured_error_rendering()
         self._app = app
         return app
 
