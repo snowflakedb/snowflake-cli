@@ -1061,12 +1061,69 @@ def _rich_help_options_panel(help_text: str) -> str:
     return help_text[start:end]
 
 
-def test_logs_streaming_flag_is_hidden(runner):
+def test_logs_streaming_flags_are_in_help(runner):
     result = runner.invoke(["spcs", "service", "logs", "--help"])
     assert result.exit_code == 0
-    options_panel = _rich_help_options_panel(result.output)
-    assert "--follow" not in options_panel
-    assert "--follow-interval" not in options_panel
+    options_panel = " ".join(
+        _rich_help_options_panel(result.output).replace("|", " ").split()
+    )
+    assert "--follow" in options_panel
+    assert "--follow-interval" in options_panel
+    assert "Stream logs in real-time." in options_panel
+    assert "INTEGER RANGE [x>=1]" in options_panel
+
+
+@patch("snowflake.cli._plugins.spcs.services.commands.ServiceManager.stream_logs")
+def test_logs_follow_prints_streamed_lines(mock_stream_logs, runner):
+    mock_stream_logs.return_value = iter(["line-a", "line-b"])
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "logs",
+            "test_service",
+            "--container-name",
+            "test_container",
+            "--instance-id",
+            "0",
+            "--follow",
+            "--follow-interval",
+            "5",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "line-a" in result.output
+    assert "line-b" in result.output
+    mock_stream_logs.assert_called_once()
+    assert mock_stream_logs.call_args.kwargs["interval_seconds"] == 5
+    assert mock_stream_logs.call_args.kwargs["container_name"] == "test_container"
+    assert mock_stream_logs.call_args.kwargs["instance_id"] == "0"
+
+
+@pytest.mark.parametrize("interval", ["0", "-1"])
+@patch("snowflake.cli._plugins.spcs.services.commands.ServiceManager.stream_logs")
+def test_logs_follow_interval_rejects_non_positive(mock_stream_logs, runner, interval):
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "logs",
+            "test_service",
+            "--container-name",
+            "test_container",
+            "--instance-id",
+            "0",
+            "--follow",
+            "--follow-interval",
+            interval,
+        ]
+    )
+
+    assert result.exit_code != 0, result.output
+    assert "not in the range x>=1" in result.output
+    mock_stream_logs.assert_not_called()
 
 
 @patch(EXECUTE_QUERY)

@@ -15444,19 +15444,33 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --container-name              TEXT     Name of the container.             |
-  |                                           [required]                         |
-  | *  --instance-id                 TEXT     ID of the service instance,        |
-  |                                           starting with 0.                   |
-  |                                           [required]                         |
-  |    --num-lines                   INTEGER  Number of lines to retrieve.       |
-  |                                           [default: 500]                     |
-  |    --previous-logs                        Retrieve logs from the last        |
-  |                                           terminated container.              |
-  |    --since                       TEXT     Start log retrieval from a         |
-  |                                           specified UTC timestamp.           |
-  |    --include-timestamps                   Include timestamps in logs.        |
-  |    --help                -h               Show this message and exit.        |
+  | *  --container-name              TEXT                  Name of the           |
+  |                                                        container.            |
+  |                                                        [required]            |
+  | *  --instance-id                 TEXT                  ID of the service     |
+  |                                                        instance, starting    |
+  |                                                        with 0.               |
+  |                                                        [required]            |
+  |    --num-lines                   INTEGER               Number of lines to    |
+  |                                                        retrieve.             |
+  |                                                        [default: 500]        |
+  |    --previous-logs                                     Retrieve logs from    |
+  |                                                        the last terminated   |
+  |                                                        container.            |
+  |    --since                       TEXT                  Start log retrieval   |
+  |                                                        from a specified UTC  |
+  |                                                        timestamp.            |
+  |    --include-timestamps                                Include timestamps in |
+  |                                                        logs.                 |
+  |    --follow                                            Stream logs in        |
+  |                                                        real-time.            |
+  |    --follow-interval             INTEGER RANGE [x>=1]  Set custom polling    |
+  |                                                        intervals for log     |
+  |                                                        streaming (--follow   |
+  |                                                        flag) in seconds.     |
+  |                                                        [default: 2]          |
+  |    --help                -h                            Show this message and |
+  |                                                        exit.                 |
   +------------------------------------------------------------------------------+
   +- Global and connection options ----------------------------------------------+
   | Connection options: --connection, --host, --port, --protocol, --account,     |

@@ -671,13 +671,12 @@ def logs(
         "--follow",
         help="Stream logs in real-time.",
         is_flag=True,
-        hidden=True,
     ),
     follow_interval: int = typer.Option(
         2,
         "--follow-interval",
         help="Set custom polling intervals for log streaming (--follow flag) in seconds.",
-        hidden=True,
+        min=1,
     ),
     **options,
 ):
