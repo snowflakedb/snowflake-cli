@@ -11,12 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from shlex import split
-from typing import Callable, Dict, List
+from typing import List
 from unittest import mock
 
 from snowflake.cli._app.telemetry import TelemetryEvent, CLITelemetryField
-from snowflake.cli.api.metrics import CLICounterField, CLIMetricsSpan
+from snowflake.cli.api.metrics import CLICounterField
 from tests.nativeapp.factories import (
     ProjectV11Factory,
     ProjectV2Factory,
@@ -24,25 +23,8 @@ from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
 )
 from tests.project.fixtures import *
+from tests_common.span_assert import CompletedSpans, span
 from tests_integration.test_utils import extract_first_telemetry_message_of_type
-
-
-def assert_spans_within_limits(spans: Dict) -> None:
-    assert spans[CLITelemetryField.NUM_SPANS_PAST_DEPTH_LIMIT.value] == 0
-    assert spans[CLITelemetryField.NUM_SPANS_PAST_TOTAL_LIMIT.value] == 0
-    assert all(
-        span[CLIMetricsSpan.TRIMMED_KEY] == False
-        for span in spans[CLITelemetryField.COMPLETED_SPANS.value]
-    )
-
-
-def extract_span_keys_to_check(spans: Dict) -> List[Dict]:
-    SPAN_KEYS_TO_CHECK = [CLIMetricsSpan.NAME_KEY, CLIMetricsSpan.PARENT_KEY]
-
-    return [
-        {key: span[key] for key in SPAN_KEYS_TO_CHECK}
-        for span in spans[CLITelemetryField.COMPLETED_SPANS.value]
-    ]
 
 
 @pytest.mark.integration
@@ -325,18 +307,12 @@ def test_spans_bundle(
     with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["ws", "bundle", "--entity-id=pkg"])
 
-        message = extract_first_telemetry_message_of_type(
-            mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
+        CompletedSpans.from_result(mock_telemetry).under(
+            "action.app_pkg.bundle"
+        ).assert_exactly(
+            span("action.app_pkg.bundle"),
+            span("bundle", parent="action.app_pkg.bundle"),
         )
-
-        spans = message[CLITelemetryField.SPANS.value]
-
-        assert_spans_within_limits(spans)
-
-        assert extract_span_keys_to_check(spans) == [
-            {"name": "action.app_pkg.bundle", "parent": None},
-            {"name": "bundle", "parent": "action.app_pkg.bundle"},
-        ]
 
 
 @pytest.mark.integration
@@ -382,60 +358,21 @@ def test_spans_run_with_all_features(
     with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "run"])
 
-        message = extract_first_telemetry_message_of_type(
-            mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
+        CompletedSpans.from_result(mock_telemetry).under(
+            "action.app.deploy", "get_snowsight_url_for_app"
+        ).assert_exactly(
+            span("action.app.deploy"),
+            span("get_snowsight_url_for_app"),
+            span("action.app_pkg.deploy", parent="action.app.deploy"),
+            span("update_app_object", parent="action.app.deploy"),
+            span("bundle", parent="action.app_pkg.deploy"),
+            span("artifact_processors", parent="action.app_pkg.deploy"),
+            span("sync_deploy_root_with_stage", parent="action.app_pkg.deploy"),
+            span("post_deploy_hooks", parent="action.app_pkg.deploy"),
+            span("validate_setup_script", parent="action.app_pkg.deploy"),
+            span("post_deploy_hooks", parent="update_app_object"),
+            span("templates_processor", parent="artifact_processors"),
         )
-
-        spans = message[CLITelemetryField.SPANS.value]
-
-        assert_spans_within_limits(spans)
-
-        assert extract_span_keys_to_check(spans) == [
-            {
-                "name": "action.app.deploy",
-                "parent": None,
-            },
-            {
-                "name": "get_snowsight_url_for_app",
-                "parent": None,
-            },
-            {
-                "name": "action.app_pkg.deploy",
-                "parent": "action.app.deploy",
-            },
-            {
-                "name": "update_app_object",
-                "parent": "action.app.deploy",
-            },
-            {
-                "name": "bundle",
-                "parent": "action.app_pkg.deploy",
-            },
-            {
-                "name": "artifact_processors",
-                "parent": "action.app_pkg.deploy",
-            },
-            {
-                "name": "sync_deploy_root_with_stage",
-                "parent": "action.app_pkg.deploy",
-            },
-            {
-                "name": "post_deploy_hooks",
-                "parent": "action.app_pkg.deploy",
-            },
-            {
-                "name": "validate_setup_script",
-                "parent": "action.app_pkg.deploy",
-            },
-            {
-                "name": "post_deploy_hooks",
-                "parent": "update_app_object",
-            },
-            {
-                "name": "templates_processor",
-                "parent": "artifact_processors",
-            },
-        ]
 
 
 @pytest.mark.integration
@@ -471,32 +408,14 @@ def test_spans_validate(
     with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "validate"])
 
-        message = extract_first_telemetry_message_of_type(
-            mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
+        CompletedSpans.from_result(mock_telemetry).under(
+            "action.app_pkg.validate"
+        ).assert_exactly(
+            span("action.app_pkg.validate"),
+            span("validate_setup_script", parent="action.app_pkg.validate"),
+            span("bundle", parent="validate_setup_script"),
+            span("sync_deploy_root_with_stage", parent="validate_setup_script"),
         )
-
-        spans = message[CLITelemetryField.SPANS.value]
-
-        assert_spans_within_limits(spans)
-
-        assert extract_span_keys_to_check(spans) == [
-            {
-                "name": "action.app_pkg.validate",
-                "parent": None,
-            },
-            {
-                "name": "validate_setup_script",
-                "parent": "action.app_pkg.validate",
-            },
-            {
-                "name": "bundle",
-                "parent": "validate_setup_script",
-            },
-            {
-                "name": "sync_deploy_root_with_stage",
-                "parent": "validate_setup_script",
-            },
-        ]
 
 
 @pytest.mark.integration
@@ -532,15 +451,9 @@ def test_spans_teardown(
     with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "teardown"])
 
-        message = extract_first_telemetry_message_of_type(
-            mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
+        CompletedSpans.from_result(mock_telemetry).under(
+            "action.app.drop", "action.app_pkg.drop"
+        ).assert_exactly(
+            span("action.app.drop"),
+            span("action.app_pkg.drop"),
         )
-
-        spans = message[CLITelemetryField.SPANS.value]
-
-        assert_spans_within_limits(spans)
-
-        assert extract_span_keys_to_check(spans) == [
-            {"name": "action.app.drop", "parent": None},
-            {"name": "action.app_pkg.drop", "parent": None},
-        ]

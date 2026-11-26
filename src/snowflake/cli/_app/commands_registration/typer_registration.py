@@ -20,6 +20,7 @@ from typing import List
 import click
 from snowflake.cli._app.commands_registration import LoadedCommandPlugin
 from snowflake.cli._app.commands_registration.exception_logging import exception_logging
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.plugins.command import CommandSpec, CommandType
 from typer.core import TyperGroup
 
@@ -42,6 +43,10 @@ class TyperCommandsRegistration:
                 log_exception(
                     f"Cannot register plugin [{plugin.plugin_name}]: {ex.__str__()}", ex
                 )
+                with get_cli_context().metrics.span(
+                    "core.plugins.register_failed"
+                ) as marker:
+                    marker.finish(error=ex)
 
     @staticmethod
     def _get_main_typer_command_group_from_click_context() -> TyperGroup:

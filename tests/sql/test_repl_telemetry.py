@@ -161,6 +161,7 @@ def test_repl_discards_span_when_execute_is_interrupted_before_cnt(repl):
 
 
 def test_repl_drops_spans_past_total_limit(repl, mock_cursor):
+    get_cli_context_manager().metrics = CLIMetrics()
     n = CLIMetrics.SPAN_TOTAL_LIMIT + 1
     cursors = [mock_cursor(rows=[("1",)], columns=["1"])]
 

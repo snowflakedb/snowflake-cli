@@ -23,8 +23,10 @@ from snowflake.cli.api.cli_global_context import (
     get_cli_context,
     get_cli_context_manager,
 )
-from snowflake.cli.api.metrics import CLIMetricsSpan
+from snowflake.cli.api.metrics import CLIMetrics
 from snowflake.cli.api.output.formats import OutputFormat
+
+from tests_common.span_assert import CompletedSpans, span
 
 
 def test_reset_global_context_mgr():
@@ -88,6 +90,7 @@ def test_forked_context():
 
 
 def test_forked_metrics_spans():
+    get_cli_context_manager().metrics = CLIMetrics()
     outer_metrics = get_cli_context_manager().metrics
 
     with outer_metrics.span("outer_span"):
@@ -99,8 +102,5 @@ def test_forked_metrics_spans():
     assert outer_metrics != inner_metrics
     assert outer_metrics.completed_spans != inner_metrics.completed_spans
 
-    assert len(outer_metrics.completed_spans) == len(inner_metrics.completed_spans) == 1
-
-    assert outer_metrics.completed_spans[0][CLIMetricsSpan.NAME_KEY] == "outer_span"
-
-    assert inner_metrics.completed_spans[0][CLIMetricsSpan.NAME_KEY] == "inner_span"
+    CompletedSpans.from_metrics(outer_metrics).assert_exactly(span("outer_span"))
+    CompletedSpans.from_metrics(inner_metrics).assert_exactly(span("inner_span"))

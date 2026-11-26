@@ -24,6 +24,7 @@ from snowflake.cli._app.commands_registration.command_plugins_loader import (
 from snowflake.cli._app.commands_registration.typer_registration import (
     register_commands_from_plugins,
 )
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.plugins.plugin_config import PluginConfigProvider
 
 
@@ -53,17 +54,23 @@ class CommandsRegistrationWithCallbacks:
 
     @staticmethod
     def _register_only_builtin_plugin_commands() -> None:
-        loaded_command_plugins = load_only_builtin_command_plugins()
-        register_commands_from_plugins(loaded_command_plugins)
+        metrics = get_cli_context().metrics
+        with metrics.span("core.plugins.load"):
+            loaded_command_plugins = load_only_builtin_command_plugins()
+        with metrics.span("core.plugins.register"):
+            register_commands_from_plugins(loaded_command_plugins)
 
     def _register_builtin_and_enabled_external_plugin_commands(self):
-        enabled_external_plugins = (
-            self._plugin_config_manager.get_enabled_plugin_names()
-        )
-        loaded_command_plugins = load_builtin_and_external_command_plugins(
-            enabled_external_plugins
-        )
-        register_commands_from_plugins(loaded_command_plugins)
+        metrics = get_cli_context().metrics
+        with metrics.span("core.plugins.load"):
+            enabled_external_plugins = (
+                self._plugin_config_manager.get_enabled_plugin_names()
+            )
+            loaded_command_plugins = load_builtin_and_external_command_plugins(
+                enabled_external_plugins
+            )
+        with metrics.span("core.plugins.register"):
+            register_commands_from_plugins(loaded_command_plugins)
 
     def disable_external_command_plugins(self):
         self._commands_registration_config.enable_external_command_plugins = False

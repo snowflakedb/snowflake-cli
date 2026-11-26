@@ -105,7 +105,7 @@ The fixtures you'll reach for most often in unit tests:
 
 | Fixture | What it gives you |
 |---------|-------------------|
-| `runner` | `SnowCLIRunner` — invoke CLI commands via `runner.invoke(["cmd", "subcmd"])` |
+| `runner` | `SnowCLIRunner` — invoke CLI commands via `runner.invoke(["cmd", "subcmd"])`. Use `runner.invoke_via_typer(...)` for the Typer wrapper (see below). |
 | `mock_cursor` | Factory: `mock_cursor(rows, columns)` → `MockCursor`. Use this to build fake Snowflake responses. |
 | `mock_ctx` | Factory: `mock_ctx(cursor=...)` → `MockConnectionCtx`. Wraps a `mock_cursor` in a connection context. |
 | `mock_connect` | Patches `snowflake.connector.connect` to return a `mock_ctx()`. Use when you need the full connection stack mocked. |
@@ -116,6 +116,47 @@ The fixtures you'll reach for most often in unit tests:
 
 Prefer these fixtures over writing your own `@mock.patch` decorators — they
 handle common setup correctly and keep tests consistent.
+
+`runner.invoke` uses `typer.testing.CliRunner`, which unwraps to the Click
+command and never runs `SnowCliMainTyper.__call__`. For spans that live on
+that wrapper (`core.config.load` peek, `core.startup.auto_upgrade`), call
+`runner.invoke_via_typer(...)` instead.
+
+## Testing trace spans
+
+Do not assert the full `completed_spans` list. Other code will add spans,
+and a global pin will fail for the wrong owner. Scope with `CompletedSpans`
+from `tests_common.span_assert`, then assert inside that view.
+
+A command tree:
+
+```python
+from tests_common.span_assert import CompletedSpans, span
+
+CompletedSpans.from_result(mock_telemetry).under("action.app.deploy").assert_exactly(
+    span("action.app.deploy"),
+    span("action.app_pkg.deploy", parent="action.app.deploy"),
+    span("bundle", parent="action.app_pkg.deploy"),
+)
+```
+
+A prefix owned by one team, ignoring everyone else:
+
+```python
+spans = CompletedSpans.from_result(mocked_ctx).prefix("cmd.dbt.deploy.")
+spans.assert_exactly(
+    span("cmd.dbt.deploy.validate"),
+    span("cmd.dbt.deploy.upload"),
+)
+spans.assert_absent("core.config.load")
+```
+
+`span("name")` is a root. `span("name", parent="...")` is a child.
+
+For spans recorded on `SnowCliMainTyper.__call__` (config peek,
+auto-upgrade), use `runner.invoke_via_typer`, not `runner.invoke`.
+
+See `tests/test_span_assert.py` for the rest of the helper.
 
 ## Random test order
 

@@ -429,6 +429,7 @@ def span_call_errors(
         "core.startup.auto_upgrade",
         "core.plugins.load",
         "core.plugins.load_failed",
+        "core.plugins.register",
         "core.plugins.register_failed",
         "core.project.load",
         "core.project.validate",

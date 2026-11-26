@@ -10,6 +10,7 @@ tests/test_installation_source.py
 tests/test_logs.py
 tests/test_printing.py
 tests/app
+tests/test_span_assert.py
 tests/test_main.py
 
 # 2. Connection management. Config, connector.connect, snow connection, and snow auth.

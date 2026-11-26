@@ -250,6 +250,14 @@ class SnowCLIRunner(CliRunner):
     def super_invoke(self, *a, **kw):
         return super().invoke(self.app, [*a[0]], **kw)
 
+    def invoke_via_typer(self, *a, config_file: str | None = None) -> None:
+        """``invoke`` skips early app startup; use this to exercise it."""
+        path = self.test_snowcli_config if config_file is None else config_file
+        args = ["--config-file", str(path), *a[0]]
+        with pytest.raises(SystemExit) as caught:
+            self.app(args)
+        assert caught.value.code in (0, None)
+
 
 @pytest.fixture
 def app_zip(temporary_directory) -> Generator:

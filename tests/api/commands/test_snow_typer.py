@@ -59,6 +59,7 @@ from typer.main import get_command
 from typer.testing import CliRunner
 
 from tests_common.feature_flag_utils import with_feature_flags
+from tests_common.span_assert import CompletedSpans
 
 
 def class_factory(
@@ -824,10 +825,7 @@ def test_process_result_concludes_deferred_span_on_success():
 
     SnowTyper.process_result(EmptyResult())
 
-    completed = metrics.completed_spans
-    assert len(completed) == 1
-    assert completed[0]["name"] == "sql.client_query"
-    assert completed[0]["error"] is None
+    CompletedSpans.from_metrics(metrics).assert_clean("sql.client_query")
 
 
 def test_process_result_concludes_deferred_span_on_print_error(monkeypatch):
@@ -843,9 +841,9 @@ def test_process_result_concludes_deferred_span_on_print_error(monkeypatch):
     with pytest.raises(RuntimeError, match="print failed"):
         SnowTyper.process_result(MessageResult("x"))
 
-    completed = metrics.completed_spans
-    assert len(completed) == 1
-    assert completed[0]["error"] == "RuntimeError"
+    CompletedSpans.from_metrics(metrics).assert_error(
+        "sql.client_query", "RuntimeError"
+    )
 
 
 def test_condensed_help_help_all_shows_injected_option_panels(cli):

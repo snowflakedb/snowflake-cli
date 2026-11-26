@@ -88,6 +88,13 @@ def _maybe_init_config_from_args(*call_args) -> None:
         config_init(config_path)
 
 
+def _run_managed_auto_upgrade(argv: list[str]) -> None:
+    """Load and run the managed upgrade engine. Lazy so PyPI never imports it."""
+    from snowflake.cli._plugins.upgrade.auto import maybe_auto_upgrade_and_spawn
+
+    maybe_auto_upgrade_and_spawn(argv)
+
+
 def _maybe_auto_upgrade(argv: list[str]) -> None:
     """After config init, before the command. Lazy import; fail-open.
 
@@ -99,9 +106,8 @@ def _maybe_auto_upgrade(argv: list[str]) -> None:
     if __about__.INSTALLATION_SOURCE != CLIInstallationSource.SNOWFLAKE_MANAGED:
         return
     try:
-        from snowflake.cli._plugins.upgrade.auto import maybe_auto_upgrade_and_spawn
-
-        maybe_auto_upgrade_and_spawn(argv)
+        with get_cli_context().metrics.span("core.startup.auto_upgrade"):
+            _run_managed_auto_upgrade(argv)
     except Exception:
         log.debug("Auto-upgrade hook failed open", exc_info=True)
 

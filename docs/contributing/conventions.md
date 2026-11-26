@@ -312,6 +312,9 @@ Names that already exist outside these grammars (`bundle`, `sql.client_query`,
 names in those families; add the new name to the test's legacy allowlist only
 when an existing call must keep a frozen name.
 
+To assert completed spans in tests, use `CompletedSpans` (see
+[testing.md](testing.md#testing-trace-spans)).
+
 ## Linting and formatting
 
 Linting and formatting run automatically on commit via pre-commit. Most issues

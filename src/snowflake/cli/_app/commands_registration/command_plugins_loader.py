@@ -27,6 +27,7 @@ from snowflake.cli._app.commands_registration.builtin_plugins import (
     get_builtin_plugin_name_to_plugin_spec,
 )
 from snowflake.cli._app.commands_registration.exception_logging import exception_logging
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.plugins.command import (
     SNOWCLI_COMMAND_PLUGIN_NAMESPACE,
     CommandPath,
@@ -56,6 +57,10 @@ class CommandPluginsLoader:
                 log_exception(
                     f"Cannot register plugin [{plugin_name}]: {ex.__str__()}", ex
                 )
+                with get_cli_context().metrics.span(
+                    "core.plugins.load_failed"
+                ) as marker:
+                    marker.finish(error=ex)
 
     def register_external_plugins(self, plugin_names: List[str]) -> None:
         for plugin_name in plugin_names:
@@ -67,6 +72,10 @@ class CommandPluginsLoader:
                 log_exception(
                     f"Cannot register plugin [{plugin_name}]: {ex.__str__()}", ex
                 )
+                with get_cli_context().metrics.span(
+                    "core.plugins.load_failed"
+                ) as marker:
+                    marker.finish(error=ex)
 
     def load_all_registered_plugins(self) -> List[LoadedCommandPlugin]:
         all_plugins = list(self._plugin_manager.list_name_plugin())
@@ -162,6 +171,8 @@ class CommandPluginsLoader:
                 f"Cannot load command specification from plugin [{plugin_name}]: {ex.__str__()}",
                 ex,
             )
+            with get_cli_context().metrics.span("core.plugins.load_failed") as marker:
+                marker.finish(error=ex)
             return None
 
     @staticmethod

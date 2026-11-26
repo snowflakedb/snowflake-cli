@@ -205,28 +205,32 @@ def config_init(config_file: Optional[Path]):
     If config file does not exist we create an empty one.
     """
     from snowflake.cli._app.loggers import create_initial_loggers
-    from snowflake.cli.api.cli_global_context import get_cli_context_manager
+    from snowflake.cli.api.cli_global_context import (
+        get_cli_context,
+        get_cli_context_manager,
+    )
 
-    if config_file:
-        get_cli_context_manager().config_file_override = config_file
-        _check_custom_config_permissions(config_file)
-    else:
-        # ``apply_upgrade`` tightens these files too late: this check exits
-        # first, so ``snow upgrade`` never reaches it on a 0644 config.
-        if _invocation_is_upgrade():
-            _upgrade_restricted_paths[:] = restrict_owned_default_config_files()
-        _check_default_config_files_permissions()
+    with get_cli_context().metrics.span("core.config.load"):
+        if config_file:
+            get_cli_context_manager().config_file_override = config_file
+            _check_custom_config_permissions(config_file)
+        else:
+            # ``apply_upgrade`` tightens these files too late: this check exits
+            # first, so ``snow upgrade`` never reaches it on a 0644 config.
+            if _invocation_is_upgrade():
+                _upgrade_restricted_paths[:] = restrict_owned_default_config_files()
+            _check_default_config_files_permissions()
 
-    config_manager = get_config_manager()
-    if not config_manager.file_path.exists():
-        _initialise_config(config_manager.file_path)
-    _read_config_file()
-    create_initial_loggers()
-    apply_stdout_encoding(get_stdout_encoding())
-    if should_show_encoding_warnings():
-        detect_encoding_environment(
-            all_cli_encodings_configured=_all_cli_encodings_configured()
-        )
+        config_manager = get_config_manager()
+        if not config_manager.file_path.exists():
+            _initialise_config(config_manager.file_path)
+        _read_config_file()
+        create_initial_loggers()
+        apply_stdout_encoding(get_stdout_encoding())
+        if should_show_encoding_warnings():
+            detect_encoding_environment(
+                all_cli_encodings_configured=_all_cli_encodings_configured()
+            )
 
 
 def get_encoding_diagnostics() -> str:
