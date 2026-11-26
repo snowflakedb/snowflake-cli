@@ -2860,6 +2860,40 @@ class TestSnowflakeAppManager:
         desc = SnowflakeAppManager().describe_app_service(fqn)
         assert desc == {}
 
+    @patch(EXECUTE_QUERY)
+    def test_list_package_versions(self, mock_execute):
+        mock_execute.return_value = [
+            {"VERSION": "VERSION$2", "CREATED_ON": "2026-01-02", "COMMENT": None},
+        ]
+
+        rows = SnowflakeAppManager().list_package_versions("DB.SC.REPO", "MY_APP")
+
+        assert rows == [
+            {"version": "VERSION$2", "created_on": "2026-01-02", "comment": None}
+        ]
+        query = mock_execute.call_args[0][0]
+        assert (
+            "SHOW VERSIONS IN ARTIFACT REPOSITORY DB.SC.REPO FOR PACKAGE MY_APP"
+            in query
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_version_build_job_reads_job_service_name(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"jobServiceName": "DB.SC.BUILD_JOB"}',)
+        mock_execute.return_value = cursor
+
+        job = SnowflakeAppManager().get_version_build_job(
+            "DB.SC.REPO", "MY_APP", "VERSION$2"
+        )
+
+        assert job == "DB.SC.BUILD_JOB"
+        query = mock_execute.call_args[0][0]
+        assert "SYSTEM$GET_APPLICATION_ARTIFACT_REPOSITORY_VERSION_BUILD_JOB" in query
+        assert "'DB.SC.REPO'" in query
+        assert "'MY_APP'" in query
+        assert "'VERSION$2'" in query
+
     def test_resolve_application_service_url_from_describe(self):
         mgr = SnowflakeAppManager()
         assert mgr.resolve_application_service_url_from_describe({}) is None

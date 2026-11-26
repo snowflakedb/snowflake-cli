@@ -2703,6 +2703,67 @@ class SnowflakeAppManager(SqlExecutionMixin):
         parts.append(f"SPECIFICATION = $$\n{specification}$$")
         self.execute_query("\n".join(parts))
 
+    def list_package_versions(
+        self, artifact_repo_fqn: str, package_name: str
+    ) -> List[Dict[str, Any]]:
+        """List published versions of one package in an artifact repository.
+
+        Runs ``SHOW VERSIONS IN ARTIFACT REPOSITORY ... FOR PACKAGE ...``.
+        Column names are lower-cased. ``version`` is the version name and
+        ``created_on`` is when that version was published.
+
+        ``artifact_repo_fqn`` is an identifier already produced by
+        :func:`app_fqn` (the same form other artifact-repository statements
+        use). ``package_name`` is escaped as an identifier.
+        """
+        from snowflake.cli.api.project.util import to_identifier
+
+        cursor = self.execute_query(
+            "SHOW VERSIONS IN ARTIFACT REPOSITORY "
+            f"{artifact_repo_fqn} FOR PACKAGE {to_identifier(package_name)}",
+            cursor_class=DictCursor,
+        )
+        return [{k.lower(): v for k, v in row.items()} for row in cursor]
+
+    def get_version_build_job(
+        self, artifact_repo_fqn: str, package_name: str, version: str
+    ) -> Optional[str]:
+        """Return the build job that published one package version.
+
+        ``SYSTEM$GET_APPLICATION_ARTIFACT_REPOSITORY_VERSION_BUILD_JOB`` maps
+        a version to the job that produced it. The result may be a job name
+        or a JSON object with ``jobServiceName``. ``None`` means the function
+        returned nothing.
+        """
+        from snowflake.cli.api.project.util import to_string_literal
+
+        cursor = self.execute_query(
+            "SELECT SYSTEM$GET_APPLICATION_ARTIFACT_REPOSITORY_VERSION_BUILD_JOB("
+            f"{to_string_literal(artifact_repo_fqn)}, "
+            f"{to_string_literal(package_name)}, "
+            f"{to_string_literal(version)})"
+        )
+        row = cursor.fetchone()
+        if not row or row[0] is None:
+            return None
+        value = row[0]
+        if isinstance(value, dict):
+            job = value.get("jobServiceName") or value.get("job_service_name")
+            return str(job) if job else None
+        if isinstance(value, str):
+            text = value.strip()
+            if text.startswith("{"):
+                try:
+                    parsed = json.loads(text)
+                except json.JSONDecodeError:
+                    return text or None
+                if isinstance(parsed, dict):
+                    job = parsed.get("jobServiceName") or parsed.get("job_service_name")
+                    if job:
+                        return str(job)
+            return text or None
+        return str(value)
+
     def describe_app_service(self, service_fqn: FQN) -> Dict[str, Any]:
         """Run ``DESCRIBE APPLICATION SERVICE`` and return a case-insensitive
         dict of the first result row.

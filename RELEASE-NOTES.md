@@ -20,6 +20,7 @@
 
 ## New additions
 * Added `--overrides` option to `snow bundle execute`. It takes a path to a YAML file that replaces the code bundle configuration file.
+* `snow app deploy --format JSON` for a Snowflake App Runtime project reports the package version a build published and the version the service is serving. `--promote-only --version` promotes an existing version, such as `VERSION$1`. A serverless health-check failure leaves the app offline until a later deploy passes, and names the version that did not take effect. With `--format JSON` that failure is also one JSON object on stdout, with `status` `failed`.
 * `snow sql` accepts `-o timing=<true|false>` and `-o timing_in_output_file=<true|false>`, with the same values and error messages as the matching `!set` options. They apply before any SQL runs. Only the interactive REPL prints the `Time Elapsed` line, so with `-q`, `-f`, or `-i` a false value changes nothing and a true value prints a warning. An invalid value fails before any SQL runs. When an option is given more than once, the last value wins.
 * `snow spcs service logs --follow` is now generally available. It prints new lines from a service container until the command is stopped. `--follow-interval` sets the refresh interval in seconds (default 2, minimum 1).
 

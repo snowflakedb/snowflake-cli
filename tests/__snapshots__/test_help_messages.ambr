@@ -629,7 +629,8 @@
    source artifacts, runs the server-side artifact repository build, then deploys 
    the application service. The pipeline has three phases (upload, build,         
    deploy). By default all three run in sequence; use --upload-only /             
-   --build-only / --promote-only to run a single phase.                           
+   --build-only / --promote-only to run a single phase. --promote-only --version  
+   promotes one existing package version.                                         
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   paths      [PATHS]...  (Native App only) Paths, relative to the project    |
@@ -703,6 +704,17 @@
   |                                                    build phase has already   |
   |                                                    completed). Skips the     |
   |                                                    upload and build phases.  |
+  |                                                    Use --version to promote  |
+  |                                                    a specific package        |
+  |                                                    version.                  |
+  | --version                                    TEXT  (Snowflake App Runtime    |
+  |                                                    only) Package version to  |
+  |                                                    promote. Valid only with  |
+  |                                                    --promote-only. Use a     |
+  |                                                    name from SHOW VERSIONS   |
+  |                                                    IN ARTIFACT REPOSITORY,   |
+  |                                                    such as VERSION$1, or     |
+  |                                                    LATEST.                   |
   | --target                                     TEXT  (Snowflake App Runtime    |
   |                                                    only) Name of the target  |
   |                                                    (environment) to deploy,  |

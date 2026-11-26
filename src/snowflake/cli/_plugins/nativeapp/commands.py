@@ -1141,7 +1141,14 @@ def app_deploy(
         False,
         "--promote-only",
         help="(Snowflake App Runtime only) Run only the deploy phase (assumes a previous build phase has already completed). "
-        "Skips the upload and build phases.",
+        "Skips the upload and build phases. Use --version to promote a specific package version.",
+    ),
+    version: Optional[str] = typer.Option(
+        None,
+        "--version",
+        help="(Snowflake App Runtime only) Package version to promote. "
+        "Valid only with --promote-only. Use a name from "
+        "SHOW VERSIONS IN ARTIFACT REPOSITORY, such as VERSION$1, or LATEST.",
     ),
     deploy_only: bool = typer.Option(
         False,
@@ -1175,7 +1182,7 @@ def app_deploy(
       build, then deploys the application service. The pipeline has three phases
       (upload, build, deploy). By default all three run in sequence; use
       ``--upload-only`` / ``--build-only`` / ``--promote-only`` to run a single
-      phase.
+      phase. ``--promote-only --version`` promotes one existing package version.
     """
     app_flow: AppFlow = options["app_flow"]
     if app_flow == AppFlow.SNOWFLAKE_APP:
@@ -1195,6 +1202,7 @@ def app_deploy(
             interactive=interactive,
             skip_certs_check=skip_certs_check,
             target=target,
+            version=version,
         )
 
     _reject_snowflake_app_options(
@@ -1205,6 +1213,7 @@ def app_deploy(
             "--promote-only": True if (promote_only or deploy_only) else None,
             "--skip-certs-check": True if skip_certs_check else None,
             "--target": target,
+            "--version": version,
         },
     )
 

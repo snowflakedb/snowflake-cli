@@ -37,6 +37,7 @@ from typing import (
     Iterator,
     Literal,
     NamedTuple,
+    NoReturn,
     Optional,
     cast,
 )
@@ -113,6 +114,7 @@ from snowflake.cli.api.exceptions import (
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLIMetricsSpan
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -949,6 +951,442 @@ def _teardown_app_code(
             manager.drop_stage_if_exists(storage_fqn)
 
 
+_PACKAGE_VERSION_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]{0,254}")
+
+
+class _UploadBuildResult(NamedTuple):
+    """Outcome of the shared upload and build pipeline.
+
+    ``result`` is set when the command should stop (``--upload-only`` or
+    ``--build-only``). ``version`` is the package version this build published,
+    when ``SHOW VERSIONS`` could identify one.
+    """
+
+    result: Optional[CommandResult] = None
+    version: Optional[str] = None
+
+
+class _AppMessage(MessageResult):
+    """A terminal sentence plus fields for ``--format JSON``.
+
+    Defined here so the extra fields stay in the Snowflake App Runtime plugin.
+    The shared JSON encoder already prints :meth:`MessageResult.result`.
+    """
+
+    def __init__(self, message: str, **details: Any):
+        super().__init__(message)
+        self._details = {
+            key: value for key, value in details.items() if value is not None
+        }
+
+    @property
+    def result(self):
+        if not self._details:
+            return {"message": self.message}
+        return {"message": self.message, **self._details}
+
+
+def _app_result(message: str, **details: Any) -> MessageResult:
+    """A sentence for the terminal, plus the same facts for ``--format JSON``."""
+    return _AppMessage(message, **details)
+
+
+def _validate_package_version(version: str) -> str:
+    """Return *version* as an unquoted identifier, or reject it.
+
+    Package versions are names such as ``VERSION$1``. ``LATEST`` is the alias
+    the deploy phase already uses. The value is interpolated into
+    ``VERSION <name>``, so anything that is not an unquoted identifier is
+    rejected before it can reach SQL.
+    """
+    candidate = version.strip()
+    if not _PACKAGE_VERSION_RE.fullmatch(candidate):
+        raise CliArgumentError(
+            f"Invalid package version '{version}'. "
+            "Use a version name from SHOW VERSIONS IN ARTIFACT REPOSITORY, "
+            "such as VERSION$1, or LATEST."
+        )
+    return candidate.upper()
+
+
+def _package_version_for_deploy(
+    version: Optional[str], promote_only: bool
+) -> Optional[str]:
+    """Validate ``--version`` and require ``--promote-only``.
+
+    A deploy that builds publishes a new version and promotes that version.
+    ``--version`` selects an existing version, which is only meaningful when
+    the upload and build phases are skipped.
+    """
+    if version is None:
+        return None
+    if not str(version).strip():
+        raise CliArgumentError(
+            "--version requires a package version name, such as VERSION$1."
+        )
+    if not promote_only:
+        raise CliArgumentError(
+            "--version can only be used with --promote-only. "
+            "A deploy that uploads or builds publishes a new package version. "
+            "To run an existing version, use "
+            "snow app deploy --promote-only --version <version>."
+        )
+    return _validate_package_version(str(version))
+
+
+def _read_package_versions(
+    manager: SnowflakeAppManager, artifact_repo_fqn: str, package_name: str
+) -> Optional[list]:
+    """Return published version rows, or ``None`` when they cannot be read.
+
+    A missing package (the first build) and a mock that does not implement
+    the query both come back as ``None``. Callers treat that as "unknown",
+    not as an empty package.
+    """
+    try:
+        rows = manager.list_package_versions(artifact_repo_fqn, package_name)
+    except ProgrammingError:
+        log.debug(
+            "Could not list versions of package %s in %s.",
+            package_name,
+            artifact_repo_fqn,
+            exc_info=True,
+        )
+        return None
+    if not isinstance(rows, list):
+        return None
+    return rows
+
+
+def _row_version(row: dict) -> Optional[str]:
+    value = row.get("version")
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _created_on_key(row: dict) -> str:
+    value = row.get("created_on")
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _same_build_job(reported: str, job_identifier: str) -> bool:
+    """True when *reported* names the same build job as *job_identifier*."""
+
+    def _norm(value: str) -> str:
+        return value.strip().strip('"').upper()
+
+    reported_name = _norm(reported)
+    job_name = _norm(job_identifier)
+    if not reported_name or not job_name:
+        return False
+    return (
+        reported_name == job_name
+        or reported_name.endswith("." + job_name)
+        or job_name.endswith("." + reported_name)
+    )
+
+
+def _version_built_by_job(
+    versions: Optional[list], job_identifier: str, lookup: Callable[[str], object]
+) -> Optional[str]:
+    """Return the version whose build job is *job_identifier*.
+
+    ``None`` means the lookup could not be completed (the system function
+    failed) or no listed version was produced by that job. Callers then fall
+    back to the before/after version diff.
+    """
+    if not versions:
+        return None
+    for row in versions:
+        if not isinstance(row, dict):
+            continue
+        version = _row_version(row)
+        if not version:
+            continue
+        try:
+            reported = lookup(version)
+        except ProgrammingError:
+            log.debug(
+                "Could not resolve the build job for package version %s.",
+                version,
+                exc_info=True,
+            )
+            return None
+        if isinstance(reported, str) and _same_build_job(reported, job_identifier):
+            return version
+    return None
+
+
+def _newly_published_version(
+    before: Optional[list], after: Optional[list]
+) -> Optional[str]:
+    """Return the version present in *after* but not in *before*.
+
+    When several rows are new, the newest ``created_on`` wins. ``None`` for
+    *before* means the baseline could not be read; the newest row in *after*
+    is then the best available name for the version this build published.
+    """
+    if not after:
+        return None
+    known = set()
+    for row in before or []:
+        if isinstance(row, dict):
+            name = _row_version(row)
+            if name:
+                known.add(name.upper())
+    created = []
+    for row in after:
+        if not isinstance(row, dict):
+            continue
+        name = _row_version(row)
+        if name and name.upper() not in known:
+            created.append(row)
+    if not created:
+        return None
+    created.sort(key=_created_on_key, reverse=True)
+    return _row_version(created[0])
+
+
+def _service_source(description: dict) -> dict:
+    """Return the ``source`` object from ``DESCRIBE APPLICATION SERVICE``.
+
+    The column may arrive as a JSON string. An empty or unreadable source is
+    ``{}``.
+    """
+    if not isinstance(description, dict):
+        return {}
+    source = description.get("source")
+    if isinstance(source, str):
+        text = source.strip()
+        if not text:
+            return {}
+        try:
+            source = json.loads(text)
+        except json.JSONDecodeError:
+            log.debug("Could not parse application service source: %s", text)
+            return {}
+    if not isinstance(source, dict):
+        return {}
+    return source
+
+
+def _source_value(description: dict, field: str) -> Optional[str]:
+    """Read one case-insensitive field from the service ``source`` object."""
+    wanted = field.lower()
+    for key, value in _service_source(description).items():
+        if str(key).lower() != wanted or value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def _live_version_from_describe(description: dict) -> Optional[str]:
+    """Read the deployed package version from ``DESCRIBE APPLICATION SERVICE``.
+
+    The ``source`` column is a JSON object with ``version`` (and may arrive
+    as a string). A missing source, or one that is not JSON, means the live
+    version is unknown, not that the deploy failed.
+    """
+    return _source_value(description, "version")
+
+
+# GS rejects a serverless deploy that misses its health check with this code
+# (shown as ``094547``). The failed version does not take effect, and the app
+# stays offline until a later deploy passes. ``DESCRIBE`` may still name the
+# previous version; that is a server bug, so it is not reported as live.
+_HEALTH_CHECK_ERRNO = 94547
+
+
+def _is_health_check_failure(exc: BaseException) -> bool:
+    """True when *exc* is the serverless health-check timeout."""
+    text = str(exc).lower()
+    if "did not become healthy" in text or "094547" in text:
+        return True
+    errno = getattr(exc, "errno", None)
+    return errno == _HEALTH_CHECK_ERRNO
+
+
+def _fail_deploy(
+    message: str, *, cause: Optional[BaseException] = None, **fields: Any
+) -> NoReturn:
+    """Fail a deploy, and print the same facts as JSON when requested.
+
+    The sentence stays on stderr via :class:`CliError`. ``--format JSON``
+    also writes one object to stdout so a workflow can read ``version`` and
+    ``url`` without parsing that sentence. ``status`` is ``failed`` so the
+    object is not a successful deploy.
+    """
+    output_format = getattr(get_cli_context(), "output_format", None)
+    if isinstance(output_format, OutputFormat) and output_format.is_json:
+        from snowflake.cli._app.printing import print_result
+
+        print_result(_app_result(message, status="failed", phase="deploy", **fields))
+    raise CliError(message) from cause
+
+
+def _raise_health_check_failure(
+    manager: SnowflakeAppManager,
+    service_fqn: FQN,
+    exc: BaseException,
+    *,
+    expected_version: Optional[str],
+) -> NoReturn:
+    """Fail a deploy the server rejected for a missed health check.
+
+    The failed version does not take effect, and the app stays offline until
+    a later deploy passes. ``DESCRIBE`` is used only for the URL. Its version
+    is not reported: today it can still name the previous version, and that
+    is a server bug.
+    """
+    url = None
+    try:
+        description = manager.describe_app_service(service_fqn)
+        url = manager.resolve_application_service_url_from_describe(description)
+    except Exception:
+        log.debug(
+            "Could not read the app URL after a health-check failure.",
+            exc_info=True,
+        )
+    if expected_version and expected_version.upper() != "LATEST":
+        message = (
+            f"Version {expected_version} failed its health check and didn't "
+            f"take effect: {exc}."
+        )
+    else:
+        message = (
+            "The new version failed its health check and didn't take effect: " f"{exc}."
+        )
+    message += (
+        " The app is offline until a deploy passes. Deploy a fixed version, "
+        "or run `snow app deploy --promote-only --version <previous>`."
+    )
+    if url:
+        message += f" The app URL is {url}."
+    attempted = (
+        expected_version
+        if expected_version and expected_version.upper() != "LATEST"
+        else None
+    )
+    _fail_deploy(
+        message,
+        cause=exc,
+        version=attempted,
+        url=url,
+        service=service_fqn.identifier,
+    )
+
+
+def _expected_live_version(
+    package_version: Optional[str], built_version: Optional[str]
+) -> Optional[str]:
+    """The concrete version a successful deploy should leave running.
+
+    ``--version`` wins. Otherwise the version this command's build published.
+    ``LATEST`` carries no concrete name.
+    """
+    if package_version and package_version.upper() != "LATEST":
+        return package_version
+    return built_version
+
+
+def _build_completed_result(
+    *,
+    package: str,
+    artifact_repository: str,
+    version: Optional[str],
+    versions_read: bool,
+) -> MessageResult:
+    if version:
+        message = (
+            "Build completed successfully. "
+            f"Published package {package} version {version} "
+            f"to artifact repository {artifact_repository}."
+        )
+    elif versions_read:
+        message = (
+            "Build completed successfully. "
+            f"No new package version was listed for package {package} "
+            f"in artifact repository {artifact_repository}."
+        )
+    else:
+        message = (
+            "Build completed successfully. "
+            "The package version could not be read from artifact repository "
+            f"{artifact_repository}. List versions with: "
+            "SHOW VERSIONS IN ARTIFACT REPOSITORY "
+            f"{artifact_repository} FOR PACKAGE {package}."
+        )
+    return _app_result(
+        message,
+        phase="build",
+        package=package,
+        artifact_repository=artifact_repository,
+        version=version,
+    )
+
+
+def _deploy_ready_result(
+    *,
+    url: str,
+    service: str,
+    description: dict,
+    package: Optional[str] = None,
+    artifact_repository: Optional[str] = None,
+    expected_version: Optional[str] = None,
+    target: Optional[str] = None,
+) -> MessageResult:
+    """Report the URL and the version ``DESCRIBE`` shows after a successful deploy.
+
+    A health-check rejection is raised from the deploy statement (``094547``)
+    before this runs. A successful statement is reported as ready even when
+    ``DESCRIBE`` still names an older version.
+    """
+    live = _live_version_from_describe(description)
+    alias = _source_value(description, "alias")
+    message = f"App ready at {url}."
+    if live:
+        message += f" Application service {service} is serving version {live}."
+        if (
+            expected_version
+            and expected_version.upper() != "LATEST"
+            and alias
+            and alias.upper() == "LATEST"
+        ):
+            message += " The service source still records alias LATEST."
+    elif expected_version:
+        message += (
+            f" Application service {service} was updated to version "
+            f"{expected_version}."
+        )
+    return _app_result(
+        message,
+        phase="deploy",
+        url=url,
+        service=service,
+        package=package,
+        artifact_repository=artifact_repository,
+        version=expected_version or live,
+        live_version=live,
+        alias=alias,
+        target=target,
+    )
+
+
+def _log_text(logs: str, service: str) -> str:
+    """Return log text, or a sentence when there is nothing to show."""
+    if isinstance(logs, str) and logs.strip():
+        return logs
+    return f"No log lines for application service {service}."
+
+
 def _upload_and_build_app(
     manager: SnowflakeAppManager,
     *,
@@ -970,7 +1408,7 @@ def _upload_and_build_app(
     build_only: bool,
     metrics,
     extra_build_kwargs: Optional[dict] = None,
-) -> Optional[CommandResult]:
+) -> _UploadBuildResult:
     """Run the shared upload + build pipeline for both deploy entrypoints.
 
     Bundles source (via the *bundle* callable), uploads it to the resolved
@@ -986,12 +1424,14 @@ def _upload_and_build_app(
     ``extra_build_kwargs`` carries flow-specific build arguments (the entity
     flow forwards ``compute_pool``, ``runtime_image`` and ``project_type``).
 
-    Returns a short-circuit :class:`CommandResult` for ``--upload-only`` /
-    ``--build-only``, or ``None`` when the caller should proceed to its own
-    (flow-specific) deploy phase.
+    ``result`` is set for ``--upload-only`` / ``--build-only``. Otherwise the
+    caller continues into its own deploy phase. ``version`` is the package
+    version this build published, when one could be read.
     """
     use_workspace = storage.type == "workspace"
     stage_created = False
+    published_version: Optional[str] = None
+    versions_after: Optional[list] = None
 
     # ── Upload phase ──────────────────────────────────────────────────
     if run_upload:
@@ -1013,14 +1453,21 @@ def _upload_and_build_app(
 
     if upload_only:
         if use_workspace:
-            return MessageResult(
-                "Artifacts uploaded to "
-                f"{manager.workspace_subdirectory_uri(storage_fqn, app_id)}"
+            location = manager.workspace_subdirectory_uri(storage_fqn, app_id)
+        else:
+            location = f"@{storage_fqn}"
+        return _UploadBuildResult(
+            result=_app_result(
+                f"Artifacts uploaded to {location}.",
+                phase="upload",
+                location=location,
+                package=app_id,
             )
-        return MessageResult(f"Artifacts uploaded to @{storage_fqn}")
+        )
 
     # ── Build phase ───────────────────────────────────────────────────
     if run_build:
+        versions_before = _read_package_versions(manager, artifact_repo_fqn, app_id)
         with metrics.span("snowflake_app.build"):
             with metrics.span("snowflake_app.build.ensure_artifact_repo"):
                 if not manager.artifact_repo_exists(
@@ -1103,11 +1550,31 @@ def _upload_and_build_app(
                     _drop_stage_after_build(manager, storage_fqn, metrics)
             elif stage_created:
                 _drop_stage_after_build(manager, storage_fqn, metrics)
+        versions_after = _read_package_versions(manager, artifact_repo_fqn, app_id)
+        published_version = _version_built_by_job(
+            versions_after,
+            artifact_build_job_fqn.identifier,
+            lambda version: manager.get_version_build_job(
+                artifact_repo_fqn, app_id, version
+            ),
+        )
+        if published_version is None:
+            published_version = _newly_published_version(
+                versions_before, versions_after
+            )
 
     if build_only:
-        return MessageResult("Build completed successfully.")
+        return _UploadBuildResult(
+            result=_build_completed_result(
+                package=app_id,
+                artifact_repository=artifact_repo_fqn,
+                version=published_version,
+                versions_read=versions_after is not None,
+            ),
+            version=published_version,
+        )
 
-    return None
+    return _UploadBuildResult(version=published_version)
 
 
 def _app_service_exists(manager: SnowflakeAppManager, service_fqn: FQN) -> bool:
@@ -1319,8 +1786,9 @@ def snowflake_app_setup(
                 # the project alone rather than migrating it behind the user's back.
                 for existing in (APP_YML_FILENAME, DEFINITION_FILENAME):
                     if (Path.cwd() / existing).exists():
-                        return MessageResult(
-                            f"{existing} already exists. Skipping initialization."
+                        return _app_result(
+                            f"{existing} already exists. Skipping initialization.",
+                            file=existing,
                         )
 
             manager = SnowflakeAppManager()
@@ -1380,6 +1848,16 @@ def snowflake_app_setup(
             if is_json:
                 return ObjectResult(
                     {
+                        "message": (
+                            "Dry run. Resolved the Snowflake App Runtime "
+                            "project configuration without writing app.yml."
+                            if dry_run
+                            else (
+                                "Initialized Snowflake App Runtime project "
+                                f"in {APP_YML_FILENAME}."
+                            )
+                        ),
+                        "file": APP_YML_FILENAME,
                         "success": not dry_run,
                         "code_storage": code_storage,
                         "app_exists": app_exists,
@@ -1659,13 +2137,19 @@ def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
             bundle_id,
             SimpleNamespace(artifacts=app_def.bundle_artifacts),
         )
-        return MessageResult(f"Bundle generated at {project_paths.bundle_root}")
+        return _app_result(
+            f"Bundle generated at {project_paths.bundle_root}.",
+            bundle_root=str(project_paths.bundle_root),
+        )
 
     resolved_entity_id = _resolve_entity_id(entity_id)
     entity = _get_entity(resolved_entity_id)
 
     project_paths = perform_bundle(resolved_entity_id, entity)
-    return MessageResult(f"Bundle generated at {project_paths.bundle_root}")
+    return _app_result(
+        f"Bundle generated at {project_paths.bundle_root}.",
+        bundle_root=str(project_paths.bundle_root),
+    )
 
 
 @_utf8_output
@@ -1707,7 +2191,20 @@ def snowflake_app_validate(
     finally:
         if project_paths is not None:
             project_paths.clean_up_output()
-    return MessageResult("Valid Snowflake App Runtime project.")
+    if database and schema:
+        message = (
+            "Valid Snowflake App Runtime project. "
+            f"Database '{database}' and schema '{database}.{schema}' are "
+            "accessible, and the project source bundles."
+        )
+    elif database:
+        message = (
+            "Valid Snowflake App Runtime project. "
+            f"Database '{database}' is accessible, and the project source bundles."
+        )
+    else:
+        message = "Valid Snowflake App Runtime project. The project source bundles."
+    return _app_result(message, database=database, schema=schema)
 
 
 def _resolve_validate_target(
@@ -1960,7 +2457,11 @@ def _emit_app_events(
             raise CliError(
                 f"Could not retrieve logs for '{service_fqn.identifier}': {err.msg}.{hint}"
             ) from err
-        return MessageResult(logs)
+        return _app_result(
+            _log_text(logs, service_fqn.identifier),
+            service=service_fqn.identifier,
+            stream="log",
+        )
 
     # Everything else (windowed logs, metrics, lifecycle) reads the event table.
     # ``--last`` caps the number of records returned (newest first); the manager
@@ -1997,7 +2498,11 @@ def _emit_app_events(
     lines = format_log_lines(payload).splitlines()
     if last is not None:
         lines = lines[-last:] if last > 0 else []
-    return MessageResult("\n".join(lines))
+    return _app_result(
+        _log_text("\n".join(lines), service_fqn.identifier),
+        service=service_fqn.identifier,
+        stream="log",
+    )
 
 
 def _make_build_log_streamer(
@@ -2521,7 +3026,7 @@ def _open_app_service(
 
     if not print_only:
         typer.launch(url)
-    return MessageResult(url)
+    return _app_result(url, url=url, service=service_fqn.identifier)
 
 
 def _confirm_drop_and_verify(
@@ -2547,7 +3052,10 @@ def _confirm_drop_and_verify(
                 f"{service_fqn.identifier} and its associated objects?"
             )
         if not should_continue:
-            return MessageResult("Teardown cancelled.")
+            return _app_result(
+                "Teardown cancelled.",
+                service=service_fqn.identifier,
+            )
 
     cli_console.step(f"Dropping application service {service_fqn.identifier}")
     with metrics.span("snowflake_app.teardown.drop_service"):
@@ -2641,8 +3149,12 @@ def _wait_for_app_yml_endpoint(
     manager: SnowflakeAppManager,
     service_fqn: FQN,
     metrics,
-) -> str:
-    """Poll a just-applied application service until its endpoint is ready."""
+) -> tuple[str, dict]:
+    """Poll a just-applied application service until its endpoint is ready.
+
+    Returns the browser URL and the ``DESCRIBE`` row that produced it, so the
+    caller can read the version the service is serving.
+    """
 
     def _url_is_ready(d: dict) -> bool:
         return manager.resolve_application_service_url_from_describe(d) is not None
@@ -2682,7 +3194,7 @@ def _wait_for_app_yml_endpoint(
             "Application service URL is not available after deploy. "
             f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
         )
-    return url
+    return url, desc
 
 
 def _deploy_from_app_yml(
@@ -2694,6 +3206,7 @@ def _deploy_from_app_yml(
     promote_only: bool,
     interactive: Optional[bool],
     skip_certs_check: bool = False,
+    package_version: Optional[str] = None,
 ) -> CommandResult:
     """Deploy a single ``app.yml`` target through upload, build, and deploy.
 
@@ -2707,7 +3220,8 @@ def _deploy_from_app_yml(
     The phase flags select a single phase: ``upload_only`` stops after the
     upload, ``build_only`` runs only the build (assumes source is already
     uploaded), and ``promote_only`` skips upload and build and applies the
-    deploy phase against the already-built package (``VERSION LATEST``).
+    deploy phase against the already-built package. ``package_version``
+    selects that package version; ``None`` promotes ``VERSION LATEST``.
     """
     _ensure_python_phases_declared(app_def)
 
@@ -2740,10 +3254,16 @@ def _deploy_from_app_yml(
         app_name=dep.service_name,
     )
 
+    sql_version = package_version or "LATEST"
     if promote_only:
-        cli_console.step(
-            "Promoting the latest built package (skipping upload and build)."
-        )
+        if package_version and package_version != "LATEST":
+            cli_console.step(
+                f"Promoting version {package_version} (skipping upload and build)."
+            )
+        else:
+            cli_console.step(
+                "Promoting the latest built package (skipping upload and build)."
+            )
 
     # ``compute_resource`` selects the serverless or SPCS backend and is
     # write-once. ``SERVERLESS`` is applied only when the account feature
@@ -2775,7 +3295,7 @@ def _deploy_from_app_yml(
     ).identifier
 
     # ── Shared upload + build pipeline ────────────────────────────────
-    result = _upload_and_build_app(
+    uploaded = _upload_and_build_app(
         manager,
         storage=dep.storage,
         storage_fqn=dep.storage_fqn,
@@ -2798,8 +3318,8 @@ def _deploy_from_app_yml(
         build_only=build_only,
         metrics=metrics,
     )
-    if result is not None:
-        return result
+    if uploaded.result is not None:
+        return uploaded.result
 
     # ── Deploy phase (declarative CREATE OR ALTER + inline SPECIFICATION) ──
     # ``url_prefix``, ``health_check``, and ``postgres_instances`` are
@@ -2828,10 +3348,19 @@ def _deploy_from_app_yml(
                     artifact_repo_fqn=artifact_repo_fqn_str,
                     package_name=package_name,
                     specification=specification,
-                    version="LATEST",
+                    version=sql_version,
                     compute_resource=compute_resource,
                 )
         except ProgrammingError as e:
+            if _is_health_check_failure(e):
+                _raise_health_check_failure(
+                    manager,
+                    service_fqn,
+                    e,
+                    expected_version=_expected_live_version(
+                        package_version, uploaded.version
+                    ),
+                )
             _log_service_logs(manager, service_fqn)
             raise CliError(
                 "Deployment failed while applying application service "
@@ -2841,8 +3370,18 @@ def _deploy_from_app_yml(
                 "referenced by the target."
             ) from e
 
-    endpoint_url = _wait_for_app_yml_endpoint(manager, service_fqn, metrics)
-    return MessageResult(f"App ready at {endpoint_url}")
+    endpoint_url, description = _wait_for_app_yml_endpoint(
+        manager, service_fqn, metrics
+    )
+    return _deploy_ready_result(
+        url=endpoint_url,
+        service=service_fqn.identifier,
+        description=description,
+        package=package_name,
+        artifact_repository=artifact_repo_fqn_str,
+        expected_version=_expected_live_version(package_version, uploaded.version),
+        target=dep.target_name,
+    )
 
 
 @_utf8_output
@@ -2855,6 +3394,7 @@ def snowflake_app_deploy(
     interactive: Optional[bool] = None,
     skip_certs_check: bool = False,
     target: Optional[str] = None,
+    version: Optional[str] = None,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases.
 
@@ -2871,6 +3411,7 @@ def snowflake_app_deploy(
             "Only one of --upload-only, --build-only, or --promote-only "
             "may be specified."
         )
+    package_version = _package_version_for_deploy(version, promote_only)
 
     app_def = _load_app_yml_for_command(target)
     if app_def is not None:
@@ -2882,6 +3423,7 @@ def snowflake_app_deploy(
             promote_only=promote_only,
             interactive=interactive,
             skip_certs_check=skip_certs_check,
+            package_version=package_version,
         )
 
     run_upload = not build_only and not promote_only
@@ -2959,7 +3501,8 @@ def snowflake_app_deploy(
     # flow. ``promote_only`` clears both run flags, so the pipeline is a no-op
     # and control falls straight through to the deploy phase.
     project_type_override = getattr(entity, "spcs_test_project_type", None)
-    result = _upload_and_build_app(
+    sql_version = package_version or "LATEST"
+    uploaded = _upload_and_build_app(
         manager,
         storage=storage,
         storage_fqn=storage_fqn,
@@ -2988,8 +3531,8 @@ def snowflake_app_deploy(
             ),
         ),
     )
-    if result is not None:
-        return result
+    if uploaded.result is not None:
+        return uploaded.result
 
     # ── Deploy phase ──────────────────────────────────────────────────
 
@@ -3015,7 +3558,7 @@ def snowflake_app_deploy(
                         artifact_repo_fqn=artifact_repo_fqn_str,
                         package_name=app_name,
                         compute_pool=service_compute_pool,
-                        version="LATEST",
+                        version=sql_version,
                         query_warehouse=query_warehouse,
                         external_access_integrations=eai_list,
                         comment=app_comment,
@@ -3039,9 +3582,18 @@ def snowflake_app_deploy(
                     with metrics.span("snowflake_app.deploy_service.upgrade"):
                         manager.upgrade_app_service(
                             service_fqn=service_fqn,
-                            version="LATEST",
+                            version=sql_version,
                         )
                 except ProgrammingError as upgrade_error:
+                    if _is_health_check_failure(upgrade_error):
+                        _raise_health_check_failure(
+                            manager,
+                            service_fqn,
+                            upgrade_error,
+                            expected_version=_expected_live_version(
+                                package_version, uploaded.version
+                            ),
+                        )
                     _log_service_logs(manager, service_fqn)
                     raise CliError(
                         "Deployment failed while upgrading application service "
@@ -3050,6 +3602,15 @@ def snowflake_app_deploy(
                     ) from upgrade_error
                 did_upgrade = True
             else:
+                if _is_health_check_failure(e):
+                    _raise_health_check_failure(
+                        manager,
+                        service_fqn,
+                        e,
+                        expected_version=_expected_live_version(
+                            package_version, uploaded.version
+                        ),
+                    )
                 _log_service_logs(manager, service_fqn)
                 raise CliError(
                     "Deployment failed while creating application service "
@@ -3117,7 +3678,14 @@ def snowflake_app_deploy(
             "Application service URL is not available after deploy. "
             f"Check: DESCRIBE APPLICATION SERVICE {service_fqn.identifier}"
         )
-    return MessageResult(f"App ready at {endpoint_url}")
+    return _deploy_ready_result(
+        url=endpoint_url,
+        service=service_fqn.identifier,
+        description=desc,
+        package=app_name,
+        artifact_repository=artifact_repo_fqn_str,
+        expected_version=_expected_live_version(package_version, uploaded.version),
+    )
 
 
 @_utf8_output
@@ -3152,6 +3720,7 @@ def snowflake_app_teardown(
         metrics=metrics,
     )
 
-    return MessageResult(
-        f"Successfully dropped application service {dep.service_fqn.identifier}."
+    return _app_result(
+        f"Successfully dropped application service {dep.service_fqn.identifier}.",
+        service=dep.service_fqn.identifier,
     )

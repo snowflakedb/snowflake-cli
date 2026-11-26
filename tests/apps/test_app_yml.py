@@ -2253,6 +2253,306 @@ class TestDeployFromAppYml:
         assert call["package_name"] == "MY_APP"
         assert call["version"] == "LATEST"
 
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_build_only_reports_the_published_version(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = ["DONE"]
+        mgr.list_package_versions.side_effect = [
+            [{"version": "VERSION$1", "created_on": "2026-01-01"}],
+            [
+                {"version": "VERSION$1", "created_on": "2026-01-01"},
+                {"version": "VERSION$2", "created_on": "2026-01-02"},
+            ],
+        ]
+
+        result = snowflake_app_deploy(
+            None, False, True, False, interactive=False, target="prod"
+        )
+
+        assert "Build completed successfully." in result.message
+        assert "version VERSION$2" in result.message
+        assert result.result["phase"] == "build"
+        assert result.result["version"] == "VERSION$2"
+        assert result.result["package"] == "MY_APP"
+        mgr.create_or_alter_app_service.assert_not_called()
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_promote_only_version_is_applied_and_reported(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_poll.side_effect = [
+            {
+                "url": "prod.snowflakecomputing.app",
+                "is_upgrading": "false",
+                "source": {"version": "VERSION$4"},
+            }
+        ]
+
+        result = snowflake_app_deploy(
+            None,
+            False,
+            False,
+            True,
+            interactive=False,
+            target="prod",
+            version="version$4",
+        )
+
+        assert "serving version VERSION$4" in result.message
+        assert result.result["version"] == "VERSION$4"
+        assert result.result["live_version"] == "VERSION$4"
+        assert result.result["url"].startswith("https://")
+        call = mgr.create_or_alter_app_service.call_args.kwargs
+        assert call["version"] == "VERSION$4"
+        mgr.build_app_artifact_repo.assert_not_called()
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_successful_deploy_reports_the_described_version(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        """A successful deploy is ready even if DESCRIBE still names an older version.
+
+        A missed health check fails the deploy statement. Comparing DESCRIBE
+        with the version just built is not a rollback, and is not a failure.
+        """
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = [
+            "DONE",
+            {
+                "url": "prod.snowflakecomputing.app",
+                "is_upgrading": "false",
+                "source": '{"version": "VERSION$1"}',
+            },
+        ]
+        mgr.list_package_versions.side_effect = [
+            [{"version": "VERSION$1", "created_on": "2026-01-01"}],
+            [
+                {"version": "VERSION$1", "created_on": "2026-01-01"},
+                {"version": "VERSION$2", "created_on": "2026-01-02"},
+            ],
+        ]
+
+        result = snowflake_app_deploy(
+            None, False, False, False, interactive=False, target="prod"
+        )
+
+        assert "serving version VERSION$1" in result.message
+        assert result.result["live_version"] == "VERSION$1"
+        assert "rolled back" not in result.message
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_health_check_sql_error_names_the_live_version(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        """A serverless health check fails inside the deploy statement.
+
+        The server rejects the statement (``094547``). The failed version does
+        not take effect, and the app stays offline. The error names that
+        version even though deploy never returns a success row.
+        """
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+        from snowflake.connector.errors import ProgrammingError
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = ["DONE"]
+        mgr.list_package_versions.side_effect = [
+            [{"version": "VERSION$1", "created_on": "2026-01-01"}],
+            [
+                {"version": "VERSION$1", "created_on": "2026-01-01"},
+                {"version": "VERSION$2", "created_on": "2026-01-02"},
+            ],
+        ]
+        mgr.create_or_alter_app_service.side_effect = ProgrammingError(
+            "094547: app did not become healthy within 1m0s", errno=94547
+        )
+        mgr.describe_app_service.return_value = {
+            "url": "prod.snowflakecomputing.app",
+            "is_upgrading": "false",
+            "status": "SUSPENDED",
+            "source": '{"version": "VERSION$1"}',
+        }
+
+        with pytest.raises(CliError, match="didn't take effect") as exc:
+            snowflake_app_deploy(
+                None, False, False, False, interactive=False, target="prod"
+            )
+
+        message = str(exc.value)
+        assert "Version VERSION$2" in message
+        assert "offline until a deploy passes" in message
+        assert "promote-only --version" in message
+        assert "still serving" not in message
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_health_check_failure_prints_json(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path, capsys
+    ):
+        import json
+
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+        from snowflake.cli.api.output.formats import OutputFormat
+        from snowflake.connector.errors import ProgrammingError
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML)
+        ctx = _make_ctx(tmp_path)
+        ctx.output_format = OutputFormat.JSON
+        ctx.quiet = False
+        ctx.spool_stream = None
+        mock_ctx.return_value = ctx
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_bundle.return_value = Mock(bundle_root=tmp_path, clean_up_output=Mock())
+        mock_poll.side_effect = ["DONE"]
+        mgr.list_package_versions.side_effect = [
+            [{"version": "VERSION$1", "created_on": "2026-01-01"}],
+            [
+                {"version": "VERSION$1", "created_on": "2026-01-01"},
+                {"version": "VERSION$2", "created_on": "2026-01-02"},
+            ],
+        ]
+        mgr.create_or_alter_app_service.side_effect = ProgrammingError(
+            "094547: app did not become healthy within 1m0s", errno=94547
+        )
+        mgr.describe_app_service.return_value = {
+            "url": "prod.snowflakecomputing.app",
+            "is_upgrading": "false",
+            "status": "SUSPENDED",
+            "source": '{"version": "VERSION$1"}',
+        }
+
+        with patch("snowflake.cli._app.printing.get_cli_context", return_value=ctx):
+            with pytest.raises(CliError, match="didn't take effect"):
+                snowflake_app_deploy(
+                    None, False, False, False, interactive=False, target="prod"
+                )
+
+        text = capsys.readouterr().out
+        payload = json.loads(text[text.rfind("\n{") + 1 :])
+        assert payload["status"] == "failed"
+        assert payload["phase"] == "deploy"
+        assert payload["version"] == "VERSION$2"
+        assert "live_version" not in payload
+        assert payload["url"] == "https://prod.snowflakecomputing.app"
+        assert "didn't take effect" in payload["message"]
+        assert "offline until a deploy passes" in payload["message"]
+
+    @patch(f"{_COMMANDS}._poll_until")
+    @patch(f"{_COMMANDS}.perform_bundle")
+    @patch(f"{_COMMANDS}.SnowflakeAppManager")
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_promote_names_a_leftover_latest_alias(
+        self, mock_ctx, mock_mgr_cls, mock_bundle, mock_poll, tmp_path
+    ):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+
+        (tmp_path / APP_YML_FILENAME).write_text(_APP_YML)
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        mgr = _make_manager_mock(mock_mgr_cls)
+        mock_poll.side_effect = [
+            {
+                "url": "prod.snowflakecomputing.app",
+                "is_upgrading": "false",
+                "source": '{"version": "VERSION$1", "alias": "LATEST"}',
+            }
+        ]
+
+        result = snowflake_app_deploy(
+            None,
+            False,
+            False,
+            True,
+            interactive=False,
+            target="prod",
+            version="VERSION$1",
+        )
+
+        assert "serving version VERSION$1" in result.message
+        assert "alias LATEST" in result.message
+        assert result.result["alias"] == "LATEST"
+        assert result.result["live_version"] == "VERSION$1"
+
+    def test_version_built_by_job_ignores_a_concurrent_version(self):
+        from snowflake.cli._plugins.apps.commands import _version_built_by_job
+
+        versions = [
+            {"version": "VERSION$2", "created_on": "2026-01-02"},
+            {"version": "VERSION$3", "created_on": "2026-01-03"},
+        ]
+
+        def lookup(version):
+            return {
+                "VERSION$2": "DB.SC.OTHER_JOB",
+                "VERSION$3": "DB.SC.THIS_JOB",
+            }[version]
+
+        assert _version_built_by_job(versions, "DB.SC.THIS_JOB", lookup) == "VERSION$3"
+
+    def test_app_message_json_includes_version_fields(self, capsys):
+        import json
+
+        from snowflake.cli._app.printing import print_result
+        from snowflake.cli._plugins.apps.commands import _AppMessage
+        from snowflake.cli.api.output.formats import OutputFormat
+
+        print_result(
+            _AppMessage(
+                "Build completed successfully.",
+                phase="build",
+                version="VERSION$1",
+                dropped=None,
+            ),
+            output_format=OutputFormat.JSON,
+        )
+        payload = json.loads(capsys.readouterr().out)
+        assert payload == {
+            "message": "Build completed successfully.",
+            "phase": "build",
+            "version": "VERSION$1",
+        }
+
+    @patch(f"{_COMMANDS}.get_cli_context")
+    def test_version_requires_promote_only(self, mock_ctx, tmp_path):
+        from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
+        from snowflake.cli.api.exceptions import CliArgumentError
+
+        mock_ctx.return_value = _make_ctx(tmp_path)
+        with pytest.raises(CliArgumentError, match="--promote-only"):
+            snowflake_app_deploy(None, False, False, False, version="VERSION$1")
+
     @patch(f"{_COMMANDS}.get_cli_context")
     def test_target_without_app_yml_raises(self, mock_ctx, tmp_path):
         from snowflake.cli._plugins.apps.commands import snowflake_app_deploy
