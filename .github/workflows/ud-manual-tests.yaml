@@ -4,11 +4,6 @@ name: Run UD tests (manual)
 on:
   workflow_dispatch:
     inputs:
-      ud-branch:
-        description: 'Branch of universal-driver repo to use'
-        required: false
-        default: 'main'
-        type: string
       python-version:
         description: 'Python version to use'
         required: false
@@ -33,7 +28,7 @@ permissions:
 
 jobs:
   ud-test:
-    name: UD Test ${{ inputs.os }}-py${{ inputs.python-version }} (${{ inputs.ud-branch }})
+    name: UD Test ${{ inputs.os }}-py${{ inputs.python-version }}
     runs-on: ${{ inputs.os }}
 
     steps:
@@ -65,11 +60,9 @@ jobs:
           hatch config set dirs.env.virtual .hatch
           hatch run ud:check
         env:
-          GH_TOKEN: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }}
           PYTHON_VERSION: ${{ inputs.python-version }}
           TERM: unknown
           PYTEST_ADDOPTS: --color=yes --tb=short -v
-          UD_BRANCH: ${{ inputs.ud-branch }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
           SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}

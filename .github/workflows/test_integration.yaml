@@ -124,11 +124,9 @@ jobs:
           hatch config set dirs.env.virtual .hatch
           hatch run ud:check
         env:
-          GH_TOKEN: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }}
           PYTHON_VERSION: "3.12"
           TERM: unknown
           PYTEST_ADDOPTS: --color=yes --tb=short -v
-          UD_BRANCH: main
           SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
           SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}

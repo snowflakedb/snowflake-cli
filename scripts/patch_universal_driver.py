@@ -3,9 +3,9 @@
 Usage:
     python scripts/patch_universal_driver.py
 
-Removes snowflake-connector-python from [project].dependencies and injects
-a UD pip install into [tool.hatch.envs.ud] pre-install-commands using the
-{env:UD_BRANCH:main} hatch variable (so the branch is controlled at runtime).
+Removes snowflake-connector-python from [project].dependencies. The driver itself
+is installed by `hatch run ud:check` (see [tool.hatch.envs.ud.scripts] in
+pyproject.toml).
 Also patches test plugin pyproject.toml files to remove the snowflake-cli dependency,
 preventing pip from re-resolving the CLI's dependency tree during plugin installation.
 """
@@ -27,21 +27,6 @@ def patch_pyproject(path="pyproject.toml"):
     )
     if content == original:
         print("WARNING: snowflake-connector-python not found in dependencies")
-
-    ud_pip = 'pip install "git+https://github.com/snowflakedb/drivers@{env:UD_BRANCH:main}#subdirectory=python"'
-    content = content.replace(
-        "[tool.hatch.envs.ud]\n"
-        'template = "ud"\n'
-        "pre-install-commands = [\n"
-        '  "pip install pytest-xdist",\n'
-        "]",
-        "[tool.hatch.envs.ud]\n"
-        'template = "ud"\n'
-        "pre-install-commands = [\n"
-        '  "pip install pytest-xdist",\n'
-        f"  '{ud_pip}',\n"
-        "]",
-    )
 
     with open(path, "w") as f:
         f.write(content)
