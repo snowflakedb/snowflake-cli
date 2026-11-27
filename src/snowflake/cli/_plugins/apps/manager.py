@@ -257,6 +257,11 @@ if TYPE_CHECKING:
         SnowflakeAppEntityModel,
     )
 import yaml
+from snowflake.cli._plugins.apps.deploy_role import (
+    DeployRoleRequest,
+    check_deploy_role,
+    other_owners_warning,
+)
 from snowflake.cli._plugins.apps.events import (
     DEFAULT_EVENT_TABLE_INLINE_LIMIT,
     EVENT_TABLE_FUNCTION,
@@ -1366,6 +1371,64 @@ class SnowflakeAppManager(SqlExecutionMixin):
         )
         unqualified = unquote_identifier(service_fqn.name).upper()
         return any(row["name"].upper() == unqualified for row in cursor)
+
+    def ensure_deploy_role(self, request: DeployRoleRequest) -> Optional[str]:
+        """Report the role this deploy runs as, and refuse one not requested.
+
+        Returns the role, or ``None`` when it cannot be resolved, in which case
+        nothing is checked.
+        """
+        role = self.current_role()
+        if not role:
+            return None
+        check_deploy_role(role, request)
+        cli_console.step(f"Deploying as role {sanitize_for_terminal(role)}.")
+        return role
+
+    def warn_about_objects_owned_by_other_roles(
+        self, role: Optional[str], *, service_fqn: FQN, artifact_repo_fqn: FQN
+    ) -> None:
+        """Warn when the deploy updates existing objects that *role* does not own."""
+        if not role:
+            return
+        owners = [
+            (
+                "application service",
+                service_fqn,
+                self.object_owner("APPLICATION SERVICES", service_fqn),
+            ),
+            (
+                "artifact repository",
+                artifact_repo_fqn,
+                self.object_owner("ARTIFACT REPOSITORIES", artifact_repo_fqn),
+            ),
+        ]
+        if message := other_owners_warning(role, owners):
+            cli_console.warning(message)
+
+    def object_owner(self, objects: str, fqn: FQN) -> Optional[str]:
+        """Return the owner ``SHOW <objects>`` reports for *fqn*, or ``None``.
+
+        ``None`` also covers an object the role cannot see and a failed ``SHOW``.
+        """
+        if not fqn.database or not fqn.schema:
+            return None
+        database = to_identifier(fqn.database)
+        schema = to_identifier(fqn.schema)
+        try:
+            cursor = self.execute_query(
+                f"SHOW {objects} LIKE {identifier_to_show_like_pattern(fqn.name)}"
+                f" IN SCHEMA {database}.{schema}",
+                cursor_class=DictCursor,
+            )
+        except ProgrammingError:
+            log.debug("Could not look up the owner of %s.", fqn, exc_info=True)
+            return None
+        unqualified = unquote_identifier(fqn.name).upper()
+        for row in cursor:
+            if row["name"].upper() == unqualified:
+                return row.get("owner") or None
+        return None
 
     def drop_app_service_if_exists(self, service_fqn: FQN) -> None:
         """Drop an application service if it exists."""

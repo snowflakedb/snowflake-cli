@@ -289,3 +289,73 @@ def test_deploy_upload_only_uploads_code_to_stage(
     assert "main.py" in result.output
     assert os.path.join("nested", "util.py") in result.output
     assert os.path.join("[id]", "page.tsx") in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.no_qa
+def test_deploy_stops_when_a_reused_session_does_not_apply_the_role(
+    runner,
+    temporary_working_directory,
+    snowflake_session,
+    test_role,
+    unique_stage,
+):
+    """A deploy on a reused session stops before it creates anything.
+
+    Session and master tokens skip signing in, so ``--role`` is never applied
+    and the session keeps its own role. Deploying anyway would leave the stage,
+    and every object after it, owned by the session's role.
+    """
+    stage_name = unique_stage
+    project_dir = Path(temporary_working_directory)
+    (project_dir / "app").mkdir()
+    (project_dir / "app" / "main.py").write_text("print('hello from snowflake app')\n")
+    (project_dir / "snowflake.yml").write_text(
+        textwrap.dedent(
+            f"""\
+            definition_version: "2"
+            entities:
+              role_app:
+                type: snowflake-app
+                identifier:
+                  name: ROLE_CHECK_APP_{uuid.uuid4().hex[:8]}
+                  database: {DATABASE}
+                  schema: {SCHEMA}
+                artifacts:
+                  - src: app/*
+                    dest: ./
+                query_warehouse: {WAREHOUSE}
+                code_stage:
+                  name: {stage_name}
+            """
+        )
+    )
+
+    result = runner.invoke(
+        [
+            "app",
+            "deploy",
+            "--entity-id",
+            "role_app",
+            "--upload-only",
+            "-x",
+            "--account",
+            snowflake_session.account,
+            "--host",
+            snowflake_session.host,
+            "--session-token",
+            snowflake_session.rest.token,
+            "--master-token",
+            snowflake_session.rest.master_token,
+            "--role",
+            test_role,
+        ]
+    )
+
+    assert result.exit_code == 1, result.output
+    output = " ".join(result.output.replace("│", " ").replace("|", " ").split())
+    assert f"Role {test_role.upper()} from --role is not active" in output
+    (stages,) = snowflake_session.execute_string(
+        f"SHOW STAGES LIKE '{stage_name}' IN SCHEMA {DATABASE}.{SCHEMA}"
+    )
+    assert not stages.fetchall(), "The deploy created its stage before stopping"

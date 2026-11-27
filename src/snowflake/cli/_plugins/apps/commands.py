@@ -54,6 +54,10 @@ from snowflake.cli._plugins.apps.app_yml import (
     load_app_yml,
     resolve_target,
 )
+from snowflake.cli._plugins.apps.deploy_role import (
+    deploy_role_request,
+    entity_role_request,
+)
 from snowflake.cli._plugins.apps.events import (
     SERVERLESS_EVENT_TABLE_UNAVAILABLE_ERRNOS,
     EventStream,
@@ -3244,6 +3248,7 @@ def _deploy_from_app_yml(
         )
     else:
         cli_console.step(f"Deploying application service {service_label}.")
+    deploy_role = manager.ensure_deploy_role(deploy_role_request())
 
     _ensure_python_runtime_enabled(manager, app_def, tgt.compute_resource)
 
@@ -3338,6 +3343,11 @@ def _deploy_from_app_yml(
         include_url_prefix=is_cng,
         include_health_check=is_cng,
         include_postgres_instances=is_cng,
+    )
+    manager.warn_about_objects_owned_by_other_roles(
+        deploy_role,
+        service_fqn=service_fqn,
+        artifact_repo_fqn=app_fqn(database=ar_db, schema=ar_schema, name=ar_name),
     )
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step(f"Applying application service {service_fqn.identifier}...")
@@ -3444,6 +3454,11 @@ def snowflake_app_deploy(
 
     # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
     manager = SnowflakeAppManager(interactive=interactive)
+    deploy_role = manager.ensure_deploy_role(
+        deploy_role_request(
+            entity_role_request(resolved_entity_id, entity.meta and entity.meta.role)
+        )
+    )
     with metrics.span("snowflake_app.deploy.resolve_defaults"):
         defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
 
@@ -3547,6 +3562,11 @@ def snowflake_app_deploy(
 
     eai_list = [service_eai] if service_eai else None
 
+    manager.warn_about_objects_owned_by_other_roles(
+        deploy_role,
+        service_fqn=service_fqn,
+        artifact_repo_fqn=app_fqn(database=ar_database, schema=ar_schema, name=ar_name),
+    )
     did_upgrade = False
     with metrics.span("snowflake_app.deploy_service"):
         cli_console.step("Creating application service...")
