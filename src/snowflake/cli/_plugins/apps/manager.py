@@ -1161,24 +1161,42 @@ class SnowflakeAppManager(SqlExecutionMixin):
         return None
 
     def database_exists(self, database: str) -> bool:
-        """Return True if *database* exists and is visible to the current role."""
-        from snowflake.cli.api.project.util import to_string_literal
+        """Return True if *database* exists and is visible to the current role.
 
-        cursor = self.execute_query(
-            f"SHOW DATABASES LIKE {to_string_literal(database)}",
-            cursor_class=DictCursor,
-        )
+        Raises ``CliError`` when Snowflake rejects the lookup.
+        """
+        try:
+            cursor = self.execute_query(
+                f"SHOW DATABASES LIKE {identifier_to_show_like_pattern(database)}",
+                cursor_class=DictCursor,
+            )
+        except ProgrammingError as err:
+            raise CliError(
+                f"Could not check whether database '{database}' exists: "
+                f"{err.msg.rstrip('.')}. Check the database name and that the "
+                "current role can see it."
+            ) from err
         return cursor.fetchone() is not None
 
     def schema_exists(self, database: str, schema: str) -> bool:
-        """Return True if *schema* exists in *database*."""
-        from snowflake.cli.api.project.util import to_string_literal
+        """Return True if *schema* exists in *database*.
 
-        cursor = self.execute_query(
-            f"SHOW SCHEMAS LIKE {to_string_literal(schema)}"
-            f" IN DATABASE IDENTIFIER({to_string_literal(database)})",
-            cursor_class=DictCursor,
-        )
+        Names that are not valid unquoted identifiers (for example
+        ``my-db``) are quoted, the same way ``artifact_repo_exists`` builds
+        its lookup. Raises ``CliError`` when Snowflake rejects the lookup.
+        """
+        try:
+            cursor = self.execute_query(
+                f"SHOW SCHEMAS LIKE {identifier_to_show_like_pattern(schema)}"
+                f" IN DATABASE {to_identifier(database)}",
+                cursor_class=DictCursor,
+            )
+        except ProgrammingError as err:
+            raise CliError(
+                f"Could not check whether schema '{database}.{schema}' exists: "
+                f"{err.msg.rstrip('.')}. Check the database and schema names and "
+                "that the current role can see them."
+            ) from err
         return cursor.fetchone() is not None
 
     def create_schema_if_not_exists(self, database: str, schema: str) -> None:
@@ -1188,7 +1206,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         when the schema exists. If that statement is not permitted, verify that
         the schema is already visible before surfacing the original error.
         """
-        schema_fqn = FQN(database=None, schema=database, name=schema)
+        schema_fqn = app_fqn(database=None, schema=database, name=schema)
         try:
             self.execute_query(
                 f"CREATE SCHEMA IF NOT EXISTS {schema_fqn.sql_identifier}"
@@ -1197,7 +1215,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
             try:
                 if self.schema_exists(database, schema):
                     return
-            except ProgrammingError:
+            except CliError:
                 pass
             raise create_error
 

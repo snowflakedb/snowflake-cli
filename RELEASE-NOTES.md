@@ -31,6 +31,7 @@
 * `snow dcm` commands no longer crash on Windows when stdout is redirected to a file whose encoding cannot represent progress and plan glyphs. ASCII stand-ins are used instead. Set `cli.encoding.stdout` to `utf-8` to keep the original symbols in captured logs.
 * Entity deploys that sync files to a named stage (`snow notebook deploy`, and legacy `snow streamlit deploy`) check whether the stage already exists before issuing `CREATE STAGE IF NOT EXISTS`. A role with only `USAGE`, `READ`, and `WRITE` on that stage can deploy without `CREATE STAGE` on the schema.
 * `snow app deploy` for a Snowflake App Runtime project prints the role it deploys as, and stops before creating anything when that is not the role requested by `--role`, the connection, or `meta.role`, such as when a connection reuses a session through a session token. It also warns when an application service or artifact repository it updates is owned by another role.
+* `snow app validate` checks a schema in a database whose name needs quoting, such as `my-db`, instead of failing with an unhandled `invalid identifier` error. If Snowflake rejects the database or schema lookup, the command reports an error that names the database and schema. `snow app deploy` creates a schema named after the app in such a database instead of failing with `invalid identifier`.
 
 
 # v3.34.0

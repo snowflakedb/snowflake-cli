@@ -1459,8 +1459,7 @@ class TestDatabaseExists:
 
         assert SnowflakeAppManager().database_exists("MY_DB") is True
         query = mock_execute.call_args[0][0]
-        assert "SHOW DATABASES LIKE" in query
-        assert "'MY_DB'" in query
+        assert query == "SHOW DATABASES LIKE 'MY\\\\_DB'"
 
     @patch(EXECUTE_QUERY)
     def test_returns_false_when_database_not_found(self, mock_execute):
@@ -1482,6 +1481,47 @@ class TestDatabaseExists:
         assert "'BAD''DB'" in query
         assert "BAD\\'DB" not in query
 
+    @patch(EXECUTE_QUERY)
+    def test_escapes_like_wildcards_in_database_name(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().database_exists("my_db")
+        query = mock_execute.call_args[0][0]
+        # ``_`` must not act as a single-character wildcard.
+        assert query == "SHOW DATABASES LIKE 'MY\\\\_DB'"
+
+    @patch(EXECUTE_QUERY)
+    def test_matches_name_that_needs_quoting(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"name": "my-db"}
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().database_exists("my-db") is True
+        assert mock_execute.call_args[0][0] == "SHOW DATABASES LIKE 'my-db'"
+
+    @patch(EXECUTE_QUERY)
+    def test_wraps_programming_error_in_cli_error(self, mock_execute):
+        mock_execute.side_effect = ProgrammingError(
+            msg="SQL compilation error", errno=2003
+        )
+
+        with pytest.raises(CliError, match="Could not check whether database 'MY_DB'"):
+            SnowflakeAppManager().database_exists("MY_DB")
+
+    @patch(EXECUTE_QUERY)
+    def test_does_not_double_period_after_snowflake_message(self, mock_execute):
+        mock_execute.side_effect = ProgrammingError(
+            msg="Object does not exist, or operation cannot be performed.",
+            errno=2043,
+            sqlstate="02000",
+        )
+
+        with pytest.raises(CliError) as exc_info:
+            SnowflakeAppManager().database_exists("MY_DB")
+        assert "cannot be performed. Check the database name" in exc_info.value.message
+
 
 class TestSchemaExists:
     @patch(EXECUTE_QUERY)
@@ -1492,9 +1532,7 @@ class TestSchemaExists:
 
         assert SnowflakeAppManager().schema_exists("MY_DB", "MY_SCHEMA") is True
         query = mock_execute.call_args[0][0]
-        assert "SHOW SCHEMAS LIKE" in query
-        assert "'MY_SCHEMA'" in query
-        assert "MY_DB" in query
+        assert query == "SHOW SCHEMAS LIKE 'MY\\\\_SCHEMA' IN DATABASE MY_DB"
 
     @patch(EXECUTE_QUERY)
     def test_returns_false_when_schema_not_found(self, mock_execute):
@@ -1504,6 +1542,68 @@ class TestSchemaExists:
 
         assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
 
+    @patch(EXECUTE_QUERY)
+    def test_quotes_database_name_that_needs_quoting(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = {"name": "PUBLIC"}
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().schema_exists("my-db", "PUBLIC") is True
+        query = mock_execute.call_args[0][0]
+        # ``IDENTIFIER('my-db')`` fails with 904 invalid identifier; the name
+        # must be passed as a quoted identifier instead.
+        assert query == "SHOW SCHEMAS LIKE 'PUBLIC' IN DATABASE \"my-db\""
+        assert "IDENTIFIER(" not in query
+
+    @patch(EXECUTE_QUERY)
+    def test_keeps_valid_database_identifier_unquoted(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().schema_exists("MY_DB", "MY_SCHEMA")
+        assert (
+            mock_execute.call_args[0][0]
+            == "SHOW SCHEMAS LIKE 'MY\\\\_SCHEMA' IN DATABASE MY_DB"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_escapes_quotes_in_schema_and_database(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().schema_exists('my"db', "BAD'SCHEMA")
+        query = mock_execute.call_args[0][0]
+        assert query == ("SHOW SCHEMAS LIKE 'BAD''SCHEMA' IN DATABASE \"my\"\"db\"")
+
+    @patch(EXECUTE_QUERY)
+    def test_wraps_programming_error_in_cli_error(self, mock_execute):
+        mock_execute.side_effect = ProgrammingError(
+            msg="invalid identifier", errno=904, sqlstate="42000"
+        )
+
+        with pytest.raises(CliError) as exc_info:
+            SnowflakeAppManager().schema_exists("my-db", "PUBLIC")
+        message = exc_info.value.message
+        assert "my-db.PUBLIC" in message
+        assert "invalid identifier" in message
+
+    @patch(EXECUTE_QUERY)
+    def test_does_not_double_period_after_snowflake_message(self, mock_execute):
+        mock_execute.side_effect = ProgrammingError(
+            msg="Object does not exist, or operation cannot be performed.",
+            errno=2043,
+            sqlstate="02000",
+        )
+
+        with pytest.raises(CliError) as exc_info:
+            SnowflakeAppManager().schema_exists("MY-DB", "PUBLIC")
+        assert (
+            "cannot be performed. Check the database and schema names"
+            in exc_info.value.message
+        )
+
 
 class TestCreateSchemaIfNotExists:
     @patch(EXECUTE_QUERY)
@@ -1512,6 +1612,26 @@ class TestCreateSchemaIfNotExists:
 
         mock_execute.assert_called_once_with(
             "CREATE SCHEMA IF NOT EXISTS IDENTIFIER('MY_DB.MY_SCHEMA')"
+        )
+
+    @pytest.mark.parametrize(
+        "database, expected_identifier",
+        [
+            ("my-db", "IDENTIFIER('\"my-db\".MY_APP')"),
+            (
+                "USER$first.last@domain.com",
+                "IDENTIFIER('\"USER$first.last@domain.com\".MY_APP')",
+            ),
+        ],
+    )
+    @patch(EXECUTE_QUERY)
+    def test_quotes_database_name_that_needs_quoting(
+        self, mock_execute, database, expected_identifier
+    ):
+        SnowflakeAppManager().create_schema_if_not_exists(database, "MY_APP")
+
+        mock_execute.assert_called_once_with(
+            f"CREATE SCHEMA IF NOT EXISTS {expected_identifier}"
         )
 
     def test_continues_when_schema_exists_without_create_privilege(self):
@@ -1530,6 +1650,16 @@ class TestCreateSchemaIfNotExists:
         ), patch.object(manager, "schema_exists", return_value=False), pytest.raises(
             ProgrammingError, match="insufficient privileges"
         ):
+            manager.create_schema_if_not_exists("MY_DB", "MY_SCHEMA")
+
+    def test_raises_create_error_when_schema_check_fails(self):
+        manager = SnowflakeAppManager()
+        create_error = ProgrammingError("insufficient privileges")
+        with patch.object(
+            manager,
+            "execute_query",
+            side_effect=[create_error, ProgrammingError("invalid identifier")],
+        ), pytest.raises(ProgrammingError, match="insufficient privileges"):
             manager.create_schema_if_not_exists("MY_DB", "MY_SCHEMA")
 
 
