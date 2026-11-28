@@ -47,13 +47,13 @@ def test_connection_details_callback():
     assert cli_context_manager.connection_context.connection_name is None
     assert cli_context_manager.connection_context.account is None
     assert cli_context_manager.connection_context.database is None
-    assert cli_context_manager.connection_context.role is "newValue"
+    assert cli_context_manager.connection_context.role == "newValue"
     assert cli_context_manager.connection_context.schema is None
     assert cli_context_manager.connection_context.user is None
     assert cli_context_manager.connection_context.password is None
     assert cli_context_manager.connection_context.authenticator is None
     assert cli_context_manager.connection_context.private_key_file is None
-    assert cli_context_manager.connection_context.warehouse is "newValue2"
+    assert cli_context_manager.connection_context.warehouse == "newValue2"
     assert cli_context_manager.connection_context.temporary_connection is False
 
 
